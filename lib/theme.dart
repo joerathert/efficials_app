@@ -10,6 +10,12 @@ const TextStyle headlineStyle = TextStyle(
   color: Colors.black87,
 );
 
+const TextStyle homeTextStyle = TextStyle( // New style for Home screen
+  fontSize: 20, // Reduced from 28 to fit on one line
+  fontWeight: FontWeight.bold,
+  color: Colors.black87,
+);
+
 const TextStyle buttonTextStyle = TextStyle(
   fontSize: 18,
   fontWeight: FontWeight.w600,
@@ -39,15 +45,19 @@ const TextStyle signInButtonTextStyle = TextStyle(
 // AppBar text style (moved here for universal application)
 const TextStyle appBarTextStyle = TextStyle(
   color: Colors.white,
-  fontSize: 22, // Increased from 20 to 22
+  fontSize: 22,
   fontWeight: FontWeight.bold,
 );
 
-// Button style
-ButtonStyle elevatedButtonStyle({Color? backgroundColor}) =>
+// Button style with consistent size
+ButtonStyle elevatedButtonStyle({
+  Color? backgroundColor,
+  EdgeInsetsGeometry? padding, // Optional padding override
+}) =>
     ElevatedButton.styleFrom(
       backgroundColor: backgroundColor ?? efficialsBlue,
-      padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 40),
+      padding: padding ?? const EdgeInsets.symmetric(vertical: 15, horizontal: 40),
+      minimumSize: const Size(200, 50), // Ensure minimum width and height
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
       ),

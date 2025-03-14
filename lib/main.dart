@@ -24,6 +24,7 @@ class EfficialsApp extends StatelessWidget {
         appBarTheme: const AppBarTheme(
           backgroundColor: efficialsBlue,
           titleTextStyle: appBarTextStyle,
+          iconTheme: IconThemeData(color: Colors.white), // White back arrow
         ),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: elevatedButtonStyle(),

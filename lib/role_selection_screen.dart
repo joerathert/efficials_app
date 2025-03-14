@@ -28,7 +28,9 @@ class RoleSelectionScreen extends StatelessWidget {
                 onPressed: () {
                   Navigator.pushNamed(context, '/scheduler_signup_step1');
                 },
-                style: elevatedButtonStyle(),
+                style: elevatedButtonStyle(
+                  padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 40),
+                ),
                 child: const Text('Scheduler', style: signInButtonTextStyle),
               ),
               const SizedBox(height: 20),
@@ -38,7 +40,9 @@ class RoleSelectionScreen extends StatelessWidget {
                     const SnackBar(content: Text('Official sign-up not implemented yet')),
                   );
                 },
-                style: elevatedButtonStyle(),
+                style: elevatedButtonStyle(
+                  padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 40),
+                ),
                 child: const Text('Official', style: signInButtonTextStyle),
               ),
             ],
