@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // Added: Import for shared_preferences
 import 'theme.dart';
 
 class ListsOfOfficialsScreen extends StatefulWidget {
@@ -20,30 +21,27 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
     _fetchLists();
   }
 
+  // Updated: Fetch lists from shared_preferences
   Future<void> _fetchLists() async {
-    try {
-      // final fetchedLists = await DatabaseHelper.getLists();  // Commented out
-      // setState(() {
-      //   lists = fetchedLists;
-      //   if (lists.isEmpty) {
-      //     lists.add({'name': 'No saved lists', 'id': -1});
-      //   }
-      //   lists.add({'name': '+ Create new list', 'id': 0});
-      //   isLoading = false;
-      // });
-    } catch (e) {
-      print('Error fetching lists: $e');
-      setState(() {
-        isLoading = false;
-        lists = [
-          {'name': 'Error loading lists: $e', 'id': -1},
-          {'name': '+ Create new list', 'id': 0}
-        ];
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading lists: $e')),
-      );
-    }
+    final prefs = await SharedPreferences.getInstance();
+    final String? listsJson = prefs.getString('official_lists');
+    setState(() {
+      if (listsJson != null) {
+        lists = List<Map<String, dynamic>>.from(jsonDecode(listsJson));
+      }
+      if (lists.isEmpty) {
+        lists.add({'name': 'No saved lists', 'id': -1});
+      }
+      lists.add({'name': '+ Create new list', 'id': 0});
+      isLoading = false;
+    });
+  }
+
+  // Added: Save lists to shared_preferences
+  Future<void> _saveLists() async {
+    final prefs = await SharedPreferences.getInstance();
+    final listsToSave = lists.where((list) => list['id'] != 0 && list['id'] != -1).toList();
+    await prefs.setString('official_lists', jsonEncode(listsToSave));
   }
 
   void _showDeleteConfirmationDialog(String listName, int listId) {
@@ -62,11 +60,11 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
               Navigator.pop(context);
               setState(() {
                 lists.removeWhere((list) => list['id'] == listId);
-                if (lists.length == 1) {
+                if (lists.length == 1 && lists[0]['id'] == 0) {
                   lists.insert(0, {'name': 'No saved lists', 'id': -1});
                 }
+                _saveLists(); // Updated: Save after deletion
               });
-              // DatabaseHelper.deleteList(listId);  // Commented out
             },
             child: const Text('Delete'),
           ),
@@ -128,6 +126,7 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                                         lists.removeWhere((l) => l['name'] == 'No saved lists');
                                       }
                                       lists.insert(0, {'name': result as String, 'id': lists.length + 1});
+                                      _saveLists(); // Updated: Save after adding new list
                                       selectedList = result;
                                     });
                                   } else {
@@ -135,18 +134,8 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                                   }
                                 });
                               } else if (newValue != 'No saved lists' && newValue != 'Error loading lists: ...') {
-                                final selected = lists.firstWhere((l) => l['name'] == newValue);
-                                // DatabaseHelper.getOfficials().then((officials) {  // Commented out
-                                //   Navigator.pushNamed(
-                                //     context,
-                                //     '/edit_list',
-                                //     arguments: {
-                                //       'listName': newValue,
-                                //       'listId': selected['id'],
-                                //       'officials': officials,
-                                //     },
-                                //   );
-                                // });
+                                // Updated: No unused 'selected' variable; just set selectedList
+                                selectedList = newValue;
                               }
                             });
                           },
@@ -169,18 +158,7 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                       !selectedList!.startsWith('Error')) ...[
                     ElevatedButton(
                       onPressed: () {
-                        final selected = lists.firstWhere((l) => l['name'] == selectedList);
-                        // DatabaseHelper.getOfficials().then((officials) {  // Commented out
-                        //   Navigator.pushNamed(
-                        //     context,
-                        //     '/edit_list',
-                        //     arguments: {
-                        //       'listName': selectedList,
-                        //       'listId': selected['id'],
-                        //       'officials': officials,
-                        //     },
-                        //   );
-                        // });
+                        // Updated: No unused 'selected' variable; placeholder for future edit functionality
                       },
                       style: elevatedButtonStyle(),
                       child: const Text('Edit List', style: signInButtonTextStyle),

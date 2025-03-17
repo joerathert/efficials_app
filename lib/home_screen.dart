@@ -76,9 +76,8 @@ class HomeScreen extends StatelessWidget {
               title: const Text('Lists of Officials'),
               onTap: () {
                 Navigator.pop(context); // Close drawer
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Lists of Officials not implemented yet')),
-                );
+                // Updated: Navigate to ListsOfOfficialsScreen instead of showing a SnackBar
+                Navigator.pushNamed(context, '/lists_of_officials');
               },
             ),
             ListTile(

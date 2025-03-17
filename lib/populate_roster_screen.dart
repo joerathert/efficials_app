@@ -15,7 +15,7 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
   List<Map<String, dynamic>> filteredOfficialsWithoutSearch = [];
   String filterSummary = '';
   bool filtersApplied = false;
-  bool isLoading = false;
+  bool isLoading = false; // Updated: Start as false since we'll load mock data immediately
   Map<int, bool> selectedOfficials = {};
   Map<String, dynamic>? filterSettings;
   List<Map<String, dynamic>> initialOfficials = [];
@@ -45,31 +45,23 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
     }
   }
 
+  // Updated: Load mock officials data instead of database call
   Future<void> _loadOfficials() async {
     setState(() {
       isLoading = true;
     });
-    try {
-      // final dbOfficials = await DatabaseHelper.getOfficials();  // Commented out
-      // setState(() {
-      //   officials = dbOfficials;
-      //   filteredOfficials = [];
-      //   filteredOfficialsWithoutSearch = [];
-      //   filterSummary = 'No filters applied';
-      //   if (filterSettings != null) {
-      //     _applyFiltersWithSettings(filterSettings!);
-      //   }
-      //   isLoading = false;
-      // });
-    } catch (e) {
-      print('Error loading officials: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading officials: $e')),
-      );
-      setState(() {
-        isLoading = false;
-      });
-    }
+    // Mock data for testing
+    officials = [
+      {'id': 1, 'name': 'John Doe', 'cityState': 'Chicago, IL', 'distance': 5.2, 'yearsExperience': 10, 'sports': 'Football', 'levels': 'Varsity'},
+      {'id': 2, 'name': 'Jane Smith', 'cityState': 'Naperville, IL', 'distance': 15.7, 'yearsExperience': 8, 'sports': 'Football', 'levels': 'JV'},
+      {'id': 3, 'name': 'Mike Johnson', 'cityState': 'Aurora, IL', 'distance': 10.0, 'yearsExperience': 12, 'sports': 'Football', 'levels': 'Varsity'},
+    ];
+    setState(() {
+      filteredOfficials = List.from(officials);
+      filteredOfficialsWithoutSearch = List.from(officials);
+      filterSummary = 'No filters applied';
+      isLoading = false; // Stop the spinner
+    });
   }
 
   void _applyFiltersWithSettings(Map<String, dynamic> settings) {
@@ -87,16 +79,10 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
 
       filteredOfficials = officials.where((official) {
         try {
-          List<String> sports = (official['sports'] as String)
-              .split(',')
-              .map((s) => s.trim())
-              .toList();
+          List<String> sports = (official['sports'] as String).split(',').map((s) => s.trim()).toList();
           final matchesSport = sports.map((s) => s.toLowerCase()).contains(sport.toLowerCase());
 
-          List<String> officialLevels = (official['levels'] as String)
-              .split(',')
-              .map((l) => l.trim())
-              .toList();
+          List<String> officialLevels = (official['levels'] as String).split(',').map((l) => l.trim()).toList();
           final matchesLevel = levels.isEmpty || officialLevels.any((level) => levels.contains(level));
 
           final credential = official['ihsa_credential'] as String? ?? '';

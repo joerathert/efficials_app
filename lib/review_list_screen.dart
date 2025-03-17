@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // Added: Import for shared_preferences
+import 'dart:convert';
 import 'theme.dart';
 
 class ReviewListScreen extends StatefulWidget {
@@ -52,8 +54,26 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
     });
   }
 
+  // Updated: Save the list to shared_preferences
   Future<void> _saveList() async {
-    // Placeholder: Simulate saving (to be replaced with actual API call)
+    final prefs = await SharedPreferences.getInstance();
+    final String? listsJson = prefs.getString('official_lists');
+    List<Map<String, dynamic>> existingLists = listsJson != null ? List<Map<String, dynamic>>.from(jsonDecode(listsJson)) : [];
+
+    final selectedOfficialsData = selectedOfficialsList
+        .where((official) => selectedOfficials[official['id'] as int] ?? false)
+        .toList();
+
+    final newList = {
+      'id': existingLists.length + 1, // Simple ID generation
+      'name': listName!,
+      'sport': sport!,
+      'officials': selectedOfficialsData,
+    };
+
+    existingLists.add(newList);
+    await prefs.setString('official_lists', jsonEncode(existingLists));
+
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Your list was created!'), duration: Duration(seconds: 2)),
     );
