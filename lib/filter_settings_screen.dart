@@ -71,6 +71,7 @@ class _FilterSettingsScreenState extends State<FilterSettingsScreen> {
                     controlAffinity: ListTileControlAffinity.leading,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
                     dense: true,
+                    activeColor: efficialsBlue, // Updated: Changed checkbox color to blue when selected
                   ),
                   CheckboxListTile(
                     title: const Text('IHSA - Recognized', style: TextStyle(fontSize: 18)),
@@ -79,6 +80,7 @@ class _FilterSettingsScreenState extends State<FilterSettingsScreen> {
                     controlAffinity: ListTileControlAffinity.leading,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
                     dense: true,
+                    activeColor: efficialsBlue, // Updated: Changed checkbox color to blue when selected
                   ),
                   CheckboxListTile(
                     title: const Text('IHSA - Certified', style: TextStyle(fontSize: 18)),
@@ -87,6 +89,7 @@ class _FilterSettingsScreenState extends State<FilterSettingsScreen> {
                     controlAffinity: ListTileControlAffinity.leading,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
                     dense: true,
+                    activeColor: efficialsBlue, // Updated: Changed checkbox color to blue when selected
                   ),
                   const SizedBox(height: 16),
                   const Text(
@@ -126,6 +129,7 @@ class _FilterSettingsScreenState extends State<FilterSettingsScreen> {
                           controlAffinity: ListTileControlAffinity.leading,
                           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
                           dense: true,
+                          activeColor: efficialsBlue, // Updated: Changed checkbox color to blue when selected
                         ),
                       );
                     }).toList(),

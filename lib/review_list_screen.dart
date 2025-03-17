@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart'; // Added: Import for shared_preferences
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'theme.dart';
 
@@ -54,7 +54,6 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
     });
   }
 
-  // Updated: Save the list to shared_preferences
   Future<void> _saveList() async {
     final prefs = await SharedPreferences.getInstance();
     final String? listsJson = prefs.getString('official_lists');
@@ -65,7 +64,7 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
         .toList();
 
     final newList = {
-      'id': existingLists.length + 1, // Simple ID generation
+      'id': existingLists.length + 1,
       'name': listName!,
       'sport': sport!,
       'officials': selectedOfficialsData,
@@ -148,6 +147,7 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
                                       }
                                     });
                                   },
+                                  activeColor: efficialsBlue, // Updated: Changed checkbox color to blue when selected
                                 ),
                                 const Text('Select all', style: TextStyle(fontSize: 18)),
                               ],

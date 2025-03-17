@@ -39,7 +39,7 @@ class _CreateNewListScreenState extends State<CreateNewListScreen> {
                 children: [
                   const Text(
                     'Choose a sport for your new list.',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black), // Updated: Made text black
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 30),

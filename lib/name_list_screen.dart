@@ -46,7 +46,7 @@ class _NameListScreenState extends State<NameListScreen> {
                 children: [
                   Text(
                     'Name your list of $sport officials.',
-                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black), // Updated: Made text black
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 60),

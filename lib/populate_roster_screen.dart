@@ -15,7 +15,7 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
   List<Map<String, dynamic>> filteredOfficialsWithoutSearch = [];
   String filterSummary = '';
   bool filtersApplied = false;
-  bool isLoading = false; // Updated: Start as false since we'll load mock data immediately
+  bool isLoading = false;
   Map<int, bool> selectedOfficials = {};
   Map<String, dynamic>? filterSettings;
   List<Map<String, dynamic>> initialOfficials = [];
@@ -45,12 +45,10 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
     }
   }
 
-  // Updated: Load mock officials data instead of database call
   Future<void> _loadOfficials() async {
     setState(() {
       isLoading = true;
     });
-    // Mock data for testing
     officials = [
       {'id': 1, 'name': 'John Doe', 'cityState': 'Chicago, IL', 'distance': 5.2, 'yearsExperience': 10, 'sports': 'Football', 'levels': 'Varsity'},
       {'id': 2, 'name': 'Jane Smith', 'cityState': 'Naperville, IL', 'distance': 15.7, 'yearsExperience': 8, 'sports': 'Football', 'levels': 'JV'},
@@ -60,7 +58,7 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
       filteredOfficials = List.from(officials);
       filteredOfficialsWithoutSearch = List.from(officials);
       filterSummary = 'No filters applied';
-      isLoading = false; // Stop the spinner
+      isLoading = false;
     });
   }
 
@@ -209,6 +207,7 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
                                         }
                                       });
                                     },
+                                    activeColor: efficialsBlue,
                                   ),
                                   const Text('Select all', style: TextStyle(fontSize: 18)),
                                 ],
@@ -267,10 +266,9 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
           backgroundColor: efficialsBlue,
           foregroundColor: Colors.white,
           shape: RoundedRectangleBorder(
-            side: const BorderSide(color: Colors.black, width: 2),
             borderRadius: BorderRadius.circular(12),
           ),
-          child: const Icon(Icons.filter_list, size: 30, color: Colors.white),
+          child: Icon(Icons.filter_list, size: 30, color: Colors.white), // Updated: Removed 'const' to fix error
         ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,

@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart'; // Added: Import for shared_preferences
+import 'package:shared_preferences/shared_preferences.dart';
 import 'theme.dart';
 
 class ListsOfOfficialsScreen extends StatefulWidget {
@@ -21,7 +21,6 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
     _fetchLists();
   }
 
-  // Updated: Fetch lists from shared_preferences
   Future<void> _fetchLists() async {
     final prefs = await SharedPreferences.getInstance();
     final String? listsJson = prefs.getString('official_lists');
@@ -37,7 +36,6 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
     });
   }
 
-  // Added: Save lists to shared_preferences
   Future<void> _saveLists() async {
     final prefs = await SharedPreferences.getInstance();
     final listsToSave = lists.where((list) => list['id'] != 0 && list['id'] != -1).toList();
@@ -63,7 +61,7 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                 if (lists.length == 1 && lists[0]['id'] == 0) {
                   lists.insert(0, {'name': 'No saved lists', 'id': -1});
                 }
-                _saveLists(); // Updated: Save after deletion
+                _saveLists();
               });
             },
             child: const Text('Delete'),
@@ -101,8 +99,8 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Text(
-                    'Select a list of officials to edit or create a new list.',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    'Select a list of officials to edit, or create a new list.', // Updated: Changed text as requested
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black), // Updated: Made text black
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 60),
@@ -126,7 +124,7 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                                         lists.removeWhere((l) => l['name'] == 'No saved lists');
                                       }
                                       lists.insert(0, {'name': result as String, 'id': lists.length + 1});
-                                      _saveLists(); // Updated: Save after adding new list
+                                      _saveLists();
                                       selectedList = result;
                                     });
                                   } else {
@@ -134,7 +132,6 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                                   }
                                 });
                               } else if (newValue != 'No saved lists' && newValue != 'Error loading lists: ...') {
-                                // Updated: No unused 'selected' variable; just set selectedList
                                 selectedList = newValue;
                               }
                             });
@@ -157,9 +154,7 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                       selectedList != 'No saved lists' &&
                       !selectedList!.startsWith('Error')) ...[
                     ElevatedButton(
-                      onPressed: () {
-                        // Updated: No unused 'selected' variable; placeholder for future edit functionality
-                      },
+                      onPressed: () {},
                       style: elevatedButtonStyle(),
                       child: const Text('Edit List', style: signInButtonTextStyle),
                     ),
