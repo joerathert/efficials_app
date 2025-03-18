@@ -176,8 +176,12 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                           : () {
                               Navigator.pushNamed(
                                 context,
-                                '/next_screen',
-                                arguments: {'scheduleName': scheduleName, 'sport': sport, 'location': selectedLocation},
+                                '/date_time', // Changed from '/next_screen' to '/date_time'
+                                arguments: {
+                                  'scheduleName': scheduleName,
+                                  'sport': sport,
+                                  'location': selectedLocation,
+                                },
                               );
                             },
                       style: elevatedButtonStyle(),
