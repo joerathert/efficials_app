@@ -120,9 +120,7 @@ class HomeScreen extends StatelessWidget {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Create Game not implemented yet')),
-          );
+          Navigator.pushNamed(context, '/select_sport');
         },
         backgroundColor: efficialsBlue,
         child: const Icon(Icons.add, size: 30, color: Colors.white),
