@@ -1,18 +1,19 @@
 import 'package:flutter/material.dart';
-import 'welcome_screen.dart'; // Import the Welcome Screen
-import 'role_selection_screen.dart'; // Import the Role Selection Screen
-import 'scheduler_signup_step1.dart'; // Import Scheduler Sign Up Step 1
-import 'scheduler_signup_step2.dart'; // Import Scheduler Sign Up Step 2
-import 'add_photo_screen.dart'; // Import Add Photo Screen
-import 'home_screen.dart'; // Import the Home Screen
-import 'lists_of_officials_screen.dart'; // Import ListsOfOfficialsScreen
-import 'create_new_list_screen.dart'; // Import CreateNewListScreen
-import 'name_list_screen.dart'; // Import NameListScreen
-import 'populate_roster_screen.dart'; // Import PopulateRosterScreen
-import 'review_list_screen.dart'; // Import ReviewListScreen
-import 'filter_settings_screen.dart'; // Added: Import FilterSettingsScreen
-import 'edit_list_screen.dart'; // Added: Import EditListScreen
-import 'theme.dart'; // Import the custom theme
+import 'welcome_screen.dart';
+import 'role_selection_screen.dart';
+import 'scheduler_signup_step1.dart';
+import 'scheduler_signup_step2.dart';
+import 'add_photo_screen.dart';
+import 'home_screen.dart';
+import 'lists_of_officials_screen.dart';
+import 'create_new_list_screen.dart';
+import 'name_list_screen.dart';
+import 'populate_roster_screen.dart';
+import 'review_list_screen.dart';
+import 'filter_settings_screen.dart';
+import 'edit_list_screen.dart';
+import 'theme.dart';
+import 'locations_screen.dart'; // Add this import
 
 void main() {
   runApp(const EfficialsApp());
@@ -31,7 +32,7 @@ class EfficialsApp extends StatelessWidget {
         appBarTheme: const AppBarTheme(
           backgroundColor: efficialsBlue,
           titleTextStyle: appBarTextStyle,
-          iconTheme: IconThemeData(color: Colors.white), // White back arrow
+          iconTheme: IconThemeData(color: Colors.white),
         ),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: elevatedButtonStyle(),
@@ -61,9 +62,9 @@ class EfficialsApp extends StatelessWidget {
         '/name_list': (context) => const NameListScreen(),
         '/populate_roster': (context) => const PopulateRosterScreen(),
         '/review_list': (context) => const ReviewListScreen(),
-        // Added: Routes for filter settings and edit list
         '/filter_settings': (context) => const FilterSettingsScreen(),
         '/edit_list': (context) => const EditListScreen(),
+        '/locations': (context) => const LocationsScreen(), // Add this route
       },
     );
   }

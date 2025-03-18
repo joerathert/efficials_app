@@ -32,7 +32,7 @@ class HomeScreen extends StatelessWidget {
           padding: EdgeInsets.zero,
           children: [
             Container(
-              height: totalBannerHeight, // Match AppBar height including status bar
+              height: totalBannerHeight,
               decoration: const BoxDecoration(color: efficialsBlue),
               child: Padding(
                 padding: EdgeInsets.only(
@@ -55,7 +55,7 @@ class HomeScreen extends StatelessWidget {
               leading: const Icon(Icons.schedule),
               title: const Text('Schedules'),
               onTap: () {
-                Navigator.pop(context); // Close drawer
+                Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Schedules not implemented yet')),
                 );
@@ -65,18 +65,15 @@ class HomeScreen extends StatelessWidget {
               leading: const Icon(Icons.location_on),
               title: const Text('Locations'),
               onTap: () {
-                Navigator.pop(context); // Close drawer
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Locations not implemented yet')),
-                );
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/locations');
               },
             ),
             ListTile(
               leading: const Icon(Icons.people),
               title: const Text('Lists of Officials'),
               onTap: () {
-                Navigator.pop(context); // Close drawer
-                // Updated: Navigate to ListsOfOfficialsScreen instead of showing a SnackBar
+                Navigator.pop(context);
                 Navigator.pushNamed(context, '/lists_of_officials');
               },
             ),
@@ -84,7 +81,7 @@ class HomeScreen extends StatelessWidget {
               leading: const Icon(Icons.games),
               title: const Text('Unpublished Games'),
               onTap: () {
-                Navigator.pop(context); // Close drawer
+                Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Unpublished Games not implemented yet')),
                 );
@@ -94,7 +91,7 @@ class HomeScreen extends StatelessWidget {
               leading: const Icon(Icons.settings),
               title: const Text('Settings'),
               onTap: () {
-                Navigator.pop(context); // Close drawer
+                Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Settings not implemented yet')),
                 );
@@ -130,7 +127,7 @@ class HomeScreen extends StatelessWidget {
         backgroundColor: efficialsBlue,
         child: const Icon(Icons.add, size: 30, color: Colors.white),
       ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat, // Lower right corner
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
 }
