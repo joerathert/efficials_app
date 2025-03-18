@@ -25,8 +25,13 @@ class _NameScheduleScreenState extends State<NameScheduleScreen> {
       );
       return;
     }
-    // Placeholder: Navigate to next screen with the name (to be implemented)
-    Navigator.pushNamed(context, '/next_screen', arguments: {'scheduleName': name});
+    final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+    final sport = args['sport'] as String;
+    Navigator.pushNamed(
+      context,
+      '/choose_location',
+      arguments: {'scheduleName': name, 'sport': sport},
+    );
   }
 
   @override
@@ -61,7 +66,7 @@ class _NameScheduleScreenState extends State<NameScheduleScreen> {
                     style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black),
                     textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 20), // Reduced from 60 to 20
+                  const SizedBox(height: 20),
                   TextField(
                     controller: _nameController,
                     decoration: textFieldDecoration('Ex. - Varsity Football'),
