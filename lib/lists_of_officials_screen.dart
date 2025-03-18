@@ -32,7 +32,7 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
         lists.add({'name': 'No saved lists', 'id': -1});
       }
       lists.add({'name': '+ Create new list', 'id': 0});
-      selectedList = lists.isNotEmpty ? lists[0]['name'] as String : null; // Set initial selection
+      selectedList = lists.isNotEmpty ? lists[0]['name'] as String : null;
       isLoading = false;
     });
   }
@@ -52,21 +52,21 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: const Text('Cancel', style: TextStyle(color: efficialsBlue)),
           ),
           TextButton(
             onPressed: () {
               Navigator.pop(context);
               setState(() {
                 lists.removeWhere((list) => list['id'] == listId);
-                if (lists.isEmpty || (lists.length == 1 && lists[0]['id'] == 0)) {
+                if (lists.length == 1 && lists[0]['id'] == 0) {
                   lists.insert(0, {'name': 'No saved lists', 'id': -1});
                 }
-                selectedList = lists.isNotEmpty ? lists[0]['name'] as String : null; // Reset selection
+                selectedList = lists.isNotEmpty ? lists[0]['name'] as String : null;
                 _saveLists();
               });
             },
-            child: const Text('Delete'),
+            child: const Text('Delete', style: TextStyle(color: efficialsBlue)),
           ),
         ],
       ),

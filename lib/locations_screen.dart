@@ -52,7 +52,7 @@ class _LocationsScreenState extends State<LocationsScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: const Text('Cancel', style: TextStyle(color: efficialsBlue)),
           ),
           TextButton(
             onPressed: () {
@@ -66,7 +66,7 @@ class _LocationsScreenState extends State<LocationsScreen> {
                 _saveLocations();
               });
             },
-            child: const Text('Delete'),
+            child: const Text('Delete', style: TextStyle(color: efficialsBlue)),
           ),
         ],
       ),
