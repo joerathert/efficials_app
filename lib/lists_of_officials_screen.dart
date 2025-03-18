@@ -99,8 +99,8 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Text(
-                    'Select a list of officials to edit, or create a new list.', // Updated: Changed text as requested
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black), // Updated: Made text black
+                    'Select a list of officials to edit, or create a new list.',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 60),
@@ -164,13 +164,8 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                         final selected = lists.firstWhere((l) => l['name'] == selectedList);
                         _showDeleteConfirmationDialog(selectedList!, selected['id'] as int);
                       },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red,
-                        side: const BorderSide(color: Colors.black, width: 2),
-                        minimumSize: const Size(125, 35),
-                        foregroundColor: Colors.white,
-                      ),
-                      child: const Text('Delete List', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+                      style: elevatedButtonStyle(backgroundColor: Colors.red),
+                      child: const Text('Delete List', style: signInButtonTextStyle),
                     ),
                   ],
                 ],
