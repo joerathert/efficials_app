@@ -131,7 +131,7 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
                           style: signInButtonTextStyle,
                         ),
                       ),
-                      const SizedBox(height: 20), // Added spacing between buttons
+                      const SizedBox(height: 20),
                       ElevatedButton(
                         onPressed: () => _selectTime(context),
                         style: elevatedButtonStyle(),
@@ -155,7 +155,7 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
                           ? () {
                               Navigator.pushNamed(
                                 context,
-                                '/next_screen',
+                                '/additional_game_info',
                                 arguments: {
                                   'scheduleName': scheduleName,
                                   'sport': sport,
