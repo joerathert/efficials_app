@@ -33,8 +33,7 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
             textTheme: const TextTheme(
               bodyMedium: TextStyle(color: Colors.black),
               headlineSmall: TextStyle(color: Colors.black),
-            ),
-            dialogBackgroundColor: Colors.white,
+            ), dialogTheme: DialogThemeData(backgroundColor: Colors.white),
           ),
           child: child!,
         );
@@ -64,8 +63,7 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
             textTheme: const TextTheme(
               bodyMedium: TextStyle(color: Colors.black),
               headlineSmall: TextStyle(color: Colors.black),
-            ),
-            dialogBackgroundColor: Colors.white,
+            ), dialogTheme: DialogThemeData(backgroundColor: Colors.white),
           ),
           child: child!,
         );

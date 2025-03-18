@@ -20,7 +20,8 @@ import 'name_schedule_screen.dart';
 import 'choose_location_screen.dart';
 import 'date_time_screen.dart';
 import 'additional_game_info_screen.dart';
-import 'select_officials_screen.dart'; // Added this import
+import 'select_officials_screen.dart';
+import 'review_game_info_screen.dart';
 
 void main() {
   runApp(const EfficialsApp());
@@ -78,7 +79,8 @@ class EfficialsApp extends StatelessWidget {
         '/choose_location': (context) => const ChooseLocationScreen(),
         '/date_time': (context) => const DateTimeScreen(),
         '/additional_game_info': (context) => const AdditionalGameInfoScreen(),
-        '/select_officials': (context) => const SelectOfficialsScreen(), // Added this route
+        '/select_officials': (context) => const SelectOfficialsScreen(),
+        '/review_game_info': (context) => const ReviewGameInfoScreen(),
       },
     );
   }

@@ -30,6 +30,9 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
   @override
   Widget build(BuildContext context) {
     final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+    final sport = args['sport'] as String? ?? 'Baseball'; // Default sport
+    final listName = args['scheduleName'] as String? ?? 'New Roster'; // Use scheduleName as fallback
+    final listId = args['listId'] as int? ?? DateTime.now().millisecondsSinceEpoch; // Unique default ID
 
     return Scaffold(
       appBar: AppBar(
@@ -60,7 +63,18 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
                   const SizedBox(height: 60),
                   ElevatedButton(
                     onPressed: () {
-                      // To be defined later
+                      Navigator.pushNamed(
+                        context,
+                        '/populate_roster',
+                        arguments: {
+                          ...args,
+                          'sport': sport,
+                          'listName': listName,
+                          'listId': listId,
+                          'method': 'standard',
+                          'requiredCount': 2, // Adjust as needed
+                        },
+                      );
                     },
                     style: elevatedButtonStyle(),
                     child: const Text('Standard', style: signInButtonTextStyle),

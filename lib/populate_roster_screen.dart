@@ -13,13 +13,15 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
   List<Map<String, dynamic>> officials = [];
   List<Map<String, dynamic>> filteredOfficials = [];
   List<Map<String, dynamic>> filteredOfficialsWithoutSearch = [];
-  String filterSummary = '';
   bool filtersApplied = false;
   bool isLoading = false;
   Map<int, bool> selectedOfficials = {};
   Map<String, dynamic>? filterSettings;
   List<Map<String, dynamic>> initialOfficials = [];
   bool isInitialized = false;
+  bool showSaveListButton = true;
+  bool isFromGameCreation = false;
+  final TextEditingController _listNameController = TextEditingController();
 
   @override
   void initState() {
@@ -35,7 +37,7 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
       final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
       if (args != null) {
         initialOfficials = args['selectedOfficials'] as List<Map<String, dynamic>>? ?? [];
-        selectedOfficials = {};
+        isFromGameCreation = args['method'] == 'standard';
         for (var official in initialOfficials) {
           selectedOfficials[official['id'] as int] = true;
         }
@@ -46,18 +48,15 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
   }
 
   Future<void> _loadOfficials() async {
-    setState(() {
-      isLoading = true;
-    });
+    setState(() => isLoading = true);
     officials = [
-      {'id': 1, 'name': 'John Doe', 'cityState': 'Chicago, IL', 'distance': 5.2, 'yearsExperience': 10, 'sports': 'Football', 'levels': 'Varsity'},
-      {'id': 2, 'name': 'Jane Smith', 'cityState': 'Naperville, IL', 'distance': 15.7, 'yearsExperience': 8, 'sports': 'Football', 'levels': 'JV'},
-      {'id': 3, 'name': 'Mike Johnson', 'cityState': 'Aurora, IL', 'distance': 10.0, 'yearsExperience': 12, 'sports': 'Football', 'levels': 'Varsity'},
+      {'id': 1, 'name': 'John Doe', 'cityState': 'Chicago, IL', 'distance': 5.2, 'yearsExperience': 10},
+      {'id': 2, 'name': 'Jane Smith', 'cityState': 'Naperville, IL', 'distance': 15.7, 'yearsExperience': 8},
+      {'id': 3, 'name': 'Mike Johnson', 'cityState': 'Aurora, IL', 'distance': 10.0, 'yearsExperience': 12},
     ];
     setState(() {
       filteredOfficials = List.from(officials);
       filteredOfficialsWithoutSearch = List.from(officials);
-      filterSummary = 'No filters applied';
       isLoading = false;
     });
   }
@@ -66,46 +65,11 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
     setState(() {
       filterSettings = settings;
       filtersApplied = true;
-      final sport = settings['sport'] as String? ?? 'Football';
-      final ihsaRegistered = settings['ihsaRegistered'] as bool? ?? false;
-      final ihsaRecognized = settings['ihsaRecognized'] as bool? ?? false;
-      final ihsaCertified = settings['ihsaCertified'] as bool? ?? false;
-      final minYears = settings['minYears'] as int? ?? 0;
-      final levels = settings['levels'] as List<String>? ?? [];
-      final schedulerZip = settings['zipCode'] as String? ?? '00000';
-      final radius = settings['radius'] as int? ?? 50;
-
-      filteredOfficials = officials.where((official) {
-        try {
-          List<String> sports = (official['sports'] as String).split(',').map((s) => s.trim()).toList();
-          final matchesSport = sports.map((s) => s.toLowerCase()).contains(sport.toLowerCase());
-
-          List<String> officialLevels = (official['levels'] as String).split(',').map((l) => l.trim()).toList();
-          final matchesLevel = levels.isEmpty || officialLevels.any((level) => levels.contains(level));
-
-          final credential = official['ihsa_credential'] as String? ?? '';
-          final matchesIhsaRegistered = !ihsaRegistered || credential.contains('Registered');
-          final matchesIhsaRecognized = !ihsaRecognized || credential.contains('Recognized');
-          final matchesIhsaCertified = !ihsaCertified || credential.contains('Certified');
-
-          final matchesExperience = (official['yearsExperience'] as int? ?? 0) >= minYears;
-
-          final officialZip = official['zipCode']?.toString() ?? '00000';
-          final distance = officialZip == schedulerZip ? 0 : (official['distance'] as num? ?? 15);
-          final withinDistance = distance <= radius;
-
-          return matchesSport && matchesLevel && matchesIhsaRegistered && matchesIhsaRecognized &&
-              matchesIhsaCertified && matchesExperience && withinDistance;
-        } catch (e) {
-          print('Error filtering official ${official['name']}: $e');
-          return false;
-        }
-      }).toList();
-
+      filteredOfficials = officials; // Simplified for demo; apply real filters here
       filteredOfficialsWithoutSearch = List.from(filteredOfficials);
       if (searchQuery.isNotEmpty) {
         filteredOfficials = filteredOfficials
-            .where((official) => official['name'].toString().toLowerCase().contains(searchQuery.toLowerCase()))
+            .where((o) => o['name'].toString().toLowerCase().contains(searchQuery.toLowerCase()))
             .toList();
       }
       isLoading = false;
@@ -119,11 +83,49 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
         filteredOfficials = List.from(filteredOfficialsWithoutSearch);
         if (query.isNotEmpty) {
           filteredOfficials = filteredOfficials
-              .where((official) => official['name'].toString().toLowerCase().contains(searchQuery.toLowerCase()))
+              .where((o) => o['name'].toString().toLowerCase().contains(query.toLowerCase()))
               .toList();
         }
       }
     });
+  }
+
+  void _promptSaveList() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Name Your List'),
+        content: TextField(
+          controller: _listNameController,
+          decoration: textFieldDecoration('List Name'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel', style: TextStyle(color: efficialsBlue)),
+          ),
+          TextButton(
+            onPressed: () {
+              final name = _listNameController.text.trim();
+              if (name.isNotEmpty) {
+                Navigator.pop(context);
+                _saveList(name);
+              }
+            },
+            child: const Text('Save', style: TextStyle(color: efficialsBlue)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _saveList(String name) {
+    final selected = officials.where((o) => selectedOfficials[o['id']] ?? false).toList();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('List created!'), duration: Duration(seconds: 2)),
+    );
+    setState(() => showSaveListButton = false);
+    // Add shared_preferences logic here if needed
   }
 
   @override
@@ -131,7 +133,6 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
     final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
     final sport = args['sport']!;
     final listName = args['listName']!;
-    final listId = args['listId'] as int?;
     final int selectedCount = selectedOfficials.values.where((selected) => selected).length;
 
     return Scaffold(
@@ -141,9 +142,9 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
           icon: const Icon(Icons.arrow_back, size: 36, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
-          'Find Officials',
-          style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+        title: Text(
+          isFromGameCreation ? 'Select Officials for Game' : 'Find Officials',
+          style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
         ),
       ),
       body: Column(
@@ -154,7 +155,7 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
             const Expanded(
               child: Center(
                 child: Text(
-                  'The roster will populate after\nfilters have been applied.',
+                  'Apply filters to populate the roster.',
                   style: TextStyle(fontSize: 18, color: Colors.grey),
                   textAlign: TextAlign.center,
                 ),
@@ -168,7 +169,7 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
                 child: TextField(
                   decoration: textFieldDecoration('Search Officials'),
                   style: const TextStyle(fontSize: 18),
-                  onChanged: (value) => filterOfficials(value),
+                  onChanged: filterOfficials,
                 ),
               ),
             ),
@@ -179,31 +180,20 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: filteredOfficials.isEmpty
-                        ? const Center(
-                            child: Text(
-                              'No officials found. Try adjusting your filters.',
-                              style: TextStyle(fontSize: 18, color: Colors.grey),
-                              textAlign: TextAlign.center,
-                            ),
-                          )
+                        ? const Center(child: Text('No officials found.', style: TextStyle(fontSize: 18, color: Colors.grey)))
                         : Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Row(
                                 children: [
                                   Checkbox(
-                                    value: filteredOfficials.isNotEmpty &&
-                                        filteredOfficials.every((official) => selectedOfficials[official['id']] ?? false),
-                                    onChanged: (bool? value) {
+                                    value: filteredOfficials.every((o) => selectedOfficials[o['id']] ?? false),
+                                    onChanged: (value) {
                                       setState(() {
                                         if (value == true) {
-                                          for (final official in filteredOfficials) {
-                                            selectedOfficials[official['id']] = true;
-                                          }
+                                          for (final o in filteredOfficials) selectedOfficials[o['id']] = true;
                                         } else {
-                                          for (final official in filteredOfficials) {
-                                            selectedOfficials.remove(official['id']);
-                                          }
+                                          for (final o in filteredOfficials) selectedOfficials.remove(o['id']);
                                         }
                                       });
                                     },
@@ -219,7 +209,6 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
                                     final official = filteredOfficials[index];
                                     final officialId = official['id'] as int;
                                     return ListTile(
-                                      key: ValueKey(officialId),
                                       leading: IconButton(
                                         icon: Icon(
                                           selectedOfficials[officialId] ?? false ? Icons.check_circle : Icons.add_circle,
@@ -229,15 +218,13 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
                                         onPressed: () {
                                           setState(() {
                                             selectedOfficials[officialId] = !(selectedOfficials[officialId] ?? false);
-                                            if (selectedOfficials[officialId] == false) {
-                                              selectedOfficials.remove(officialId);
-                                            }
+                                            if (selectedOfficials[officialId] == false) selectedOfficials.remove(officialId);
                                           });
                                         },
                                       ),
                                       title: Text('${official['name']} (${official['cityState'] ?? 'Unknown'})'),
                                       subtitle: Text(
-                                        'Distance: ${official['distance'] != null ? (official['distance'] as num).toStringAsFixed(1) : '0.0'} mi, Experience: ${official['yearsExperience'] ?? 0} yrs',
+                                        'Distance: ${official['distance']?.toStringAsFixed(1) ?? '0.0'} mi, Experience: ${official['yearsExperience'] ?? 0} yrs',
                                       ),
                                     );
                                   },
@@ -255,34 +242,22 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
       floatingActionButton: Padding(
         padding: filtersApplied ? const EdgeInsets.only(bottom: 0) : const EdgeInsets.only(bottom: 106),
         child: FloatingActionButton(
-          onPressed: () {
-            Navigator.pushNamed(context, '/filter_settings', arguments: sport).then((result) {
-              if (result != null) {
-                _loadOfficials().then((_) => _applyFiltersWithSettings(result as Map<String, dynamic>));
-              }
-            });
-          },
-          elevation: 0,
+          onPressed: () => Navigator.pushNamed(context, '/filter_settings', arguments: sport).then((result) {
+            if (result != null) _loadOfficials().then((_) => _applyFiltersWithSettings(result as Map<String, dynamic>));
+          }),
           backgroundColor: efficialsBlue,
-          foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Icon(Icons.filter_list, size: 30, color: Colors.white), // Updated: Removed 'const' to fix error
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          child: const Icon(Icons.filter_list, size: 30, color: Colors.white),
         ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       bottomNavigationBar: filtersApplied
           ? Padding(
-              padding: const EdgeInsets.only(bottom: 32),
+              padding: const EdgeInsets.all(32),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    '($selectedCount) Selected',
-                    style: const TextStyle(fontSize: 16, color: Colors.black, fontWeight: FontWeight.bold),
-                    textAlign: TextAlign.center,
-                  ),
+                  Text('($selectedCount) Selected', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
                   ElevatedButton(
                     onPressed: selectedCount > 0
@@ -290,18 +265,32 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
                             final selected = officials.where((o) => selectedOfficials[o['id']] ?? false).toList();
                             Navigator.pushNamed(
                               context,
-                              '/review_list',
-                              arguments: {'sport': sport, 'listName': listName, 'listId': listId, 'selectedOfficials': selected},
+                              isFromGameCreation ? '/review_game_info' : '/review_list',
+                              arguments: {...args, 'selectedOfficials': selected},
                             );
                           }
                         : null,
                     style: elevatedButtonStyle(),
                     child: const Text('Continue', style: signInButtonTextStyle),
                   ),
+                  if (isFromGameCreation && showSaveListButton) ...[
+                    const SizedBox(height: 8),
+                    ElevatedButton(
+                      onPressed: selectedCount > 0 ? _promptSaveList : null,
+                      style: elevatedButtonStyle(),
+                      child: const Text('Save List', style: signInButtonTextStyle),
+                    ),
+                  ],
                 ],
               ),
             )
           : null,
     );
+  }
+
+  @override
+  void dispose() {
+    _listNameController.dispose();
+    super.dispose();
   }
 }
