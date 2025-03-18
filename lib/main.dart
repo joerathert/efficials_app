@@ -15,7 +15,8 @@ import 'edit_list_screen.dart';
 import 'theme.dart';
 import 'locations_screen.dart';
 import 'add_new_location_screen.dart';
-import 'select_sport_screen.dart'; // Add this import
+import 'select_sport_screen.dart';
+import 'name_schedule_screen.dart'; // Add this import
 
 void main() {
   runApp(const EfficialsApp());
@@ -68,7 +69,8 @@ class EfficialsApp extends StatelessWidget {
         '/edit_list': (context) => const EditListScreen(),
         '/locations': (context) => const LocationsScreen(),
         '/add_new_location': (context) => const AddNewLocationScreen(),
-        '/select_sport': (context) => const SelectSportScreen(), // Add this route
+        '/select_sport': (context) => const SelectSportScreen(),
+        '/name_schedule': (context) => const NameScheduleScreen(), // Add this route
       },
     );
   }

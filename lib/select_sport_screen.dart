@@ -51,8 +51,11 @@ class _SelectSportScreenState extends State<SelectSportScreen> {
                   ElevatedButton(
                     onPressed: () {
                       if (selectedSport != null) {
-                        Navigator.pushNamed(context, '/next_screen', arguments: {'sport': selectedSport});
-                        // Replace '/next_screen' with the next logical route (e.g., schedule creation)
+                        Navigator.pushNamed(
+                          context,
+                          '/name_schedule',
+                          arguments: {'sport': selectedSport},
+                        );
                       } else {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('Please select a sport!')),
