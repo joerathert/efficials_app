@@ -115,7 +115,7 @@ class _LocationsScreenState extends State<LocationsScreen> {
                             setState(() {
                               selectedLocation = newValue;
                               if (newValue == '+ Create new location') {
-                                Navigator.pushNamed(context, '/create_new_location').then((result) {
+                                Navigator.pushNamed(context, '/add_new_location').then((result) {
                                   if (result != null) {
                                     setState(() {
                                       if (locations.any((l) => l['name'] == 'No saved locations')) {

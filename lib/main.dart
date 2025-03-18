@@ -13,7 +13,8 @@ import 'review_list_screen.dart';
 import 'filter_settings_screen.dart';
 import 'edit_list_screen.dart';
 import 'theme.dart';
-import 'locations_screen.dart'; // Add this import
+import 'locations_screen.dart';
+import 'add_new_location_screen.dart'; // Add this import
 
 void main() {
   runApp(const EfficialsApp());
@@ -64,7 +65,8 @@ class EfficialsApp extends StatelessWidget {
         '/review_list': (context) => const ReviewListScreen(),
         '/filter_settings': (context) => const FilterSettingsScreen(),
         '/edit_list': (context) => const EditListScreen(),
-        '/locations': (context) => const LocationsScreen(), // Add this route
+        '/locations': (context) => const LocationsScreen(),
+        '/add_new_location': (context) => const AddNewLocationScreen(), // Add this route
       },
     );
   }
