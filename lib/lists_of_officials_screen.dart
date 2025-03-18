@@ -32,6 +32,7 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
         lists.add({'name': 'No saved lists', 'id': -1});
       }
       lists.add({'name': '+ Create new list', 'id': 0});
+      selectedList = lists.isNotEmpty ? lists[0]['name'] as String : null; // Set initial selection
       isLoading = false;
     });
   }
@@ -58,9 +59,10 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
               Navigator.pop(context);
               setState(() {
                 lists.removeWhere((list) => list['id'] == listId);
-                if (lists.length == 1 && lists[0]['id'] == 0) {
+                if (lists.isEmpty || (lists.length == 1 && lists[0]['id'] == 0)) {
                   lists.insert(0, {'name': 'No saved lists', 'id': -1});
                 }
+                selectedList = lists.isNotEmpty ? lists[0]['name'] as String : null; // Reset selection
                 _saveLists();
               });
             },
@@ -124,11 +126,11 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                                         lists.removeWhere((l) => l['name'] == 'No saved lists');
                                       }
                                       lists.insert(0, {'name': result as String, 'id': lists.length + 1});
-                                      _saveLists();
                                       selectedList = result;
+                                      _saveLists();
                                     });
                                   } else {
-                                    selectedList = null;
+                                    selectedList = lists.isNotEmpty ? lists[0]['name'] as String : null;
                                   }
                                 });
                               } else if (newValue != 'No saved lists' && newValue != 'Error loading lists: ...') {
