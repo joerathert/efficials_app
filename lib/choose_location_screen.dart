@@ -29,7 +29,7 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
     final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
     if (args != null && selectedLocation == null) { // Only set initial value if not user-selected
       selectedLocation = args['location'] as String?;
-      isFromEdit = args['fromEdit'] == true;
+      isFromEdit = args['isEdit'] == true; // Changed from 'fromEdit' to 'isEdit' for consistency
       print('didChangeDependencies - Args: $args, Updated selectedLocation: $selectedLocation, isFromEdit: $isFromEdit');
     } else {
       print('didChangeDependencies - No change, selectedLocation: $selectedLocation, isFromEdit: $isFromEdit');
@@ -198,9 +198,18 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                               selectedLocation == '+ Create new location')
                           ? null
                           : () {
-                              print('Continue pressed - Selected Location: $selectedLocation');
+                              print('Continue pressed - Selected Location: $selectedLocation, isFromEdit: $isFromEdit');
+                              final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
                               if (isFromEdit) {
-                                Navigator.pop(context, selectedLocation);
+                                Navigator.pushNamedAndRemoveUntil(
+                                  context,
+                                  '/review_game_info',
+                                  (route) => route.settings.name == '/review_game_info',
+                                  arguments: {
+                                    ...args,
+                                    'location': selectedLocation,
+                                  },
+                                );
                               } else {
                                 Navigator.pushNamed(
                                   context,
