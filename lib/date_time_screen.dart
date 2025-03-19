@@ -24,7 +24,7 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
       if (args != null) {
         _selectedDate = args['date'] as DateTime?;
         _selectedTime = args['time'] as TimeOfDay?;
-        _isFromEdit = args['isEdit'] == true; // Check for explicit edit flag
+        _isFromEdit = args['isEdit'] == true;
         print('didChangeDependencies - Initial Args: $args, _selectedDate: $_selectedDate, _selectedTime: $_selectedTime, _isFromEdit: $_isFromEdit');
       }
       _isInitialized = true;
@@ -170,16 +170,25 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
                       onPressed: (_selectedDate != null && _selectedTime != null)
                           ? () {
                               final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
-                              print('Navigating to /additional_game_info with args: ${{
-                                ...args,
-                                'date': _selectedDate,
-                                'time': _selectedTime,
-                              }}');
-                              Navigator.pushNamed(context, '/additional_game_info', arguments: {
-                                ...args,
-                                'date': _selectedDate,
-                                'time': _selectedTime,
-                              });
+                              print('Navigating from DateTime with args: $args, isFromEdit: $_isFromEdit');
+                              if (_isFromEdit) {
+                                Navigator.pushNamedAndRemoveUntil(
+                                  context,
+                                  '/review_game_info',
+                                  (route) => route.settings.name == '/review_game_info',
+                                  arguments: {
+                                    ...args,
+                                    'date': _selectedDate,
+                                    'time': _selectedTime,
+                                  },
+                                );
+                              } else {
+                                Navigator.pushNamed(context, '/additional_game_info', arguments: {
+                                  ...args,
+                                  'date': _selectedDate,
+                                  'time': _selectedTime,
+                                });
+                              }
                             }
                           : null,
                       style: elevatedButtonStyle(),
