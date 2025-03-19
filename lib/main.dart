@@ -22,6 +22,7 @@ import 'date_time_screen.dart';
 import 'additional_game_info_screen.dart';
 import 'select_officials_screen.dart';
 import 'review_game_info_screen.dart';
+import 'edit_game_info_screen.dart';
 
 void main() {
   runApp(const EfficialsApp());
@@ -81,6 +82,7 @@ class EfficialsApp extends StatelessWidget {
         '/additional_game_info': (context) => const AdditionalGameInfoScreen(),
         '/select_officials': (context) => const SelectOfficialsScreen(),
         '/review_game_info': (context) => const ReviewGameInfoScreen(),
+        '/edit_game_info': (context) => const EditGameInfoScreen(),
       },
     );
   }

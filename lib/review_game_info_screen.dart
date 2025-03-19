@@ -2,15 +2,36 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'theme.dart';
 
-class ReviewGameInfoScreen extends StatelessWidget {
+class ReviewGameInfoScreen extends StatefulWidget {
   const ReviewGameInfoScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+  State<ReviewGameInfoScreen> createState() => _ReviewGameInfoScreenState();
+}
 
-    final isAdultLevel = (args['levelOfCompetition'] as String? ?? '').toLowerCase() == 'college' ||
-        (args['levelOfCompetition'] as String? ?? '').toLowerCase() == 'adult';
+class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
+  late Map<String, dynamic> args;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final newArgs = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+    setState(() {
+      args = newArgs;
+      print('ReviewGameInfoScreen didChangeDependencies - Args: $args');
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    args = {};
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isAdultLevel = (args['levelOfCompetition'] as String?)?.toLowerCase() == 'college' ||
+        (args['levelOfCompetition'] as String?)?.toLowerCase() == 'adult';
 
     final gameDetails = {
       'Sport': args['sport'] as String? ?? 'Unknown',
@@ -53,7 +74,14 @@ class ReviewGameInfoScreen extends StatelessWidget {
                   children: [
                     const Text('Game Details', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                     TextButton(
-                      onPressed: () => Navigator.pop(context, 'edit'),
+                      onPressed: () => Navigator.pushNamed(context, '/edit_game_info', arguments: args).then((result) {
+                        if (result != null && result is Map<String, dynamic>) {
+                          setState(() {
+                            args = result;
+                            print('ReviewGameInfoScreen Edit callback - Updated Args: $args');
+                          });
+                        }
+                      }),
                       child: const Text('Edit', style: TextStyle(color: efficialsBlue, fontSize: 18)),
                     ),
                   ],
@@ -141,10 +169,10 @@ class _SliverHeaderDelegate extends SliverPersistentHeaderDelegate {
   }
 
   @override
-  double get maxExtent => 80; // Increased height to fit content
+  double get maxExtent => 80;
 
   @override
-  double get minExtent => 80; // Same as maxExtent to prevent shrinking
+  double get minExtent => 80;
 
   @override
   bool shouldRebuild(covariant SliverPersistentHeaderDelegate oldDelegate) => true;

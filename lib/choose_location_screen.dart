@@ -14,11 +14,26 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
   String? selectedLocation;
   List<Map<String, dynamic>> locations = [];
   bool isLoading = true;
+  bool isFromEdit = false;
 
   @override
   void initState() {
     super.initState();
     _fetchLocations();
+    print('initState - Initial selectedLocation: $selectedLocation, isFromEdit: $isFromEdit');
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    if (args != null && selectedLocation == null) { // Only set initial value if not user-selected
+      selectedLocation = args['location'] as String?;
+      isFromEdit = args['fromEdit'] == true;
+      print('didChangeDependencies - Args: $args, Updated selectedLocation: $selectedLocation, isFromEdit: $isFromEdit');
+    } else {
+      print('didChangeDependencies - No change, selectedLocation: $selectedLocation, isFromEdit: $isFromEdit');
+    }
   }
 
   Future<void> _fetchLocations() async {
@@ -32,8 +47,11 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
         locations.add({'name': 'No saved locations', 'id': -1});
       }
       locations.add({'name': '+ Create new location', 'id': 0});
-      selectedLocation = locations.isNotEmpty ? locations[0]['name'] as String : null;
+      if (selectedLocation == null || !locations.any((loc) => loc['name'] == selectedLocation)) {
+        selectedLocation = locations.isNotEmpty ? locations[0]['name'] as String : null;
+      }
       isLoading = false;
+      print('fetchLocations - Loaded locations: $locations, selectedLocation: $selectedLocation');
     });
   }
 
@@ -64,6 +82,7 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                 }
                 selectedLocation = locations.isNotEmpty ? locations[0]['name'] as String : null;
                 _saveLocations();
+                print('Delete - Updated locations: $locations, selectedLocation: $selectedLocation');
               });
             },
             child: const Text('Delete', style: TextStyle(color: efficialsBlue)),
@@ -75,6 +94,7 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    print('build - Current selectedLocation: $selectedLocation, isLoading: $isLoading');
     final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
     final scheduleName = args['scheduleName'] as String;
     final sport = args['sport'] as String;
@@ -105,34 +125,38 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                     style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black),
                     textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 20), // Reduced from 60 to 20
+                  const SizedBox(height: 20),
                   isLoading
                       ? const CircularProgressIndicator()
                       : DropdownButtonFormField<String>(
                           decoration: textFieldDecoration('Locations'),
                           value: selectedLocation,
                           onChanged: (newValue) {
-                            setState(() {
-                              selectedLocation = newValue;
-                              if (newValue == '+ Create new location') {
-                                Navigator.pushNamed(context, '/add_new_location').then((result) {
-                                  if (result != null) {
-                                    setState(() {
-                                      if (locations.any((l) => l['name'] == 'No saved locations')) {
-                                        locations.removeWhere((l) => l['name'] == 'No saved locations');
-                                      }
-                                      locations.insert(0, {'name': result as String, 'id': locations.length + 1});
-                                      selectedLocation = result;
-                                      _saveLocations();
-                                    });
-                                  } else {
-                                    selectedLocation = locations.isNotEmpty ? locations[0]['name'] as String : null;
-                                  }
-                                });
-                              } else if (newValue != 'No saved locations' && !newValue!.startsWith('Error')) {
+                            print('Dropdown onChanged - New Value: $newValue, Current selectedLocation: $selectedLocation');
+                            if (newValue != null) {
+                              setState(() {
                                 selectedLocation = newValue;
-                              }
-                            });
+                                print('Dropdown onChanged - Updated selectedLocation: $selectedLocation');
+                                if (newValue == '+ Create new location') {
+                                  Navigator.pushNamed(context, '/add_new_location').then((result) {
+                                    if (result != null) {
+                                      setState(() {
+                                        if (locations.any((l) => l['name'] == 'No saved locations')) {
+                                          locations.removeWhere((l) => l['name'] == 'No saved locations');
+                                        }
+                                        locations.insert(0, {'name': result as String, 'id': locations.length + 1});
+                                        selectedLocation = result;
+                                        _saveLocations();
+                                        print('Create new - Updated locations: $locations, selectedLocation: $selectedLocation');
+                                      });
+                                    } else {
+                                      selectedLocation = locations.isNotEmpty ? locations[0]['name'] as String : null;
+                                      print('Create new - Reverted selectedLocation: $selectedLocation');
+                                    }
+                                  });
+                                }
+                              });
+                            }
                           },
                           items: locations.map((location) {
                             return DropdownMenuItem(
@@ -172,17 +196,22 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                       onPressed: (selectedLocation == null ||
                               selectedLocation == 'No saved locations' ||
                               selectedLocation == '+ Create new location')
-                          ? null // Deactivate button
+                          ? null
                           : () {
-                              Navigator.pushNamed(
-                                context,
-                                '/date_time', // Changed from '/next_screen' to '/date_time'
-                                arguments: {
-                                  'scheduleName': scheduleName,
-                                  'sport': sport,
-                                  'location': selectedLocation,
-                                },
-                              );
+                              print('Continue pressed - Selected Location: $selectedLocation');
+                              if (isFromEdit) {
+                                Navigator.pop(context, selectedLocation);
+                              } else {
+                                Navigator.pushNamed(
+                                  context,
+                                  '/date_time',
+                                  arguments: {
+                                    'scheduleName': scheduleName,
+                                    'sport': sport,
+                                    'location': selectedLocation,
+                                  },
+                                );
+                              }
                             },
                       style: elevatedButtonStyle(),
                       child: const Text('Continue', style: signInButtonTextStyle),
