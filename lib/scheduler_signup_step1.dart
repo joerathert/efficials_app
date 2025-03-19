@@ -14,25 +14,10 @@ class _SchedulerSignUpStep1State extends State<SchedulerSignUpStep1> {
   final TextEditingController _confirmPasswordController = TextEditingController();
 
   void _handleContinue() {
-    final email = _emailController.text.trim();
-    final password = _passwordController.text.trim();
-    final confirmPassword = _confirmPasswordController.text.trim();
-
-    if (email.isEmpty || password.isEmpty || confirmPassword.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill in all fields')),
-      );
-      return;
-    }
-    if (password != confirmPassword) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Passwords do not match')),
-      );
-      return;
-    }
+    // Temporarily removed validation for development
     Navigator.pushNamed(context, '/scheduler_signup_step2', arguments: {
-      'email': email,
-      'password': password,
+      'email': _emailController.text.trim(),
+      'password': _passwordController.text.trim(),
     });
   }
 

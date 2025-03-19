@@ -13,6 +13,23 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
   DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  bool _isFromEdit = false;
+  bool _isInitialized = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_isInitialized) {
+      final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+      if (args != null) {
+        _selectedDate = args['date'] as DateTime?;
+        _selectedTime = args['time'] as TimeOfDay?;
+        _isFromEdit = args.containsKey('date') && args.containsKey('time');
+        print('didChangeDependencies - Initial Args: $args, _selectedDate: $_selectedDate, _selectedTime: $_selectedTime, _isFromEdit: $_isFromEdit');
+      }
+      _isInitialized = true;
+    }
+  }
 
   Future<void> _selectDate(BuildContext context) async {
     final picked = await showDatePicker(
@@ -33,7 +50,8 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
             textTheme: const TextTheme(
               bodyMedium: TextStyle(color: Colors.black),
               headlineSmall: TextStyle(color: Colors.black),
-            ), dialogTheme: DialogThemeData(backgroundColor: Colors.white),
+            ),
+            dialogTheme: DialogThemeData(backgroundColor: Colors.white),
           ),
           child: child!,
         );
@@ -42,6 +60,7 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
     if (picked != null && picked != _selectedDate) {
       setState(() {
         _selectedDate = picked;
+        print('Date selected - _selectedDate: $_selectedDate');
       });
     }
   }
@@ -63,7 +82,8 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
             textTheme: const TextTheme(
               bodyMedium: TextStyle(color: Colors.black),
               headlineSmall: TextStyle(color: Colors.black),
-            ), dialogTheme: DialogThemeData(backgroundColor: Colors.white),
+            ),
+            dialogTheme: DialogThemeData(backgroundColor: Colors.white),
           ),
           child: child!,
         );
@@ -72,6 +92,7 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
     if (picked != null && picked != _selectedTime) {
       setState(() {
         _selectedTime = picked;
+        print('Time selected - _selectedTime: $_selectedTime');
       });
     }
   }
@@ -85,10 +106,7 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
-    final scheduleName = args['scheduleName'] as String;
-    final sport = args['sport'] as String;
-    final location = args['location'] as String;
+    print('build - _selectedDate: $_selectedDate, _selectedTime: $_selectedTime');
 
     return Scaffold(
       key: _scaffoldKey,
@@ -125,7 +143,7 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
                         onPressed: () => _selectDate(context),
                         style: elevatedButtonStyle(),
                         child: Text(
-                          _selectedDate == null ? 'Set Date' : 'Change Date',
+                          _selectedDate != null ? 'Change Date' : 'Set Date',
                           style: signInButtonTextStyle,
                         ),
                       ),
@@ -134,7 +152,7 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
                         onPressed: () => _selectTime(context),
                         style: elevatedButtonStyle(),
                         child: Text(
-                          _selectedTime == null ? 'Set Time' : 'Change Time',
+                          _selectedTime != null ? 'Change Time' : 'Set Time',
                           style: signInButtonTextStyle,
                         ),
                       ),
@@ -151,17 +169,19 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
                     child: ElevatedButton(
                       onPressed: (_selectedDate != null && _selectedTime != null)
                           ? () {
-                              Navigator.pushNamed(
-                                context,
-                                '/additional_game_info',
-                                arguments: {
-                                  'scheduleName': scheduleName,
-                                  'sport': sport,
-                                  'location': location,
+                              if (_isFromEdit) {
+                                Navigator.pop(context, {
                                   'date': _selectedDate,
                                   'time': _selectedTime,
-                                },
-                              );
+                                });
+                              } else {
+                                final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+                                Navigator.pushNamed(context, '/additional_game_info', arguments: {
+                                  ...args,
+                                  'date': _selectedDate,
+                                  'time': _selectedTime,
+                                });
+                              }
                             }
                           : null,
                       style: elevatedButtonStyle(),

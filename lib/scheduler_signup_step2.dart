@@ -15,25 +15,15 @@ class _SchedulerSignUpStep2State extends State<SchedulerSignUpStep2> {
   final TextEditingController _phoneController = TextEditingController();
 
   void _handleContinue() {
-    final firstName = _firstNameController.text.trim();
-    final lastName = _lastNameController.text.trim();
-    final organization = _organizationController.text.trim();
-    final phone = _phoneController.text.trim();
-
-    if (firstName.isEmpty || lastName.isEmpty || organization.isEmpty || phone.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill in all fields')),
-      );
-      return;
-    }
+    // Temporarily removed validation for development
     final args = ModalRoute.of(context)!.settings.arguments as Map<String, String>;
     Navigator.pushNamed(context, '/add_photo', arguments: {
       'email': args['email'],
       'password': args['password'],
-      'firstName': firstName,
-      'lastName': lastName,
-      'organization': organization,
-      'phone': phone,
+      'firstName': _firstNameController.text.trim(),
+      'lastName': _lastNameController.text.trim(),
+      'organization': _organizationController.text.trim(),
+      'phone': _phoneController.text.trim(),
     });
   }
 
