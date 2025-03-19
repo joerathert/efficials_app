@@ -24,7 +24,7 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
       if (args != null) {
         _selectedDate = args['date'] as DateTime?;
         _selectedTime = args['time'] as TimeOfDay?;
-        _isFromEdit = args.containsKey('date') && args.containsKey('time');
+        _isFromEdit = args['isEdit'] == true; // Check for explicit edit flag
         print('didChangeDependencies - Initial Args: $args, _selectedDate: $_selectedDate, _selectedTime: $_selectedTime, _isFromEdit: $_isFromEdit');
       }
       _isInitialized = true;
@@ -169,19 +169,17 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
                     child: ElevatedButton(
                       onPressed: (_selectedDate != null && _selectedTime != null)
                           ? () {
-                              if (_isFromEdit) {
-                                Navigator.pop(context, {
-                                  'date': _selectedDate,
-                                  'time': _selectedTime,
-                                });
-                              } else {
-                                final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
-                                Navigator.pushNamed(context, '/additional_game_info', arguments: {
-                                  ...args,
-                                  'date': _selectedDate,
-                                  'time': _selectedTime,
-                                });
-                              }
+                              final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+                              print('Navigating to /additional_game_info with args: ${{
+                                ...args,
+                                'date': _selectedDate,
+                                'time': _selectedTime,
+                              }}');
+                              Navigator.pushNamed(context, '/additional_game_info', arguments: {
+                                ...args,
+                                'date': _selectedDate,
+                                'time': _selectedTime,
+                              });
                             }
                           : null,
                       style: elevatedButtonStyle(),

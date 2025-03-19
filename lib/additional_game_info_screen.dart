@@ -6,7 +6,7 @@ class AdditionalGameInfoScreen extends StatefulWidget {
   const AdditionalGameInfoScreen({super.key});
 
   @override
-  State<AdditionalGameInfoScreen> createState() => _AdditionalGameInfoScreenState();
+  _AdditionalGameInfoScreenState createState() => _AdditionalGameInfoScreenState();
 }
 
 class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
@@ -15,9 +15,18 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
   final TextEditingController _officialsRequiredController = TextEditingController();
   final TextEditingController _gameFeeController = TextEditingController();
   bool _hireAutomatically = false;
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  bool _isFromEdit = false;
+  bool _isInitialized = false;
 
   final List<String> _competitionLevels = [
-    'Grade School', 'Middle School', 'Underclass', 'JV', 'Varsity', 'College', 'Adult'
+    'Grade School',
+    'Middle School',
+    'Underclass',
+    'JV',
+    'Varsity',
+    'College',
+    'Adult'
   ];
   final List<String> _youthGenders = ['Boys', 'Girls', 'Co-ed'];
   final List<String> _adultGenders = ['Men', 'Women', 'Co-ed'];
@@ -39,10 +48,67 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
   }
 
   @override
-  void dispose() {
-    _officialsRequiredController.dispose();
-    _gameFeeController.dispose();
-    super.dispose();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_isInitialized) {
+      final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+      if (args != null) {
+        print('didChangeDependencies - Args: $args');
+        _isFromEdit = args['isEdit'] == true;
+        if (_isFromEdit) {
+          _levelOfCompetition = args['levelOfCompetition'] as String?;
+          _gender = args['gender'] as String?;
+          _officialsRequiredController.text = args['officialsRequired'] as String? ?? '';
+          _gameFeeController.text = args['gameFee'] as String? ?? '';
+          _hireAutomatically = args['hireAutomatically'] as bool? ?? false;
+        }
+      }
+      _isInitialized = true;
+    }
+  }
+
+  void _handleContinue() {
+    if (_levelOfCompetition == null || _gender == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a level and gender')),
+      );
+      return;
+    }
+
+    final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+    print('handleContinue - isFromEdit: $_isFromEdit, args: $args');
+    if (_isFromEdit) {
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        '/review_game_info',
+        (route) => route.settings.name == '/review_game_info', // Pop until ReviewGameInfoScreen
+        arguments: {
+          ...args,
+          'levelOfCompetition': _levelOfCompetition,
+          'gender': _gender,
+          'officialsRequired': _officialsRequiredController.text.trim(),
+          'gameFee': _gameFeeController.text.trim(),
+          'hireAutomatically': _hireAutomatically,
+        },
+      );
+    } else {
+      print('Navigating to /select_officials with args: ${{
+        ...args,
+        'levelOfCompetition': _levelOfCompetition,
+        'gender': _gender,
+        'officialsRequired': _officialsRequiredController.text.trim(),
+        'gameFee': _gameFeeController.text.trim(),
+        'hireAutomatically': _hireAutomatically,
+      }}');
+      Navigator.pushNamed(context, '/select_officials', arguments: {
+        ...args,
+        'levelOfCompetition': _levelOfCompetition,
+        'gender': _gender,
+        'officialsRequired': _officialsRequiredController.text.trim(),
+        'gameFee': _gameFeeController.text.trim(),
+        'hireAutomatically': _hireAutomatically,
+      });
+    }
   }
 
   @override
@@ -63,6 +129,7 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
     }
 
     return Scaffold(
+      key: _scaffoldKey,
       appBar: AppBar(
         backgroundColor: efficialsBlue,
         leading: IconButton(
@@ -128,24 +195,7 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
                   const SizedBox(height: 60),
                   Center(
                     child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.pushNamed(
-                          context,
-                          '/select_officials',
-                          arguments: {
-                            'scheduleName': scheduleName,
-                            'sport': sport,
-                            'location': location,
-                            'date': date,
-                            'time': time,
-                            'levelOfCompetition': _levelOfCompetition,
-                            'gender': _gender,
-                            'officialsRequired': _officialsRequiredController.text,
-                            'gameFee': _gameFeeController.text,
-                            'hireAutomatically': _hireAutomatically,
-                          },
-                        );
-                      },
+                      onPressed: _handleContinue,
                       style: elevatedButtonStyle(),
                       child: const Text('Continue', style: signInButtonTextStyle),
                     ),
@@ -157,5 +207,12 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _officialsRequiredController.dispose();
+    _gameFeeController.dispose();
+    super.dispose();
   }
 }
