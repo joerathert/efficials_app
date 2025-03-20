@@ -89,7 +89,7 @@ class _AddNewLocationScreenState extends State<AddNewLocationScreen> {
             padding: const EdgeInsets.all(16),
             child: SingleChildScrollView(
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start, // Left-justify the inputs
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   TextField(
                     controller: _nameController,
@@ -113,7 +113,7 @@ class _AddNewLocationScreenState extends State<AddNewLocationScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       SizedBox(
-                        width: 100, // Narrower width for State
+                        width: 100,
                         child: TextField(
                           controller: _stateController,
                           decoration: textFieldDecoration('State'),
@@ -140,10 +140,12 @@ class _AddNewLocationScreenState extends State<AddNewLocationScreen> {
                     ],
                   ),
                   const SizedBox(height: 60),
-                  ElevatedButton(
-                    onPressed: _handleContinue,
-                    style: elevatedButtonStyle(),
-                    child: const Text('Continue', style: signInButtonTextStyle),
+                  Center( // Center the button
+                    child: ElevatedButton(
+                      onPressed: _handleContinue,
+                      style: elevatedButtonStyle(),
+                      child: const Text('Continue', style: signInButtonTextStyle),
+                    ),
                   ),
                 ],
               ),
