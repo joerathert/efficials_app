@@ -11,19 +11,32 @@ const List<String> usStates = [
   'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY'
 ];
 
-class AddNewLocationScreen extends StatefulWidget {
-  const AddNewLocationScreen({super.key});
+class EditLocationScreen extends StatefulWidget {
+  const EditLocationScreen({super.key});
 
   @override
-  State<AddNewLocationScreen> createState() => _AddNewLocationScreenState();
+  State<EditLocationScreen> createState() => _EditLocationScreenState();
 }
 
-class _AddNewLocationScreenState extends State<AddNewLocationScreen> {
+class _EditLocationScreenState extends State<EditLocationScreen> {
   final _nameController = TextEditingController();
   final _addressController = TextEditingController();
   final _cityController = TextEditingController();
   final _stateController = TextEditingController();
   final _zipCodeController = TextEditingController();
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>?;
+    if (args != null) {
+      _nameController.text = args['name'] as String? ?? '';
+      _addressController.text = args['address'] as String? ?? '';
+      _cityController.text = args['city'] as String? ?? '';
+      _stateController.text = args['state'] as String? ?? '';
+      _zipCodeController.text = args['zip'] as String? ?? '';
+    }
+  }
 
   @override
   void dispose() {
@@ -65,13 +78,15 @@ class _AddNewLocationScreenState extends State<AddNewLocationScreen> {
       return;
     }
 
-    Navigator.pop(context, {
+    final updatedLocation = {
       'name': name,
       'address': address,
       'city': city,
       'state': state,
       'zip': zip,
-    });
+    };
+    print('EditLocationScreen - Returning: $updatedLocation');
+    Navigator.of(context).pop(updatedLocation);
   }
 
   @override
@@ -81,10 +96,10 @@ class _AddNewLocationScreenState extends State<AddNewLocationScreen> {
         backgroundColor: efficialsBlue,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, size: 36, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => Navigator.of(context).pop(),
         ),
         title: const Text(
-          'Add New Location',
+          'Edit Location',
           style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
         ),
       ),

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'theme.dart';
+import 'edit_location_screen.dart';
 
 class LocationsScreen extends StatefulWidget {
   const LocationsScreen({super.key});
@@ -13,27 +14,58 @@ class LocationsScreen extends StatefulWidget {
 class _LocationsScreenState extends State<LocationsScreen> {
   String? selectedLocation;
   List<Map<String, dynamic>> locations = [];
-  bool isLoading = true;
 
   @override
   void initState() {
     super.initState();
+    // Initialize with a default value to avoid empty list
+    locations = [
+      {'name': 'No saved locations', 'id': -1},
+      {'name': '+ Create new location', 'id': 0},
+    ];
+    selectedLocation = locations[0]['name'] as String;
+    print('initState - locations: $locations, selectedLocation: $selectedLocation');
     _fetchLocations();
+  }
+
+  // Helper method to ensure selectedLocation is valid
+  void _validateSelectedLocation() {
+    print('validateSelectedLocation - Before: locations: $locations, selectedLocation: $selectedLocation');
+    if (locations.isEmpty) {
+      locations = [
+        {'name': 'No saved locations', 'id': -1},
+        {'name': '+ Create new location', 'id': 0},
+      ];
+    }
+    if (!locations.any((loc) => loc['name'] == selectedLocation)) {
+      selectedLocation = locations[0]['name'] as String;
+    }
+    print('validateSelectedLocation - After: locations: $locations, selectedLocation: $selectedLocation');
   }
 
   Future<void> _fetchLocations() async {
     final prefs = await SharedPreferences.getInstance();
     final String? locationsJson = prefs.getString('saved_locations');
     setState(() {
+      print('fetchLocations - Before: locations: $locations, selectedLocation: $selectedLocation');
       if (locationsJson != null) {
-        locations = List<Map<String, dynamic>>.from(jsonDecode(locationsJson));
+        List<Map<String, dynamic>> fetchedLocations = List<Map<String, dynamic>>.from(jsonDecode(locationsJson));
+        // Remove duplicates based on the 'name' field
+        locations = [];
+        final seenNames = <String>{};
+        for (var loc in fetchedLocations) {
+          if (!seenNames.contains(loc['name'])) {
+            seenNames.add(loc['name'] as String);
+            locations.add(loc);
+          }
+        }
+        if (locations.isEmpty) {
+          locations.add({'name': 'No saved locations', 'id': -1});
+        }
+        locations.add({'name': '+ Create new location', 'id': 0});
       }
-      if (locations.isEmpty) {
-        locations.add({'name': 'No saved locations', 'id': -1});
-      }
-      locations.add({'name': '+ Create new location', 'id': 0});
-      selectedLocation = locations.isNotEmpty ? locations[0]['name'] as String : null;
-      isLoading = false;
+      _validateSelectedLocation();
+      print('fetchLocations - After: locations: $locations, selectedLocation: $selectedLocation');
     });
   }
 
@@ -58,12 +90,14 @@ class _LocationsScreenState extends State<LocationsScreen> {
             onPressed: () {
               Navigator.pop(context);
               setState(() {
+                print('showDeleteConfirmationDialog - Before: locations: $locations, selectedLocation: $selectedLocation');
                 locations.removeWhere((location) => location['id'] == locationId);
                 if (locations.isEmpty || (locations.length == 1 && locations[0]['id'] == 0)) {
                   locations.insert(0, {'name': 'No saved locations', 'id': -1});
                 }
-                selectedLocation = locations.isNotEmpty ? locations[0]['name'] as String : null;
+                _validateSelectedLocation();
                 _saveLocations();
+                print('showDeleteConfirmationDialog - After: locations: $locations, selectedLocation: $selectedLocation');
               });
             },
             child: const Text('Delete', style: TextStyle(color: efficialsBlue)),
@@ -75,6 +109,10 @@ class _LocationsScreenState extends State<LocationsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Validate selectedLocation before rendering
+    _validateSelectedLocation();
+    print('build - locations: $locations, selectedLocation: $selectedLocation');
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: efficialsBlue,
@@ -106,32 +144,53 @@ class _LocationsScreenState extends State<LocationsScreen> {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 60),
-                  isLoading
+                  locations.isEmpty || selectedLocation == null
                       ? const CircularProgressIndicator()
                       : DropdownButtonFormField<String>(
                           decoration: textFieldDecoration('Locations'),
                           value: selectedLocation,
                           onChanged: (newValue) {
                             setState(() {
+                              print('Dropdown onChanged - Before: newValue: $newValue, selectedLocation: $selectedLocation');
                               selectedLocation = newValue;
                               if (newValue == '+ Create new location') {
                                 Navigator.pushNamed(context, '/add_new_location').then((result) {
                                   if (result != null) {
                                     setState(() {
+                                      print('Add new location - Before: locations: $locations, selectedLocation: $selectedLocation');
                                       if (locations.any((l) => l['name'] == 'No saved locations')) {
                                         locations.removeWhere((l) => l['name'] == 'No saved locations');
                                       }
-                                      locations.insert(0, {'name': result as String, 'id': locations.length + 1});
-                                      selectedLocation = result;
-                                      _saveLocations();
+                                      final newLocation = result as Map<String, dynamic>;
+                                      // Check for duplicate names before adding
+                                      if (!locations.any((loc) => loc['name'] == newLocation['name'])) {
+                                        locations.insert(0, {
+                                          'name': newLocation['name'],
+                                          'address': newLocation['address'],
+                                          'city': newLocation['city'],
+                                          'state': newLocation['state'],
+                                          'zip': newLocation['zip'],
+                                          'id': locations.length + 1,
+                                        });
+                                        selectedLocation = newLocation['name'] as String;
+                                        _saveLocations();
+                                      } else {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(content: Text('A location with this name already exists!')),
+                                        );
+                                        _validateSelectedLocation();
+                                      }
+                                      print('Add new location - After: locations: $locations, selectedLocation: $selectedLocation');
                                     });
                                   } else {
-                                    selectedLocation = locations.isNotEmpty ? locations[0]['name'] as String : null;
+                                    _validateSelectedLocation();
+                                    print('Add new location cancelled - After: locations: $locations, selectedLocation: $selectedLocation');
                                   }
                                 });
                               } else if (newValue != 'No saved locations' && !newValue!.startsWith('Error')) {
                                 selectedLocation = newValue;
                               }
+                              print('Dropdown onChanged - After: selectedLocation: $selectedLocation');
                             });
                           },
                           items: locations.map((location) {
@@ -152,7 +211,44 @@ class _LocationsScreenState extends State<LocationsScreen> {
                       selectedLocation != 'No saved locations' &&
                       !selectedLocation!.startsWith('Error')) ...[
                     ElevatedButton(
-                      onPressed: () {},
+                      onPressed: () {
+                        final selected = locations.firstWhere((l) => l['name'] == selectedLocation);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const EditLocationScreen(),
+                            settings: RouteSettings(arguments: selected),
+                          ),
+                        ).then((result) {
+                          if (result != null) {
+                            setState(() {
+                              print('Edit location - Before: locations: $locations, selectedLocation: $selectedLocation');
+                              final updatedLocation = result as Map<String, dynamic>;
+                              final index = locations.indexWhere((l) => l['id'] == selected['id']);
+                              if (index != -1) {
+                                // Check for duplicate names before updating
+                                if (!locations.any((loc) => loc['name'] == updatedLocation['name'] && loc['id'] != selected['id'])) {
+                                  locations[index] = {
+                                    ...updatedLocation,
+                                    'id': selected['id'], // Preserve the original ID
+                                  };
+                                  selectedLocation = updatedLocation['name'] as String;
+                                  _saveLocations();
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Location updated!')),
+                                  );
+                                } else {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('A location with this name already exists!')),
+                                  );
+                                  _validateSelectedLocation();
+                                }
+                              }
+                              print('Edit location - After: locations: $locations, selectedLocation: $selectedLocation');
+                            });
+                          }
+                        });
+                      },
                       style: elevatedButtonStyle(),
                       child: const Text('Edit Location', style: signInButtonTextStyle),
                     ),
