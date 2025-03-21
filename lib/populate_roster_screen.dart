@@ -37,13 +37,25 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
     if (!isInitialized) {
       final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
       if (args != null) {
-        initialOfficials = args['selectedOfficials'] as List<Map<String, dynamic>>? ?? [];
+        initialOfficials = (args['selectedOfficials'] as List<dynamic>?)?.map((item) {
+          return Map<String, dynamic>.from(item as Map);
+        }).toList() ?? [];
         isFromGameCreation = args['method'] == 'standard';
         isEdit = args['isEdit'] == true;
+
+        // Ensure initialOfficials have valid IDs and populate selectedOfficials
         for (var official in initialOfficials) {
-          selectedOfficials[official['id'] as int] = true;
+          final officialId = official['id'];
+          if (officialId is int) {
+            selectedOfficials[officialId] = true;
+          } else {
+            // If ID is invalid, assign a temporary one to avoid issues
+            official['id'] = DateTime.now().millisecondsSinceEpoch + initialOfficials.indexOf(official);
+            selectedOfficials[official['id'] as int] = true;
+          }
         }
-        // Initialize filteredOfficials with initialOfficials if they exist
+
+        // Initialize officials lists with initialOfficials if they exist
         if (initialOfficials.isNotEmpty) {
           officials = List.from(initialOfficials);
           filteredOfficials = List.from(initialOfficials);
@@ -197,13 +209,26 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
                               Row(
                                 children: [
                                   Checkbox(
-                                    value: filteredOfficials.every((o) => selectedOfficials[o['id']] ?? false),
+                                    value: filteredOfficials.every((o) {
+                                      final officialId = o['id'];
+                                      return officialId is int && (selectedOfficials[officialId] ?? false);
+                                    }),
                                     onChanged: (value) {
                                       setState(() {
                                         if (value == true) {
-                                          for (final o in filteredOfficials) selectedOfficials[o['id']] = true;
+                                          for (final o in filteredOfficials) {
+                                            final officialId = o['id'];
+                                            if (officialId is int) {
+                                              selectedOfficials[officialId] = true;
+                                            }
+                                          }
                                         } else {
-                                          for (final o in filteredOfficials) selectedOfficials.remove(o['id']);
+                                          for (final o in filteredOfficials) {
+                                            final officialId = o['id'];
+                                            if (officialId is int) {
+                                              selectedOfficials.remove(officialId);
+                                            }
+                                          }
                                         }
                                       });
                                     },
@@ -217,7 +242,10 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
                                   itemCount: filteredOfficials.length,
                                   itemBuilder: (context, index) {
                                     final official = filteredOfficials[index];
-                                    final officialId = official['id'] as int;
+                                    final officialId = official['id'];
+                                    if (officialId == null || officialId is! int) {
+                                      return const SizedBox.shrink(); // Skip invalid entries
+                                    }
                                     return ListTile(
                                       leading: IconButton(
                                         icon: Icon(
@@ -272,7 +300,10 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
                   ElevatedButton(
                     onPressed: selectedCount > 0
                         ? () {
-                            final selected = officials.where((o) => selectedOfficials[o['id']] ?? false).toList();
+                            final selected = officials.where((o) {
+                              final officialId = o['id'];
+                              return officialId is int && (selectedOfficials[officialId] ?? false);
+                            }).toList();
                             Navigator.pushNamed(
                               context,
                               isFromGameCreation ? '/review_game_info' : '/review_list',

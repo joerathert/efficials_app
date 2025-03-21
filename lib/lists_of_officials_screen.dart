@@ -15,11 +15,11 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
   String? selectedList;
   List<Map<String, dynamic>> lists = [];
   bool isLoading = true;
+  bool isFromGameCreation = false;
 
   @override
   void initState() {
     super.initState();
-    // Initialize with default values to avoid empty lists
     lists = [
       {'name': 'No saved lists', 'id': -1},
       {'name': '+ Create new list', 'id': 0},
@@ -28,17 +28,23 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
     _fetchLists();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    if (args != null) {
+      isFromGameCreation = args['fromGameCreation'] == true;
+    }
+  }
+
   Future<void> _fetchLists() async {
     final prefs = await SharedPreferences.getInstance();
     final String? listsJson = prefs.getString('saved_lists');
     setState(() {
-      print('fetchLists - Raw JSON from SharedPreferences: $listsJson');
       if (listsJson != null && listsJson.isNotEmpty) {
         try {
           lists = List<Map<String, dynamic>>.from(jsonDecode(listsJson));
-          print('fetchLists - Decoded lists: $lists');
         } catch (e) {
-          print('Error decoding lists: $e');
           lists = [];
         }
       }
@@ -47,7 +53,6 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
       }
       lists.add({'name': '+ Create new list', 'id': 0});
       selectedList = lists.isNotEmpty ? lists[0]['name'] as String : null;
-      print('fetchLists - Final lists: $lists, selectedList: $selectedList');
       isLoading = false;
     });
   }
@@ -55,9 +60,7 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
   Future<void> _saveLists() async {
     final prefs = await SharedPreferences.getInstance();
     final listsToSave = lists.where((list) => list['id'] != 0 && list['id'] != -1).toList();
-    print('saveLists - Saving lists: $listsToSave');
     await prefs.setString('saved_lists', jsonEncode(listsToSave));
-    print('saveLists - Saved to SharedPreferences: ${prefs.getString('saved_lists')}');
   }
 
   void _showDeleteConfirmationDialog(String listName, int listId) {
@@ -75,13 +78,11 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
             onPressed: () {
               Navigator.pop(context);
               setState(() {
-                print('showDeleteConfirmationDialog - Before: lists: $lists, selectedList: $selectedList');
                 lists.removeWhere((list) => list['id'] == listId);
                 if (lists.isEmpty || (lists.length == 1 && lists[0]['id'] == 0)) {
                   lists.insert(0, {'name': 'No saved lists', 'id': -1});
                 }
                 selectedList = lists.isNotEmpty ? lists[0]['name'] as String : null;
-                print('showDeleteConfirmationDialog - After: lists: $lists, selectedList: $selectedList');
                 _saveLists();
               });
             },
@@ -90,6 +91,29 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
         ],
       ),
     );
+  }
+
+  void _handleContinue() {
+    final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+    final selected = lists.firstWhere((l) => l['name'] == selectedList);
+    final officialsRaw = selected['officials'];
+    List<Map<String, dynamic>> selectedOfficials = [];
+
+    if (officialsRaw != null) {
+      if (officialsRaw is List) {
+        selectedOfficials = officialsRaw.cast<Map<String, dynamic>>();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Invalid officials data in the selected list')),
+        );
+        return;
+      }
+    }
+
+    Navigator.pop(context, {
+      ...args,
+      'selectedOfficials': selectedOfficials,
+    });
   }
 
   @override
@@ -114,8 +138,6 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
     if (selectedList == null || !dropdownItems.any((item) => item.value == selectedList)) {
       selectedList = dropdownItems.isNotEmpty ? dropdownItems[0].value : null;
     }
-
-    print('build - lists: $lists, selectedList: $selectedList');
 
     return Scaffold(
       appBar: AppBar(
@@ -155,7 +177,6 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                           value: selectedList,
                           onChanged: (newValue) {
                             setState(() {
-                              print('Dropdown onChanged - Before: newValue: $newValue, selectedList: $selectedList');
                               selectedList = newValue;
                               if (newValue == '+ Create new list') {
                                 final existingListNames = lists
@@ -167,10 +188,8 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                                   '/create_new_list',
                                   arguments: {'existingLists': existingListNames},
                                 ).then((result) async {
-                                  print('Create new list - Returned result: $result');
                                   if (result != null) {
                                     setState(() {
-                                      print('Create new list - Before: lists: $lists, selectedList: $selectedList');
                                       if (lists.any((l) => l['name'] == 'No saved lists')) {
                                         lists.removeWhere((l) => l['name'] == 'No saved lists');
                                       }
@@ -183,7 +202,6 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                                           'id': lists.length + 1,
                                         });
                                         selectedList = newList['listName'] as String;
-                                        print('Create new list - After adding: lists: $lists, selectedList: $selectedList');
                                       } else {
                                         ScaffoldMessenger.of(context).showSnackBar(
                                           const SnackBar(content: Text('A list with this name already exists!')),
@@ -193,16 +211,13 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                                     });
                                     await _saveLists();
                                     await _fetchLists();
-                                    print('Create new list - After reload: lists: $lists, selectedList: $selectedList');
                                   } else {
-                                    print('Create new list - Result was null, no list added');
                                     selectedList = lists.isNotEmpty ? lists[0]['name'] as String : null;
                                   }
                                 });
                               } else if (newValue != 'No saved lists' && !newValue!.startsWith('Error')) {
                                 selectedList = newValue;
                               }
-                              print('Dropdown onChanged - After: selectedList: $selectedList');
                             });
                           },
                           items: dropdownItems,
@@ -214,48 +229,39 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                       !selectedList!.startsWith('Error')) ...[
                     ElevatedButton(
                       onPressed: () {
-                        try {
-                          final selected = lists.firstWhere((l) => l['name'] == selectedList);
-                          Navigator.pushNamed(
-                            context,
-                            '/edit_list',
-                            arguments: {
-                              'listName': selected['name'] as String? ?? 'Unnamed List',
-                              'listId': selected['id'] as int? ?? -1,
-                              'officials': selected['officials'] as List<Map<String, dynamic>>? ?? [],
-                            },
-                          ).then((result) async {
-                            if (result != null) {
-                              setState(() {
-                                print('Edit list - Before: lists: $lists, selectedList: $selectedList');
-                                final updatedList = result as Map<String, dynamic>;
-                                final index = lists.indexWhere((l) => l['name'] == selected['name']);
-                                if (index != -1) {
-                                  if (!lists.any((list) => list['name'] == updatedList['name'] && list['id'] != selected['id'])) {
-                                    lists[index] = updatedList;
-                                    selectedList = updatedList['name'] as String;
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('List updated!')),
-                                    );
-                                  } else {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('A list with this name already exists!')),
-                                    );
-                                    selectedList = lists.isNotEmpty ? lists[0]['name'] as String : null;
-                                  }
+                        final selected = lists.firstWhere((l) => l['name'] == selectedList);
+                        Navigator.pushNamed(
+                          context,
+                          '/edit_list',
+                          arguments: {
+                            'listName': selected['name'] as String? ?? 'Unnamed List',
+                            'listId': selected['id'] as int? ?? -1,
+                            'officials': selected['officials'] as List<Map<String, dynamic>>? ?? [],
+                          },
+                        ).then((result) async {
+                          if (result != null) {
+                            setState(() {
+                              final updatedList = result as Map<String, dynamic>;
+                              final index = lists.indexWhere((l) => l['name'] == selected['name']);
+                              if (index != -1) {
+                                if (!lists.any((list) => list['name'] == updatedList['name'] && list['id'] != selected['id'])) {
+                                  lists[index] = updatedList;
+                                  selectedList = updatedList['name'] as String;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('List updated!')),
+                                  );
+                                } else {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('A list with this name already exists!')),
+                                  );
+                                  selectedList = lists.isNotEmpty ? lists[0]['name'] as String : null;
                                 }
-                                print('Edit list - After: lists: $lists, selectedList: $selectedList');
-                              });
-                              await _saveLists();
-                              await _fetchLists();
-                            }
-                          });
-                        } catch (e) {
-                          print('Error navigating to EditListScreen: $e');
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Error editing list: $e')),
-                          );
-                        }
+                              }
+                            });
+                            await _saveLists();
+                            await _fetchLists();
+                          }
+                        });
                       },
                       style: elevatedButtonStyle(),
                       child: const Text('Edit List', style: signInButtonTextStyle),
@@ -269,6 +275,14 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                       style: elevatedButtonStyle(backgroundColor: Colors.red),
                       child: const Text('Delete List', style: signInButtonTextStyle),
                     ),
+                    if (isFromGameCreation) ...[
+                      const SizedBox(height: 8),
+                      ElevatedButton(
+                        onPressed: _handleContinue,
+                        style: elevatedButtonStyle(),
+                        child: const Text('Continue', style: signInButtonTextStyle),
+                      ),
+                    ],
                   ],
                 ],
               ),

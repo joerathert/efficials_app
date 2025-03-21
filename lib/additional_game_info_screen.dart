@@ -117,7 +117,7 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
     final scheduleName = args['scheduleName'] as String;
     final sport = args['sport'] as String;
     final location = args['location'] as String;
-    final DateTime date = args['date'] as DateTime;
+    final DateTime date = args['date'] as DateTime? ?? DateTime.now(); // Default to now if null
     final TimeOfDay time = args['time'] as TimeOfDay;
 
     final List<String> currentGenders = _levelOfCompetition == 'College' || _levelOfCompetition == 'Adult'

@@ -30,9 +30,9 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
   @override
   Widget build(BuildContext context) {
     final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
-    final sport = args['sport'] as String? ?? 'Baseball'; // Default sport
-    final listName = args['scheduleName'] as String? ?? 'New Roster'; // Use scheduleName as fallback
-    final listId = args['listId'] as int? ?? DateTime.now().millisecondsSinceEpoch; // Unique default ID
+    final sport = args['sport'] as String? ?? 'Baseball';
+    final listName = args['scheduleName'] as String? ?? 'New Roster';
+    final listId = args['listId'] as int? ?? DateTime.now().millisecondsSinceEpoch;
 
     return Scaffold(
       appBar: AppBar(
@@ -72,7 +72,7 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
                           'listName': listName,
                           'listId': listId,
                           'method': 'standard',
-                          'requiredCount': 2, // Adjust as needed
+                          'requiredCount': 2,
                         },
                       );
                     },
@@ -86,6 +86,25 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
                     },
                     style: elevatedButtonStyle(),
                     child: const Text('Advanced', style: signInButtonTextStyle),
+                  ),
+                  const SizedBox(height: 20),
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.pushNamed(
+                        context,
+                        '/lists_of_officials',
+                        arguments: {
+                          ...args,
+                          'fromGameCreation': true, // Flag to indicate coming from Select Officials
+                        },
+                      ).then((result) {
+                        if (result != null) {
+                          Navigator.pushNamed(context, '/review_game_info', arguments: result);
+                        }
+                      });
+                    },
+                    style: elevatedButtonStyle(),
+                    child: const Text('Use List', style: signInButtonTextStyle),
                   ),
                   const SizedBox(height: 20),
                   GestureDetector(
