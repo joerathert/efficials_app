@@ -154,12 +154,20 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                                 if (newValue == '+ Create new location') {
                                   Navigator.pushNamed(context, '/add_new_location').then((result) {
                                     if (result != null) {
+                                      final newLocation = result as Map<String, dynamic>;
                                       setState(() {
                                         if (locations.any((l) => l['name'] == 'No saved locations')) {
                                           locations.removeWhere((l) => l['name'] == 'No saved locations');
                                         }
-                                        locations.insert(0, {'name': result as String, 'id': locations.length + 1});
-                                        selectedLocation = result;
+                                        locations.insert(0, {
+                                          'name': newLocation['name'],
+                                          'address': newLocation['address'],
+                                          'city': newLocation['city'],
+                                          'state': newLocation['state'],
+                                          'zip': newLocation['zip'],
+                                          'id': locations.length + 1,
+                                        });
+                                        selectedLocation = newLocation['name'] as String;
                                         _saveLocations();
                                         print('Create new - Updated locations: $locations, selectedLocation: $selectedLocation');
                                       });
@@ -192,7 +200,32 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                       selectedLocation != 'No saved locations' &&
                       !selectedLocation!.startsWith('Error')) ...[
                     ElevatedButton(
-                      onPressed: () {},
+                      onPressed: () {
+                        final selected = locations.firstWhere((l) => l['name'] == selectedLocation);
+                        Navigator.pushNamed(context, '/edit_location', arguments: {
+                          'locationName': selectedLocation,
+                          'locationId': selected['id'],
+                        }).then((result) {
+                          if (result != null) {
+                            final updatedLocation = result as Map<String, dynamic>;
+                            setState(() {
+                              final index = locations.indexWhere((l) => l['id'] == selected['id']);
+                              if (index != -1) {
+                                locations[index] = {
+                                  'name': updatedLocation['name'],
+                                  'address': updatedLocation['address'],
+                                  'city': updatedLocation['city'],
+                                  'state': updatedLocation['state'],
+                                  'zip': updatedLocation['zip'],
+                                  'id': selected['id'],
+                                };
+                                selectedLocation = updatedLocation['name'] as String;
+                                _saveLocations();
+                              }
+                            });
+                          }
+                        });
+                      },
                       style: elevatedButtonStyle(),
                       child: const Text('Edit Location', style: signInButtonTextStyle),
                     ),

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 import 'theme.dart';
 
 // List of 50 US states (abbreviations)
@@ -24,17 +26,34 @@ class _EditLocationScreenState extends State<EditLocationScreen> {
   final _cityController = TextEditingController();
   final _stateController = TextEditingController();
   final _zipCodeController = TextEditingController();
+  int? locationId;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>?;
     if (args != null) {
-      _nameController.text = args['name'] as String? ?? '';
-      _addressController.text = args['address'] as String? ?? '';
-      _cityController.text = args['city'] as String? ?? '';
-      _stateController.text = args['state'] as String? ?? '';
-      _zipCodeController.text = args['zip'] as String? ?? '';
+      locationId = args['locationId'] as int?;
+      _loadLocationData();
+    }
+  }
+
+  Future<void> _loadLocationData() async {
+    if (locationId == null) return;
+    final prefs = await SharedPreferences.getInstance();
+    final String? locationsJson = prefs.getString('saved_locations');
+    if (locationsJson != null) {
+      final List<Map<String, dynamic>> locations = List<Map<String, dynamic>>.from(jsonDecode(locationsJson));
+      final location = locations.firstWhere((loc) => loc['id'] == locationId, orElse: () => {});
+      if (location.isNotEmpty) {
+        setState(() {
+          _nameController.text = location['name'] as String? ?? '';
+          _addressController.text = location['address'] as String? ?? '';
+          _cityController.text = location['city'] as String? ?? '';
+          _stateController.text = location['state'] as String? ?? '';
+          _zipCodeController.text = location['zip'] as String? ?? '';
+        });
+      }
     }
   }
 
