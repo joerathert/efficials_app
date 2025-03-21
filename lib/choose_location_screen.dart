@@ -27,10 +27,9 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
-    if (args != null && selectedLocation == null) { // Only set initial value if not user-selected
+    if (args != null && selectedLocation == null) {
       selectedLocation = args['location'] as String?;
-      isFromEdit = args['isEdit'] == true; // Changed from 'fromEdit' to 'isEdit' for consistency
-      // Ensure selectedLocation matches an existing item
+      isFromEdit = args['isEdit'] == true;
       if (selectedLocation != null && !locations.any((loc) => loc['name'] == selectedLocation)) {
         selectedLocation = locations.isNotEmpty ? locations[0]['name'] as String : null;
       }
@@ -51,7 +50,6 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
         locations.add({'name': 'No saved locations', 'id': -1});
       }
       locations.add({'name': '+ Create new location', 'id': 0});
-      // Ensure selectedLocation matches an existing item
       if (selectedLocation == null || !locations.any((loc) => loc['name'] == selectedLocation)) {
         selectedLocation = locations.isNotEmpty ? locations[0]['name'] as String : null;
       }
@@ -85,7 +83,6 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                 if (locations.isEmpty || (locations.length == 1 && locations[0]['id'] == 0)) {
                   locations.insert(0, {'name': 'No saved locations', 'id': -1});
                 }
-                // Reset selectedLocation if it no longer exists
                 if (!locations.any((loc) => loc['name'] == selectedLocation)) {
                   selectedLocation = locations.isNotEmpty ? locations[0]['name'] as String : null;
                 }
@@ -104,8 +101,17 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
   Widget build(BuildContext context) {
     print('build - Current selectedLocation: $selectedLocation, isLoading: $isLoading');
     final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
-    final scheduleName = args['scheduleName'] as String;
-    final sport = args['sport'] as String;
+    final scheduleName = args['scheduleName'] as String? ?? 'Unnamed Schedule';
+    final sport = args['sport'] as String? ?? 'Unknown Sport';
+    final location = args['location'] as String?;
+    final date = args['date'] as DateTime?;
+    final time = args['time'] as TimeOfDay?;
+    final levelOfCompetition = args['levelOfCompetition'] as String?;
+    final gender = args['gender'] as String?;
+    final officialsRequired = args['officialsRequired'] as String?;
+    final gameFee = args['gameFee'] as String?;
+    final hireAutomatically = args['hireAutomatically'] as bool?;
+    final selectedOfficials = args['selectedOfficials'] as List<Map<String, dynamic>>? ?? [];
 
     return Scaffold(
       appBar: AppBar(
@@ -158,7 +164,6 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                                         print('Create new - Updated locations: $locations, selectedLocation: $selectedLocation');
                                       });
                                     } else {
-                                      // Reset selectedLocation if it no longer exists
                                       if (!locations.any((loc) => loc['name'] == selectedLocation)) {
                                         selectedLocation = locations.isNotEmpty ? locations[0]['name'] as String : null;
                                       }
@@ -210,15 +215,23 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                           ? null
                           : () {
                               print('Continue pressed - Selected Location: $selectedLocation, isFromEdit: $isFromEdit');
-                              final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
                               if (isFromEdit) {
                                 Navigator.pushNamedAndRemoveUntil(
                                   context,
                                   '/review_game_info',
                                   (route) => route.settings.name == '/review_game_info',
                                   arguments: {
-                                    ...args,
+                                    'scheduleName': scheduleName,
+                                    'sport': sport,
                                     'location': selectedLocation,
+                                    'date': date,
+                                    'time': time,
+                                    'levelOfCompetition': levelOfCompetition,
+                                    'gender': gender,
+                                    'officialsRequired': officialsRequired,
+                                    'gameFee': gameFee,
+                                    'hireAutomatically': hireAutomatically,
+                                    'selectedOfficials': selectedOfficials,
                                   },
                                 );
                               } else {

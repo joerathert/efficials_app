@@ -21,16 +21,17 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
   @override
   Widget build(BuildContext context) {
     final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
-    final scheduleName = args['scheduleName'] as String;
-    final sport = args['sport'] as String;
-    final location = args['location'] as String;
-    final date = args['date'] as DateTime;
-    final time = args['time'] as TimeOfDay;
+    final scheduleName = args['scheduleName'] as String? ?? 'Unnamed Schedule';
+    final sport = args['sport'] as String? ?? 'Unknown Sport';
+    final location = args['location'] as String? ?? 'Unknown Location';
+    final date = args['date'] as DateTime? ?? DateTime.now();
+    final time = args['time'] as TimeOfDay? ?? const TimeOfDay(hour: 12, minute: 0);
     final levelOfCompetition = args['levelOfCompetition'] as String?;
     final gender = args['gender'] as String?;
     final officialsRequired = args['officialsRequired'] as String?;
     final gameFee = args['gameFee'] as String?;
     final hireAutomatically = args['hireAutomatically'] as bool?;
+    final selectedOfficials = args['selectedOfficials'] as List<Map<String, dynamic>>? ?? [];
 
     return Scaffold(
       key: _scaffoldKey,
@@ -56,7 +57,7 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
                 children: [
                   const SizedBox(height: 20),
                   SizedBox(
-                    width: 300, // Increased width for wrapping text
+                    width: 300,
                     child: ElevatedButton(
                       onPressed: () {
                         Navigator.pushNamed(context, '/choose_location', arguments: {
@@ -65,7 +66,7 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
                         });
                       },
                       style: elevatedButtonStyle().copyWith(
-                        minimumSize: MaterialStateProperty.all(const Size(300, 60)), // Adjusted height
+                        minimumSize: MaterialStateProperty.all(const Size(300, 60)),
                         padding: MaterialStateProperty.all(const EdgeInsets.symmetric(vertical: 10, horizontal: 20)),
                       ),
                       child: const Text(
@@ -122,9 +123,20 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
                     width: 300,
                     child: ElevatedButton(
                       onPressed: () {
-                        Navigator.pushNamed(context, '/select_officials', arguments: {
-                          ...args,
+                        Navigator.pushNamed(context, '/populate_roster', arguments: {
+                          'sport': sport,
+                          'listName': scheduleName,
+                          'selectedOfficials': selectedOfficials,
+                          'method': 'standard',
                           'isEdit': true,
+                        }).then((result) {
+                          if (result != null) {
+                            final updatedOfficials = (result as Map<String, dynamic>)['officials'] as List<Map<String, dynamic>>;
+                            Navigator.pop(context, {
+                              ...args,
+                              'selectedOfficials': updatedOfficials,
+                            });
+                          }
                         });
                       },
                       style: elevatedButtonStyle().copyWith(

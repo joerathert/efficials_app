@@ -21,6 +21,7 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
   bool isInitialized = false;
   bool showSaveListButton = true;
   bool isFromGameCreation = false;
+  bool isEdit = false;
   final TextEditingController _listNameController = TextEditingController();
 
   @override
@@ -38,23 +39,39 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
       if (args != null) {
         initialOfficials = args['selectedOfficials'] as List<Map<String, dynamic>>? ?? [];
         isFromGameCreation = args['method'] == 'standard';
+        isEdit = args['isEdit'] == true;
         for (var official in initialOfficials) {
           selectedOfficials[official['id'] as int] = true;
         }
+        // Initialize filteredOfficials with initialOfficials if they exist
+        if (initialOfficials.isNotEmpty) {
+          officials = List.from(initialOfficials);
+          filteredOfficials = List.from(initialOfficials);
+          filteredOfficialsWithoutSearch = List.from(initialOfficials);
+          filtersApplied = true; // Treat as if filters are applied to show the list
+        }
       }
       isInitialized = true;
-      _loadOfficials();
+      if (initialOfficials.isEmpty) {
+        _loadOfficials();
+      }
     }
   }
 
   Future<void> _loadOfficials() async {
     setState(() => isLoading = true);
-    officials = [
+    List<Map<String, dynamic>> newOfficials = [
       {'id': 1, 'name': 'John Doe', 'cityState': 'Chicago, IL', 'distance': 5.2, 'yearsExperience': 10},
       {'id': 2, 'name': 'Jane Smith', 'cityState': 'Naperville, IL', 'distance': 15.7, 'yearsExperience': 8},
       {'id': 3, 'name': 'Mike Johnson', 'cityState': 'Aurora, IL', 'distance': 10.0, 'yearsExperience': 12},
     ];
     setState(() {
+      // Merge new officials with initial officials, avoiding duplicates
+      for (var newOfficial in newOfficials) {
+        if (!officials.any((o) => o['id'] == newOfficial['id'])) {
+          officials.add(newOfficial);
+        }
+      }
       filteredOfficials = List.from(officials);
       filteredOfficialsWithoutSearch = List.from(officials);
       isLoading = false;
@@ -65,14 +82,7 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
     setState(() {
       filterSettings = settings;
       filtersApplied = true;
-      filteredOfficials = officials; // Simplified for demo; apply real filters here
-      filteredOfficialsWithoutSearch = List.from(filteredOfficials);
-      if (searchQuery.isNotEmpty) {
-        filteredOfficials = filteredOfficials
-            .where((o) => o['name'].toString().toLowerCase().contains(searchQuery.toLowerCase()))
-            .toList();
-      }
-      isLoading = false;
+      _loadOfficials(); // Reload officials with new filters
     });
   }
 
@@ -143,7 +153,7 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          isFromGameCreation ? 'Select Officials for Game' : 'Find Officials',
+          isEdit ? 'Edit Selected Officials' : (isFromGameCreation ? 'Select Officials for Game' : 'Find Officials'),
           style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
         ),
       ),
@@ -151,7 +161,7 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
         children: [
           if (isLoading) ...[
             const Expanded(child: Center(child: CircularProgressIndicator())),
-          ] else if (!filtersApplied) ...[
+          ] else if (!filtersApplied && initialOfficials.isEmpty) ...[
             const Expanded(
               child: Center(
                 child: Text(
@@ -251,7 +261,7 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
         ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-      bottomNavigationBar: filtersApplied
+      bottomNavigationBar: filtersApplied || initialOfficials.isNotEmpty
           ? Padding(
               padding: const EdgeInsets.all(32),
               child: Column(
@@ -269,7 +279,6 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
                               arguments: {...args, 'selectedOfficials': selected},
                             ).then((result) {
                               if (result != null) {
-                                // Ensure the result is propagated back to ListsOfOfficialsScreen
                                 Navigator.pop(context, result);
                               }
                             });
