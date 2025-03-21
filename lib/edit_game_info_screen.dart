@@ -18,6 +18,49 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
     print('didChangeDependencies - EditGameInfo Args: $args');
   }
 
+  void _handleEditOfficials(Map<String, dynamic> args) {
+    final method = args['method'] as String? ?? 'standard';
+    final scheduleName = args['scheduleName'] as String? ?? 'Unnamed Schedule';
+    final sport = args['sport'] as String? ?? 'Unknown Sport';
+    final selectedOfficials = args['selectedOfficials'] as List<Map<String, dynamic>>? ?? [];
+
+    String route;
+    Map<String, dynamic> routeArgs = {
+      ...args,
+      'isEdit': true,
+    };
+
+    switch (method) {
+      case 'advanced':
+        route = '/advanced_officials_selection';
+        routeArgs['selectedLists'] = args['selectedLists'] ?? [];
+        break;
+      case 'use_list':
+        route = '/lists_of_officials';
+        routeArgs['fromGameCreation'] = true;
+        break;
+      case 'standard':
+      default:
+        route = '/populate_roster';
+        routeArgs = {
+          'sport': sport,
+          'listName': scheduleName,
+          'selectedOfficials': selectedOfficials,
+          'method': 'standard',
+          'isEdit': true,
+        };
+        break;
+    }
+
+    Navigator.pushNamed(context, route, arguments: routeArgs).then((result) {
+      if (result != null) {
+        final updatedArgs = result as Map<String, dynamic>;
+        print('EditGameInfoScreen - Updated Args from $route: $updatedArgs');
+        Navigator.pop(context, updatedArgs); // Ensure the updated args (including selectedListName) are passed back
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
@@ -122,23 +165,7 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
                   SizedBox(
                     width: 300,
                     child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.pushNamed(context, '/populate_roster', arguments: {
-                          'sport': sport,
-                          'listName': scheduleName,
-                          'selectedOfficials': selectedOfficials,
-                          'method': 'standard',
-                          'isEdit': true,
-                        }).then((result) {
-                          if (result != null) {
-                            final updatedOfficials = (result as Map<String, dynamic>)['officials'] as List<Map<String, dynamic>>;
-                            Navigator.pop(context, {
-                              ...args,
-                              'selectedOfficials': updatedOfficials,
-                            });
-                          }
-                        });
-                      },
+                      onPressed: () => _handleEditOfficials(args),
                       style: elevatedButtonStyle().copyWith(
                         minimumSize: MaterialStateProperty.all(const Size(300, 60)),
                         padding: MaterialStateProperty.all(const EdgeInsets.symmetric(vertical: 10, horizontal: 20)),

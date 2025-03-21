@@ -41,7 +41,6 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
       'Location': args['location'] as String? ?? 'Not set',
       'Officials Required': args['officialsRequired'] as String? ?? '0',
       'Game Fee per Official': args['gameFee'] != null ? '\$${args['gameFee']}' : 'Not set',
-      'Method': args['method'] == 'standard' ? 'Standard' : (args['method'] as String? ?? 'Not specified'),
       'Gender': args['gender'] != null
           ? (isAdultLevel
               ? {'boys': 'Men', 'girls': 'Women', 'co-ed': 'Co-ed'}[(args['gender'] as String).toLowerCase()] ??
@@ -90,35 +89,57 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
             ),
           ),
           SliverToBoxAdapter(
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 600),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      ...gameDetails.entries.map(
-                        (e) => Padding(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 600),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ...gameDetails.entries.map(
+                      (e) => Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Text('${e.key}: ${e.value}', style: const TextStyle(fontSize: 16)),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    const Text('Selected Officials', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 10),
+                    if (args['selectedOfficials'] == null || (args['selectedOfficials'] as List).isEmpty)
+                      const Text('No officials selected.', style: TextStyle(fontSize: 16, color: Colors.grey))
+                    else if (args['method'] == 'advanced' && args['selectedLists'] != null) ...[
+                      // Display summary for Advanced method
+                      ...((args['selectedLists'] as List<Map<String, dynamic>>).map(
+                        (list) => Padding(
                           padding: const EdgeInsets.symmetric(vertical: 4),
-                          child: Text('${e.key}: ${e.value}', style: const TextStyle(fontSize: 16)),
+                          child: Text(
+                            '${list['name']}: Min ${list['minOfficials']}, Max ${list['maxOfficials']}',
+                            style: const TextStyle(fontSize: 16),
+                          ),
+                        ),
+                      )),
+                    ]
+                    else if (args['method'] == 'use_list' && args['selectedListName'] != null) ...[
+                      // Display summary for Use List method
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Text(
+                          'List Used: ${args['selectedListName']}',
+                          style: const TextStyle(fontSize: 16),
                         ),
                       ),
-                      const SizedBox(height: 20),
-                      const Text('Selected Officials', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 10),
-                      if (args['selectedOfficials'] == null || (args['selectedOfficials'] as List).isEmpty)
-                        const Text('No officials selected.', style: TextStyle(fontSize: 16, color: Colors.grey))
-                      else
-                        ...((args['selectedOfficials'] as List<Map<String, dynamic>>).map(
-                          (official) => ListTile(
-                            title: Text(official['name'] as String),
-                            subtitle: Text('Distance: ${(official['distance'] as num?)?.toStringAsFixed(1) ?? '0.0'} mi'),
-                          ),
-                        )),
-                      const SizedBox(height: 100),
+                    ]
+                    else ...[
+                      // Display detailed officials list for Standard method
+                      ...((args['selectedOfficials'] as List<Map<String, dynamic>>).map(
+                        (official) => ListTile(
+                          title: Text(official['name'] as String),
+                          subtitle: Text('Distance: ${(official['distance'] as num?)?.toStringAsFixed(1) ?? '0.0'} mi'),
+                        ),
+                      )),
                     ],
-                  ),
+                    const SizedBox(height: 100),
+                  ],
                 ),
               ),
             ),

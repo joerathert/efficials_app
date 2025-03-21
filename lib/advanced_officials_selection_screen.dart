@@ -120,6 +120,12 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
       arguments: {
         ...args,
         'selectedOfficials': finalOfficials,
+        'method': 'advanced', // Add method to indicate Advanced was used
+        'selectedLists': selectedLists.map((list) => { // Pass the selected lists with parameters
+          'name': list['name'],
+          'minOfficials': list['minOfficials'],
+          'maxOfficials': list['maxOfficials'],
+        }).toList(),
       },
     );
   }
@@ -260,7 +266,7 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
                       style: elevatedButtonStyle(),
                       child: const Text('Add Another List', style: signInButtonTextStyle),
                     ),
-                    const SizedBox(height: 4), // Reduced from 8 to 4
+                    const SizedBox(height: 4),
                   ],
                   const SizedBox(height: 20),
                   ElevatedButton(

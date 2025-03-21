@@ -113,6 +113,8 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
     Navigator.pop(context, {
       ...args,
       'selectedOfficials': selectedOfficials,
+      'method': 'use_list', // Add method to indicate Use List was used
+      'selectedListName': selectedList, // Pass the selected list name
     });
   }
 
