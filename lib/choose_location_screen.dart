@@ -202,10 +202,10 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                     ElevatedButton(
                       onPressed: () {
                         final selected = locations.firstWhere((l) => l['name'] == selectedLocation);
-                        Navigator.pushNamed(context, '/edit_location', arguments: {
-                          'locationName': selectedLocation,
-                          'locationId': selected['id'],
-                        }).then((result) {
+                        final argsToPass = {'location': selected};
+                        print('ChooseLocationScreen - Selected location data: $selected');
+                        print('ChooseLocationScreen - Navigating to /edit_location with arguments: $argsToPass');
+                        Navigator.pushNamed(context, '/edit_location', arguments: argsToPass).then((result) {
                           if (result != null) {
                             final updatedLocation = result as Map<String, dynamic>;
                             setState(() {

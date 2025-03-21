@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
 import 'theme.dart';
 
 // List of 50 US states (abbreviations)
@@ -26,34 +24,32 @@ class _EditLocationScreenState extends State<EditLocationScreen> {
   final _cityController = TextEditingController();
   final _stateController = TextEditingController();
   final _zipCodeController = TextEditingController();
-  int? locationId;
+  Map<String, dynamic>? location;
+  bool _isInitialized = false;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>?;
-    if (args != null) {
-      locationId = args['locationId'] as int?;
-      _loadLocationData();
-    }
-  }
-
-  Future<void> _loadLocationData() async {
-    if (locationId == null) return;
-    final prefs = await SharedPreferences.getInstance();
-    final String? locationsJson = prefs.getString('saved_locations');
-    if (locationsJson != null) {
-      final List<Map<String, dynamic>> locations = List<Map<String, dynamic>>.from(jsonDecode(locationsJson));
-      final location = locations.firstWhere((loc) => loc['id'] == locationId, orElse: () => {});
-      if (location.isNotEmpty) {
-        setState(() {
-          _nameController.text = location['name'] as String? ?? '';
-          _addressController.text = location['address'] as String? ?? '';
-          _cityController.text = location['city'] as String? ?? '';
-          _stateController.text = location['state'] as String? ?? '';
-          _zipCodeController.text = location['zip'] as String? ?? '';
-        });
+    if (!_isInitialized) {
+      final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+      print('EditLocationScreen - Arguments received: $args');
+      if (args != null) {
+        location = args; // Directly use args since it's the location data
+        print('EditLocationScreen - Location data: $location');
+        if (location != null) {
+          _nameController.text = location!['name']?.toString() ?? '';
+          _addressController.text = location!['address']?.toString() ?? '';
+          _cityController.text = location!['city']?.toString() ?? '';
+          _stateController.text = location!['state']?.toString() ?? '';
+          _zipCodeController.text = location!['zip']?.toString() ?? '';
+          print('EditLocationScreen - Fields populated: name=${_nameController.text}, address=${_addressController.text}, city=${_cityController.text}, state=${_stateController.text}, zip=${_zipCodeController.text}');
+        } else {
+          print('EditLocationScreen - Location is null');
+        }
+      } else {
+        print('EditLocationScreen - No arguments received');
       }
+      _isInitialized = true;
     }
   }
 
@@ -103,8 +99,8 @@ class _EditLocationScreenState extends State<EditLocationScreen> {
       'city': city,
       'state': state,
       'zip': zip,
+      'id': location?['id'],
     };
-    print('EditLocationScreen - Returning: $updatedLocation');
     Navigator.of(context).pop(updatedLocation);
   }
 
