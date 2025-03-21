@@ -11,11 +11,17 @@ class CreateNewListScreen extends StatefulWidget {
 class _CreateNewListScreenState extends State<CreateNewListScreen> {
   String? selectedSport;
   final List<String> sports = ['Football', 'Basketball', 'Baseball', 'Soccer', 'Volleyball', 'Other'];
+  List<String> existingLists = [];
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>?;
+    existingLists = args?['existingLists'] as List<String>? ?? [];
+  }
 
   @override
   Widget build(BuildContext context) {
-    final existingLists = ModalRoute.of(context)!.settings.arguments as List<String>;
-
     return Scaffold(
       appBar: AppBar(
         backgroundColor: efficialsBlue,
@@ -39,7 +45,7 @@ class _CreateNewListScreenState extends State<CreateNewListScreen> {
                 children: [
                   const Text(
                     'Choose a sport for your new list.',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black), // Updated: Made text black
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 30),
@@ -60,7 +66,11 @@ class _CreateNewListScreenState extends State<CreateNewListScreen> {
                             'sport': selectedSport,
                             'existingLists': existingLists,
                           },
-                        );
+                        ).then((result) {
+                          if (result != null) {
+                            Navigator.pop(context, result);
+                          }
+                        });
                       } else {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('Please select a sport!')),

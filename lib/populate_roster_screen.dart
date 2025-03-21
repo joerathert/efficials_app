@@ -131,8 +131,8 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
   @override
   Widget build(BuildContext context) {
     final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
-    final sport = args['sport']!;
-    final listName = args['listName']!;
+    final sport = args['sport'] as String;
+    final listName = args['listName'] as String;
     final int selectedCount = selectedOfficials.values.where((selected) => selected).length;
 
     return Scaffold(
@@ -267,7 +267,12 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
                               context,
                               isFromGameCreation ? '/review_game_info' : '/review_list',
                               arguments: {...args, 'selectedOfficials': selected},
-                            );
+                            ).then((result) {
+                              if (result != null) {
+                                // Ensure the result is propagated back to ListsOfOfficialsScreen
+                                Navigator.pop(context, result);
+                              }
+                            });
                           }
                         : null,
                     style: elevatedButtonStyle(),

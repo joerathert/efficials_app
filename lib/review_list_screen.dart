@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
 import 'theme.dart';
 
 class ReviewListScreen extends StatefulWidget {
@@ -54,33 +52,21 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
     });
   }
 
-  Future<void> _saveList() async {
-    final prefs = await SharedPreferences.getInstance();
-    final String? listsJson = prefs.getString('official_lists');
-    List<Map<String, dynamic>> existingLists = listsJson != null ? List<Map<String, dynamic>>.from(jsonDecode(listsJson)) : [];
-
+  void _confirmList() {
     final selectedOfficialsData = selectedOfficialsList
         .where((official) => selectedOfficials[official['id'] as int] ?? false)
         .toList();
 
-    final newList = {
-      'id': existingLists.length + 1,
-      'name': listName!,
-      'sport': sport!,
+    // Return the new list data to the previous screen
+    Navigator.pop(context, {
+      'listName': listName,
+      'sport': sport,
       'officials': selectedOfficialsData,
-    };
-
-    existingLists.add(newList);
-    await prefs.setString('official_lists', jsonEncode(existingLists));
+    });
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Your list was created!'), duration: Duration(seconds: 2)),
     );
-    Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) {
-        Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
-      }
-    });
   }
 
   @override
@@ -147,7 +133,7 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
                                       }
                                     });
                                   },
-                                  activeColor: efficialsBlue, // Updated: Changed checkbox color to blue when selected
+                                  activeColor: efficialsBlue,
                                 ),
                                 const Text('Select all', style: TextStyle(fontSize: 18)),
                               ],
@@ -203,7 +189,7 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
             ),
             const SizedBox(height: 8),
             ElevatedButton(
-              onPressed: selectedCount > 0 ? _saveList : null,
+              onPressed: selectedCount > 0 ? _confirmList : null,
               style: elevatedButtonStyle(),
               child: const Text('Save List', style: signInButtonTextStyle),
             ),

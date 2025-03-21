@@ -46,7 +46,7 @@ class _NameListScreenState extends State<NameListScreen> {
                 children: [
                   Text(
                     'Name your list of $sport officials.',
-                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black), // Updated: Made text black
+                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 60),
@@ -80,7 +80,11 @@ class _NameListScreenState extends State<NameListScreen> {
                           context,
                           '/populate_roster',
                           arguments: {'sport': sport, 'listName': name},
-                        );
+                        ).then((result) {
+                          if (result != null) {
+                            Navigator.pop(context, result);
+                          }
+                        });
                       }
                     },
                     style: elevatedButtonStyle(),
