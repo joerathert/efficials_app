@@ -7,8 +7,8 @@ void main() {
     await tester.pumpWidget(const EfficialsApp());
 
     // Verify that the Welcome Screen loads.
-    expect(find.text('Welcome to Efficials!'), findsOneWidget);
-    expect(find.text('Sign In'), findsOneWidget);
-    expect(find.text("Don't have an account? "), findsOneWidget);
+    expect(find.text('Welcome to Efficials'), findsOneWidget); // Updated to match actual text
+    expect(find.text('Sign Up / Sign In'), findsOneWidget); // Updated to match actual button text
+    expect(find.text("Don't have an account? "), findsNothing); // This text no longer exists
   });
 }

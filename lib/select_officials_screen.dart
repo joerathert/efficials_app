@@ -82,7 +82,16 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
                   const SizedBox(height: 20),
                   ElevatedButton(
                     onPressed: () {
-                      // To be defined later
+                      Navigator.pushNamed(
+                        context,
+                        '/advanced_officials_selection',
+                        arguments: {
+                          ...args,
+                          'sport': sport,
+                          'listName': listName,
+                          'listId': listId,
+                        },
+                      );
                     },
                     style: elevatedButtonStyle(),
                     child: const Text('Advanced', style: signInButtonTextStyle),
@@ -95,7 +104,7 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
                         '/lists_of_officials',
                         arguments: {
                           ...args,
-                          'fromGameCreation': true, // Flag to indicate coming from Select Officials
+                          'fromGameCreation': true,
                         },
                       ).then((result) {
                         if (result != null) {
