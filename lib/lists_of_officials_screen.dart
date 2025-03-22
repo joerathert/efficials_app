@@ -33,9 +33,13 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
     super.didChangeDependencies();
     final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
     if (args != null) {
-      isFromGameCreation = args['fromGameCreation'] == true;
-      // Refresh lists when returning to this screen
-      _fetchLists();
+      setState(() {
+        isFromGameCreation = args['fromGameCreation'] == true;
+      });
+      // Only fetch lists if we haven't already loaded them
+      if (lists.length <= 2 && lists[0]['name'] == 'No saved lists') {
+        _fetchLists();
+      }
     }
   }
 
@@ -43,13 +47,12 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
     final prefs = await SharedPreferences.getInstance();
     final String? listsJson = prefs.getString('saved_lists');
     setState(() {
+      lists.clear();
       if (listsJson != null && listsJson.isNotEmpty) {
         try {
-          // Properly cast the decoded JSON to List<Map<String, dynamic>>
           final decodedLists = jsonDecode(listsJson) as List<dynamic>;
           lists = decodedLists.map((list) {
             final listMap = Map<String, dynamic>.from(list as Map);
-            // Ensure officials is a List<Map<String, dynamic>>
             if (listMap['officials'] != null) {
               listMap['officials'] = (listMap['officials'] as List<dynamic>)
                   .map((official) => Map<String, dynamic>.from(official as Map))
@@ -67,8 +70,12 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
         lists.add({'name': 'No saved lists', 'id': -1});
       }
       lists.add({'name': '+ Create new list', 'id': 0});
-      selectedList = lists.isNotEmpty ? lists[0]['name'] as String : null;
+      // Only set selectedList if it hasn't been set by user interaction
+      if (selectedList == null || !lists.any((list) => list['name'] == selectedList)) {
+        selectedList = lists.isNotEmpty ? lists[0]['name'] as String : null;
+      }
       isLoading = false;
+      print('Fetched lists: $lists, selectedList: $selectedList');
     });
   }
 
@@ -130,8 +137,8 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
     Navigator.pop(context, {
       ...args,
       'selectedOfficials': selectedOfficials,
-      'method': 'use_list', // Add method to indicate Use List was used
-      'selectedListName': selectedList, // Pass the selected list name
+      'method': 'use_list',
+      'selectedListName': selectedList,
     });
   }
 
@@ -153,10 +160,6 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
               child: Text('No saved lists', style: TextStyle(color: Colors.red)),
             ),
           ];
-
-    if (selectedList == null || !dropdownItems.any((item) => item.value == selectedList)) {
-      selectedList = dropdownItems.isNotEmpty ? dropdownItems[0].value : null;
-    }
 
     return Scaffold(
       appBar: AppBar(
@@ -189,14 +192,15 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 60),
-                  isLoading || selectedList == null
+                  isLoading
                       ? const CircularProgressIndicator()
                       : DropdownButtonFormField<String>(
                           decoration: textFieldDecoration('Lists'),
                           value: selectedList,
                           onChanged: (newValue) {
+                            if (newValue == null) return;
+                            print('Dropdown onChanged: newValue = $newValue, previous selectedList = $selectedList');
                             setState(() {
-                              selectedList = newValue;
                               if (newValue == '+ Create new list') {
                                 final existingListNames = lists
                                     .where((list) => list['id'] != 0 && list['id'] != -1)
@@ -236,19 +240,20 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                                   } else {
                                     selectedList = lists.isNotEmpty ? lists[0]['name'] as String : null;
                                   }
+                                  print('After create new list navigation: selectedList = $selectedList');
                                 });
-                              } else if (newValue != 'No saved lists' && !newValue!.startsWith('Error')) {
+                              } else {
                                 selectedList = newValue;
                               }
                             });
+                            print('After setState: selectedList = $selectedList');
                           },
                           items: dropdownItems,
                         ),
                   const SizedBox(height: 60),
                   if (selectedList != null &&
                       selectedList != '+ Create new list' &&
-                      selectedList != 'No saved lists' &&
-                      !selectedList!.startsWith('Error')) ...[
+                      selectedList != 'No saved lists') ...[
                     ElevatedButton(
                       onPressed: () {
                         final selected = lists.firstWhere((l) => l['name'] == selectedList);

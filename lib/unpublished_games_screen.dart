@@ -58,7 +58,19 @@ class _UnpublishedGamesScreenState extends State<UnpublishedGamesScreen> {
   Future<void> _deleteGame(int gameId) async {
     final prefs = await SharedPreferences.getInstance();
     unpublishedGames.removeWhere((game) => game['id'] == gameId);
-    await prefs.setString('unpublished_games', jsonEncode(unpublishedGames));
+    // Convert DateTime and TimeOfDay to strings before saving
+    final gamesToSave = unpublishedGames.map((game) {
+      final gameCopy = Map<String, dynamic>.from(game);
+      if (gameCopy['date'] != null) {
+        gameCopy['date'] = (gameCopy['date'] as DateTime).toIso8601String();
+      }
+      if (gameCopy['time'] != null) {
+        final time = gameCopy['time'] as TimeOfDay;
+        gameCopy['time'] = '${time.hour}:${time.minute}';
+      }
+      return gameCopy;
+    }).toList();
+    await prefs.setString('unpublished_games', jsonEncode(gamesToSave));
     setState(() {});
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Game deleted!')),

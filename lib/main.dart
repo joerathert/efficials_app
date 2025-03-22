@@ -25,7 +25,8 @@ import 'review_game_info_screen.dart';
 import 'edit_game_info_screen.dart';
 import 'edit_location_screen.dart';
 import 'advanced_officials_selection_screen.dart';
-import 'unpublished_games_screen.dart'; // Add this import
+import 'unpublished_games_screen.dart';
+import 'game_information_screen.dart'; // Add this import
 
 void main() {
   runApp(const EfficialsApp());
@@ -88,7 +89,8 @@ class EfficialsApp extends StatelessWidget {
         '/edit_game_info': (context) => const EditGameInfoScreen(),
         '/edit_location': (context) => const EditLocationScreen(),
         '/advanced_officials_selection': (context) => const AdvancedOfficialsSelectionScreen(),
-        '/unpublished_games': (context) => const UnpublishedGamesScreen(), // Add this route
+        '/unpublished_games': (context) => const UnpublishedGamesScreen(),
+        '/game_information': (context) => const GameInformationScreen(), // Add this route
       },
     );
   }
