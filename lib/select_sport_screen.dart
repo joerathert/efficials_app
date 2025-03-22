@@ -40,7 +40,7 @@ class _SelectSportScreenState extends State<SelectSportScreen> {
                     style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black),
                     textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 60),
+                  const SizedBox(height: 20), // Reduced from 60 to 20
                   DropdownButtonFormField<String>(
                     decoration: textFieldDecoration('Sport'),
                     value: selectedSport,

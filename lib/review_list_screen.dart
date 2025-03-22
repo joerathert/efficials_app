@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'theme.dart';
 
 class ReviewListScreen extends StatefulWidget {
@@ -52,10 +54,36 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
     });
   }
 
-  void _confirmList() {
+  void _confirmList() async {
     final selectedOfficialsData = selectedOfficialsList
         .where((official) => selectedOfficials[official['id'] as int] ?? false)
         .toList();
+
+    // Save the list to shared_preferences
+    final prefs = await SharedPreferences.getInstance();
+    final String? listsJson = prefs.getString('saved_lists');
+    List<Map<String, dynamic>> existingLists = [];
+    if (listsJson != null && listsJson.isNotEmpty) {
+      existingLists = List<Map<String, dynamic>>.from(jsonDecode(listsJson));
+    }
+
+    final newList = {
+      'name': listName,
+      'sport': sport,
+      'officials': selectedOfficialsData,
+      'id': existingLists.isEmpty ? 1 : (existingLists.map((list) => list['id'] as int).reduce((a, b) => a > b ? a : b) + 1),
+    };
+
+    // Check for duplicate names
+    if (existingLists.any((list) => list['name'] == listName)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('A list with this name already exists!')),
+      );
+      return;
+    }
+
+    existingLists.add(newList);
+    await prefs.setString('saved_lists', jsonEncode(existingLists));
 
     // Return the new list data to the previous screen
     Navigator.pop(context, {

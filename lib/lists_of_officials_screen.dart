@@ -34,6 +34,8 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
     final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
     if (args != null) {
       isFromGameCreation = args['fromGameCreation'] == true;
+      // Refresh lists when returning to this screen
+      _fetchLists();
     }
   }
 
@@ -43,7 +45,20 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
     setState(() {
       if (listsJson != null && listsJson.isNotEmpty) {
         try {
-          lists = List<Map<String, dynamic>>.from(jsonDecode(listsJson));
+          // Properly cast the decoded JSON to List<Map<String, dynamic>>
+          final decodedLists = jsonDecode(listsJson) as List<dynamic>;
+          lists = decodedLists.map((list) {
+            final listMap = Map<String, dynamic>.from(list as Map);
+            // Ensure officials is a List<Map<String, dynamic>>
+            if (listMap['officials'] != null) {
+              listMap['officials'] = (listMap['officials'] as List<dynamic>)
+                  .map((official) => Map<String, dynamic>.from(official as Map))
+                  .toList();
+            } else {
+              listMap['officials'] = [];
+            }
+            return listMap;
+          }).toList();
         } catch (e) {
           lists = [];
         }
@@ -101,7 +116,9 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
 
     if (officialsRaw != null) {
       if (officialsRaw is List) {
-        selectedOfficials = officialsRaw.cast<Map<String, dynamic>>();
+        selectedOfficials = (officialsRaw as List<dynamic>)
+            .map((official) => Map<String, dynamic>.from(official as Map))
+            .toList();
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Invalid officials data in the selected list')),
@@ -188,7 +205,10 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                                 Navigator.pushNamed(
                                   context,
                                   '/create_new_list',
-                                  arguments: {'existingLists': existingListNames},
+                                  arguments: {
+                                    'existingLists': existingListNames,
+                                    'fromGameCreation': isFromGameCreation,
+                                  },
                                 ).then((result) async {
                                   if (result != null) {
                                     setState(() {
@@ -238,7 +258,9 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                           arguments: {
                             'listName': selected['name'] as String? ?? 'Unnamed List',
                             'listId': selected['id'] as int? ?? -1,
-                            'officials': selected['officials'] as List<Map<String, dynamic>>? ?? [],
+                            'officials': (selected['officials'] as List<dynamic>)
+                                .map((official) => Map<String, dynamic>.from(official as Map))
+                                .toList(),
                           },
                         ).then((result) async {
                           if (result != null) {

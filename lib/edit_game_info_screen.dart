@@ -165,6 +165,33 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
                   SizedBox(
                     width: 300,
                     child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.pushNamed(context, '/select_officials', arguments: {
+                          ...args,
+                          'isEdit': true,
+                        }).then((result) {
+                          if (result != null) {
+                            final updatedArgs = result as Map<String, dynamic>;
+                            print('EditGameInfoScreen - Updated Args from /select_officials: $updatedArgs');
+                            Navigator.pop(context, updatedArgs);
+                          }
+                        });
+                      },
+                      style: elevatedButtonStyle().copyWith(
+                        minimumSize: MaterialStateProperty.all(const Size(300, 60)),
+                        padding: MaterialStateProperty.all(const EdgeInsets.symmetric(vertical: 10, horizontal: 20)),
+                      ),
+                      child: const Text(
+                        'Selection Method',
+                        style: signInButtonTextStyle,
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: 300,
+                    child: ElevatedButton(
                       onPressed: () => _handleEditOfficials(args),
                       style: elevatedButtonStyle().copyWith(
                         minimumSize: MaterialStateProperty.all(const Size(300, 60)),

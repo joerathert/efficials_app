@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'theme.dart';
 
 class EditListScreen extends StatefulWidget {
@@ -16,6 +18,7 @@ class _EditListScreenState extends State<EditListScreen> {
   bool isInitialized = false;
   String? listName;
   int? listId;
+  final TextEditingController _listNameController = TextEditingController();
 
   @override
   void didChangeDependencies() {
@@ -26,6 +29,7 @@ class _EditListScreenState extends State<EditListScreen> {
       listId = arguments['listId'] as int;
       selectedOfficialsList = arguments['officials'] as List<Map<String, dynamic>>? ?? [];
       filteredOfficials = List.from(selectedOfficialsList);
+      _listNameController.text = listName ?? 'Unnamed List';
       for (var official in selectedOfficialsList) {
         selectedOfficials[official['id'] as int] = true;
       }
@@ -46,41 +50,48 @@ class _EditListScreenState extends State<EditListScreen> {
   }
 
   Future<void> _saveList() async {
-    final selectedOfficialsData = selectedOfficialsList
+    final updatedOfficials = selectedOfficialsList
         .where((official) => selectedOfficials[official['id'] as int] ?? false)
-        .map((official) => {'official_id': official['id']})
         .toList();
 
-    final listData = {
-      'name': listName!,
+    // Update the list in shared_preferences
+    final prefs = await SharedPreferences.getInstance();
+    final String? listsJson = prefs.getString('saved_lists');
+    List<Map<String, dynamic>> existingLists = [];
+    if (listsJson != null && listsJson.isNotEmpty) {
+      existingLists = List<Map<String, dynamic>>.from(jsonDecode(listsJson));
+    }
+
+    final updatedList = {
+      'name': _listNameController.text.trim(),
       'sport': 'Football', // Replace with dynamic sport if available
-      'official_ids': selectedOfficialsData.map((o) => o['official_id']).toList(),
+      'officials': updatedOfficials,
+      'id': listId,
     };
 
-    try {
-      // Comment out DatabaseHelper until implemented
-      // final response = await http.put(
-      //   Uri.parse('${DatabaseHelper.baseUrl}/lists/$listId'),
-      //   headers: {'Content-Type': 'application/json'},
-      //   body: jsonEncode(listData),
-      // );
-      // if (response.statusCode == 200) {
-      //   ScaffoldMessenger.of(context).showSnackBar(
-      //     const SnackBar(content: Text('List updated!'), duration: Duration(seconds: 2)),
-      //   );
-      //   Future.delayed(const Duration(seconds: 2), () {
-      //     if (mounted) {
-      //       Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
-      //     }
-      //   });
-      // } else {
-      //   throw Exception('Failed to update list: ${response.statusCode}');
-      // }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error saving list: $e')),
-      );
+    // Update the existing list
+    final index = existingLists.indexWhere((list) => list['id'] == listId);
+    if (index != -1) {
+      // Check for duplicate names (excluding the current list)
+      if (existingLists.any((list) => list['name'] == updatedList['name'] && list['id'] != listId)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('A list with this name already exists!')),
+        );
+        return;
+      }
+      existingLists[index] = updatedList;
+    } else {
+      existingLists.add(updatedList);
     }
+
+    await prefs.setString('saved_lists', jsonEncode(existingLists));
+
+    // Return the updated list data to the previous screen
+    Navigator.pop(context, updatedList);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('List updated!'), duration: Duration(seconds: 2)),
+    );
   }
 
   @override
@@ -101,6 +112,17 @@ class _EditListScreenState extends State<EditListScreen> {
       ),
       body: Column(
         children: [
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 600),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: TextField(
+                controller: _listNameController,
+                decoration: textFieldDecoration('List Name'),
+                style: const TextStyle(fontSize: 18),
+              ),
+            ),
+          ),
           ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 600),
             child: Padding(
@@ -147,6 +169,8 @@ class _EditListScreenState extends State<EditListScreen> {
                                       }
                                     });
                                   },
+                                  activeColor: efficialsBlue, // Changed to blue background when checked
+                                  checkColor: Colors.white, // White checkmark
                                 ),
                                 const Text('Select all', style: TextStyle(fontSize: 18)),
                               ],
@@ -238,5 +262,11 @@ class _EditListScreenState extends State<EditListScreen> {
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _listNameController.dispose();
+    super.dispose();
   }
 }

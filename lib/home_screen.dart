@@ -82,9 +82,7 @@ class HomeScreen extends StatelessWidget {
               title: const Text('Unpublished Games'),
               onTap: () {
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Unpublished Games not implemented yet')),
-                );
+                Navigator.pushNamed(context, '/unpublished_games');
               },
             ),
             ListTile(

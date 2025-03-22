@@ -34,9 +34,15 @@ class _EditLocationScreenState extends State<EditLocationScreen> {
       final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
       print('EditLocationScreen - Arguments received: $args');
       if (args != null) {
-        location = args; // Directly use args since it's the location data
-        print('EditLocationScreen - Location data: $location');
-        if (location != null) {
+        // Check if args is the location directly or wrapped in a 'location' key
+        if (args.containsKey('location')) {
+          location = args['location'] as Map<String, dynamic>?;
+          print('EditLocationScreen - Using wrapped location: $location');
+        } else {
+          location = args;
+          print('EditLocationScreen - Using direct location: $location');
+        }
+        if (location != null && location!.containsKey('name')) {
           _nameController.text = location!['name']?.toString() ?? '';
           _addressController.text = location!['address']?.toString() ?? '';
           _cityController.text = location!['city']?.toString() ?? '';
@@ -44,7 +50,7 @@ class _EditLocationScreenState extends State<EditLocationScreen> {
           _zipCodeController.text = location!['zip']?.toString() ?? '';
           print('EditLocationScreen - Fields populated: name=${_nameController.text}, address=${_addressController.text}, city=${_cityController.text}, state=${_stateController.text}, zip=${_zipCodeController.text}');
         } else {
-          print('EditLocationScreen - Location is null');
+          print('EditLocationScreen - Location is null or missing name');
         }
       } else {
         print('EditLocationScreen - No arguments received');

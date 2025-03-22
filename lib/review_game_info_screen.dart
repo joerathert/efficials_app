@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'theme.dart';
 
 class ReviewGameInfoScreen extends StatefulWidget {
@@ -26,6 +28,40 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
   void initState() {
     super.initState();
     args = {};
+  }
+
+  Future<void> _publishLater() async {
+    // Prepare the game data to save, converting DateTime and TimeOfDay to strings
+    final gameData = Map<String, dynamic>.from(args); // Create a copy of args
+    gameData['id'] = DateTime.now().millisecondsSinceEpoch; // Unique ID for the game
+    gameData['createdAt'] = DateTime.now().toIso8601String();
+    
+    // Convert DateTime to string
+    if (gameData['date'] != null) {
+      gameData['date'] = (gameData['date'] as DateTime).toIso8601String();
+    }
+    // Convert TimeOfDay to string (e.g., "HH:mm")
+    if (gameData['time'] != null) {
+      final time = gameData['time'] as TimeOfDay;
+      gameData['time'] = '${time.hour}:${time.minute}';
+    }
+
+    // Save to shared_preferences
+    final prefs = await SharedPreferences.getInstance();
+    final String? gamesJson = prefs.getString('unpublished_games');
+    List<Map<String, dynamic>> unpublishedGames = [];
+    if (gamesJson != null && gamesJson.isNotEmpty) {
+      unpublishedGames = List<Map<String, dynamic>>.from(jsonDecode(gamesJson));
+    }
+
+    unpublishedGames.add(gameData);
+    await prefs.setString('unpublished_games', jsonEncode(unpublishedGames));
+
+    // Show snackbar and navigate back to home
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Moved to Unpublished Games!')),
+    );
+    Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
   }
 
   @override
@@ -163,12 +199,7 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
             ),
             const SizedBox(height: 10),
             ElevatedButton(
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Game saved for later!')),
-                );
-                Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
-              },
+              onPressed: _publishLater,
               style: elevatedButtonStyle(),
               child: const Text('Publish Later', style: signInButtonTextStyle),
             ),

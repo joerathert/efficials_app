@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'theme.dart';
 
 class PopulateRosterScreen extends StatefulWidget {
@@ -141,13 +143,41 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
     );
   }
 
-  void _saveList(String name) {
+  void _saveList(String name) async {
     final selected = officials.where((o) => selectedOfficials[o['id']] ?? false).toList();
+    final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+    final sport = args['sport'] as String;
+
+    // Save the list to shared_preferences
+    final prefs = await SharedPreferences.getInstance();
+    final String? listsJson = prefs.getString('saved_lists');
+    List<Map<String, dynamic>> existingLists = [];
+    if (listsJson != null && listsJson.isNotEmpty) {
+      existingLists = List<Map<String, dynamic>>.from(jsonDecode(listsJson));
+    }
+
+    final newList = {
+      'name': name,
+      'sport': sport,
+      'officials': selected,
+      'id': existingLists.isEmpty ? 1 : (existingLists.map((list) => list['id'] as int).reduce((a, b) => a > b ? a : b) + 1),
+    };
+
+    // Check for duplicate names
+    if (existingLists.any((list) => list['name'] == name)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('A list with this name already exists!')),
+      );
+      return;
+    }
+
+    existingLists.add(newList);
+    await prefs.setString('saved_lists', jsonEncode(existingLists));
+
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('List created!'), duration: Duration(seconds: 2)),
     );
     setState(() => showSaveListButton = false);
-    // Add shared_preferences logic here if needed
   }
 
   @override
