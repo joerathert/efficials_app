@@ -45,24 +45,21 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
         isFromGameCreation = args['method'] == 'standard';
         isEdit = args['isEdit'] == true;
 
-        // Ensure initialOfficials have valid IDs and populate selectedOfficials
         for (var official in initialOfficials) {
           final officialId = official['id'];
           if (officialId is int) {
             selectedOfficials[officialId] = true;
           } else {
-            // If ID is invalid, assign a temporary one to avoid issues
             official['id'] = DateTime.now().millisecondsSinceEpoch + initialOfficials.indexOf(official);
             selectedOfficials[official['id'] as int] = true;
           }
         }
 
-        // Initialize officials lists with initialOfficials if they exist
         if (initialOfficials.isNotEmpty) {
           officials = List.from(initialOfficials);
           filteredOfficials = List.from(initialOfficials);
           filteredOfficialsWithoutSearch = List.from(initialOfficials);
-          filtersApplied = true; // Treat as if filters are applied to show the list
+          filtersApplied = true;
         }
       }
       isInitialized = true;
@@ -80,7 +77,6 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
       {'id': 3, 'name': 'Mike Johnson', 'cityState': 'Aurora, IL', 'distance': 10.0, 'yearsExperience': 12},
     ];
     setState(() {
-      // Merge new officials with initial officials, avoiding duplicates
       for (var newOfficial in newOfficials) {
         if (!officials.any((o) => o['id'] == newOfficial['id'])) {
           officials.add(newOfficial);
@@ -96,7 +92,7 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
     setState(() {
       filterSettings = settings;
       filtersApplied = true;
-      _loadOfficials(); // Reload officials with new filters
+      _loadOfficials();
     });
   }
 
@@ -148,7 +144,6 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
     final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
     final sport = args['sport'] as String;
 
-    // Save the list to shared_preferences
     final prefs = await SharedPreferences.getInstance();
     final String? listsJson = prefs.getString('saved_lists');
     List<Map<String, dynamic>> existingLists = [];
@@ -163,7 +158,6 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
       'id': existingLists.isEmpty ? 1 : (existingLists.map((list) => list['id'] as int).reduce((a, b) => a > b ? a : b) + 1),
     };
 
-    // Check for duplicate names
     if (existingLists.any((list) => list['name'] == name)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('A list with this name already exists!')),
@@ -274,7 +268,7 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
                                     final official = filteredOfficials[index];
                                     final officialId = official['id'];
                                     if (officialId == null || officialId is! int) {
-                                      return const SizedBox.shrink(); // Skip invalid entries
+                                      return const SizedBox.shrink();
                                     }
                                     return ListTile(
                                       leading: IconButton(
@@ -337,7 +331,7 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
                             Navigator.pushNamed(
                               context,
                               isFromGameCreation ? '/review_game_info' : '/review_list',
-                              arguments: {...args, 'selectedOfficials': selected},
+                              arguments: {...args, 'selectedOfficials': selected, 'isEdit': isEdit},
                             ).then((result) {
                               if (result != null) {
                                 Navigator.pop(context, result);

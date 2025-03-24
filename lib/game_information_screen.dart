@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'theme.dart';
 
 class GameInformationScreen extends StatefulWidget {
@@ -21,6 +23,8 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
   late String officialsRequired;
   late String gameFee;
   late bool hireAutomatically;
+  late List<Map<String, dynamic>> selectedOfficials;
+  late List<Map<String, dynamic>> selectedLists; // Add this to store safely casted lists
 
   @override
   void didChangeDependencies() {
@@ -38,6 +42,32 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
       officialsRequired = args['officialsRequired'] as String? ?? '0';
       gameFee = args['gameFee'] as String? ?? 'Not set';
       hireAutomatically = args['hireAutomatically'] as bool? ?? false;
+      // Safely cast selectedOfficials
+      try {
+        final officialsRaw = args['selectedOfficials'] as List<dynamic>? ?? [];
+        selectedOfficials = officialsRaw.map((official) {
+          if (official is Map) {
+            return Map<String, dynamic>.from(official);
+          }
+          return <String, dynamic>{'name': 'Unknown Official', 'distance': 0.0};
+        }).toList();
+      } catch (e) {
+        selectedOfficials = [];
+        print('Error casting selectedOfficials: $e');
+      }
+      // Safely cast selectedLists
+      try {
+        final listsRaw = args['selectedLists'] as List<dynamic>? ?? [];
+        selectedLists = listsRaw.map((list) {
+          if (list is Map) {
+            return Map<String, dynamic>.from(list);
+          }
+          return <String, dynamic>{'name': 'Unknown List', 'minOfficials': 0, 'maxOfficials': 0};
+        }).toList();
+      } catch (e) {
+        selectedLists = [];
+        print('Error casting selectedLists: $e');
+      }
       print('GameInformationScreen didChangeDependencies - Args: $args');
     });
   }
@@ -56,6 +86,58 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
     officialsRequired = '0';
     gameFee = 'Not set';
     hireAutomatically = false;
+    selectedOfficials = [];
+    selectedLists = [];
+  }
+
+  Future<void> _deleteGame() async {
+    final gameId = args['id'];
+    if (gameId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Error: Game ID not found')),
+      );
+      return;
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    final String? gamesJson = prefs.getString('published_games');
+    if (gamesJson != null && gamesJson.isNotEmpty) {
+      try {
+        List<Map<String, dynamic>> publishedGames = List<Map<String, dynamic>>.from(jsonDecode(gamesJson));
+        publishedGames.removeWhere((game) => game['id'] == gameId);
+        await prefs.setString('published_games', jsonEncode(publishedGames));
+        print('Game deleted - ID: $gameId');
+        Navigator.pop(context, true); // Return true to indicate deletion
+      } catch (e) {
+        print('Error deleting game: $e');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Error deleting game')),
+        );
+      }
+    }
+  }
+
+  void _showDeleteConfirmationDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirm Delete'),
+        content: const Text('Are you sure you want to delete this game?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel', style: TextStyle(color: efficialsBlue)),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _deleteGame();
+            },
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -80,7 +162,7 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
 
     final requiredOfficials = int.parse(officialsRequired);
     final hiredOfficials = args['officialsHired'] as int? ?? 0;
-    final confirmedOfficials = (args['selectedOfficials'] as List<dynamic>? ?? [])
+    final confirmedOfficials = selectedOfficials
         .take(hiredOfficials)
         .map((official) => official['name'] as String)
         .toList();
@@ -112,7 +194,7 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                         '/edit_game_info',
                         arguments: {
                           ...args,
-                          'isEdit': true, // Pass isEdit flag
+                          'isEdit': true,
                         },
                       ).then((result) {
                         if (result != null && result is Map<String, dynamic>) {
@@ -128,9 +210,33 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                             officialsRequired = args['officialsRequired'] as String? ?? officialsRequired;
                             gameFee = args['gameFee'] as String? ?? gameFee;
                             hireAutomatically = args['hireAutomatically'] as bool? ?? hireAutomatically;
+                            try {
+                              final officialsRaw = args['selectedOfficials'] as List<dynamic>? ?? [];
+                              selectedOfficials = officialsRaw.map((official) {
+                                if (official is Map) {
+                                  return Map<String, dynamic>.from(official);
+                                }
+                                return <String, dynamic>{'name': 'Unknown Official', 'distance': 0.0};
+                              }).toList();
+                            } catch (e) {
+                              selectedOfficials = [];
+                              print('Error casting selectedOfficials after edit: $e');
+                            }
+                            try {
+                              final listsRaw = args['selectedLists'] as List<dynamic>? ?? [];
+                              selectedLists = listsRaw.map((list) {
+                                if (list is Map) {
+                                  return Map<String, dynamic>.from(list);
+                                }
+                                return <String, dynamic>{'name': 'Unknown List', 'minOfficials': 0, 'maxOfficials': 0};
+                              }).toList();
+                            } catch (e) {
+                              selectedLists = [];
+                              print('Error casting selectedLists after edit: $e');
+                            }
                             print('GameInformationScreen Edit callback - Updated Args: $args');
                           });
-                          Navigator.pop(context, result); // Return updated args to HomeScreen
+                          Navigator.pop(context, result);
                         }
                       }),
                       child: const Text('Edit', style: TextStyle(color: efficialsBlue, fontSize: 18)),
@@ -170,7 +276,6 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                             padding: const EdgeInsets.symmetric(vertical: 2),
                             child: GestureDetector(
                               onTap: () {
-                                // Placeholder for future official profile linking
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(content: Text('Official profiles not implemented yet')),
                                 );
@@ -191,10 +296,10 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                     const SizedBox(height: 20),
                     const Text('Selected Officials', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 10),
-                    if (args['selectedOfficials'] == null || (args['selectedOfficials'] as List).isEmpty)
+                    if (selectedOfficials.isEmpty)
                       const Text('No officials selected.', style: TextStyle(fontSize: 16, color: Colors.grey))
                     else if (args['method'] == 'advanced' && args['selectedLists'] != null) ...[
-                      ...((args['selectedLists'] as List<Map<String, dynamic>>).map(
+                      ...selectedLists.map(
                         (list) => Padding(
                           padding: const EdgeInsets.symmetric(vertical: 4),
                           child: Text(
@@ -202,7 +307,7 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                             style: const TextStyle(fontSize: 16),
                           ),
                         ),
-                      )),
+                      ),
                     ]
                     else if (args['method'] == 'use_list' && args['selectedListName'] != null) ...[
                       Padding(
@@ -214,14 +319,22 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                       ),
                     ]
                     else ...[
-                      ...((args['selectedOfficials'] as List<Map<String, dynamic>>).map(
+                      ...selectedOfficials.map(
                         (official) => ListTile(
                           title: Text(official['name'] as String),
                           subtitle: Text('Distance: ${(official['distance'] as num?)?.toStringAsFixed(1) ?? '0.0'} mi'),
                         ),
-                      )),
+                      ),
                     ],
-                    const SizedBox(height: 100),
+                    const SizedBox(height: 20),
+                    Center(
+                      child: ElevatedButton(
+                        onPressed: _showDeleteConfirmationDialog,
+                        style: elevatedButtonStyle(backgroundColor: Colors.red),
+                        child: const Text('Delete Game', style: signInButtonTextStyle),
+                      ),
+                    ),
+                    const SizedBox(height: 80),
                   ],
                 ),
               ),

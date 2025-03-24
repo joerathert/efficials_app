@@ -27,15 +27,17 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
-    if (args != null && selectedLocation == null) {
-      selectedLocation = args['location'] as String?;
+    if (args != null) {
       isFromEdit = args['isEdit'] == true;
-      if (selectedLocation != null && !locations.any((loc) => loc['name'] == selectedLocation)) {
+      if (isFromEdit && selectedLocation == null) {
+        selectedLocation = args['location'] as String?; // Set to game's original location
+        print('didChangeDependencies - Args: $args, Updated selectedLocation: $selectedLocation, isFromEdit: $isFromEdit');
+      } else if (!isFromEdit && selectedLocation == null) {
         selectedLocation = locations.isNotEmpty ? locations[0]['name'] as String : null;
+        print('didChangeDependencies - No edit, defaulted selectedLocation: $selectedLocation');
+      } else {
+        print('didChangeDependencies - No change, selectedLocation: $selectedLocation, isFromEdit: $isFromEdit');
       }
-      print('didChangeDependencies - Args: $args, Updated selectedLocation: $selectedLocation, isFromEdit: $isFromEdit');
-    } else {
-      print('didChangeDependencies - No change, selectedLocation: $selectedLocation, isFromEdit: $isFromEdit');
     }
   }
 
@@ -50,6 +52,11 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
         locations.add({'name': 'No saved locations', 'id': -1});
       }
       locations.add({'name': '+ Create new location', 'id': 0});
+      // Ensure selectedLocation matches the game's location if editing, else first item
+      final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+      if (args != null && args['isEdit'] == true) {
+        selectedLocation = args['location'] as String?;
+      }
       if (selectedLocation == null || !locations.any((loc) => loc['name'] == selectedLocation)) {
         selectedLocation = locations.isNotEmpty ? locations[0]['name'] as String : null;
       }
@@ -270,11 +277,13 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                               } else {
                                 Navigator.pushNamed(
                                   context,
-                                  '/date_time',
+                                  '/additional_game_info', // Changed from '/date_time' to '/additional_game_info'
                                   arguments: {
                                     'scheduleName': scheduleName,
                                     'sport': sport,
                                     'location': selectedLocation,
+                                    'date': date,
+                                    'time': time,
                                   },
                                 );
                               }

@@ -183,7 +183,7 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
                                   },
                                 );
                               } else {
-                                Navigator.pushNamed(context, '/additional_game_info', arguments: {
+                                Navigator.pushNamed(context, '/choose_location', arguments: { // Changed from '/additional_game_info' to '/choose_location'
                                   ...args,
                                   'date': _selectedDate,
                                   'time': _selectedTime,

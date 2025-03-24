@@ -29,7 +29,7 @@ class _NameScheduleScreenState extends State<NameScheduleScreen> {
     final sport = args['sport'] as String;
     Navigator.pushNamed(
       context,
-      '/choose_location',
+      '/date_time', // Changed from '/choose_location' to '/date_time'
       arguments: {'scheduleName': name, 'sport': sport},
     );
   }

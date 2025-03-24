@@ -204,7 +204,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                 '/game_information',
                                 arguments: game,
                               ).then((result) {
-                                if (result != null && result is Map<String, dynamic>) {
+                                if (result == true) {
+                                  // Game was deleted, refresh the list
+                                  _fetchPublishedGames();
+                                } else if (result != null && result is Map<String, dynamic>) {
                                   setState(() {
                                     final index = publishedGames.indexWhere((g) => g['id'] == game['id']);
                                     if (index != -1) {
@@ -296,7 +299,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          Navigator.pushNamed(context, '/select_sport');
+          Navigator.pushNamed(context, '/select_schedule');
         },
         backgroundColor: efficialsBlue,
         child: const Icon(Icons.add, size: 30, color: Colors.white),

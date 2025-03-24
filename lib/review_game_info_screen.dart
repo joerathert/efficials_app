@@ -23,7 +23,8 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
     setState(() {
       args = Map<String, dynamic>.from(newArgs); // Create a modifiable copy
       originalArgs = Map<String, dynamic>.from(newArgs); // Store original for comparison
-      isEditMode = newArgs['isEdit'] == true;
+      // Set isEditMode based on the presence of 'id'
+      isEditMode = newArgs['id'] != null;
       print('ReviewGameInfoScreen didChangeDependencies - Args: $args, isEditMode: $isEditMode');
     });
   }

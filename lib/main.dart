@@ -26,7 +26,8 @@ import 'edit_game_info_screen.dart';
 import 'edit_location_screen.dart';
 import 'advanced_officials_selection_screen.dart';
 import 'unpublished_games_screen.dart';
-import 'game_information_screen.dart'; // Add this import
+import 'game_information_screen.dart';
+import 'select_schedule_screen.dart'; // Add this import
 
 void main() {
   runApp(const EfficialsApp());
@@ -90,7 +91,8 @@ class EfficialsApp extends StatelessWidget {
         '/edit_location': (context) => const EditLocationScreen(),
         '/advanced_officials_selection': (context) => const AdvancedOfficialsSelectionScreen(),
         '/unpublished_games': (context) => const UnpublishedGamesScreen(),
-        '/game_information': (context) => const GameInformationScreen(), // Add this route
+        '/game_information': (context) => const GameInformationScreen(),
+        '/select_schedule': (context) => const SelectScheduleScreen(), // Add this route
       },
     );
   }
