@@ -52,7 +52,7 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
         schedules.add({'name': 'No schedules available', 'id': -1});
       }
       schedules.add({'name': '+ Create new schedule', 'id': 0});
-      selectedSchedule = schedules.isNotEmpty ? schedules[0]['name'] as String : null;
+      // Do not set selectedSchedule here; leave it as null for the hint to show
       isLoading = false;
     });
   }
@@ -76,16 +76,14 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Text(
-                  'Select a Schedule',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                ),
+                // Removed the "Select a Schedule" Text widget
                 const SizedBox(height: 20),
                 isLoading
                     ? const CircularProgressIndicator()
                     : DropdownButtonFormField<String>(
                         decoration: textFieldDecoration('Schedules'),
                         value: selectedSchedule,
+                        hint: const Text('Select a schedule'), // Added hint here
                         onChanged: (newValue) {
                           setState(() {
                             selectedSchedule = newValue;
