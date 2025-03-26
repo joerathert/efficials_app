@@ -52,7 +52,6 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
         schedules.add({'name': 'No schedules available', 'id': -1});
       }
       schedules.add({'name': '+ Create new schedule', 'id': 0});
-      // Do not set selectedSchedule here; leave it as null for the hint to show
       isLoading = false;
     });
   }
@@ -76,14 +75,13 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Removed the "Select a Schedule" Text widget
                 const SizedBox(height: 20),
                 isLoading
                     ? const CircularProgressIndicator()
                     : DropdownButtonFormField<String>(
                         decoration: textFieldDecoration('Schedules'),
                         value: selectedSchedule,
-                        hint: const Text('Select a schedule'), // Added hint here
+                        hint: const Text('Select a schedule'),
                         onChanged: (newValue) {
                           setState(() {
                             selectedSchedule = newValue;
@@ -113,7 +111,7 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
                       : () {
                           Navigator.pushNamed(
                             context,
-                            '/review_game_info',
+                            '/date_time', // Changed from '/review_game_info' to '/date_time'
                             arguments: {'scheduleName': selectedSchedule},
                           );
                         },
