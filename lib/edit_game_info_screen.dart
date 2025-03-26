@@ -27,7 +27,8 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
     String route;
     Map<String, dynamic> routeArgs = {
       ...args,
-      'isEdit': true, // Ensure isEdit is passed
+      'isEdit': true,
+      'isFromGameInfo': args['isFromGameInfo'] ?? false, // Pass isFromGameInfo
     };
 
     switch (method) {
@@ -47,7 +48,8 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
           'listName': scheduleName,
           'selectedOfficials': selectedOfficials,
           'method': 'standard',
-          'isEdit': true, // Ensure isEdit is passed
+          'isEdit': true,
+          'isFromGameInfo': args['isFromGameInfo'] ?? false, // Pass isFromGameInfo
         };
         break;
     }
@@ -56,13 +58,13 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
       if (result != null) {
         final updatedArgs = result as Map<String, dynamic>;
         print('EditGameInfoScreen - Updated Args from $route: $updatedArgs');
-        // Navigate to ReviewGameInfoScreen with updated args
         Navigator.pushReplacementNamed(
           context,
           '/review_game_info',
           arguments: {
             ...updatedArgs,
-            'isEdit': true, // Ensure isEdit is preserved
+            'isEdit': true,
+            'isFromGameInfo': args['isFromGameInfo'] ?? false, // Preserve isFromGameInfo
           },
         );
       }
@@ -114,6 +116,7 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
                         Navigator.pushNamed(context, '/choose_location', arguments: {
                           ...args,
                           'isEdit': true,
+                          'isFromGameInfo': args['isFromGameInfo'] ?? false, // Pass isFromGameInfo
                         }).then((result) {
                           if (result != null) {
                             final updatedArgs = result as Map<String, dynamic>;
@@ -123,7 +126,8 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
                               '/review_game_info',
                               arguments: {
                                 ...updatedArgs,
-                                'isEdit': true, // Ensure isEdit is preserved
+                                'isEdit': true,
+                                'isFromGameInfo': args['isFromGameInfo'] ?? false, // Preserve isFromGameInfo
                               },
                             );
                           }
@@ -148,6 +152,7 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
                         Navigator.pushNamed(context, '/date_time', arguments: {
                           ...args,
                           'isEdit': true,
+                          'isFromGameInfo': args['isFromGameInfo'] ?? false, // Pass isFromGameInfo
                         }).then((result) {
                           if (result != null) {
                             final updatedArgs = result as Map<String, dynamic>;
@@ -157,7 +162,8 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
                               '/review_game_info',
                               arguments: {
                                 ...updatedArgs,
-                                'isEdit': true, // Ensure isEdit is preserved
+                                'isEdit': true,
+                                'isFromGameInfo': args['isFromGameInfo'] ?? false, // Preserve isFromGameInfo
                               },
                             );
                           }
@@ -182,6 +188,7 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
                         Navigator.pushNamed(context, '/additional_game_info', arguments: {
                           ...args,
                           'isEdit': true,
+                          'isFromGameInfo': args['isFromGameInfo'] ?? false, // Pass isFromGameInfo
                         }).then((result) {
                           if (result != null) {
                             final updatedArgs = result as Map<String, dynamic>;
@@ -191,7 +198,8 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
                               '/review_game_info',
                               arguments: {
                                 ...updatedArgs,
-                                'isEdit': true, // Ensure isEdit is preserved
+                                'isEdit': true,
+                                'isFromGameInfo': args['isFromGameInfo'] ?? false, // Preserve isFromGameInfo
                               },
                             );
                           }
@@ -216,6 +224,7 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
                         Navigator.pushNamed(context, '/select_officials', arguments: {
                           ...args,
                           'isEdit': true,
+                          'isFromGameInfo': args['isFromGameInfo'] ?? false, // Pass isFromGameInfo
                         }).then((result) {
                           if (result != null) {
                             final updatedArgs = result as Map<String, dynamic>;
@@ -225,7 +234,8 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
                               '/review_game_info',
                               arguments: {
                                 ...updatedArgs,
-                                'isEdit': true, // Ensure isEdit is preserved
+                                'isEdit': true,
+                                'isFromGameInfo': args['isFromGameInfo'] ?? false, // Preserve isFromGameInfo
                               },
                             );
                           }

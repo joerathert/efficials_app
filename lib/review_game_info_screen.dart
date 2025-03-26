@@ -13,19 +13,20 @@ class ReviewGameInfoScreen extends StatefulWidget {
 
 class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
   late Map<String, dynamic> args;
-  late Map<String, dynamic> originalArgs; // Store original args to detect changes
+  late Map<String, dynamic> originalArgs;
   bool isEditMode = false;
+  bool isFromGameInfo = false;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     final newArgs = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
     setState(() {
-      args = Map<String, dynamic>.from(newArgs); // Create a modifiable copy
-      originalArgs = Map<String, dynamic>.from(newArgs); // Store original for comparison
-      // Set isEditMode based on the presence of 'id'
+      args = Map<String, dynamic>.from(newArgs);
+      originalArgs = Map<String, dynamic>.from(newArgs);
       isEditMode = newArgs['id'] != null;
-      print('ReviewGameInfoScreen didChangeDependencies - Args: $args, isEditMode: $isEditMode');
+      isFromGameInfo = newArgs['isFromGameInfo'] == true;
+      print('ReviewGameInfoScreen didChangeDependencies - Args: $args, isEditMode: $isEditMode, isFromGameInfo: $isFromGameInfo');
     });
   }
 
@@ -37,23 +38,19 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
   }
 
   Future<void> _publishGame() async {
-    // Prepare the game data to save, converting DateTime and TimeOfDay to strings
     final gameData = Map<String, dynamic>.from(args);
-    gameData['id'] = DateTime.now().millisecondsSinceEpoch; // Unique ID for the game
+    gameData['id'] = DateTime.now().millisecondsSinceEpoch;
     gameData['createdAt'] = DateTime.now().toIso8601String();
-    gameData['officialsHired'] = 0; // Initialize hired officials count to 0
+    gameData['officialsHired'] = 0;
 
-    // Convert DateTime to string
     if (gameData['date'] != null) {
       gameData['date'] = (gameData['date'] as DateTime).toIso8601String();
     }
-    // Convert TimeOfDay to string (e.g., "HH:mm")
     if (gameData['time'] != null) {
       final time = gameData['time'] as TimeOfDay;
       gameData['time'] = '${time.hour}:${time.minute}';
     }
 
-    // Save to shared_preferences under 'published_games'
     final prefs = await SharedPreferences.getInstance();
     final String? gamesJson = prefs.getString('published_games');
     List<Map<String, dynamic>> publishedGames = [];
@@ -64,7 +61,6 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
     publishedGames.add(gameData);
     await prefs.setString('published_games', jsonEncode(publishedGames));
 
-    // Show snackbar and navigate back to home
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Game published!')),
     );
@@ -72,22 +68,18 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
   }
 
   Future<void> _publishLater() async {
-    // Prepare the game data to save, converting DateTime and TimeOfDay to strings
     final gameData = Map<String, dynamic>.from(args);
-    gameData['id'] = DateTime.now().millisecondsSinceEpoch; // Unique ID for the game
+    gameData['id'] = DateTime.now().millisecondsSinceEpoch;
     gameData['createdAt'] = DateTime.now().toIso8601String();
 
-    // Convert DateTime to string
     if (gameData['date'] != null) {
       gameData['date'] = (gameData['date'] as DateTime).toIso8601String();
     }
-    // Convert TimeOfDay to string (e.g., "HH:mm")
     if (gameData['time'] != null) {
       final time = gameData['time'] as TimeOfDay;
       gameData['time'] = '${time.hour}:${time.minute}';
     }
 
-    // Save to shared_preferences
     final prefs = await SharedPreferences.getInstance();
     final String? gamesJson = prefs.getString('unpublished_games');
     List<Map<String, dynamic>> unpublishedGames = [];
@@ -98,7 +90,6 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
     unpublishedGames.add(gameData);
     await prefs.setString('unpublished_games', jsonEncode(unpublishedGames));
 
-    // Show snackbar and navigate back to home
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Moved to Unpublished Games!')),
     );
@@ -106,20 +97,16 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
   }
 
   Future<void> _publishUpdate() async {
-    // Prepare the game data to save, converting DateTime and TimeOfDay to strings
     final gameData = Map<String, dynamic>.from(args);
 
-    // Convert DateTime to string
     if (gameData['date'] != null) {
       gameData['date'] = (gameData['date'] as DateTime).toIso8601String();
     }
-    // Convert TimeOfDay to string (e.g., "HH:mm")
     if (gameData['time'] != null) {
       final time = gameData['time'] as TimeOfDay;
       gameData['time'] = '${time.hour}:${time.minute}';
     }
 
-    // Update the published games in shared_preferences
     final prefs = await SharedPreferences.getInstance();
     final String? gamesJson = prefs.getString('published_games');
     List<Map<String, dynamic>> publishedGames = [];
@@ -129,28 +116,36 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
 
     final index = publishedGames.indexWhere((g) => g['id'] == gameData['id']);
     if (index != -1) {
-      publishedGames[index] = gameData;
+      publishedGames[index] = gameData; // Update existing game
     } else {
-      publishedGames.add(gameData);
+      publishedGames.add(gameData); // Fallback for safety
     }
 
     await prefs.setString('published_games', jsonEncode(publishedGames));
 
-    // Show snackbar and navigate back to GameInformationScreen
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Game updated!')),
     );
-    Navigator.pop(context, gameData); // Return updated game data to GameInformationScreen
+    if (isFromGameInfo) {
+      // Navigate to GameInformationScreen, removing all routes until HomeScreen
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        '/game_information',
+        (route) => route.settings.name == '/home',
+        arguments: gameData,
+      );
+    } else {
+      Navigator.pop(context, gameData);
+    }
   }
 
   bool _hasChanges() {
-    // Compare args with originalArgs to detect changes
     return args.toString() != originalArgs.toString();
   }
 
   Future<bool> _onWillPop() async {
     if (!_hasChanges()) {
-      return true; // Allow navigation if no changes
+      return true;
     }
 
     final shouldDiscard = await showDialog<bool>(
@@ -260,7 +255,6 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
                       if (args['selectedOfficials'] == null || (args['selectedOfficials'] as List).isEmpty)
                         const Text('No officials selected.', style: TextStyle(fontSize: 16, color: Colors.grey))
                       else if (args['method'] == 'advanced' && args['selectedLists'] != null) ...[
-                        // Display summary for Advanced method
                         ...((args['selectedLists'] as List<Map<String, dynamic>>).map(
                           (list) => Padding(
                             padding: const EdgeInsets.symmetric(vertical: 4),
@@ -272,7 +266,6 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
                         )),
                       ]
                       else if (args['method'] == 'use_list' && args['selectedListName'] != null) ...[
-                        // Display summary for Use List method
                         Padding(
                           padding: const EdgeInsets.symmetric(vertical: 4),
                           child: Text(
@@ -282,7 +275,6 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
                         ),
                       ]
                       else ...[
-                        // Display detailed officials list for Standard method
                         ...((args['selectedOfficials'] as List<Map<String, dynamic>>).map(
                           (official) => ListTile(
                             title: Text(official['name'] as String),
@@ -303,7 +295,7 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (isEditMode) ...[
+              if (isFromGameInfo || isEditMode) ...[
                 ElevatedButton(
                   onPressed: _publishUpdate,
                   style: elevatedButtonStyle(),

@@ -54,6 +54,38 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  Future<Map<String, dynamic>?> _fetchGameById(int gameId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final String? gamesJson = prefs.getString('published_games');
+    if (gamesJson != null && gamesJson.isNotEmpty) {
+      try {
+        final List<Map<String, dynamic>> games = List<Map<String, dynamic>>.from(jsonDecode(gamesJson));
+        final game = games.firstWhere((g) => g['id'] == gameId, orElse: () => {});
+        if (game.isNotEmpty) {
+          if (game['date'] != null) {
+            game['date'] = DateTime.parse(game['date'] as String);
+          }
+          if (game['time'] != null) {
+            final timeParts = (game['time'] as String).split(':');
+            game['time'] = TimeOfDay(
+              hour: int.parse(timeParts[0]),
+              minute: int.parse(timeParts[1]),
+            );
+          }
+          if (game['selectedOfficials'] != null) {
+            game['selectedOfficials'] = (game['selectedOfficials'] as List<dynamic>)
+                .map((official) => Map<String, dynamic>.from(official as Map))
+                .toList();
+          }
+          return game;
+        }
+      } catch (e) {
+        print('Error fetching game by ID: $e');
+      }
+    }
+    return null;
+  }
+
   IconData _getSportIcon(String sport) {
     switch (sport.toLowerCase()) {
       case 'football':
@@ -198,11 +230,21 @@ class _HomeScreenState extends State<HomeScreen> {
 
                           return GestureDetector(
                             onTap: () async {
-                              final prefs = await SharedPreferences.getInstance();
+                              // Fetch the latest game data directly from SharedPreferences
+                              final gameId = game['id'] as int?;
+                              if (gameId == null) {
+                                print('Error: Game ID is null');
+                                return;
+                              }
+                              final latestGame = await _fetchGameById(gameId);
+                              if (latestGame == null) {
+                                print('Error: Could not fetch game with ID $gameId');
+                                return;
+                              }
                               Navigator.pushNamed(
                                 context,
                                 '/game_information',
-                                arguments: game,
+                                arguments: latestGame,
                               ).then((result) {
                                 if (result == true) {
                                   // Game was deleted, refresh the list
@@ -215,18 +257,23 @@ class _HomeScreenState extends State<HomeScreen> {
                                     }
                                   });
                                   // Save updated published games
-                                  final gamesToSave = publishedGames.map((g) {
-                                    final gameCopy = Map<String, dynamic>.from(g);
-                                    if (gameCopy['date'] != null) {
-                                      gameCopy['date'] = (gameCopy['date'] as DateTime).toIso8601String();
-                                    }
-                                    if (gameCopy['time'] != null) {
-                                      final time = gameCopy['time'] as TimeOfDay;
-                                      gameCopy['time'] = '${time.hour}:${time.minute}';
-                                    }
-                                    return gameCopy;
-                                  }).toList();
-                                  prefs.setString('published_games', jsonEncode(gamesToSave));
+                                  final prefs = SharedPreferences.getInstance();
+                                  prefs.then((prefs) {
+                                    final gamesToSave = publishedGames.map((g) {
+                                      final gameCopy = Map<String, dynamic>.from(g);
+                                      if (gameCopy['date'] != null) {
+                                        gameCopy['date'] = (gameCopy['date'] as DateTime).toIso8601String();
+                                      }
+                                      if (gameCopy['time'] != null) {
+                                        final time = gameCopy['time'] as TimeOfDay;
+                                        gameCopy['time'] = '${time.hour}:${time.minute}';
+                                      }
+                                      return gameCopy;
+                                    }).toList();
+                                    prefs.setString('published_games', jsonEncode(gamesToSave));
+                                    // Refresh the list from SharedPreferences to ensure consistency
+                                    _fetchPublishedGames();
+                                  });
                                 }
                               });
                             },

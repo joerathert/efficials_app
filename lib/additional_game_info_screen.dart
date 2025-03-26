@@ -78,10 +78,9 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
     final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
     print('handleContinue - isFromEdit: $_isFromEdit, args: $args');
     if (_isFromEdit) {
-      Navigator.pushNamedAndRemoveUntil(
+      Navigator.pushNamed(
         context,
         '/review_game_info',
-        (route) => route.settings.name == '/review_game_info', // Pop until ReviewGameInfoScreen
         arguments: {
           ...args,
           'levelOfCompetition': _levelOfCompetition,
@@ -89,6 +88,8 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
           'officialsRequired': _officialsRequiredController.text.trim(),
           'gameFee': _gameFeeController.text.trim(),
           'hireAutomatically': _hireAutomatically,
+          'isEdit': true,
+          'isFromGameInfo': args['isFromGameInfo'] ?? false, // Pass isFromGameInfo
         },
       );
     } else {

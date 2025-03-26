@@ -24,7 +24,7 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
   late String gameFee;
   late bool hireAutomatically;
   late List<Map<String, dynamic>> selectedOfficials;
-  late List<Map<String, dynamic>> selectedLists; // Add this to store safely casted lists
+  late List<Map<String, dynamic>> selectedLists;
 
   @override
   void didChangeDependencies() {
@@ -35,14 +35,27 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
       sport = args['sport'] as String? ?? 'Unknown';
       scheduleName = args['scheduleName'] as String? ?? 'Unnamed';
       location = args['location'] as String? ?? 'Not set';
-      selectedDate = args['date'] as DateTime?;
-      selectedTime = args['time'] as TimeOfDay?;
+      // Parse date from ISO8601 string to DateTime if it's a string
+      selectedDate = args['date'] != null
+          ? (args['date'] is String ? DateTime.parse(args['date'] as String) : args['date'] as DateTime)
+          : null;
+      // Parse time from "HH:mm" string to TimeOfDay if it's a string
+      selectedTime = args['time'] != null
+          ? (args['time'] is String
+              ? () {
+                  final timeParts = (args['time'] as String).split(':');
+                  return TimeOfDay(
+                    hour: int.parse(timeParts[0]),
+                    minute: int.parse(timeParts[1]),
+                  );
+                }()
+              : args['time'] as TimeOfDay)
+          : null;
       levelOfCompetition = args['levelOfCompetition'] as String? ?? 'Not set';
       gender = args['gender'] as String? ?? 'Not set';
       officialsRequired = args['officialsRequired'] as String? ?? '0';
       gameFee = args['gameFee'] as String? ?? 'Not set';
       hireAutomatically = args['hireAutomatically'] as bool? ?? false;
-      // Safely cast selectedOfficials
       try {
         final officialsRaw = args['selectedOfficials'] as List<dynamic>? ?? [];
         selectedOfficials = officialsRaw.map((official) {
@@ -55,7 +68,6 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
         selectedOfficials = [];
         print('Error casting selectedOfficials: $e');
       }
-      // Safely cast selectedLists
       try {
         final listsRaw = args['selectedLists'] as List<dynamic>? ?? [];
         selectedLists = listsRaw.map((list) {
@@ -107,7 +119,7 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
         publishedGames.removeWhere((game) => game['id'] == gameId);
         await prefs.setString('published_games', jsonEncode(publishedGames));
         print('Game deleted - ID: $gameId');
-        Navigator.pop(context, true); // Return true to indicate deletion
+        Navigator.pop(context, true);
       } catch (e) {
         print('Error deleting game: $e');
         ScaffoldMessenger.of(context).showSnackBar(
@@ -195,6 +207,7 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                         arguments: {
                           ...args,
                           'isEdit': true,
+                          'isFromGameInfo': true,
                         },
                       ).then((result) {
                         if (result != null && result is Map<String, dynamic>) {
@@ -203,8 +216,20 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                             sport = args['sport'] as String? ?? sport;
                             scheduleName = args['scheduleName'] as String? ?? scheduleName;
                             location = args['location'] as String? ?? location;
-                            selectedDate = args['date'] as DateTime? ?? selectedDate;
-                            selectedTime = args['time'] as TimeOfDay? ?? selectedTime;
+                            selectedDate = args['date'] != null
+                                ? (args['date'] is String ? DateTime.parse(args['date'] as String) : args['date'] as DateTime)
+                                : selectedDate;
+                            selectedTime = args['time'] != null
+                                ? (args['time'] is String
+                                    ? () {
+                                        final timeParts = (args['time'] as String).split(':');
+                                        return TimeOfDay(
+                                          hour: int.parse(timeParts[0]),
+                                          minute: int.parse(timeParts[1]),
+                                        );
+                                      }()
+                                    : args['time'] as TimeOfDay)
+                                : selectedTime;
                             levelOfCompetition = args['levelOfCompetition'] as String? ?? levelOfCompetition;
                             gender = args['gender'] as String? ?? gender;
                             officialsRequired = args['officialsRequired'] as String? ?? officialsRequired;

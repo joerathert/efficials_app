@@ -172,18 +172,19 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
                               final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
                               print('Navigating from DateTime with args: $args, isFromEdit: $_isFromEdit');
                               if (_isFromEdit) {
-                                Navigator.pushNamedAndRemoveUntil(
+                                Navigator.pushNamed(
                                   context,
                                   '/review_game_info',
-                                  (route) => route.settings.name == '/review_game_info',
                                   arguments: {
                                     ...args,
                                     'date': _selectedDate,
                                     'time': _selectedTime,
+                                    'isEdit': true,
+                                    'isFromGameInfo': args['isFromGameInfo'] ?? false, // Pass isFromGameInfo
                                   },
                                 );
                               } else {
-                                Navigator.pushNamed(context, '/choose_location', arguments: { // Changed from '/additional_game_info' to '/choose_location'
+                                Navigator.pushNamed(context, '/choose_location', arguments: {
                                   ...args,
                                   'date': _selectedDate,
                                   'time': _selectedTime,

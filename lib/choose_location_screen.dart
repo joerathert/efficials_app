@@ -30,7 +30,7 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
     if (args != null) {
       isFromEdit = args['isEdit'] == true;
       if (isFromEdit && selectedLocation == null) {
-        selectedLocation = args['location'] as String?; // Set to game's original location when editing
+        selectedLocation = args['location'] as String?;
         print('didChangeDependencies - Args: $args, Updated selectedLocation: $selectedLocation, isFromEdit: $isFromEdit');
       }
     }
@@ -247,22 +247,14 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                           : () {
                               print('Continue pressed - Selected Location: $selectedLocation, isFromEdit: $isFromEdit');
                               if (isFromEdit) {
-                                Navigator.pushNamedAndRemoveUntil(
+                                Navigator.pushNamed(
                                   context,
                                   '/review_game_info',
-                                  (route) => route.settings.name == '/review_game_info',
                                   arguments: {
-                                    'scheduleName': scheduleName,
-                                    'sport': sport,
+                                    ...args,
                                     'location': selectedLocation,
-                                    'date': date,
-                                    'time': time,
-                                    'levelOfCompetition': levelOfCompetition,
-                                    'gender': gender,
-                                    'officialsRequired': officialsRequired,
-                                    'gameFee': gameFee,
-                                    'hireAutomatically': hireAutomatically,
-                                    'selectedOfficials': selectedOfficials,
+                                    'isEdit': true,
+                                    'isFromGameInfo': args['isFromGameInfo'] ?? false,
                                   },
                                 );
                               } else {
