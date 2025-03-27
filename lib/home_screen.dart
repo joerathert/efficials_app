@@ -152,9 +152,7 @@ class _HomeScreenState extends State<HomeScreen> {
               title: const Text('Schedules'),
               onTap: () {
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Schedules not implemented yet')),
-                );
+                Navigator.pushNamed(context, '/schedules');
               },
             ),
             ListTile(
