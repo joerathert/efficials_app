@@ -17,7 +17,8 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
   List<Map<String, dynamic>> games = [];
   bool isLoading = true;
   DateTime _focusedDay = DateTime.now();
-  DateTime? _selectedDay; // Track the selected date
+  DateTime? _selectedDay;
+  List<Map<String, dynamic>> _selectedDayGames = []; // Games for the selected day
 
   @override
   void didChangeDependencies() {
@@ -128,18 +129,7 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                           setState(() {
                             _selectedDay = selectedDay;
                             _focusedDay = focusedDay;
-                            final events = _getGamesForDay(selectedDay);
-                            if (events.isNotEmpty) {
-                              Navigator.pushNamed(
-                                context,
-                                '/game_information',
-                                arguments: events.length == 1 ? events.first : events,
-                              ).then((result) {
-                                if (result == true) {
-                                  _fetchGames();
-                                }
-                              });
-                            }
+                            _selectedDayGames = _getGamesForDay(selectedDay);
                           });
                         },
                         onPageChanged: (focusedDay) {
@@ -245,17 +235,7 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                               onTap: () {
                                 setState(() {
                                   _selectedDay = day;
-                                  if (hasEvents) {
-                                    Navigator.pushNamed(
-                                      context,
-                                      '/game_information',
-                                      arguments: events.length == 1 ? events.first : events,
-                                    ).then((result) {
-                                      if (result == true) {
-                                        _fetchGames();
-                                      }
-                                    });
-                                  }
+                                  _selectedDayGames = _getGamesForDay(day);
                                 });
                               },
                               child: Container(
@@ -335,6 +315,75 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                           ],
                         ),
                       ),
+                      // Add scrollable game details section
+                      if (_selectedDayGames.isNotEmpty)
+                        Container(
+                          constraints: const BoxConstraints(maxHeight: 200), // Limit height to make it scrollable
+                          child: ListView.builder(
+                            shrinkWrap: true,
+                            itemCount: _selectedDayGames.length,
+                            itemBuilder: (context, index) {
+                              final game = _selectedDayGames[index];
+                              final gameTime = game['time'] != null
+                                  ? (game['time'] as TimeOfDay).format(context)
+                                  : 'Not set';
+                              final hiredOfficials = game['officialsHired'] as int? ?? 0;
+                              final requiredOfficials = int.tryParse(game['officialsRequired']?.toString() ?? '0') ?? 0;
+                              final location = game['location'] as String? ?? 'Not set';
+                              final opponent = game['opponent'] as String? ?? 'Not set'; // Will be added later
+
+                              return GestureDetector(
+                                onTap: () {
+                                  Navigator.pushNamed(
+                                    context,
+                                    '/game_information',
+                                    arguments: game,
+                                  ).then((result) {
+                                    if (result == true) {
+                                      _fetchGames();
+                                    }
+                                  });
+                                },
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 16.0),
+                                  child: Card(
+                                    elevation: 2,
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(8.0),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            'Time: $gameTime',
+                                            style: const TextStyle(fontSize: 16),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            '$hiredOfficials/$requiredOfficials officials confirmed',
+                                            style: TextStyle(
+                                              fontSize: 16,
+                                              color: hiredOfficials >= requiredOfficials ? Colors.green : Colors.red,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            'Location: $location',
+                                            style: const TextStyle(fontSize: 16),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            'Opponent: $opponent',
+                                            style: const TextStyle(fontSize: 16),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
                     ],
                   ),
                 ],

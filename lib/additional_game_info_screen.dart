@@ -14,6 +14,7 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
   String? _gender;
   final TextEditingController _officialsRequiredController = TextEditingController();
   final TextEditingController _gameFeeController = TextEditingController();
+  final TextEditingController _opponentController = TextEditingController(); // New controller for opponent
   bool _hireAutomatically = false;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   bool _isFromEdit = false;
@@ -60,6 +61,7 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
           _gender = args['gender'] as String?;
           _officialsRequiredController.text = args['officialsRequired'] as String? ?? '';
           _gameFeeController.text = args['gameFee'] as String? ?? '';
+          _opponentController.text = args['opponent'] as String? ?? ''; // Load opponent if editing
           _hireAutomatically = args['hireAutomatically'] as bool? ?? false;
         }
       }
@@ -77,38 +79,29 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
 
     final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
     print('handleContinue - isFromEdit: $_isFromEdit, args: $args');
+    final updatedArgs = {
+      ...args,
+      'levelOfCompetition': _levelOfCompetition,
+      'gender': _gender,
+      'officialsRequired': _officialsRequiredController.text.trim(),
+      'gameFee': _gameFeeController.text.trim(),
+      'opponent': _opponentController.text.trim(), // Add opponent to arguments
+      'hireAutomatically': _hireAutomatically,
+    };
+
     if (_isFromEdit) {
       Navigator.pushNamed(
         context,
         '/review_game_info',
         arguments: {
-          ...args,
-          'levelOfCompetition': _levelOfCompetition,
-          'gender': _gender,
-          'officialsRequired': _officialsRequiredController.text.trim(),
-          'gameFee': _gameFeeController.text.trim(),
-          'hireAutomatically': _hireAutomatically,
+          ...updatedArgs,
           'isEdit': true,
-          'isFromGameInfo': args['isFromGameInfo'] ?? false, // Pass isFromGameInfo
+          'isFromGameInfo': args['isFromGameInfo'] ?? false,
         },
       );
     } else {
-      print('Navigating to /select_officials with args: ${{
-        ...args,
-        'levelOfCompetition': _levelOfCompetition,
-        'gender': _gender,
-        'officialsRequired': _officialsRequiredController.text.trim(),
-        'gameFee': _gameFeeController.text.trim(),
-        'hireAutomatically': _hireAutomatically,
-      }}');
-      Navigator.pushNamed(context, '/select_officials', arguments: {
-        ...args,
-        'levelOfCompetition': _levelOfCompetition,
-        'gender': _gender,
-        'officialsRequired': _officialsRequiredController.text.trim(),
-        'gameFee': _gameFeeController.text.trim(),
-        'hireAutomatically': _hireAutomatically,
-      });
+      print('Navigating to /select_officials with args: $updatedArgs');
+      Navigator.pushNamed(context, '/select_officials', arguments: updatedArgs);
     }
   }
 
@@ -118,7 +111,7 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
     final scheduleName = args['scheduleName'] as String;
     final sport = args['sport'] as String;
     final location = args['location'] as String;
-    final DateTime date = args['date'] as DateTime? ?? DateTime.now(); // Default to now if null
+    final DateTime date = args['date'] as DateTime? ?? DateTime.now();
     final TimeOfDay time = args['time'] as TimeOfDay;
 
     final List<String> currentGenders = _levelOfCompetition == 'College' || _levelOfCompetition == 'Adult'
@@ -178,6 +171,12 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
                     keyboardType: TextInputType.number,
                   ),
                   const SizedBox(height: 20),
+                  TextField(
+                    controller: _opponentController,
+                    decoration: textFieldDecoration('Opponent'),
+                    keyboardType: TextInputType.text,
+                  ),
+                  const SizedBox(height: 20),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -214,6 +213,7 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
   void dispose() {
     _officialsRequiredController.dispose();
     _gameFeeController.dispose();
+    _opponentController.dispose(); // Dispose of the new controller
     super.dispose();
   }
 }
