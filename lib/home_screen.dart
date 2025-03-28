@@ -257,6 +257,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           final isFullyHired = hiredOfficials >= requiredOfficials;
                           final sport = game['sport'] as String? ?? 'Unknown Sport';
                           final sportIcon = _getSportIcon(sport);
+                          final isAway = game['isAway'] == true; // Check if the game is an away game
 
                           return GestureDetector(
                             onTap: () async {
@@ -341,20 +342,30 @@ class _HomeScreenState extends State<HomeScreen> {
                                         const SizedBox(height: 4),
                                         Row(
                                           children: [
-                                            Text(
-                                              '$hiredOfficials/$requiredOfficials Official(s)',
-                                              style: TextStyle(
-                                                fontSize: 14,
-                                                color: isFullyHired ? Colors.green : Colors.red,
+                                            if (isAway)
+                                              const Text(
+                                                'Away game',
+                                                style: TextStyle(
+                                                  fontSize: 14,
+                                                  color: Colors.grey,
+                                                ),
+                                              )
+                                            else ...[
+                                              Text(
+                                                '$hiredOfficials/$requiredOfficials Official(s)',
+                                                style: TextStyle(
+                                                  fontSize: 14,
+                                                  color: isFullyHired ? Colors.green : Colors.red,
+                                                ),
                                               ),
-                                            ),
-                                            if (!isFullyHired) ...[
-                                              const SizedBox(width: 8),
-                                              const Icon(
-                                                Icons.warning_amber_rounded,
-                                                color: Colors.red,
-                                                size: 16,
-                                              ),
+                                              if (!isFullyHired) ...[
+                                                const SizedBox(width: 8),
+                                                const Icon(
+                                                  Icons.warning_amber_rounded,
+                                                  color: Colors.red,
+                                                  size: 16,
+                                                ),
+                                              ],
                                             ],
                                           ],
                                         ),
