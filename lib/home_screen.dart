@@ -13,6 +13,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   List<Map<String, dynamic>> publishedGames = [];
+  List<String> existingSchedules = [];
   bool isLoading = true;
 
   @override
@@ -24,10 +25,36 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _fetchPublishedGames() async {
     final prefs = await SharedPreferences.getInstance();
     final String? gamesJson = prefs.getString('published_games');
+    final String? unpublishedGamesJson = prefs.getString('unpublished_games');
+    final String? publishedGamesJson = prefs.getString('published_games');
+
+    // Fetch existing schedules
+    Set<String> scheduleNames = {};
+    if (unpublishedGamesJson != null && unpublishedGamesJson.isNotEmpty) {
+      final unpublished = List<Map<String, dynamic>>.from(jsonDecode(unpublishedGamesJson));
+      for (var game in unpublished) {
+        scheduleNames.add(game['scheduleName'] as String);
+      }
+    }
+    if (publishedGamesJson != null && publishedGamesJson.isNotEmpty) {
+      final published = List<Map<String, dynamic>>.from(jsonDecode(publishedGamesJson));
+      for (var game in published) {
+        scheduleNames.add(game['scheduleName'] as String);
+      }
+    }
+    existingSchedules = scheduleNames.toList();
+
     setState(() {
       if (gamesJson != null && gamesJson.isNotEmpty) {
         try {
+          // Fetch all games
           publishedGames = List<Map<String, dynamic>>.from(jsonDecode(gamesJson));
+          // Filter games to only include those with existing schedules
+          publishedGames = publishedGames.where((game) {
+            final scheduleName = game['scheduleName'] as String?;
+            return scheduleName != null && existingSchedules.contains(scheduleName);
+          }).toList();
+
           for (var game in publishedGames) {
             if (game['date'] != null) {
               game['date'] = DateTime.parse(game['date'] as String);
@@ -87,7 +114,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   IconData _getSportIcon(String sport) {
-    // Log the sport value for debugging
     print('Sport value for game: $sport');
     switch (sport.toLowerCase()) {
       case 'football':
@@ -101,7 +127,7 @@ class _HomeScreenState extends State<HomeScreen> {
       case 'volleyball':
         return Icons.sports_volleyball;
       default:
-        return Icons.sports; // Generic sports icon for 'Other'
+        return Icons.sports;
     }
   }
 
@@ -154,7 +180,10 @@ class _HomeScreenState extends State<HomeScreen> {
               title: const Text('Schedules'),
               onTap: () {
                 Navigator.pop(context);
-                Navigator.pushNamed(context, '/schedules');
+                Navigator.pushNamed(context, '/schedules').then((result) {
+                  // Refresh games after returning from SchedulesScreen
+                  _fetchPublishedGames();
+                });
               },
             ),
             ListTile(
@@ -231,7 +260,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
                           return GestureDetector(
                             onTap: () async {
-                              // Fetch the latest game data directly from SharedPreferences
                               final gameId = game['id'] as int?;
                               if (gameId == null) {
                                 print('Error: Game ID is null');
@@ -248,7 +276,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                 arguments: latestGame,
                               ).then((result) {
                                 if (result == true) {
-                                  // Game was deleted, refresh the list
                                   _fetchPublishedGames();
                                 } else if (result != null && result is Map<String, dynamic>) {
                                   setState(() {
@@ -257,7 +284,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                       publishedGames[index] = result;
                                     }
                                   });
-                                  // Save updated published games
                                   final prefs = SharedPreferences.getInstance();
                                   prefs.then((prefs) {
                                     final gamesToSave = publishedGames.map((g) {
@@ -272,7 +298,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                       return gameCopy;
                                     }).toList();
                                     prefs.setString('published_games', jsonEncode(gamesToSave));
-                                    // Refresh the list from SharedPreferences to ensure consistency
                                     _fetchPublishedGames();
                                   });
                                 }
