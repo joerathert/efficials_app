@@ -17,6 +17,7 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
   List<Map<String, dynamic>> games = [];
   bool isLoading = true;
   DateTime _focusedDay = DateTime.now();
+  DateTime? _selectedDay; // Track the selected date
 
   @override
   void didChangeDependencies() {
@@ -48,10 +49,12 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
         print('Error fetching games: $e');
       }
 
-      // Filter games by scheduleName
-      games = allGames.where((game) => game['scheduleName'] == scheduleName).toList();
+      games = allGames.where((game) {
+        final matchesSchedule = game['scheduleName'] == scheduleName;
+        final hasDate = game['date'] != null;
+        return matchesSchedule && hasDate;
+      }).toList();
 
-      // Parse dates and times
       for (var game in games) {
         if (game['date'] != null) {
           game['date'] = DateTime.parse(game['date'] as String);
@@ -65,7 +68,6 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
         }
       }
 
-      // Set initial focused day
       if (games.isNotEmpty) {
         games.sort((a, b) => (a['date'] as DateTime).compareTo(b['date'] as DateTime));
         _focusedDay = games.first['date'] as DateTime;
@@ -115,13 +117,29 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                         firstDay: DateTime.utc(2020, 1, 1),
                         lastDay: DateTime.utc(2030, 12, 31),
                         focusedDay: _focusedDay,
-                        calendarFormat: CalendarFormat.month, // Always use month view
+                        calendarFormat: CalendarFormat.month,
                         selectedDayPredicate: (day) {
-                          return false; // Disable selected day indicator
+                          return _selectedDay != null &&
+                              day.year == _selectedDay!.year &&
+                              day.month == _selectedDay!.month &&
+                              day.day == _selectedDay!.day;
                         },
                         onDaySelected: (selectedDay, focusedDay) {
                           setState(() {
+                            _selectedDay = selectedDay;
                             _focusedDay = focusedDay;
+                            final events = _getGamesForDay(selectedDay);
+                            if (events.isNotEmpty) {
+                              Navigator.pushNamed(
+                                context,
+                                '/game_information',
+                                arguments: events.length == 1 ? events.first : events,
+                              ).then((result) {
+                                if (result == true) {
+                                  _fetchGames();
+                                }
+                              });
+                            }
                           });
                         },
                         onPageChanged: (focusedDay) {
@@ -139,10 +157,15 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                             shape: BoxShape.rectangle,
                             borderRadius: BorderRadius.circular(4),
                           ),
+                          selectedDecoration: BoxDecoration(
+                            color: efficialsBlue,
+                            shape: BoxShape.rectangle,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
                           defaultTextStyle: const TextStyle(fontSize: 16, color: Colors.black),
                           weekendTextStyle: const TextStyle(fontSize: 16, color: Colors.black),
                           outsideTextStyle: const TextStyle(fontSize: 16, color: Colors.grey),
-                          markersMaxCount: 0, // Disable default event markers
+                          markersMaxCount: 0,
                         ),
                         daysOfWeekStyle: DaysOfWeekStyle(
                           weekdayStyle: const TextStyle(fontSize: 14),
@@ -166,7 +189,7 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                           titleTextStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                           leftChevronIcon: const Icon(Icons.chevron_left, color: efficialsBlue),
                           rightChevronIcon: const Icon(Icons.chevron_right, color: efficialsBlue),
-                          titleCentered: true, // Ensure the month/year is centered
+                          titleCentered: true,
                         ),
                         calendarBuilders: CalendarBuilders(
                           defaultBuilder: (context, day, focusedDay) {
@@ -174,12 +197,15 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                             final hasEvents = events.isNotEmpty;
                             final isToday = isSameDay(day, DateTime.now());
                             final isOutsideMonth = day.month != focusedDay.month;
+                            final isSelected = _selectedDay != null &&
+                                day.year == _selectedDay!.year &&
+                                day.month == _selectedDay!.month &&
+                                day.day == _selectedDay!.day;
 
                             Color? backgroundColor;
                             Color textColor = isOutsideMonth ? Colors.grey : Colors.black;
 
                             if (hasEvents) {
-                              // Check if any game needs officials
                               bool needsOfficials = false;
                               bool isAway = false;
                               bool allFullyHired = true;
@@ -216,28 +242,32 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                             }
 
                             return GestureDetector(
-                              onTap: hasEvents
-                                  ? () {
-                                      Navigator.pushNamed(
-                                        context,
-                                        '/game_information',
-                                        arguments: events.length == 1 ? events.first : events,
-                                      ).then((result) {
-                                        if (result == true) {
-                                          // Game was deleted, refresh the list
-                                          _fetchGames();
-                                        }
-                                      });
-                                    }
-                                  : null,
+                              onTap: () {
+                                setState(() {
+                                  _selectedDay = day;
+                                  if (hasEvents) {
+                                    Navigator.pushNamed(
+                                      context,
+                                      '/game_information',
+                                      arguments: events.length == 1 ? events.first : events,
+                                    ).then((result) {
+                                      if (result == true) {
+                                        _fetchGames();
+                                      }
+                                    });
+                                  }
+                                });
+                              },
                               child: Container(
                                 margin: const EdgeInsets.all(4.0),
                                 decoration: BoxDecoration(
                                   color: backgroundColor,
                                   borderRadius: BorderRadius.circular(4),
-                                  border: isToday && backgroundColor == null
+                                  border: isSelected && backgroundColor == null
                                       ? Border.all(color: efficialsBlue, width: 2)
-                                      : null,
+                                      : isToday && backgroundColor == null
+                                          ? Border.all(color: efficialsBlue, width: 2)
+                                          : null,
                                 ),
                                 child: Center(
                                   child: Text(
@@ -311,17 +341,21 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
               ),
             ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.pushNamed(
-            context,
-            '/date_time',
-            arguments: {'scheduleName': scheduleName},
-          ).then((_) {
-            // Refresh games after adding a new one
-            _fetchGames();
-          });
-        },
-        backgroundColor: efficialsBlue,
+        onPressed: _selectedDay == null
+            ? null
+            : () {
+                Navigator.pushNamed(
+                  context,
+                  '/date_time',
+                  arguments: {
+                    'scheduleName': scheduleName,
+                    'date': _selectedDay,
+                  },
+                ).then((_) {
+                  _fetchGames();
+                });
+              },
+        backgroundColor: _selectedDay == null ? Colors.grey : efficialsBlue,
         child: const Icon(Icons.add, size: 30, color: Colors.white),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,

@@ -24,7 +24,7 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
       {'name': 'No saved lists', 'id': -1},
       {'name': '+ Create new list', 'id': 0},
     ];
-    selectedList = lists[0]['name'] as String;
+    // Do not set selectedList initially to show the hint
     _fetchLists();
   }
 
@@ -36,7 +36,6 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
       setState(() {
         isFromGameCreation = args['fromGameCreation'] == true;
       });
-      // Only fetch lists if we haven't already loaded them
       if (lists.length <= 2 && lists[0]['name'] == 'No saved lists') {
         _fetchLists();
       }
@@ -70,10 +69,6 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
         lists.add({'name': 'No saved lists', 'id': -1});
       }
       lists.add({'name': '+ Create new list', 'id': 0});
-      // Only set selectedList if it hasn't been set by user interaction
-      if (selectedList == null || !lists.any((list) => list['name'] == selectedList)) {
-        selectedList = lists.isNotEmpty ? lists[0]['name'] as String : null;
-      }
       isLoading = false;
       print('Fetched lists: $lists, selectedList: $selectedList');
     });
@@ -104,7 +99,7 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                 if (lists.isEmpty || (lists.length == 1 && lists[0]['id'] == 0)) {
                   lists.insert(0, {'name': 'No saved lists', 'id': -1});
                 }
-                selectedList = lists.isNotEmpty ? lists[0]['name'] as String : null;
+                selectedList = null; // Reset to show hint after deletion
                 _saveLists();
               });
             },
@@ -145,7 +140,7 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
   @override
   Widget build(BuildContext context) {
     final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
-    final sport = args['sport'] as String? ?? 'Unknown Sport'; // Ensure sport is available
+    final sport = args['sport'] as String? ?? 'Unknown Sport';
 
     final dropdownItems = lists.isNotEmpty
         ? lists.map((list) {
@@ -200,6 +195,10 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                       : DropdownButtonFormField<String>(
                           decoration: textFieldDecoration('Lists'),
                           value: selectedList,
+                          hint: const Text(
+                            'Select a list',
+                            style: TextStyle(color: Colors.grey),
+                          ),
                           onChanged: (newValue) {
                             if (newValue == null) return;
                             print('Dropdown onChanged: newValue = $newValue, previous selectedList = $selectedList');
@@ -215,7 +214,7 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                                   arguments: {
                                     'existingLists': existingListNames,
                                     'fromGameCreation': isFromGameCreation,
-                                    'sport': sport, // Pass the sport to CreateNewListScreen
+                                    'sport': sport,
                                   },
                                 ).then((result) async {
                                   if (result != null) {
@@ -227,7 +226,7 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                                       if (!lists.any((list) => list['name'] == newList['listName'])) {
                                         lists.insert(0, {
                                           'name': newList['listName'],
-                                          'sport': newList['sport'] ?? sport, // Use the passed sport
+                                          'sport': newList['sport'] ?? sport,
                                           'officials': newList['officials'],
                                           'id': lists.length + 1,
                                         });
@@ -236,13 +235,13 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                                         ScaffoldMessenger.of(context).showSnackBar(
                                           const SnackBar(content: Text('A list with this name already exists!')),
                                         );
-                                        selectedList = lists.isNotEmpty ? lists[0]['name'] as String : null;
+                                        selectedList = null; // Reset to show hint
                                       }
                                     });
                                     await _saveLists();
                                     await _fetchLists();
                                   } else {
-                                    selectedList = lists.isNotEmpty ? lists[0]['name'] as String : null;
+                                    selectedList = null; // Reset to show hint
                                   }
                                   print('After create new list navigation: selectedList = $selectedList');
                                 });
@@ -287,7 +286,7 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(content: Text('A list with this name already exists!')),
                                   );
-                                  selectedList = lists.isNotEmpty ? lists[0]['name'] as String : null;
+                                  selectedList = null; // Reset to show hint
                                 }
                               }
                             });
