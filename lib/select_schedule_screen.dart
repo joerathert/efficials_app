@@ -26,22 +26,62 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
     final String? unpublishedGamesJson = prefs.getString('unpublished_games');
     final String? publishedGamesJson = prefs.getString('published_games');
 
+    // One-time migration: Update existing games to set a default sport
+    if (unpublishedGamesJson != null && unpublishedGamesJson.isNotEmpty) {
+      final unpublished = List<Map<String, dynamic>>.from(jsonDecode(unpublishedGamesJson));
+      bool updated = false;
+      for (var game in unpublished) {
+        if (!game.containsKey('sport') || game['sport'] == 'Unknown Sport') {
+          game['sport'] = 'Football'; // Set a default sport (adjust as needed)
+          updated = true;
+        }
+      }
+      if (updated) {
+        await prefs.setString('unpublished_games', jsonEncode(unpublished));
+        print('Migrated unpublished games with default sport: $unpublished');
+      }
+    }
+    if (publishedGamesJson != null && publishedGamesJson.isNotEmpty) {
+      final published = List<Map<String, dynamic>>.from(jsonDecode(publishedGamesJson));
+      bool updated = false;
+      for (var game in published) {
+        if (!game.containsKey('sport') || game['sport'] == 'Unknown Sport') {
+          game['sport'] = 'Football'; // Set a default sport (adjust as needed)
+          updated = true;
+        }
+      }
+      if (updated) {
+        await prefs.setString('published_games', jsonEncode(published));
+        print('Migrated published games with default sport: $published');
+      }
+    }
+
     setState(() {
       schedules.clear();
       try {
         if (unpublishedGamesJson != null && unpublishedGamesJson.isNotEmpty) {
           final unpublished = List<Map<String, dynamic>>.from(jsonDecode(unpublishedGamesJson));
+          print('Unpublished games: $unpublished');
           for (var game in unpublished) {
             if (!schedules.any((s) => s['name'] == game['scheduleName'])) {
-              schedules.add({'name': game['scheduleName'] as String, 'id': game['id']});
+              schedules.add({
+                'name': game['scheduleName'] as String,
+                'id': game['id'],
+                'sport': game['sport'] as String? ?? 'Unknown Sport',
+              });
             }
           }
         }
         if (publishedGamesJson != null && publishedGamesJson.isNotEmpty) {
           final published = List<Map<String, dynamic>>.from(jsonDecode(publishedGamesJson));
+          print('Published games: $published');
           for (var game in published) {
             if (!schedules.any((s) => s['name'] == game['scheduleName'])) {
-              schedules.add({'name': game['scheduleName'] as String, 'id': game['id']});
+              schedules.add({
+                'name': game['scheduleName'] as String,
+                'id': game['id'],
+                'sport': game['sport'] as String? ?? 'Unknown Sport',
+              });
             }
           }
         }
@@ -49,9 +89,10 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
         print('Error fetching schedules: $e');
       }
       if (schedules.isEmpty) {
-        schedules.add({'name': 'No schedules available', 'id': -1});
+        schedules.add({'name': 'No schedules available', 'id': -1, 'sport': 'None'});
       }
-      schedules.add({'name': '+ Create new schedule', 'id': 0});
+      schedules.add({'name': '+ Create new schedule', 'id': 0, 'sport': 'None'});
+      print('Schedules after fetching: $schedules');
       isLoading = false;
     });
   }
@@ -109,10 +150,18 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
                           selectedSchedule == '+ Create new schedule')
                       ? null
                       : () {
+                          final selectedScheduleData = schedules.firstWhere(
+                            (schedule) => schedule['name'] == selectedSchedule,
+                            orElse: () => {'name': selectedSchedule, 'sport': 'Unknown Sport'},
+                          );
+                          print('Navigating to DateTimeScreen with schedule: $selectedScheduleData');
                           Navigator.pushNamed(
                             context,
-                            '/date_time', // Changed from '/review_game_info' to '/date_time'
-                            arguments: {'scheduleName': selectedSchedule},
+                            '/date_time',
+                            arguments: {
+                              'scheduleName': selectedSchedule,
+                              'sport': selectedScheduleData['sport'],
+                            },
                           );
                         },
                   style: elevatedButtonStyle(),

@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'theme.dart';
 
 class NameScheduleScreen extends StatefulWidget {
@@ -17,7 +19,7 @@ class _NameScheduleScreenState extends State<NameScheduleScreen> {
     super.dispose();
   }
 
-  void _handleContinue() {
+  void _handleContinue() async {
     final name = _nameController.text.trim();
     if (name.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -27,11 +29,30 @@ class _NameScheduleScreenState extends State<NameScheduleScreen> {
     }
     final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
     final sport = args['sport'] as String;
-    Navigator.pushNamed(
-      context,
-      '/date_time', // Changed from '/choose_location' to '/date_time'
-      arguments: {'scheduleName': name, 'sport': sport},
+
+    // Save the schedule to SharedPreferences
+    final prefs = await SharedPreferences.getInstance();
+    final String? unpublishedGamesJson = prefs.getString('unpublished_games');
+    List<Map<String, dynamic>> unpublishedGames = [];
+    if (unpublishedGamesJson != null && unpublishedGamesJson.isNotEmpty) {
+      unpublishedGames = List<Map<String, dynamic>>.from(jsonDecode(unpublishedGamesJson));
+    }
+
+    final scheduleEntry = {
+      'id': DateTime.now().millisecondsSinceEpoch,
+      'scheduleName': name,
+      'sport': sport,
+      'createdAt': DateTime.now().toIso8601String(),
+    };
+    unpublishedGames.add(scheduleEntry);
+    await prefs.setString('unpublished_games', jsonEncode(unpublishedGames));
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Schedule created!')),
     );
+
+    // Return a result to trigger navigation in SelectSportScreen
+    Navigator.pop(context, true);
   }
 
   @override

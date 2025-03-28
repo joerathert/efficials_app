@@ -87,6 +87,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   IconData _getSportIcon(String sport) {
+    // Log the sport value for debugging
+    print('Sport value for game: $sport');
     switch (sport.toLowerCase()) {
       case 'football':
         return Icons.sports_football;
@@ -224,7 +226,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           final requiredOfficials = int.parse(game['officialsRequired']?.toString() ?? '0');
                           final hiredOfficials = game['officialsHired'] as int? ?? 0;
                           final isFullyHired = hiredOfficials >= requiredOfficials;
-                          final sportIcon = _getSportIcon(game['sport'] as String? ?? 'Other');
+                          final sport = game['sport'] as String? ?? 'Unknown Sport';
+                          final sportIcon = _getSportIcon(sport);
 
                           return GestureDetector(
                             onTap: () async {
@@ -296,7 +299,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                         Row(
                                           children: [
                                             Text(
-                                              '$gameTime - $gameTitle',
+                                              '$gameTime - $gameTitle ($sport)',
                                               style: const TextStyle(
                                                 fontSize: 16,
                                                 color: Colors.black,

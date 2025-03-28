@@ -144,6 +144,9 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+    final sport = args['sport'] as String? ?? 'Unknown Sport'; // Ensure sport is available
+
     final dropdownItems = lists.isNotEmpty
         ? lists.map((list) {
             return DropdownMenuItem(
@@ -212,6 +215,7 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                                   arguments: {
                                     'existingLists': existingListNames,
                                     'fromGameCreation': isFromGameCreation,
+                                    'sport': sport, // Pass the sport to CreateNewListScreen
                                   },
                                 ).then((result) async {
                                   if (result != null) {
@@ -223,7 +227,7 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                                       if (!lists.any((list) => list['name'] == newList['listName'])) {
                                         lists.insert(0, {
                                           'name': newList['listName'],
-                                          'sport': newList['sport'] ?? 'Unknown',
+                                          'sport': newList['sport'] ?? sport, // Use the passed sport
                                           'officials': newList['officials'],
                                           'id': lists.length + 1,
                                         });

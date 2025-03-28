@@ -86,7 +86,12 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                           setState(() {
                             selectedSchedule = newValue;
                             if (newValue == '+ Create new schedule') {
-                              Navigator.pushNamed(context, '/select_sport');
+                              Navigator.pushNamed(context, '/select_sport').then((result) {
+                                if (result == true) {
+                                  // Refresh the schedule list after creating a new schedule
+                                  _fetchSchedules();
+                                }
+                              });
                             }
                           });
                         },

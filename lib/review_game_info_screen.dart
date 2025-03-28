@@ -26,6 +26,10 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
       originalArgs = Map<String, dynamic>.from(newArgs);
       isEditMode = newArgs['id'] != null;
       isFromGameInfo = newArgs['isFromGameInfo'] == true;
+      // Temporary fix: Set a default sport if it's "Unknown Sport"
+      if (args['sport'] == null || args['sport'] == 'Unknown Sport') {
+        args['sport'] = 'Football'; // Default sport, adjust as needed
+      }
       print('ReviewGameInfoScreen didChangeDependencies - Args: $args, isEditMode: $isEditMode, isFromGameInfo: $isFromGameInfo');
     });
   }

@@ -12,6 +12,7 @@ class DateTimeScreen extends StatefulWidget {
 class _DateTimeScreenState extends State<DateTimeScreen> {
   DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
+  String? sport; // Add sport field
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   bool _isFromEdit = false;
   bool _isInitialized = false;
@@ -25,7 +26,8 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
         _selectedDate = args['date'] as DateTime?;
         _selectedTime = args['time'] as TimeOfDay?;
         _isFromEdit = args['isEdit'] == true;
-        print('didChangeDependencies - Initial Args: $args, _selectedDate: $_selectedDate, _selectedTime: $_selectedTime, _isFromEdit: $_isFromEdit');
+        sport = args['sport'] as String?; // Retrieve the sport
+        print('didChangeDependencies - Initial Args: $args, _selectedDate: $_selectedDate, _selectedTime: $_selectedTime, _isFromEdit: $_isFromEdit, sport: $sport');
       }
       _isInitialized = true;
     }
@@ -106,7 +108,7 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    print('build - _selectedDate: $_selectedDate, _selectedTime: $_selectedTime');
+    print('build - _selectedDate: $_selectedDate, _selectedTime: $_selectedTime, sport: $sport');
 
     return Scaffold(
       key: _scaffoldKey,
@@ -179,8 +181,9 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
                                     ...args,
                                     'date': _selectedDate,
                                     'time': _selectedTime,
+                                    'sport': sport, // Pass the sport
                                     'isEdit': true,
-                                    'isFromGameInfo': args['isFromGameInfo'] ?? false, // Pass isFromGameInfo
+                                    'isFromGameInfo': args['isFromGameInfo'] ?? false,
                                   },
                                 );
                               } else {
@@ -188,6 +191,7 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
                                   ...args,
                                   'date': _selectedDate,
                                   'time': _selectedTime,
+                                  'sport': sport, // Pass the sport
                                 });
                               }
                             }

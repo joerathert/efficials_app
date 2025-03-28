@@ -40,7 +40,7 @@ class _SelectSportScreenState extends State<SelectSportScreen> {
                     style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black),
                     textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 20), // Reduced from 60 to 20
+                  const SizedBox(height: 20),
                   DropdownButtonFormField<String>(
                     decoration: textFieldDecoration('Sport'),
                     value: selectedSport,
@@ -55,7 +55,12 @@ class _SelectSportScreenState extends State<SelectSportScreen> {
                           context,
                           '/name_schedule',
                           arguments: {'sport': selectedSport},
-                        );
+                        ).then((result) {
+                          if (result == true) {
+                            // Navigate back to SchedulesScreen and pass a refresh signal
+                            Navigator.pop(context, true);
+                          }
+                        });
                       } else {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('Please select a sport!')),
