@@ -19,6 +19,10 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
   @override
   void initState() {
     super.initState();
+    locations = [
+      {'name': 'Away Game', 'id': -2}, // Always include Away Game
+      {'name': '+ Create new location', 'id': 0},
+    ];
     _fetchLocations();
     print('initState - Initial selectedLocation: $selectedLocation, isFromEdit: $isFromEdit');
   }
@@ -40,11 +44,16 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
     final prefs = await SharedPreferences.getInstance();
     final String? locationsJson = prefs.getString('saved_locations');
     setState(() {
-      if (locationsJson != null) {
-        locations = List<Map<String, dynamic>>.from(jsonDecode(locationsJson));
-      }
-      if (locations.isEmpty) {
-        locations.add({'name': 'No saved locations', 'id': -1});
+      locations = [
+        {'name': 'Away Game', 'id': -2}, // Always include Away Game
+      ];
+      if (locationsJson != null && locationsJson.isNotEmpty) {
+        try {
+          final List<Map<String, dynamic>> fetchedLocations = List<Map<String, dynamic>>.from(jsonDecode(locationsJson));
+          locations.addAll(fetchedLocations);
+        } catch (e) {
+          print('Error fetching locations: $e');
+        }
       }
       locations.add({'name': '+ Create new location', 'id': 0});
       final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
@@ -58,7 +67,7 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
 
   Future<void> _saveLocations() async {
     final prefs = await SharedPreferences.getInstance();
-    final locationsToSave = locations.where((location) => location['id'] != 0 && location['id'] != -1).toList();
+    final locationsToSave = locations.where((location) => location['id'] != 0 && location['id'] != -2).toList();
     await prefs.setString('saved_locations', jsonEncode(locationsToSave));
   }
 
@@ -78,8 +87,8 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
               Navigator.pop(context);
               setState(() {
                 locations.removeWhere((location) => location['id'] == locationId);
-                if (locations.isEmpty || (locations.length == 1 && locations[0]['id'] == 0)) {
-                  locations.insert(0, {'name': 'No saved locations', 'id': -1});
+                if (locations.length <= 2) { // Only "Away Game" and "+ Create new location" remain
+                  // No need to add "No saved locations"
                 }
                 if (!locations.any((loc) => loc['name'] == selectedLocation)) {
                   selectedLocation = null;
@@ -154,10 +163,7 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                                     if (result != null) {
                                       final newLocation = result as Map<String, dynamic>;
                                       setState(() {
-                                        if (locations.any((l) => l['name'] == 'No saved locations')) {
-                                          locations.removeWhere((l) => l['name'] == 'No saved locations');
-                                        }
-                                        locations.insert(0, {
+                                        locations.insert(locations.length - 1, {
                                           'name': newLocation['name'],
                                           'address': newLocation['address'],
                                           'city': newLocation['city'],
@@ -183,20 +189,14 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                           items: locations.map((location) {
                             return DropdownMenuItem(
                               value: location['name'] as String,
-                              child: Text(
-                                location['name'] as String,
-                                style: location['name'] == 'No saved locations'
-                                    ? const TextStyle(color: Colors.red)
-                                    : null,
-                              ),
+                              child: Text(location['name'] as String),
                             );
                           }).toList(),
                         ),
                   const SizedBox(height: 60),
                   if (selectedLocation != null &&
                       selectedLocation != '+ Create new location' &&
-                      selectedLocation != 'No saved locations' &&
-                      !selectedLocation!.startsWith('Error')) ...[
+                      selectedLocation != 'Away Game') ...[
                     ElevatedButton(
                       onPressed: () {
                         final selected = locations.firstWhere((l) => l['name'] == selectedLocation);
@@ -240,9 +240,7 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                   const SizedBox(height: 60),
                   Center(
                     child: ElevatedButton(
-                      onPressed: (selectedLocation == null ||
-                              selectedLocation == 'No saved locations' ||
-                              selectedLocation == '+ Create new location')
+                      onPressed: (selectedLocation == null || selectedLocation == '+ Create new location')
                           ? null
                           : () {
                               print('Continue pressed - Selected Location: $selectedLocation, isFromEdit: $isFromEdit');
@@ -255,6 +253,7 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                                     'location': selectedLocation,
                                     'isEdit': true,
                                     'isFromGameInfo': args['isFromGameInfo'] ?? false,
+                                    'isAwayGame': selectedLocation == 'Away Game',
                                   },
                                 );
                               } else {
@@ -267,6 +266,7 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                                     'location': selectedLocation,
                                     'date': date,
                                     'time': time,
+                                    'isAwayGame': selectedLocation == 'Away Game',
                                   },
                                 );
                               }

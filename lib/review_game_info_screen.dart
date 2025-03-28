@@ -16,6 +16,7 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
   late Map<String, dynamic> originalArgs;
   bool isEditMode = false;
   bool isFromGameInfo = false;
+  bool isAwayGame = false;
 
   @override
   void didChangeDependencies() {
@@ -26,11 +27,12 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
       originalArgs = Map<String, dynamic>.from(newArgs);
       isEditMode = newArgs['id'] != null;
       isFromGameInfo = newArgs['isFromGameInfo'] == true;
+      isAwayGame = newArgs['isAway'] == true;
       // Temporary fix: Set a default sport if it's "Unknown Sport"
       if (args['sport'] == null || args['sport'] == 'Unknown Sport') {
         args['sport'] = 'Football'; // Default sport, adjust as needed
       }
-      print('ReviewGameInfoScreen didChangeDependencies - Args: $args, isEditMode: $isEditMode, isFromGameInfo: $isFromGameInfo');
+      print('ReviewGameInfoScreen didChangeDependencies - Args: $args, isEditMode: $isEditMode, isFromGameInfo: $isFromGameInfo, isAwayGame: $isAwayGame');
     });
   }
 
@@ -120,9 +122,9 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
 
     final index = publishedGames.indexWhere((g) => g['id'] == gameData['id']);
     if (index != -1) {
-      publishedGames[index] = gameData; // Update existing game
+      publishedGames[index] = gameData;
     } else {
-      publishedGames.add(gameData); // Fallback for safety
+      publishedGames.add(gameData);
     }
 
     await prefs.setString('published_games', jsonEncode(publishedGames));
@@ -131,7 +133,6 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
       const SnackBar(content: Text('Game updated!')),
     );
     if (isFromGameInfo) {
-      // Navigate to GameInformationScreen, removing all routes until HomeScreen
       Navigator.pushNamedAndRemoveUntil(
         context,
         '/game_information',
@@ -175,26 +176,29 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isAdultLevel = (args['levelOfCompetition'] as String?)?.toLowerCase() == 'college' ||
-        (args['levelOfCompetition'] as String?)?.toLowerCase() == 'adult';
-
     final gameDetails = {
       'Sport': args['sport'] as String? ?? 'Unknown',
       'Schedule Name': args['scheduleName'] as String? ?? 'Unnamed',
       'Date': args['date'] != null ? DateFormat('MMMM d, yyyy').format(args['date'] as DateTime) : 'Not set',
       'Time': args['time'] != null ? (args['time'] as TimeOfDay).format(context) : 'Not set',
       'Location': args['location'] as String? ?? 'Not set',
-      'Officials Required': args['officialsRequired'] as String? ?? '0',
-      'Game Fee per Official': args['gameFee'] != null ? '\$${args['gameFee']}' : 'Not set',
-      'Gender': args['gender'] != null
-          ? (isAdultLevel
-              ? {'boys': 'Men', 'girls': 'Women', 'co-ed': 'Co-ed'}[(args['gender'] as String).toLowerCase()] ??
-                  'Not set'
-              : args['gender'] as String)
-          : 'Not set',
-      'Competition Level': args['levelOfCompetition'] as String? ?? 'Not set',
-      'Hire Automatically': args['hireAutomatically'] == true ? 'Yes' : 'No',
     };
+
+    final additionalDetails = !isAwayGame
+        ? {
+            'Officials Required': args['officialsRequired'] as String? ?? '0',
+            'Game Fee per Official': args['gameFee'] != null ? '\$${args['gameFee']}' : 'Not set',
+            'Gender': args['gender'] != null
+                ? ((args['levelOfCompetition'] as String?)?.toLowerCase() == 'college' ||
+                        (args['levelOfCompetition'] as String?)?.toLowerCase() == 'adult'
+                    ? {'boys': 'Men', 'girls': 'Women', 'co-ed': 'Co-ed'}[(args['gender'] as String).toLowerCase()] ??
+                        'Not set'
+                    : args['gender'] as String)
+                : 'Not set',
+            'Competition Level': args['levelOfCompetition'] as String? ?? 'Not set',
+            'Hire Automatically': args['hireAutomatically'] == true ? 'Yes' : 'No',
+          }
+        : {};
 
     return WillPopScope(
       onWillPop: _onWillPop,
@@ -253,10 +257,24 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
                           child: Text('${e.key}: ${e.value}', style: const TextStyle(fontSize: 16)),
                         ),
                       ),
+                      if (!isAwayGame) ...[
+                        ...additionalDetails.entries.map(
+                          (e) => Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            child: Text('${e.key}: ${e.value}', style: const TextStyle(fontSize: 16)),
+                          ),
+                        ),
+                      ],
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Text('Opponent: ${args['opponent'] ?? 'Not set'}', style: const TextStyle(fontSize: 16)),
+                      ),
                       const SizedBox(height: 20),
                       const Text('Selected Officials', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 10),
-                      if (args['selectedOfficials'] == null || (args['selectedOfficials'] as List).isEmpty)
+                      if (isAwayGame)
+                        const Text('No officials needed for away games.', style: TextStyle(fontSize: 16, color: Colors.grey))
+                      else if (args['selectedOfficials'] == null || (args['selectedOfficials'] as List).isEmpty)
                         const Text('No officials selected.', style: TextStyle(fontSize: 16, color: Colors.grey))
                       else if (args['method'] == 'advanced' && args['selectedLists'] != null) ...[
                         ...((args['selectedLists'] as List<Map<String, dynamic>>).map(

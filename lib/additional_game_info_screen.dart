@@ -14,11 +14,12 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
   String? _gender;
   final TextEditingController _officialsRequiredController = TextEditingController();
   final TextEditingController _gameFeeController = TextEditingController();
-  final TextEditingController _opponentController = TextEditingController(); // New controller for opponent
+  final TextEditingController _opponentController = TextEditingController();
   bool _hireAutomatically = false;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   bool _isFromEdit = false;
   bool _isInitialized = false;
+  bool _isAwayGame = false; // New flag for away game
 
   final List<String> _competitionLevels = [
     'Grade School',
@@ -56,12 +57,13 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
       if (args != null) {
         print('didChangeDependencies - Args: $args');
         _isFromEdit = args['isEdit'] == true;
+        _isAwayGame = args['isAwayGame'] == true; // Check for away game flag
         if (_isFromEdit) {
           _levelOfCompetition = args['levelOfCompetition'] as String?;
           _gender = args['gender'] as String?;
           _officialsRequiredController.text = args['officialsRequired'] as String? ?? '';
           _gameFeeController.text = args['gameFee'] as String? ?? '';
-          _opponentController.text = args['opponent'] as String? ?? ''; // Load opponent if editing
+          _opponentController.text = args['opponent'] as String? ?? '';
           _hireAutomatically = args['hireAutomatically'] as bool? ?? false;
         }
       }
@@ -70,23 +72,26 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
   }
 
   void _handleContinue() {
-    if (_levelOfCompetition == null || _gender == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a level and gender')),
-      );
-      return;
+    if (!_isAwayGame) {
+      if (_levelOfCompetition == null || _gender == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please select a level and gender')),
+        );
+        return;
+      }
     }
 
     final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
-    print('handleContinue - isFromEdit: $_isFromEdit, args: $args');
+    print('handleContinue - isFromEdit: $_isFromEdit, isAwayGame: $_isAwayGame, args: $args');
     final updatedArgs = {
       ...args,
-      'levelOfCompetition': _levelOfCompetition,
-      'gender': _gender,
-      'officialsRequired': _officialsRequiredController.text.trim(),
-      'gameFee': _gameFeeController.text.trim(),
-      'opponent': _opponentController.text.trim(), // Add opponent to arguments
-      'hireAutomatically': _hireAutomatically,
+      'levelOfCompetition': _isAwayGame ? null : _levelOfCompetition,
+      'gender': _isAwayGame ? null : _gender,
+      'officialsRequired': _isAwayGame ? '0' : _officialsRequiredController.text.trim(),
+      'gameFee': _isAwayGame ? '0' : _gameFeeController.text.trim(),
+      'opponent': _opponentController.text.trim(),
+      'hireAutomatically': _isAwayGame ? false : _hireAutomatically,
+      'isAway': _isAwayGame, // Add isAway flag for saving
     };
 
     if (_isFromEdit) {
@@ -100,8 +105,12 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
         },
       );
     } else {
-      print('Navigating to /select_officials with args: $updatedArgs');
-      Navigator.pushNamed(context, '/select_officials', arguments: updatedArgs);
+      // For away games, skip /select_officials and go straight to /review_game_info
+      Navigator.pushNamed(
+        context,
+        _isAwayGame ? '/review_game_info' : '/select_officials',
+        arguments: updatedArgs,
+      );
     }
   }
 
@@ -144,54 +153,57 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  DropdownButtonFormField<String>(
-                    decoration: textFieldDecoration('Level of Competition'),
-                    value: _levelOfCompetition,
-                    onChanged: (value) => setState(() => _levelOfCompetition = value),
-                    items: _competitionLevels.map((level) => DropdownMenuItem(value: level, child: Text(level))).toList(),
-                  ),
-                  const SizedBox(height: 20),
-                  DropdownButtonFormField<String>(
-                    decoration: textFieldDecoration('Gender'),
-                    value: _gender,
-                    onChanged: (value) => setState(() => _gender = value),
-                    items: currentGenders.map((gender) => DropdownMenuItem(value: gender, child: Text(gender))).toList(),
-                  ),
-                  const SizedBox(height: 20),
-                  TextField(
-                    controller: _officialsRequiredController,
-                    decoration: textFieldDecoration('Number of Officials Required'),
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  ),
-                  const SizedBox(height: 20),
-                  TextField(
-                    controller: _gameFeeController,
-                    decoration: textFieldDecoration('Game Fee per Official'),
-                    keyboardType: TextInputType.number,
-                  ),
-                  const SizedBox(height: 20),
+                  if (!_isAwayGame) ...[
+                    DropdownButtonFormField<String>(
+                      decoration: textFieldDecoration('Level of Competition'),
+                      value: _levelOfCompetition,
+                      onChanged: (value) => setState(() => _levelOfCompetition = value),
+                      items: _competitionLevels.map((level) => DropdownMenuItem(value: level, child: Text(level))).toList(),
+                    ),
+                    const SizedBox(height: 20),
+                    DropdownButtonFormField<String>(
+                      decoration: textFieldDecoration('Gender'),
+                      value: _gender,
+                      onChanged: (value) => setState(() => _gender = value),
+                      items: currentGenders.map((gender) => DropdownMenuItem(value: gender, child: Text(gender))).toList(),
+                    ),
+                    const SizedBox(height: 20),
+                    TextField(
+                      controller: _officialsRequiredController,
+                      decoration: textFieldDecoration('Number of Officials Required'),
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    ),
+                    const SizedBox(height: 20),
+                    TextField(
+                      controller: _gameFeeController,
+                      decoration: textFieldDecoration('Game Fee per Official'),
+                      keyboardType: TextInputType.number,
+                    ),
+                    const SizedBox(height: 20),
+                  ],
                   TextField(
                     controller: _opponentController,
                     decoration: textFieldDecoration('Opponent'),
                     keyboardType: TextInputType.text,
                   ),
                   const SizedBox(height: 20),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Checkbox(
-                        value: _hireAutomatically,
-                        onChanged: (value) => setState(() => _hireAutomatically = value ?? false),
-                        activeColor: efficialsBlue,
-                      ),
-                      const Text('Hire Automatically'),
-                      IconButton(
-                        icon: const Icon(Icons.help_outline, color: efficialsBlue),
-                        onPressed: _showHireInfoDialog,
-                      ),
-                    ],
-                  ),
+                  if (!_isAwayGame)
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Checkbox(
+                          value: _hireAutomatically,
+                          onChanged: (value) => setState(() => _hireAutomatically = value ?? false),
+                          activeColor: efficialsBlue,
+                        ),
+                        const Text('Hire Automatically'),
+                        IconButton(
+                          icon: const Icon(Icons.help_outline, color: efficialsBlue),
+                          onPressed: _showHireInfoDialog,
+                        ),
+                      ],
+                    ),
                   const SizedBox(height: 60),
                   Center(
                     child: ElevatedButton(
@@ -213,7 +225,7 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
   void dispose() {
     _officialsRequiredController.dispose();
     _gameFeeController.dispose();
-    _opponentController.dispose(); // Dispose of the new controller
+    _opponentController.dispose();
     super.dispose();
   }
 }
