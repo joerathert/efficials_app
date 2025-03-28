@@ -18,7 +18,8 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
   bool isLoading = true;
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
-  List<Map<String, dynamic>> _selectedDayGames = []; // Games for the selected day
+  List<Map<String, dynamic>> _selectedDayGames = [];
+  bool _showOnlyNeedsOfficials = false; // Toggle state for filtering
 
   @override
   void didChangeDependencies() {
@@ -84,7 +85,13 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
     return games.where((game) {
       final gameDate = game['date'] as DateTime?;
       if (gameDate == null) return false;
-      return gameDate.year == day.year && gameDate.month == day.month && gameDate.day == day.day;
+      final matchesDay = gameDate.year == day.year && gameDate.month == day.month && gameDate.day == day.day;
+      if (_showOnlyNeedsOfficials) {
+        final hiredOfficials = game['officialsHired'] as int? ?? 0;
+        final requiredOfficials = int.tryParse(game['officialsRequired']?.toString() ?? '0') ?? 0;
+        return matchesDay && hiredOfficials < requiredOfficials;
+      }
+      return matchesDay;
     }).toList();
   }
 
@@ -315,10 +322,33 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                           ],
                         ),
                       ),
-                      // Add scrollable game details section
+                      // Add toggle checkbox below the legend
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Checkbox(
+                              value: _showOnlyNeedsOfficials,
+                              onChanged: (value) {
+                                setState(() {
+                                  _showOnlyNeedsOfficials = value ?? false;
+                                  // Update selected day games based on the new filter
+                                  if (_selectedDay != null) {
+                                    _selectedDayGames = _getGamesForDay(_selectedDay!);
+                                  }
+                                });
+                              },
+                              activeColor: efficialsBlue,
+                            ),
+                            const Text('Show only games needing officials'),
+                          ],
+                        ),
+                      ),
+                      // Scrollable game details section
                       if (_selectedDayGames.isNotEmpty)
                         Container(
-                          constraints: const BoxConstraints(maxHeight: 200), // Limit height to make it scrollable
+                          constraints: const BoxConstraints(maxHeight: 200),
                           child: ListView.builder(
                             shrinkWrap: true,
                             itemCount: _selectedDayGames.length,
@@ -330,7 +360,7 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                               final hiredOfficials = game['officialsHired'] as int? ?? 0;
                               final requiredOfficials = int.tryParse(game['officialsRequired']?.toString() ?? '0') ?? 0;
                               final location = game['location'] as String? ?? 'Not set';
-                              final opponent = game['opponent'] as String? ?? 'Not set'; // Will be added later
+                              final opponent = game['opponent'] as String? ?? 'Not set';
 
                               return GestureDetector(
                                 onTap: () {
