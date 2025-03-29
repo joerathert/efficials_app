@@ -72,10 +72,24 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
   Future<void> _loadOfficials() async {
     setState(() => isLoading = true);
     List<Map<String, dynamic>> newOfficials = [
-      {'id': 1, 'name': 'John Doe', 'cityState': 'Chicago, IL', 'distance': 5.2, 'yearsExperience': 10},
-      {'id': 2, 'name': 'Jane Smith', 'cityState': 'Naperville, IL', 'distance': 15.7, 'yearsExperience': 8},
-      {'id': 3, 'name': 'Mike Johnson', 'cityState': 'Aurora, IL', 'distance': 10.0, 'yearsExperience': 12},
+      {'id': 1, 'name': 'John Doe', 'cityState': 'Chicago, IL', 'distance': 5.2, 'yearsExperience': 10, 'ihsaRegistered': true, 'ihsaRecognized': false, 'ihsaCertified': false, 'level': 'Varsity'},
+      {'id': 2, 'name': 'Jane Smith', 'cityState': 'Naperville, IL', 'distance': 15.7, 'yearsExperience': 8, 'ihsaRegistered': false, 'ihsaRecognized': true, 'ihsaCertified': false, 'level': 'JV'},
+      {'id': 3, 'name': 'Mike Johnson', 'cityState': 'Aurora, IL', 'distance': 10.0, 'yearsExperience': 12, 'ihsaRegistered': true, 'ihsaRecognized': true, 'ihsaCertified': true, 'level': 'College'},
     ];
+
+    if (filterSettings != null) {
+      newOfficials = newOfficials.where((official) {
+        bool matches = true;
+        if (filterSettings!['ihsaRegistered'] && !(official['ihsaRegistered'] ?? false)) matches = false;
+        if (filterSettings!['ihsaRecognized'] && !(official['ihsaRecognized'] ?? false)) matches = false;
+        if (filterSettings!['ihsaCertified'] && !(official['ihsaCertified'] ?? false)) matches = false;
+        if (filterSettings!['minYears'] > (official['yearsExperience'] ?? 0)) matches = false;
+        if (filterSettings!['levels'].isNotEmpty && !filterSettings!['levels'].contains(official['level'])) matches = false;
+        if (filterSettings!['radius'] < (official['distance'] ?? double.infinity)) matches = false;
+        return matches;
+      }).toList();
+    }
+
     setState(() {
       for (var newOfficial in newOfficials) {
         if (!officials.any((o) => o['id'] == newOfficial['id'])) {
@@ -190,7 +204,7 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
         ),
         title: Text(
           isEdit ? 'Edit Selected Officials' : (isFromGameCreation ? 'Select Officials for Game' : 'Find Officials'),
-          style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+          style: appBarTextStyle,
         ),
       ),
       body: Column(
@@ -322,16 +336,22 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
                   Text('($selectedCount) Selected', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
                   ElevatedButton(
-                    onPressed: selectedCount > 0
+                    onPressed: selectedCount > 0 // Enable if at least 1 official is selected
                         ? () {
                             final selected = officials.where((o) {
                               final officialId = o['id'];
                               return officialId is int && (selectedOfficials[officialId] ?? false);
                             }).toList();
+                            final updatedArgs = {
+                              ...args,
+                              'selectedOfficials': selected,
+                              'isEdit': isEdit,
+                              'officialsRequired': args['officialsRequired'].toString(),
+                            };
                             Navigator.pushNamed(
                               context,
                               isFromGameCreation ? '/review_game_info' : '/review_list',
-                              arguments: {...args, 'selectedOfficials': selected, 'isEdit': isEdit},
+                              arguments: updatedArgs,
                             ).then((result) {
                               if (result != null) {
                                 Navigator.pop(context, result);
