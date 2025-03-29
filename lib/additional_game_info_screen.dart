@@ -12,7 +12,7 @@ class AdditionalGameInfoScreen extends StatefulWidget {
 class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
   String? _levelOfCompetition;
   String? _gender;
-  int? _officialsRequired; // No default value, starts as null
+  int? _officialsRequired;
   final TextEditingController _gameFeeController = TextEditingController();
   final TextEditingController _opponentController = TextEditingController();
   bool _hireAutomatically = false;
@@ -79,9 +79,17 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
         );
         return;
       }
-      if (_gameFeeController.text.trim().isEmpty || !RegExp(r'^\d+$').hasMatch(_gameFeeController.text.trim())) {
+      final feeText = _gameFeeController.text.trim();
+      if (feeText.isEmpty || !RegExp(r'^\d+$').hasMatch(feeText)) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Please enter a valid game fee (numbers only)')),
+        );
+        return;
+      }
+      final fee = int.parse(feeText);
+      if (fee < 1 || fee > 99999) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Game fee must be between 1 and 99,999')),
         );
         return;
       }
@@ -168,9 +176,15 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
                     const SizedBox(height: 20),
                     TextField(
                       controller: _gameFeeController,
-                      decoration: textFieldDecoration('Game Fee per Official'),
+                      decoration: textFieldDecoration('Game Fee per Official').copyWith(
+                        prefixText: '\$',
+                        hintText: 'Enter fee (e.g., 50)',
+                      ),
                       keyboardType: TextInputType.number,
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(5),
+                      ],
                     ),
                     const SizedBox(height: 20),
                   ],
