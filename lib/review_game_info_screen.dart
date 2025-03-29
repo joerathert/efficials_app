@@ -25,14 +25,19 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
     setState(() {
       args = Map<String, dynamic>.from(newArgs);
       originalArgs = Map<String, dynamic>.from(newArgs);
-      isEditMode = newArgs['id'] != null;
+      isEditMode = newArgs['isEdit'] == true;
       isFromGameInfo = newArgs['isFromGameInfo'] == true;
       isAwayGame = newArgs['isAway'] == true;
       // Temporary fix: Set a default sport if it's "Unknown Sport"
       if (args['sport'] == null || args['sport'] == 'Unknown Sport') {
-        args['sport'] = 'Football'; // Default sport, adjust as needed
+        args['sport'] = 'Football';
       }
-      print('ReviewGameInfoScreen didChangeDependencies - Args: $args, isEditMode: $isEditMode, isFromGameInfo: $isFromGameInfo, isAwayGame: $isAwayGame');
+      // Convert officialsRequired to int for Game model
+      if (args['officialsRequired'] != null) {
+        args['officialsRequired'] = int.tryParse(args['officialsRequired'].toString()) ?? 0;
+      }
+      print('ReviewGameInfoScreen didChangeDependencies - Args: $args');
+      print('isEditMode: $isEditMode, isFromGameInfo: $isFromGameInfo, isAwayGame: $isAwayGame');
     });
   }
 
@@ -44,10 +49,18 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
   }
 
   Future<void> _publishGame() async {
+    if (!isAwayGame && !(args['hireAutomatically'] == true) && (args['selectedOfficials'] == null || (args['selectedOfficials'] as List).isEmpty)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select at least one official for non-away games.')),
+      );
+      return;
+    }
+
     final gameData = Map<String, dynamic>.from(args);
-    gameData['id'] = DateTime.now().millisecondsSinceEpoch;
+    gameData['id'] = gameData['id'] ?? DateTime.now().millisecondsSinceEpoch;
     gameData['createdAt'] = DateTime.now().toIso8601String();
-    gameData['officialsHired'] = 0;
+    gameData['officialsHired'] = gameData['officialsHired'] ?? 0;
+    gameData['status'] = 'Published'; // Add status for Game model
 
     if (gameData['date'] != null) {
       gameData['date'] = (gameData['date'] as DateTime).toIso8601String();
@@ -68,15 +81,16 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
     await prefs.setString('published_games', jsonEncode(publishedGames));
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Game published!')),
+      const SnackBar(content: Text('Game published to Home screen!')),
     );
     Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
   }
 
   Future<void> _publishLater() async {
     final gameData = Map<String, dynamic>.from(args);
-    gameData['id'] = DateTime.now().millisecondsSinceEpoch;
+    gameData['id'] = gameData['id'] ?? DateTime.now().millisecondsSinceEpoch;
     gameData['createdAt'] = DateTime.now().toIso8601String();
+    gameData['status'] = 'Unpublished'; // Add status for Game model
 
     if (gameData['date'] != null) {
       gameData['date'] = (gameData['date'] as DateTime).toIso8601String();
@@ -97,7 +111,7 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
     await prefs.setString('unpublished_games', jsonEncode(unpublishedGames));
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Moved to Unpublished Games!')),
+      const SnackBar(content: Text('Game saved to Unpublished Games list!')),
     );
     Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
   }
@@ -112,6 +126,7 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
       final time = gameData['time'] as TimeOfDay;
       gameData['time'] = '${time.hour}:${time.minute}';
     }
+    gameData['status'] = 'Published'; // Update status
 
     final prefs = await SharedPreferences.getInstance();
     final String? gamesJson = prefs.getString('published_games');
@@ -130,7 +145,7 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
     await prefs.setString('published_games', jsonEncode(publishedGames));
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Game updated!')),
+      const SnackBar(content: Text('Game updated on Home screen!')),
     );
     if (isFromGameInfo) {
       Navigator.pushNamedAndRemoveUntil(
@@ -182,12 +197,13 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
       'Date': args['date'] != null ? DateFormat('MMMM d, yyyy').format(args['date'] as DateTime) : 'Not set',
       'Time': args['time'] != null ? (args['time'] as TimeOfDay).format(context) : 'Not set',
       'Location': args['location'] as String? ?? 'Not set',
+      'Opponent': args['opponent'] as String? ?? 'Not set',
     };
 
     final additionalDetails = !isAwayGame
         ? {
-            'Officials Required': args['officialsRequired'] as String? ?? '0',
-            'Game Fee per Official': args['gameFee'] != null ? '\$${args['gameFee']}' : 'Not set',
+            'Officials Required': (args['officialsRequired'] ?? 0).toString(),
+            'Fee per Official': args['gameFee'] != null ? '\$${args['gameFee']}' : 'Not set',
             'Gender': args['gender'] != null
                 ? ((args['levelOfCompetition'] as String?)?.toLowerCase() == 'college' ||
                         (args['levelOfCompetition'] as String?)?.toLowerCase() == 'adult'
@@ -199,6 +215,12 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
             'Hire Automatically': args['hireAutomatically'] == true ? 'Yes' : 'No',
           }
         : {};
+
+    // Combine gameDetails and additionalDetails into a single list
+    final allDetails = {
+      ...gameDetails,
+      if (!isAwayGame) ...additionalDetails,
+    };
 
     return WillPopScope(
       onWillPop: _onWillPop,
@@ -247,30 +269,28 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 600),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      ...gameDetails.entries.map(
+                      // Removed the "Game Details" heading from here
+                      ...allDetails.entries.map(
                         (e) => Padding(
                           padding: const EdgeInsets.symmetric(vertical: 4),
-                          child: Text('${e.key}: ${e.value}', style: const TextStyle(fontSize: 16)),
-                        ),
-                      ),
-                      if (!isAwayGame) ...[
-                        ...additionalDetails.entries.map(
-                          (e) => Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 4),
-                            child: Text('${e.key}: ${e.value}', style: const TextStyle(fontSize: 16)),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              SizedBox(
+                                width: 150,
+                                child: Text('${e.key}:', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+                              ),
+                              Expanded(child: Text(e.value, style: const TextStyle(fontSize: 16))),
+                            ],
                           ),
                         ),
-                      ],
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4),
-                        child: Text('Opponent: ${args['opponent'] ?? 'Not set'}', style: const TextStyle(fontSize: 16)),
                       ),
                       const SizedBox(height: 20),
-                      const Text('Selected Officials', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                      const Text('Selected Officials', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 10),
                       if (isAwayGame)
                         const Text('No officials needed for away games.', style: TextStyle(fontSize: 16, color: Colors.grey))
