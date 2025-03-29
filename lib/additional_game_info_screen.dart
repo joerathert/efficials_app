@@ -12,7 +12,7 @@ class AdditionalGameInfoScreen extends StatefulWidget {
 class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
   String? _levelOfCompetition;
   String? _gender;
-  int? _officialsRequired = 1; // Default to 1
+  int? _officialsRequired; // No default value, starts as null
   final TextEditingController _gameFeeController = TextEditingController();
   final TextEditingController _opponentController = TextEditingController();
   bool _hireAutomatically = false;
@@ -31,7 +31,7 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
   ];
   final List<String> _youthGenders = ['Boys', 'Girls', 'Co-ed'];
   final List<String> _adultGenders = ['Men', 'Women', 'Co-ed'];
-  final List<int> _officialsOptions = [1, 2, 3, 4, 5, 6, 7, 8, 9]; // Max 9 per your note
+  final List<int> _officialsOptions = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 
   void _showHireInfoDialog() {
     showDialog(
@@ -61,7 +61,7 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
         if (_isFromEdit) {
           _levelOfCompetition = args['levelOfCompetition'] as String?;
           _gender = args['gender'] as String?;
-          _officialsRequired = int.tryParse(args['officialsRequired']?.toString() ?? '1') ?? 1;
+          _officialsRequired = int.tryParse(args['officialsRequired']?.toString() ?? '');
           _gameFeeController.text = args['gameFee'] as String? ?? '';
           _opponentController.text = args['opponent'] as String? ?? '';
           _hireAutomatically = args['hireAutomatically'] as bool? ?? false;
@@ -73,9 +73,9 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
 
   void _handleContinue() {
     if (!_isAwayGame) {
-      if (_levelOfCompetition == null || _gender == null) {
+      if (_levelOfCompetition == null || _gender == null || _officialsRequired == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select a level and gender')),
+          const SnackBar(content: Text('Please select a level, gender, and number of officials')),
         );
         return;
       }
@@ -90,7 +90,7 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
     final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
     final updatedArgs = {
       ...args,
-      'id': args['id'] ?? DateTime.now().millisecondsSinceEpoch, // Add unique ID for new games
+      'id': args['id'] ?? DateTime.now().millisecondsSinceEpoch,
       'levelOfCompetition': _isAwayGame ? null : _levelOfCompetition,
       'gender': _isAwayGame ? null : _gender,
       'officialsRequired': _isAwayGame ? 0 : _officialsRequired,
@@ -98,7 +98,7 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
       'opponent': _opponentController.text.trim(),
       'hireAutomatically': _isAwayGame ? false : _hireAutomatically,
       'isAway': _isAwayGame,
-      'officialsHired': args['officialsHired'] ?? 0, // Default for Game model
+      'officialsHired': args['officialsHired'] ?? 0,
       'selectedOfficials': args['selectedOfficials'] ?? <Map<String, dynamic>>[],
     };
 
@@ -145,6 +145,7 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
                     DropdownButtonFormField<String>(
                       decoration: textFieldDecoration('Level of Competition'),
                       value: _levelOfCompetition,
+                      hint: const Text('Select level'),
                       onChanged: (value) => setState(() => _levelOfCompetition = value),
                       items: _competitionLevels.map((level) => DropdownMenuItem(value: level, child: Text(level))).toList(),
                     ),
@@ -152,6 +153,7 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
                     DropdownButtonFormField<String>(
                       decoration: textFieldDecoration('Gender'),
                       value: _gender,
+                      hint: const Text('Select gender'),
                       onChanged: (value) => setState(() => _gender = value),
                       items: currentGenders.map((gender) => DropdownMenuItem(value: gender, child: Text(gender))).toList(),
                     ),
@@ -159,6 +161,7 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
                     DropdownButtonFormField<int>(
                       decoration: textFieldDecoration('Number of Officials Required'),
                       value: _officialsRequired,
+                      hint: const Text('Number of Officials Required'),
                       onChanged: (value) => setState(() => _officialsRequired = value),
                       items: _officialsOptions.map((num) => DropdownMenuItem(value: num, child: Text(num.toString()))).toList(),
                     ),
