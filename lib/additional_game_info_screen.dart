@@ -12,14 +12,13 @@ class AdditionalGameInfoScreen extends StatefulWidget {
 class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
   String? _levelOfCompetition;
   String? _gender;
-  final TextEditingController _officialsRequiredController = TextEditingController();
+  int? _officialsRequired = 1; // Default to 1
   final TextEditingController _gameFeeController = TextEditingController();
   final TextEditingController _opponentController = TextEditingController();
   bool _hireAutomatically = false;
-  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   bool _isFromEdit = false;
   bool _isInitialized = false;
-  bool _isAwayGame = false; // New flag for away game
+  bool _isAwayGame = false;
 
   final List<String> _competitionLevels = [
     'Grade School',
@@ -32,6 +31,7 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
   ];
   final List<String> _youthGenders = ['Boys', 'Girls', 'Co-ed'];
   final List<String> _adultGenders = ['Men', 'Women', 'Co-ed'];
+  final List<int> _officialsOptions = [1, 2, 3, 4, 5, 6, 7, 8, 9]; // Max 9 per your note
 
   void _showHireInfoDialog() {
     showDialog(
@@ -57,11 +57,11 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
       if (args != null) {
         print('didChangeDependencies - Args: $args');
         _isFromEdit = args['isEdit'] == true;
-        _isAwayGame = args['isAwayGame'] == true; // Check for away game flag
+        _isAwayGame = args['isAwayGame'] == true;
         if (_isFromEdit) {
           _levelOfCompetition = args['levelOfCompetition'] as String?;
           _gender = args['gender'] as String?;
-          _officialsRequiredController.text = args['officialsRequired'] as String? ?? '';
+          _officialsRequired = int.tryParse(args['officialsRequired']?.toString() ?? '1') ?? 1;
           _gameFeeController.text = args['gameFee'] as String? ?? '';
           _opponentController.text = args['opponent'] as String? ?? '';
           _hireAutomatically = args['hireAutomatically'] as bool? ?? false;
@@ -79,50 +79,42 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
         );
         return;
       }
+      if (_gameFeeController.text.trim().isEmpty || !RegExp(r'^\d+$').hasMatch(_gameFeeController.text.trim())) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please enter a valid game fee (numbers only)')),
+        );
+        return;
+      }
     }
 
     final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
-    print('handleContinue - isFromEdit: $_isFromEdit, isAwayGame: $_isAwayGame, args: $args');
     final updatedArgs = {
       ...args,
+      'id': args['id'] ?? DateTime.now().millisecondsSinceEpoch, // Add unique ID for new games
       'levelOfCompetition': _isAwayGame ? null : _levelOfCompetition,
       'gender': _isAwayGame ? null : _gender,
-      'officialsRequired': _isAwayGame ? '0' : _officialsRequiredController.text.trim(),
+      'officialsRequired': _isAwayGame ? 0 : _officialsRequired,
       'gameFee': _isAwayGame ? '0' : _gameFeeController.text.trim(),
       'opponent': _opponentController.text.trim(),
       'hireAutomatically': _isAwayGame ? false : _hireAutomatically,
-      'isAway': _isAwayGame, // Add isAway flag for saving
+      'isAway': _isAwayGame,
+      'officialsHired': args['officialsHired'] ?? 0, // Default for Game model
+      'selectedOfficials': args['selectedOfficials'] ?? <Map<String, dynamic>>[],
     };
 
-    if (_isFromEdit) {
-      Navigator.pushNamed(
-        context,
-        '/review_game_info',
-        arguments: {
-          ...updatedArgs,
-          'isEdit': true,
-          'isFromGameInfo': args['isFromGameInfo'] ?? false,
-        },
-      );
-    } else {
-      // For away games, skip /select_officials and go straight to /review_game_info
-      Navigator.pushNamed(
-        context,
-        _isAwayGame ? '/review_game_info' : '/select_officials',
-        arguments: updatedArgs,
-      );
-    }
+    print('handleContinue - Args: $updatedArgs, Edit: $_isFromEdit');
+    Navigator.pushNamed(
+      context,
+      _isAwayGame || _hireAutomatically ? '/review_game_info' : '/select_officials',
+      arguments: _isFromEdit
+          ? {...updatedArgs, 'isEdit': true, 'isFromGameInfo': args['isFromGameInfo'] ?? false}
+          : updatedArgs,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
-    final scheduleName = args['scheduleName'] as String;
-    final sport = args['sport'] as String;
-    final location = args['location'] as String;
-    final DateTime date = args['date'] as DateTime? ?? DateTime.now();
-    final TimeOfDay time = args['time'] as TimeOfDay;
-
     final List<String> currentGenders = _levelOfCompetition == 'College' || _levelOfCompetition == 'Adult'
         ? _adultGenders
         : _youthGenders;
@@ -132,17 +124,13 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
     }
 
     return Scaffold(
-      key: _scaffoldKey,
       appBar: AppBar(
         backgroundColor: efficialsBlue,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, size: 36, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
-          'Additional Game Info',
-          style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
-        ),
+        title: const Text('Additional Game Info', style: appBarTextStyle),
       ),
       body: Center(
         child: ConstrainedBox(
@@ -168,17 +156,18 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
                       items: currentGenders.map((gender) => DropdownMenuItem(value: gender, child: Text(gender))).toList(),
                     ),
                     const SizedBox(height: 20),
-                    TextField(
-                      controller: _officialsRequiredController,
+                    DropdownButtonFormField<int>(
                       decoration: textFieldDecoration('Number of Officials Required'),
-                      keyboardType: TextInputType.number,
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      value: _officialsRequired,
+                      onChanged: (value) => setState(() => _officialsRequired = value),
+                      items: _officialsOptions.map((num) => DropdownMenuItem(value: num, child: Text(num.toString()))).toList(),
                     ),
                     const SizedBox(height: 20),
                     TextField(
                       controller: _gameFeeController,
                       decoration: textFieldDecoration('Game Fee per Official'),
                       keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     ),
                     const SizedBox(height: 20),
                   ],
@@ -223,7 +212,6 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
 
   @override
   void dispose() {
-    _officialsRequiredController.dispose();
     _gameFeeController.dispose();
     _opponentController.dispose();
     super.dispose();
