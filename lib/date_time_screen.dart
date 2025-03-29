@@ -12,22 +12,21 @@ class DateTimeScreen extends StatefulWidget {
 class _DateTimeScreenState extends State<DateTimeScreen> {
   DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
-  String? sport; // Add sport field
-  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  String? sport;
   bool _isFromEdit = false;
-  bool _isInitialized = false;
+  bool _isInitialized = false; // Added to prevent override
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (!_isInitialized) {
+    if (!_isInitialized) { // Only set initial values once
       final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
       if (args != null) {
         _selectedDate = args['date'] as DateTime?;
         _selectedTime = args['time'] as TimeOfDay?;
         _isFromEdit = args['isEdit'] == true;
-        sport = args['sport'] as String?; // Retrieve the sport
-        print('didChangeDependencies - Initial Args: $args, _selectedDate: $_selectedDate, _selectedTime: $_selectedTime, _isFromEdit: $_isFromEdit, sport: $sport');
+        sport = args['sport'] as String?;
+        print('didChangeDependencies - Initial Args: $args, Date: $_selectedDate, Time: $_selectedTime, Edit: $_isFromEdit, Sport: $sport');
       }
       _isInitialized = true;
     }
@@ -49,10 +48,6 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
               surface: Colors.grey[200]!,
               onSurface: Colors.black,
             ),
-            textTheme: const TextTheme(
-              bodyMedium: TextStyle(color: Colors.black),
-              headlineSmall: TextStyle(color: Colors.black),
-            ),
             dialogTheme: DialogThemeData(backgroundColor: Colors.white),
           ),
           child: child!,
@@ -62,7 +57,7 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
     if (picked != null && picked != _selectedDate) {
       setState(() {
         _selectedDate = picked;
-        print('Date selected - _selectedDate: $_selectedDate');
+        print('Date selected: $_selectedDate');
       });
     }
   }
@@ -81,10 +76,6 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
               surface: Colors.grey[200]!,
               onSurface: Colors.black,
             ),
-            textTheme: const TextTheme(
-              bodyMedium: TextStyle(color: Colors.black),
-              headlineSmall: TextStyle(color: Colors.black),
-            ),
             dialogTheme: DialogThemeData(backgroundColor: Colors.white),
           ),
           child: child!,
@@ -94,34 +85,30 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
     if (picked != null && picked != _selectedTime) {
       setState(() {
         _selectedTime = picked;
-        print('Time selected - _selectedTime: $_selectedTime');
+        print('Time selected: $_selectedTime');
       });
     }
   }
 
   String _formatDateTime() {
-    if (_selectedDate == null && _selectedTime == null) return '';
-    if (_selectedDate == null) return '';
+    if (_selectedDate == null && _selectedTime == null) return 'Date and time not set';
+    if (_selectedDate == null) return 'Date not set';
     if (_selectedTime == null) return DateFormat('EEEE, MMMM d, y').format(_selectedDate!);
     return '${DateFormat('EEEE, MMMM d, y').format(_selectedDate!)} at ${_selectedTime!.format(context)}';
   }
 
   @override
   Widget build(BuildContext context) {
-    print('build - _selectedDate: $_selectedDate, _selectedTime: $_selectedTime, sport: $sport');
+    print('build - Date: $_selectedDate, Time: $_selectedTime, Sport: $sport');
 
     return Scaffold(
-      key: _scaffoldKey,
       appBar: AppBar(
         backgroundColor: efficialsBlue,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, size: 36, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
-          'Date/Time',
-          style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
-        ),
+        title: const Text('Date/Time', style: appBarTextStyle),
       ),
       body: Center(
         child: ConstrainedBox(
@@ -161,39 +148,28 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
                     ],
                   ),
                   const SizedBox(height: 20),
-                  if (_selectedDate != null || _selectedTime != null)
-                    Text(
-                      _formatDateTime(),
-                      style: const TextStyle(fontSize: 16, color: Colors.black),
-                    ),
+                  Text(
+                    _formatDateTime(),
+                    style: const TextStyle(fontSize: 16, color: Colors.black),
+                  ),
                   const SizedBox(height: 60),
                   Center(
                     child: ElevatedButton(
                       onPressed: (_selectedDate != null && _selectedTime != null)
                           ? () {
                               final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
-                              print('Navigating from DateTime with args: $args, isFromEdit: $_isFromEdit');
-                              if (_isFromEdit) {
-                                Navigator.pushNamed(
-                                  context,
-                                  '/review_game_info',
-                                  arguments: {
-                                    ...args,
-                                    'date': _selectedDate,
-                                    'time': _selectedTime,
-                                    'sport': sport, // Pass the sport
-                                    'isEdit': true,
-                                    'isFromGameInfo': args['isFromGameInfo'] ?? false,
-                                  },
-                                );
-                              } else {
-                                Navigator.pushNamed(context, '/choose_location', arguments: {
-                                  ...args,
-                                  'date': _selectedDate,
-                                  'time': _selectedTime,
-                                  'sport': sport, // Pass the sport
-                                });
-                              }
+                              final nextArgs = {
+                                ...args,
+                                'date': _selectedDate,
+                                'time': _selectedTime,
+                                'sport': sport,
+                              };
+                              print('Continue - Args: $nextArgs, Edit: $_isFromEdit');
+                              Navigator.pushNamed(
+                                context,
+                                _isFromEdit ? '/review_game_info' : '/choose_location',
+                                arguments: nextArgs,
+                              );
                             }
                           : null,
                       style: elevatedButtonStyle(),

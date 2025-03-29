@@ -1,8 +1,9 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'theme.dart';
 
-// List of 50 US states (abbreviations)
 const List<String> usStates = [
   'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA',
   'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD',
@@ -35,11 +36,9 @@ class _AddNewLocationScreenState extends State<AddNewLocationScreen> {
     super.dispose();
   }
 
-  bool _isValidState(String state) {
-    return usStates.contains(state.toUpperCase());
-  }
+  bool _isValidState(String state) => usStates.contains(state.toUpperCase());
 
-  void _handleContinue() {
+  void _handleContinue() async {
     final name = _nameController.text.trim();
     final address = _addressController.text.trim();
     final city = _cityController.text.trim();
@@ -65,13 +64,27 @@ class _AddNewLocationScreenState extends State<AddNewLocationScreen> {
       return;
     }
 
-    Navigator.pop(context, {
+    final prefs = await SharedPreferences.getInstance();
+    final locationsJson = prefs.getString('saved_locations');
+    final locations = locationsJson != null && locationsJson.isNotEmpty
+        ? List<Map<String, dynamic>>.from(jsonDecode(locationsJson))
+        : [];
+    if (locations.any((loc) => loc['name'].toString().toLowerCase() == name.toLowerCase())) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('A location with this name already exists')),
+      );
+      return;
+    }
+
+    final newLocation = {
       'name': name,
       'address': address,
       'city': city,
       'state': state,
       'zip': zip,
-    });
+      'id': DateTime.now().millisecondsSinceEpoch,
+    };
+    Navigator.pop(context, newLocation);
   }
 
   @override
@@ -83,10 +96,7 @@ class _AddNewLocationScreenState extends State<AddNewLocationScreen> {
           icon: const Icon(Icons.arrow_back, size: 36, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
-          'Add New Location',
-          style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
-        ),
+        title: const Text('Add New Location', style: appBarTextStyle),
       ),
       body: Center(
         child: ConstrainedBox(
@@ -127,7 +137,6 @@ class _AddNewLocationScreenState extends State<AddNewLocationScreen> {
                           textCapitalization: TextCapitalization.characters,
                           maxLength: 2,
                           inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z]'))],
-                          keyboardType: TextInputType.text,
                           buildCounter: (context, {required currentLength, required maxLength, required isFocused}) => null,
                         ),
                       ),

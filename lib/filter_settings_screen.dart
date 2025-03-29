@@ -24,7 +24,14 @@ class _FilterSettingsScreenState extends State<FilterSettingsScreen> {
     'Adult': false,
   };
   final _zipCodeController = TextEditingController();
-  final _radiusController = TextEditingController();
+  final _radiusController = TextEditingController(); // Removed default value
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final args = ModalRoute.of(context)!.settings.arguments as String;
+    // Optionally pre-fill zip code based on game location (requires location data in args)
+  }
 
   @override
   void dispose() {
@@ -45,10 +52,7 @@ class _FilterSettingsScreenState extends State<FilterSettingsScreen> {
           icon: const Icon(Icons.arrow_back, size: 36, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
-          'Filter Settings',
-          style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
-        ),
+        title: const Text('Filter Settings', style: appBarTextStyle),
       ),
       body: Center(
         child: ConstrainedBox(
@@ -71,7 +75,7 @@ class _FilterSettingsScreenState extends State<FilterSettingsScreen> {
                     controlAffinity: ListTileControlAffinity.leading,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
                     dense: true,
-                    activeColor: efficialsBlue, // Updated: Changed checkbox color to blue when selected
+                    activeColor: efficialsBlue,
                   ),
                   CheckboxListTile(
                     title: const Text('IHSA - Recognized', style: TextStyle(fontSize: 18)),
@@ -80,7 +84,7 @@ class _FilterSettingsScreenState extends State<FilterSettingsScreen> {
                     controlAffinity: ListTileControlAffinity.leading,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
                     dense: true,
-                    activeColor: efficialsBlue, // Updated: Changed checkbox color to blue when selected
+                    activeColor: efficialsBlue,
                   ),
                   CheckboxListTile(
                     title: const Text('IHSA - Certified', style: TextStyle(fontSize: 18)),
@@ -89,7 +93,7 @@ class _FilterSettingsScreenState extends State<FilterSettingsScreen> {
                     controlAffinity: ListTileControlAffinity.leading,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
                     dense: true,
-                    activeColor: efficialsBlue, // Updated: Changed checkbox color to blue when selected
+                    activeColor: efficialsBlue,
                   ),
                   const SizedBox(height: 16),
                   const Text(
@@ -129,7 +133,7 @@ class _FilterSettingsScreenState extends State<FilterSettingsScreen> {
                           controlAffinity: ListTileControlAffinity.leading,
                           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
                           dense: true,
-                          activeColor: efficialsBlue, // Updated: Changed checkbox color to blue when selected
+                          activeColor: efficialsBlue,
                         ),
                       );
                     }).toList(),
@@ -159,7 +163,9 @@ class _FilterSettingsScreenState extends State<FilterSettingsScreen> {
                   const SizedBox(height: 16),
                   TextField(
                     controller: _radiusController,
-                    decoration: textFieldDecoration('Search Radius (miles)'),
+                    decoration: textFieldDecoration('Search Radius (miles)').copyWith(
+                      hintText: 'Enter radius (e.g., 50)', // Added hint
+                    ),
                     textAlign: TextAlign.left,
                     style: const TextStyle(fontSize: 18),
                     keyboardType: TextInputType.number,

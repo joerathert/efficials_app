@@ -10,25 +10,27 @@ class EditGameInfoScreen extends StatefulWidget {
 
 class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  bool _isAwayGame = false;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>?;
-    print('didChangeDependencies - EditGameInfo Args: $args');
+    if (args != null) {
+      _isAwayGame = args['isAway'] == true;
+      print('didChangeDependencies - EditGameInfo Args: $args');
+    }
   }
 
   void _handleEditOfficials(Map<String, dynamic> args) {
     final method = args['method'] as String? ?? 'standard';
-    final scheduleName = args['scheduleName'] as String? ?? 'Unnamed Schedule';
-    final sport = args['sport'] as String? ?? 'Unknown Sport';
     final selectedOfficials = args['selectedOfficials'] as List<Map<String, dynamic>>? ?? [];
 
     String route;
     Map<String, dynamic> routeArgs = {
       ...args,
       'isEdit': true,
-      'isFromGameInfo': args['isFromGameInfo'] ?? false, // Pass isFromGameInfo
+      'isFromGameInfo': args['isFromGameInfo'] ?? false,
     };
 
     switch (method) {
@@ -43,14 +45,8 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
       case 'standard':
       default:
         route = '/populate_roster';
-        routeArgs = {
-          'sport': sport,
-          'listName': scheduleName,
-          'selectedOfficials': selectedOfficials,
-          'method': 'standard',
-          'isEdit': true,
-          'isFromGameInfo': args['isFromGameInfo'] ?? false, // Pass isFromGameInfo
-        };
+        routeArgs['selectedOfficials'] = selectedOfficials;
+        routeArgs['method'] = 'standard';
         break;
     }
 
@@ -64,7 +60,7 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
           arguments: {
             ...updatedArgs,
             'isEdit': true,
-            'isFromGameInfo': args['isFromGameInfo'] ?? false, // Preserve isFromGameInfo
+            'isFromGameInfo': args['isFromGameInfo'] ?? false,
           },
         );
       }
@@ -74,16 +70,20 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
   @override
   Widget build(BuildContext context) {
     final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+    // Safely access fields with defaults, handling different types
     final scheduleName = args['scheduleName'] as String? ?? 'Unnamed Schedule';
     final sport = args['sport'] as String? ?? 'Unknown Sport';
     final location = args['location'] as String? ?? 'Unknown Location';
     final date = args['date'] as DateTime? ?? DateTime.now();
     final time = args['time'] as TimeOfDay? ?? const TimeOfDay(hour: 12, minute: 0);
-    final levelOfCompetition = args['levelOfCompetition'] as String?;
-    final gender = args['gender'] as String?;
-    final officialsRequired = args['officialsRequired'] as String?;
-    final gameFee = args['gameFee'] as String?;
-    final hireAutomatically = args['hireAutomatically'] as bool?;
+    final levelOfCompetition = args['levelOfCompetition'] as String? ?? 'Not set';
+    final gender = args['gender'] as String? ?? 'Not set';
+    // Handle officialsRequired as either String or int
+    final officialsRequired = args['officialsRequired'] != null
+        ? args['officialsRequired'].toString()
+        : '0';
+    final gameFee = args['gameFee'] != null ? args['gameFee'].toString() : 'Not set';
+    final hireAutomatically = args['hireAutomatically'] as bool? ?? false;
     final selectedOfficials = args['selectedOfficials'] as List<Map<String, dynamic>>? ?? [];
 
     return Scaffold(
@@ -94,10 +94,7 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
           icon: const Icon(Icons.arrow_back, size: 36, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
-          'Edit Game Info',
-          style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
-        ),
+        title: const Text('Edit Game Info', style: appBarTextStyle),
       ),
       body: Center(
         child: ConstrainedBox(
@@ -116,7 +113,7 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
                         Navigator.pushNamed(context, '/choose_location', arguments: {
                           ...args,
                           'isEdit': true,
-                          'isFromGameInfo': args['isFromGameInfo'] ?? false, // Pass isFromGameInfo
+                          'isFromGameInfo': args['isFromGameInfo'] ?? false,
                         }).then((result) {
                           if (result != null) {
                             final updatedArgs = result as Map<String, dynamic>;
@@ -127,15 +124,15 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
                               arguments: {
                                 ...updatedArgs,
                                 'isEdit': true,
-                                'isFromGameInfo': args['isFromGameInfo'] ?? false, // Preserve isFromGameInfo
+                                'isFromGameInfo': args['isFromGameInfo'] ?? false,
                               },
                             );
                           }
                         });
                       },
                       style: elevatedButtonStyle().copyWith(
-                        minimumSize: MaterialStateProperty.all(const Size(300, 60)),
-                        padding: MaterialStateProperty.all(const EdgeInsets.symmetric(vertical: 10, horizontal: 20)),
+                        minimumSize: const MaterialStatePropertyAll(Size(300, 60)),
+                        padding: const MaterialStatePropertyAll(EdgeInsets.symmetric(vertical: 10, horizontal: 20)),
                       ),
                       child: const Text(
                         'Location',
@@ -152,7 +149,7 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
                         Navigator.pushNamed(context, '/date_time', arguments: {
                           ...args,
                           'isEdit': true,
-                          'isFromGameInfo': args['isFromGameInfo'] ?? false, // Pass isFromGameInfo
+                          'isFromGameInfo': args['isFromGameInfo'] ?? false,
                         }).then((result) {
                           if (result != null) {
                             final updatedArgs = result as Map<String, dynamic>;
@@ -163,15 +160,15 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
                               arguments: {
                                 ...updatedArgs,
                                 'isEdit': true,
-                                'isFromGameInfo': args['isFromGameInfo'] ?? false, // Preserve isFromGameInfo
+                                'isFromGameInfo': args['isFromGameInfo'] ?? false,
                               },
                             );
                           }
                         });
                       },
                       style: elevatedButtonStyle().copyWith(
-                        minimumSize: MaterialStateProperty.all(const Size(300, 60)),
-                        padding: MaterialStateProperty.all(const EdgeInsets.symmetric(vertical: 10, horizontal: 20)),
+                        minimumSize: const MaterialStatePropertyAll(Size(300, 60)),
+                        padding: const MaterialStatePropertyAll(EdgeInsets.symmetric(vertical: 10, horizontal: 20)),
                       ),
                       child: const Text(
                         'Date/Time',
@@ -188,7 +185,7 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
                         Navigator.pushNamed(context, '/additional_game_info', arguments: {
                           ...args,
                           'isEdit': true,
-                          'isFromGameInfo': args['isFromGameInfo'] ?? false, // Pass isFromGameInfo
+                          'isFromGameInfo': args['isFromGameInfo'] ?? false,
                         }).then((result) {
                           if (result != null) {
                             final updatedArgs = result as Map<String, dynamic>;
@@ -199,15 +196,15 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
                               arguments: {
                                 ...updatedArgs,
                                 'isEdit': true,
-                                'isFromGameInfo': args['isFromGameInfo'] ?? false, // Preserve isFromGameInfo
+                                'isFromGameInfo': args['isFromGameInfo'] ?? false,
                               },
                             );
                           }
                         });
                       },
                       style: elevatedButtonStyle().copyWith(
-                        minimumSize: MaterialStateProperty.all(const Size(300, 60)),
-                        padding: MaterialStateProperty.all(const EdgeInsets.symmetric(vertical: 10, horizontal: 20)),
+                        minimumSize: const MaterialStatePropertyAll(Size(300, 60)),
+                        padding: const MaterialStatePropertyAll(EdgeInsets.symmetric(vertical: 10, horizontal: 20)),
                       ),
                       child: const Text(
                         'Additional Game Info',
@@ -220,30 +217,32 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
                   SizedBox(
                     width: 300,
                     child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.pushNamed(context, '/select_officials', arguments: {
-                          ...args,
-                          'isEdit': true,
-                          'isFromGameInfo': args['isFromGameInfo'] ?? false, // Pass isFromGameInfo
-                        }).then((result) {
-                          if (result != null) {
-                            final updatedArgs = result as Map<String, dynamic>;
-                            print('EditGameInfoScreen - Updated Args from /select_officials: $updatedArgs');
-                            Navigator.pushReplacementNamed(
-                              context,
-                              '/review_game_info',
-                              arguments: {
-                                ...updatedArgs,
+                      onPressed: _isAwayGame
+                          ? null // Disable for away games
+                          : () {
+                              Navigator.pushNamed(context, '/select_officials', arguments: {
+                                ...args,
                                 'isEdit': true,
-                                'isFromGameInfo': args['isFromGameInfo'] ?? false, // Preserve isFromGameInfo
-                              },
-                            );
-                          }
-                        });
-                      },
+                                'isFromGameInfo': args['isFromGameInfo'] ?? false,
+                              }).then((result) {
+                                if (result != null) {
+                                  final updatedArgs = result as Map<String, dynamic>;
+                                  print('EditGameInfoScreen - Updated Args from /select_officials: $updatedArgs');
+                                  Navigator.pushReplacementNamed(
+                                    context,
+                                    '/review_game_info',
+                                    arguments: {
+                                      ...updatedArgs,
+                                      'isEdit': true,
+                                      'isFromGameInfo': args['isFromGameInfo'] ?? false,
+                                    },
+                                  );
+                                }
+                              });
+                            },
                       style: elevatedButtonStyle().copyWith(
-                        minimumSize: MaterialStateProperty.all(const Size(300, 60)),
-                        padding: MaterialStateProperty.all(const EdgeInsets.symmetric(vertical: 10, horizontal: 20)),
+                        minimumSize: const MaterialStatePropertyAll(Size(300, 60)),
+                        padding: const MaterialStatePropertyAll(EdgeInsets.symmetric(vertical: 10, horizontal: 20)),
                       ),
                       child: const Text(
                         'Selection Method',
@@ -256,10 +255,12 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
                   SizedBox(
                     width: 300,
                     child: ElevatedButton(
-                      onPressed: () => _handleEditOfficials(args),
+                      onPressed: _isAwayGame
+                          ? null // Disable for away games
+                          : () => _handleEditOfficials(args),
                       style: elevatedButtonStyle().copyWith(
-                        minimumSize: MaterialStateProperty.all(const Size(300, 60)),
-                        padding: MaterialStateProperty.all(const EdgeInsets.symmetric(vertical: 10, horizontal: 20)),
+                        minimumSize: const MaterialStatePropertyAll(Size(300, 60)),
+                        padding: const MaterialStatePropertyAll(EdgeInsets.symmetric(vertical: 10, horizontal: 20)),
                       ),
                       child: const Text(
                         'Selected Officials',
@@ -268,6 +269,7 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
                       ),
                     ),
                   ),
+                  const SizedBox(height: 20),
                 ],
               ),
             ),

@@ -15,16 +15,16 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
   List<Map<String, dynamic>> locations = [];
   bool isLoading = true;
   bool isFromEdit = false;
+  bool originalIsAway = false; // Track the original isAwayGame value
 
   @override
   void initState() {
     super.initState();
     locations = [
-      {'name': 'Away Game', 'id': -2}, // Always include Away Game
+      {'name': 'Away Game', 'id': -2},
       {'name': '+ Create new location', 'id': 0},
     ];
     _fetchLocations();
-    print('initState - Initial selectedLocation: $selectedLocation, isFromEdit: $isFromEdit');
   }
 
   @override
@@ -33,9 +33,9 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
     final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
     if (args != null) {
       isFromEdit = args['isEdit'] == true;
+      originalIsAway = args['isAwayGame'] == true; // Store the original isAwayGame value
       if (isFromEdit && selectedLocation == null) {
         selectedLocation = args['location'] as String?;
-        print('didChangeDependencies - Args: $args, Updated selectedLocation: $selectedLocation, isFromEdit: $isFromEdit');
       }
     }
   }
@@ -45,29 +45,24 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
     final String? locationsJson = prefs.getString('saved_locations');
     setState(() {
       locations = [
-        {'name': 'Away Game', 'id': -2}, // Always include Away Game
+        {'name': 'Away Game', 'id': -2},
       ];
-      if (locationsJson != null && locationsJson.isNotEmpty) {
-        try {
-          final List<Map<String, dynamic>> fetchedLocations = List<Map<String, dynamic>>.from(jsonDecode(locationsJson));
-          locations.addAll(fetchedLocations);
-        } catch (e) {
-          print('Error fetching locations: $e');
+      try {
+        if (locationsJson != null && locationsJson.isNotEmpty) {
+          locations.addAll(List<Map<String, dynamic>>.from(jsonDecode(locationsJson)));
         }
+      } catch (e) {
+        print('Error fetching locations: $e');
       }
       locations.add({'name': '+ Create new location', 'id': 0});
-      final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
-      if (args != null && args['isEdit'] == true) {
-        selectedLocation = args['location'] as String?;
-      }
       isLoading = false;
-      print('fetchLocations - Loaded locations: $locations, selectedLocation: $selectedLocation');
+      print('Locations loaded: $locations');
     });
   }
 
   Future<void> _saveLocations() async {
     final prefs = await SharedPreferences.getInstance();
-    final locationsToSave = locations.where((location) => location['id'] != 0 && location['id'] != -2).toList();
+    final locationsToSave = locations.where((loc) => loc['id'] > 0).toList();
     await prefs.setString('saved_locations', jsonEncode(locationsToSave));
   }
 
@@ -84,18 +79,12 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
           ),
           TextButton(
             onPressed: () {
-              Navigator.pop(context);
               setState(() {
-                locations.removeWhere((location) => location['id'] == locationId);
-                if (locations.length <= 2) { // Only "Away Game" and "+ Create new location" remain
-                  // No need to add "No saved locations"
-                }
-                if (!locations.any((loc) => loc['name'] == selectedLocation)) {
-                  selectedLocation = null;
-                }
+                locations.removeWhere((loc) => loc['id'] == locationId);
+                if (selectedLocation == locationName) selectedLocation = null;
                 _saveLocations();
-                print('Delete - Updated locations: $locations, selectedLocation: $selectedLocation');
               });
+              Navigator.pop(context);
             },
             child: const Text('Delete', style: TextStyle(color: efficialsBlue)),
           ),
@@ -106,18 +95,11 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
 
   @override
   Widget build(BuildContext context) {
-    print('build - Current selectedLocation: $selectedLocation, isLoading: $isLoading');
     final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
     final scheduleName = args['scheduleName'] as String? ?? 'Unnamed Schedule';
     final sport = args['sport'] as String? ?? 'Unknown Sport';
     final date = args['date'] as DateTime?;
     final time = args['time'] as TimeOfDay?;
-    final levelOfCompetition = args['levelOfCompetition'] as String?;
-    final gender = args['gender'] as String?;
-    final officialsRequired = args['officialsRequired'] as String?;
-    final gameFee = args['gameFee'] as String?;
-    final hireAutomatically = args['hireAutomatically'] as bool?;
-    final selectedOfficials = args['selectedOfficials'] as List<Map<String, dynamic>>? ?? [];
 
     return Scaffold(
       appBar: AppBar(
@@ -126,10 +108,7 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
           icon: const Icon(Icons.arrow_back, size: 36, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
-          'Choose Location',
-          style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
-        ),
+        title: const Text('Choose Location', style: appBarTextStyle),
       ),
       body: Center(
         child: ConstrainedBox(
@@ -153,71 +132,50 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                           value: selectedLocation,
                           hint: const Text('Choose location', style: TextStyle(color: Colors.grey)),
                           onChanged: (newValue) {
-                            print('Dropdown onChanged - New Value: $newValue, Current selectedLocation: $selectedLocation');
-                            if (newValue != null) {
-                              setState(() {
-                                selectedLocation = newValue;
-                                print('Dropdown onChanged - Updated selectedLocation: $selectedLocation');
-                                if (newValue == '+ Create new location') {
-                                  Navigator.pushNamed(context, '/add_new_location').then((result) {
-                                    if (result != null) {
-                                      final newLocation = result as Map<String, dynamic>;
-                                      setState(() {
-                                        locations.insert(locations.length - 1, {
-                                          'name': newLocation['name'],
-                                          'address': newLocation['address'],
-                                          'city': newLocation['city'],
-                                          'state': newLocation['state'],
-                                          'zip': newLocation['zip'],
-                                          'id': locations.length + 1,
-                                        });
-                                        selectedLocation = newLocation['name'] as String;
-                                        _saveLocations();
-                                        print('Create new - Updated locations: $locations, selectedLocation: $selectedLocation');
+                            if (newValue == null) return;
+                            setState(() {
+                              selectedLocation = newValue;
+                              if (newValue == '+ Create new location') {
+                                Navigator.pushNamed(context, '/add_new_location').then((result) {
+                                  if (result != null) {
+                                    final newLoc = result as Map<String, dynamic>;
+                                    setState(() {
+                                      locations.insert(locations.length - 1, {
+                                        'name': newLoc['name'],
+                                        'address': newLoc['address'],
+                                        'city': newLoc['city'],
+                                        'state': newLoc['state'],
+                                        'zip': newLoc['zip'],
+                                        'id': DateTime.now().millisecondsSinceEpoch,
                                       });
-                                    } else {
-                                      if (!locations.any((loc) => loc['name'] == selectedLocation)) {
-                                        selectedLocation = null;
-                                      }
-                                      print('Create new - Reverted selectedLocation: $selectedLocation');
-                                    }
-                                  });
-                                }
-                              });
-                            }
+                                      selectedLocation = newLoc['name'];
+                                      _saveLocations();
+                                    });
+                                  }
+                                });
+                              }
+                            });
                           },
-                          items: locations.map((location) {
-                            return DropdownMenuItem(
-                              value: location['name'] as String,
-                              child: Text(location['name'] as String),
-                            );
-                          }).toList(),
+                          items: locations.map((loc) => DropdownMenuItem(
+                                value: loc['name'] as String,
+                                child: Text(loc['name'] as String),
+                              )).toList(),
                         ),
-                  const SizedBox(height: 60),
+                  const SizedBox(height: 20),
                   if (selectedLocation != null &&
-                      selectedLocation != '+ Create new location' &&
-                      selectedLocation != 'Away Game') ...[
+                      selectedLocation != 'Away Game' &&
+                      selectedLocation != '+ Create new location') ...[
                     ElevatedButton(
                       onPressed: () {
                         final selected = locations.firstWhere((l) => l['name'] == selectedLocation);
-                        final argsToPass = {'location': selected};
-                        print('ChooseLocationScreen - Selected location data: $selected');
-                        print('ChooseLocationScreen - Navigating to /edit_location with arguments: $argsToPass');
-                        Navigator.pushNamed(context, '/edit_location', arguments: argsToPass).then((result) {
+                        Navigator.pushNamed(context, '/edit_location', arguments: {'location': selected}).then((result) {
                           if (result != null) {
-                            final updatedLocation = result as Map<String, dynamic>;
+                            final updatedLoc = result as Map<String, dynamic>;
                             setState(() {
                               final index = locations.indexWhere((l) => l['id'] == selected['id']);
                               if (index != -1) {
-                                locations[index] = {
-                                  'name': updatedLocation['name'],
-                                  'address': updatedLocation['address'],
-                                  'city': updatedLocation['city'],
-                                  'state': updatedLocation['state'],
-                                  'zip': updatedLocation['zip'],
-                                  'id': selected['id'],
-                                };
-                                selectedLocation = updatedLocation['name'] as String;
+                                locations[index] = updatedLoc;
+                                selectedLocation = updatedLoc['name'];
                                 _saveLocations();
                               }
                             });
@@ -238,42 +196,54 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                     ),
                   ],
                   const SizedBox(height: 60),
-                  Center(
-                    child: ElevatedButton(
-                      onPressed: (selectedLocation == null || selectedLocation == '+ Create new location')
-                          ? null
-                          : () {
-                              print('Continue pressed - Selected Location: $selectedLocation, isFromEdit: $isFromEdit');
-                              if (isFromEdit) {
+                  ElevatedButton(
+                    onPressed: (selectedLocation != null && selectedLocation != '+ Create new location')
+                        ? () {
+                            final isAwayGame = selectedLocation == 'Away Game';
+                            final nextArgs = {
+                              ...args,
+                              'location': selectedLocation,
+                              'isAwayGame': isAwayGame,
+                            };
+
+                            // Check if isAwayGame has changed
+                            if (isFromEdit && originalIsAway != isAwayGame) {
+                              if (isAwayGame) {
+                                // Changed from home to away: Clear officials-related fields
+                                nextArgs
+                                  ..remove('officialsRequired')
+                                  ..remove('gameFee')
+                                  ..remove('gender')
+                                  ..remove('levelOfCompetition')
+                                  ..remove('hireAutomatically')
+                                  ..remove('selectedOfficials')
+                                  ..remove('method');
                                 Navigator.pushNamed(
                                   context,
                                   '/review_game_info',
-                                  arguments: {
-                                    ...args,
-                                    'location': selectedLocation,
-                                    'isEdit': true,
-                                    'isFromGameInfo': args['isFromGameInfo'] ?? false,
-                                    'isAwayGame': selectedLocation == 'Away Game',
-                                  },
+                                  arguments: nextArgs,
                                 );
                               } else {
+                                // Changed from away to home: Navigate to AdditionalGameInfoScreen
                                 Navigator.pushNamed(
                                   context,
                                   '/additional_game_info',
-                                  arguments: {
-                                    'scheduleName': scheduleName,
-                                    'sport': sport,
-                                    'location': selectedLocation,
-                                    'date': date,
-                                    'time': time,
-                                    'isAwayGame': selectedLocation == 'Away Game',
-                                  },
+                                  arguments: nextArgs,
                                 );
                               }
-                            },
-                      style: elevatedButtonStyle(),
-                      child: const Text('Continue', style: signInButtonTextStyle),
-                    ),
+                            } else {
+                              // No change in isAwayGame, proceed as normal
+                              print('Continue - Args: $nextArgs, Edit: $isFromEdit');
+                              Navigator.pushNamed(
+                                context,
+                                isFromEdit ? '/review_game_info' : '/additional_game_info',
+                                arguments: nextArgs,
+                              );
+                            }
+                          }
+                        : null,
+                    style: elevatedButtonStyle(),
+                    child: const Text('Continue', style: signInButtonTextStyle),
                   ),
                 ],
               ),

@@ -336,7 +336,7 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
                   Text('($selectedCount) Selected', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
                   ElevatedButton(
-                    onPressed: selectedCount > 0 // Enable if at least 1 official is selected
+                    onPressed: selectedCount > 0
                         ? () {
                             final selected = officials.where((o) {
                               final officialId = o['id'];
@@ -345,7 +345,9 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
                             final updatedArgs = {
                               ...args,
                               'selectedOfficials': selected,
-                              'isEdit': isEdit,
+                              'isEdit': false, // Explicitly set to false for new game
+                              'isFromGameInfo': false, // Explicitly set to false for new game
+                              'id': null, // Explicitly remove id to ensure new game
                               'officialsRequired': args['officialsRequired'].toString(),
                             };
                             Navigator.pushNamed(

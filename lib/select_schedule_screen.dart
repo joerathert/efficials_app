@@ -94,6 +94,12 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
       schedules.add({'name': '+ Create new schedule', 'id': 0, 'sport': 'None'});
       print('Schedules after fetching: $schedules');
       isLoading = false;
+
+      // Check if returning from NameScheduleScreen with a new schedule
+      final args = ModalRoute.of(context)?.settings.arguments;
+      if (args is String && schedules.any((s) => s['name'] == args)) {
+        selectedSchedule = args;
+      }
     });
   }
 
@@ -127,7 +133,11 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
                           setState(() {
                             selectedSchedule = newValue;
                             if (newValue == '+ Create new schedule') {
-                              Navigator.pushNamed(context, '/select_sport');
+                              Navigator.pushNamed(context, '/select_sport').then((result) {
+                                if (result == true) {
+                                  _fetchSchedules(); // Refresh schedules after creation
+                                }
+                              });
                             }
                           });
                         },

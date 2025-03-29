@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'theme.dart';
 
 class SelectOfficialsScreen extends StatefulWidget {
@@ -10,6 +11,31 @@ class SelectOfficialsScreen extends StatefulWidget {
 
 class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
   bool _defaultChoice = false;
+  String? _defaultMethod;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDefaultChoice();
+  }
+
+  Future<void> _loadDefaultChoice() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _defaultChoice = prefs.getBool('defaultChoice') ?? false;
+      _defaultMethod = prefs.getString('defaultMethod');
+    });
+  }
+
+  Future<void> _saveDefaultChoice(String method) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('defaultChoice', _defaultChoice);
+    if (_defaultChoice) {
+      await prefs.setString('defaultMethod', method);
+    } else {
+      await prefs.remove('defaultMethod');
+    }
+  }
 
   void _showDifferenceDialog() {
     showDialog(
@@ -34,6 +60,49 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
     final listName = args['scheduleName'] as String? ?? 'New Roster';
     final listId = args['listId'] as int? ?? DateTime.now().millisecondsSinceEpoch;
 
+    if (_defaultChoice && _defaultMethod != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_defaultMethod == 'standard') {
+          Navigator.pushNamed(
+            context,
+            '/populate_roster',
+            arguments: {
+              ...args,
+              'sport': sport,
+              'listName': listName,
+              'listId': listId,
+              'method': 'standard',
+              'requiredCount': 2,
+            },
+          );
+        } else if (_defaultMethod == 'advanced') {
+          Navigator.pushNamed(
+            context,
+            '/advanced_officials_selection',
+            arguments: {
+              ...args,
+              'sport': sport,
+              'listName': listName,
+              'listId': listId,
+            },
+          );
+        } else if (_defaultMethod == 'use_list') {
+          Navigator.pushNamed(
+            context,
+            '/lists_of_officials',
+            arguments: {
+              ...args,
+              'fromGameCreation': true,
+            },
+          ).then((result) {
+            if (result != null) {
+              Navigator.pushNamed(context, '/review_game_info', arguments: result);
+            }
+          });
+        }
+      });
+    }
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: efficialsBlue,
@@ -41,10 +110,7 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
           icon: const Icon(Icons.arrow_back, size: 36, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
-          'Select Officials',
-          style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
-        ),
+        title: const Text('Select Officials', style: appBarTextStyle),
       ),
       body: Center(
         child: ConstrainedBox(
@@ -63,6 +129,7 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
                   const SizedBox(height: 60),
                   ElevatedButton(
                     onPressed: () {
+                      _saveDefaultChoice('standard');
                       Navigator.pushNamed(
                         context,
                         '/populate_roster',
@@ -82,6 +149,7 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
                   const SizedBox(height: 20),
                   ElevatedButton(
                     onPressed: () {
+                      _saveDefaultChoice('advanced');
                       Navigator.pushNamed(
                         context,
                         '/advanced_officials_selection',
@@ -99,6 +167,7 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
                   const SizedBox(height: 20),
                   ElevatedButton(
                     onPressed: () {
+                      _saveDefaultChoice('use_list');
                       Navigator.pushNamed(
                         context,
                         '/lists_of_officials',

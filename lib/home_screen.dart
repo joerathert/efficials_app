@@ -4,6 +4,67 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'theme.dart';
 
+class Game {
+  final int id;
+  final String scheduleName;
+  final DateTime? date;
+  final TimeOfDay? time;
+  final String sport;
+  final int officialsRequired;
+  final int officialsHired;
+  final bool isAway;
+  final List<Map<String, dynamic>>? selectedOfficials;
+
+  Game({
+    required this.id,
+    required this.scheduleName,
+    this.date,
+    this.time,
+    required this.sport,
+    required this.officialsRequired,
+    required this.officialsHired,
+    this.isAway = false,
+    this.selectedOfficials,
+  });
+
+  factory Game.fromJson(Map<String, dynamic> json) {
+    final timeStr = json['time'] as String?;
+    TimeOfDay? time;
+    if (timeStr != null) {
+      final parts = timeStr.split(':');
+      time = TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+    }
+
+    return Game(
+      id: json['id'] as int,
+      scheduleName: json['scheduleName'] as String,
+      date: json['date'] != null ? DateTime.parse(json['date'] as String) : null,
+      time: time,
+      sport: json['sport'] as String? ?? 'Unknown Sport',
+      officialsRequired: int.parse(json['officialsRequired']?.toString() ?? '0'),
+      officialsHired: json['officialsHired'] as int? ?? 0,
+      isAway: json['isAway'] as bool? ?? false,
+      selectedOfficials: json['selectedOfficials'] != null
+          ? (json['selectedOfficials'] as List<dynamic>)
+              .map((e) => Map<String, dynamic>.from(e as Map))
+              .toList()
+          : null,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'scheduleName': scheduleName,
+        'date': date?.toIso8601String(),
+        'time': time != null ? '${time!.hour}:${time!.minute}' : null,
+        'sport': sport,
+        'officialsRequired': officialsRequired,
+        'officialsHired': officialsHired,
+        'isAway': isAway,
+        'selectedOfficials': selectedOfficials,
+      };
+}
+
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -12,7 +73,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  List<Map<String, dynamic>> publishedGames = [];
+  List<Game> publishedGames = [];
   List<String> existingSchedules = [];
   bool isLoading = true;
 
@@ -26,7 +87,6 @@ class _HomeScreenState extends State<HomeScreen> {
     final prefs = await SharedPreferences.getInstance();
     final String? gamesJson = prefs.getString('published_games');
     final String? unpublishedGamesJson = prefs.getString('unpublished_games');
-    final String? publishedGamesJson = prefs.getString('published_games');
 
     // Fetch existing schedules
     Set<String> scheduleNames = {};
@@ -36,8 +96,8 @@ class _HomeScreenState extends State<HomeScreen> {
         scheduleNames.add(game['scheduleName'] as String);
       }
     }
-    if (publishedGamesJson != null && publishedGamesJson.isNotEmpty) {
-      final published = List<Map<String, dynamic>>.from(jsonDecode(publishedGamesJson));
+    if (gamesJson != null && gamesJson.isNotEmpty) {
+      final published = List<Map<String, dynamic>>.from(jsonDecode(gamesJson));
       for (var game in published) {
         scheduleNames.add(game['scheduleName'] as String);
       }
@@ -47,35 +107,16 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       if (gamesJson != null && gamesJson.isNotEmpty) {
         try {
-          // Fetch all games
-          publishedGames = List<Map<String, dynamic>>.from(jsonDecode(gamesJson));
-          // Filter games to only include those with existing schedules
-          publishedGames = publishedGames.where((game) {
-            final scheduleName = game['scheduleName'] as String?;
-            return scheduleName != null && existingSchedules.contains(scheduleName);
-          }).toList();
-
-          for (var game in publishedGames) {
-            if (game['date'] != null) {
-              game['date'] = DateTime.parse(game['date'] as String);
-            }
-            if (game['time'] != null) {
-              final timeParts = (game['time'] as String).split(':');
-              game['time'] = TimeOfDay(
-                hour: int.parse(timeParts[0]),
-                minute: int.parse(timeParts[1]),
-              );
-            }
-            if (game['selectedOfficials'] != null) {
-              game['selectedOfficials'] = (game['selectedOfficials'] as List<dynamic>)
-                  .map((official) => Map<String, dynamic>.from(official as Map))
-                  .toList();
-            }
-          }
+          publishedGames = List<Map<String, dynamic>>.from(jsonDecode(gamesJson))
+              .map(Game.fromJson)
+              .where((game) => existingSchedules.contains(game.scheduleName))
+              .toList();
         } catch (e) {
           publishedGames = [];
           print('Error loading published games: $e');
         }
+      } else {
+        publishedGames = [];
       }
       isLoading = false;
     });
@@ -133,9 +174,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final Object? rawArgs = ModalRoute.of(context)?.settings.arguments;
-    final Map<String, String> args = rawArgs is Map<String, String> ? rawArgs : {};
-
     final double statusBarHeight = MediaQuery.of(context).padding.top;
     const double appBarHeight = kToolbarHeight;
     final double totalBannerHeight = statusBarHeight + appBarHeight;
@@ -181,7 +219,6 @@ class _HomeScreenState extends State<HomeScreen> {
               onTap: () {
                 Navigator.pop(context);
                 Navigator.pushNamed(context, '/schedules').then((result) {
-                  // Refresh games after returning from SchedulesScreen
                   _fetchPublishedGames();
                 });
               },
@@ -245,27 +282,21 @@ class _HomeScreenState extends State<HomeScreen> {
                         itemCount: publishedGames.length,
                         itemBuilder: (context, index) {
                           final game = publishedGames[index];
-                          final gameTitle = '${game['scheduleName']}';
-                          final gameDate = game['date'] != null
-                              ? DateFormat('EEEE, MMM d, yyyy').format(game['date'] as DateTime)
+                          final gameTitle = game.scheduleName;
+                          final gameDate = game.date != null
+                              ? DateFormat('EEEE, MMM d, yyyy').format(game.date!)
                               : 'Not set';
-                          final gameTime = game['time'] != null
-                              ? (game['time'] as TimeOfDay).format(context)
-                              : 'Not set';
-                          final requiredOfficials = int.parse(game['officialsRequired']?.toString() ?? '0');
-                          final hiredOfficials = game['officialsHired'] as int? ?? 0;
+                          final gameTime = game.time != null ? game.time!.format(context) : 'Not set';
+                          final requiredOfficials = game.officialsRequired;
+                          final hiredOfficials = game.officialsHired;
                           final isFullyHired = hiredOfficials >= requiredOfficials;
-                          final sport = game['sport'] as String? ?? 'Unknown Sport';
+                          final sport = game.sport;
                           final sportIcon = _getSportIcon(sport);
-                          final isAway = game['isAway'] == true; // Check if the game is an away game
+                          final isAway = game.isAway;
 
                           return GestureDetector(
                             onTap: () async {
-                              final gameId = game['id'] as int?;
-                              if (gameId == null) {
-                                print('Error: Game ID is null');
-                                return;
-                              }
+                              final gameId = game.id;
                               final latestGame = await _fetchGameById(gameId);
                               if (latestGame == null) {
                                 print('Error: Could not fetch game with ID $gameId');
@@ -275,32 +306,20 @@ class _HomeScreenState extends State<HomeScreen> {
                                 context,
                                 '/game_information',
                                 arguments: latestGame,
-                              ).then((result) {
+                              ).then((result) async {
                                 if (result == true) {
                                   _fetchPublishedGames();
                                 } else if (result != null && result is Map<String, dynamic>) {
                                   setState(() {
-                                    final index = publishedGames.indexWhere((g) => g['id'] == game['id']);
+                                    final index = publishedGames.indexWhere((g) => g.id == game.id);
                                     if (index != -1) {
-                                      publishedGames[index] = result;
+                                      publishedGames[index] = Game.fromJson(result);
                                     }
                                   });
-                                  final prefs = SharedPreferences.getInstance();
-                                  prefs.then((prefs) {
-                                    final gamesToSave = publishedGames.map((g) {
-                                      final gameCopy = Map<String, dynamic>.from(g);
-                                      if (gameCopy['date'] != null) {
-                                        gameCopy['date'] = (gameCopy['date'] as DateTime).toIso8601String();
-                                      }
-                                      if (gameCopy['time'] != null) {
-                                        final time = gameCopy['time'] as TimeOfDay;
-                                        gameCopy['time'] = '${time.hour}:${time.minute}';
-                                      }
-                                      return gameCopy;
-                                    }).toList();
-                                    prefs.setString('published_games', jsonEncode(gamesToSave));
-                                    _fetchPublishedGames();
-                                  });
+                                  final prefs = await SharedPreferences.getInstance();
+                                  final gamesToSave = publishedGames.map((g) => g.toJson()).toList();
+                                  await prefs.setString('published_games', jsonEncode(gamesToSave));
+                                  _fetchPublishedGames();
                                 }
                               });
                             },
