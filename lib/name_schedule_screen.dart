@@ -10,6 +10,24 @@ class NameScheduleScreen extends StatefulWidget {
 
 class _NameScheduleScreenState extends State<NameScheduleScreen> {
   final _nameController = TextEditingController();
+  String? _sport;
+  List<String> _existingSchedules = [];
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    if (args != null) {
+      _sport = args['sport'] as String?;
+      _existingSchedules = args['existingSchedules'] as List<String>? ?? [];
+    }
+    if (_sport == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Error: Sport not provided')),
+      );
+      Navigator.pop(context);
+    }
+  }
 
   @override
   void dispose() {
@@ -25,57 +43,60 @@ class _NameScheduleScreenState extends State<NameScheduleScreen> {
       );
       return;
     }
-    final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
-    final sport = args['sport'] as String;
+    if (RegExp(r'^\s+$').hasMatch(name)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Schedule name cannot be just spaces!')),
+      );
+      return;
+    }
+    if (_existingSchedules.contains(name)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Schedule name must be unique!')),
+      );
+      return;
+    }
     Navigator.pushNamed(
       context,
-      '/date_time', // Changed from '/choose_location' to '/date_time'
-      arguments: {'scheduleName': name, 'sport': sport},
+      '/date_time',
+      arguments: {'sport': _sport, 'scheduleName': name},
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
-    final sport = args['sport'] as String;
-
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: efficialsBlue,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, size: 36, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
-          'Name Schedule',
-          style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
-        ),
+        title: const Text('Name Schedule', style: appBarTextStyle),
       ),
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 600),
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(16.0),
             child: SingleChildScrollView(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Text(
-                    'Provide a name for your new ${sport.toUpperCase()} schedule. The name you choose should identify the level of competition.',
-                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black),
+                    'Provide a name for your new ${_sport?.toUpperCase() ?? 'SPORT'} schedule. The name you choose should identify the level of competition.',
+                    style: headlineStyle,
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 20),
                   TextField(
                     controller: _nameController,
-                    decoration: textFieldDecoration('Ex. - Varsity Football'),
+                    decoration: textFieldDecoration('Ex. Varsity ${_sport ?? 'Sport'}'),
                     style: const TextStyle(fontSize: 18),
                   ),
                   const SizedBox(height: 20),
                   const Text(
                     'Note: There is no need to specify a time period for your schedule. For example, use "Varsity Football" rather than "2025 Varsity Football".',
-                    style: TextStyle(fontSize: 14, color: Colors.grey),
+                    style: secondaryTextStyle,
                     textAlign: TextAlign.left,
                   ),
                   const SizedBox(height: 60),

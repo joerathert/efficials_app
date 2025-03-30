@@ -28,31 +28,27 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
 
     setState(() {
       schedules.clear();
-      try {
-        if (unpublishedGamesJson != null && unpublishedGamesJson.isNotEmpty) {
-          final unpublished = List<Map<String, dynamic>>.from(jsonDecode(unpublishedGamesJson));
-          for (var game in unpublished) {
-            if (!schedules.any((s) => s['name'] == game['scheduleName'])) {
-              schedules.add({'name': game['scheduleName'] as String, 'id': game['id']});
-            }
+      final scheduleNames = <String>{}; // Use Set for uniqueness
+
+      void addSchedulesFromJson(String? json) {
+        if (json != null && json.isNotEmpty) {
+          final games = List<Map<String, dynamic>>.from(jsonDecode(json));
+          for (var game in games) {
+            scheduleNames.add(game['scheduleName'] as String? ?? 'Unnamed');
           }
         }
-        if (publishedGamesJson != null && publishedGamesJson.isNotEmpty) {
-          final published = List<Map<String, dynamic>>.from(jsonDecode(publishedGamesJson));
-          for (var game in published) {
-            if (!schedules.any((s) => s['name'] == game['scheduleName'])) {
-              schedules.add({'name': game['scheduleName'] as String, 'id': game['id']});
-            }
-          }
-        }
-      } catch (e) {
-        print('Error fetching schedules: $e');
       }
+
+      addSchedulesFromJson(unpublishedGamesJson);
+      addSchedulesFromJson(publishedGamesJson);
+
+      schedules = scheduleNames
+          .map((name) => <String, dynamic>{'name': name, 'id': 1})
+          .toList();
       if (schedules.isEmpty) {
-        schedules.add({'name': 'No schedules available', 'id': -1});
+        schedules.add(<String, dynamic>{'name': 'No schedules available', 'id': -1});
       }
-      schedules.add({'name': '+ Create new schedule', 'id': 0});
-      // Do not set selectedSchedule here; leave it as null for the hint to show
+      schedules.add(<String, dynamic>{'name': '+ Create new schedule', 'id': 0});
       isLoading = false;
     });
   }
@@ -72,18 +68,17 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 600),
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(16.0),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Removed the "Select a Schedule" Text widget
                 const SizedBox(height: 20),
                 isLoading
                     ? const CircularProgressIndicator()
                     : DropdownButtonFormField<String>(
                         decoration: textFieldDecoration('Schedules'),
                         value: selectedSchedule,
-                        hint: const Text('Select a schedule'), // Added hint here
+                        hint: const Text('Select a schedule'),
                         onChanged: (newValue) {
                           setState(() {
                             selectedSchedule = newValue;
@@ -99,7 +94,7 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
                               schedule['name'] as String,
                               style: schedule['name'] == 'No schedules available'
                                   ? const TextStyle(color: Colors.red)
-                                  : null,
+                                  : null, // Black by default unless red
                             ),
                           );
                         }).toList(),
@@ -113,7 +108,7 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
                       : () {
                           Navigator.pushNamed(
                             context,
-                            '/review_game_info',
+                            '/date_time',
                             arguments: {'scheduleName': selectedSchedule},
                           );
                         },
