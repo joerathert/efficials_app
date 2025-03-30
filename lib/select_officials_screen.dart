@@ -1,3 +1,4 @@
+import 'dart:convert'; // Added this import
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'theme.dart';
@@ -37,6 +38,20 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
     }
   }
 
+  Future<int> _getAvailableListsCount() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String? listsJson = prefs.getString('saved_lists');
+    if (listsJson != null && listsJson.isNotEmpty) {
+      try {
+        final List<dynamic> lists = List<Map<String, dynamic>>.from(jsonDecode(listsJson));
+        return lists.length;
+      } catch (e) {
+        return 0;
+      }
+    }
+    return 0;
+  }
+
   void _showDifferenceDialog() {
     showDialog(
       context: context,
@@ -53,6 +68,33 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
     );
   }
 
+  void _showInsufficientListsDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Insufficient Lists'),
+        content: const Text('The Advanced method requires at least two lists of officials. Would you like to create a new list?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel', style: TextStyle(color: efficialsBlue)),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              // Navigate to the list creation screen using the correct route
+              Navigator.pushNamed(context, '/create_new_list').then((result) {
+                // Refresh the screen to recheck the number of lists
+                setState(() {});
+              });
+            },
+            child: const Text('Create List', style: TextStyle(color: efficialsBlue)),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
@@ -61,7 +103,7 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
     final listId = args['listId'] as int? ?? DateTime.now().millisecondsSinceEpoch;
 
     if (_defaultChoice && _defaultMethod != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
         if (_defaultMethod == 'standard') {
           Navigator.pushNamed(
             context,
@@ -76,16 +118,21 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
             },
           );
         } else if (_defaultMethod == 'advanced') {
-          Navigator.pushNamed(
-            context,
-            '/advanced_officials_selection',
-            arguments: {
-              ...args,
-              'sport': sport,
-              'listName': listName,
-              'listId': listId,
-            },
-          );
+          final listCount = await _getAvailableListsCount();
+          if (listCount < 2) {
+            _showInsufficientListsDialog();
+          } else {
+            Navigator.pushNamed(
+              context,
+              '/advanced_officials_selection',
+              arguments: {
+                ...args,
+                'sport': sport,
+                'listName': listName,
+                'listId': listId,
+              },
+            );
+          }
         } else if (_defaultMethod == 'use_list') {
           Navigator.pushNamed(
             context,
@@ -148,18 +195,23 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
                   ),
                   const SizedBox(height: 20),
                   ElevatedButton(
-                    onPressed: () {
-                      _saveDefaultChoice('advanced');
-                      Navigator.pushNamed(
-                        context,
-                        '/advanced_officials_selection',
-                        arguments: {
-                          ...args,
-                          'sport': sport,
-                          'listName': listName,
-                          'listId': listId,
-                        },
-                      );
+                    onPressed: () async {
+                      final listCount = await _getAvailableListsCount();
+                      if (listCount < 2) {
+                        _showInsufficientListsDialog();
+                      } else {
+                        _saveDefaultChoice('advanced');
+                        Navigator.pushNamed(
+                          context,
+                          '/advanced_officials_selection',
+                          arguments: {
+                            ...args,
+                            'sport': sport,
+                            'listName': listName,
+                            'listId': listId,
+                          },
+                        );
+                      }
                     },
                     style: elevatedButtonStyle(),
                     child: const Text('Advanced', style: signInButtonTextStyle),

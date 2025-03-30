@@ -20,11 +20,13 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
   late TimeOfDay? selectedTime;
   late String levelOfCompetition;
   late String gender;
-  late String officialsRequired;
+  late int? officialsRequired;
   late String gameFee;
   late bool hireAutomatically;
   late List<Map<String, dynamic>> selectedOfficials;
   late List<Map<String, dynamic>> selectedLists;
+  late bool isAwayGame;
+  late String opponent;
 
   @override
   void didChangeDependencies() {
@@ -35,11 +37,9 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
       sport = args['sport'] as String? ?? 'Unknown';
       scheduleName = args['scheduleName'] as String? ?? 'Unnamed';
       location = args['location'] as String? ?? 'Not set';
-      // Parse date from ISO8601 string to DateTime if it's a string
       selectedDate = args['date'] != null
           ? (args['date'] is String ? DateTime.parse(args['date'] as String) : args['date'] as DateTime)
           : null;
-      // Parse time from "HH:mm" string to TimeOfDay if it's a string
       selectedTime = args['time'] != null
           ? (args['time'] is String
               ? () {
@@ -53,9 +53,11 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
           : null;
       levelOfCompetition = args['levelOfCompetition'] as String? ?? 'Not set';
       gender = args['gender'] as String? ?? 'Not set';
-      officialsRequired = args['officialsRequired'] as String? ?? '0';
-      gameFee = args['gameFee'] as String? ?? 'Not set';
+      officialsRequired = args['officialsRequired'] != null ? int.tryParse(args['officialsRequired'].toString()) : null;
+      gameFee = args['gameFee']?.toString() ?? 'Not set';
       hireAutomatically = args['hireAutomatically'] as bool? ?? false;
+      isAwayGame = args['isAwayGame'] as bool? ?? false;
+      opponent = args['opponent'] as String? ?? 'Not set';
       try {
         final officialsRaw = args['selectedOfficials'] as List<dynamic>? ?? [];
         selectedOfficials = officialsRaw.map((official) {
@@ -95,11 +97,13 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
     selectedTime = null;
     levelOfCompetition = 'Not set';
     gender = 'Not set';
-    officialsRequired = '0';
+    officialsRequired = null;
     gameFee = 'Not set';
     hireAutomatically = false;
     selectedOfficials = [];
     selectedLists = [];
+    isAwayGame = false;
+    opponent = 'Not set';
   }
 
   Future<void> _deleteGame() async {
@@ -159,20 +163,23 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
         ? {'boys': 'Men', 'girls': 'Women', 'co-ed': 'Co-ed'}[gender.toLowerCase()] ?? gender
         : gender;
 
-    final gameDetails = {
+    final gameDetails = <String, String>{
       'Sport': sport,
       'Schedule Name': scheduleName,
       'Date': selectedDate != null ? DateFormat('MMMM d, yyyy').format(selectedDate!) : 'Not set',
       'Time': selectedTime != null ? selectedTime!.format(context) : 'Not set',
       'Location': location,
-      'Officials Required': officialsRequired,
-      'Game Fee per Official': gameFee != 'Not set' ? '\$$gameFee' : 'Not set',
-      'Gender': displayGender,
-      'Competition Level': levelOfCompetition,
-      'Hire Automatically': hireAutomatically ? 'Yes' : 'No',
+      if (!isAwayGame) ...{
+        'Officials Required': officialsRequired?.toString() ?? '0',
+        'Fee per Official': gameFee != 'Not set' ? '\$$gameFee' : 'Not set',
+        'Gender': displayGender,
+        'Competition Level': levelOfCompetition,
+        'Hire Automatically': hireAutomatically ? 'Yes' : 'No',
+      },
+      'Opponent': opponent,
     };
 
-    final requiredOfficials = int.parse(officialsRequired);
+    final requiredOfficials = officialsRequired ?? 0;
     final hiredOfficials = args['officialsHired'] as int? ?? 0;
     final confirmedOfficials = selectedOfficials
         .take(hiredOfficials)
@@ -232,9 +239,11 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                                 : selectedTime;
                             levelOfCompetition = args['levelOfCompetition'] as String? ?? levelOfCompetition;
                             gender = args['gender'] as String? ?? gender;
-                            officialsRequired = args['officialsRequired'] as String? ?? officialsRequired;
-                            gameFee = args['gameFee'] as String? ?? gameFee;
+                            officialsRequired = args['officialsRequired'] != null ? int.tryParse(args['officialsRequired'].toString()) : officialsRequired;
+                            gameFee = args['gameFee']?.toString() ?? gameFee;
                             hireAutomatically = args['hireAutomatically'] as bool? ?? hireAutomatically;
+                            isAwayGame = args['isAwayGame'] as bool? ?? isAwayGame;
+                            opponent = args['opponent'] as String? ?? opponent;
                             try {
                               final officialsRaw = args['selectedOfficials'] as List<dynamic>? ?? [];
                               selectedOfficials = officialsRaw.map((official) {
@@ -275,53 +284,74 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 600),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     ...gameDetails.entries.map(
                       (e) => Padding(
                         padding: const EdgeInsets.symmetric(vertical: 4),
-                        child: Text('${e.key}: ${e.value}', style: const TextStyle(fontSize: 16)),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    Text(
-                      'Confirmed Officials ($hiredOfficials/$requiredOfficials)',
-                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 10),
-                    if (confirmedOfficials.isEmpty)
-                      const Text('No officials confirmed.', style: TextStyle(fontSize: 16, color: Colors.grey))
-                    else
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: confirmedOfficials.map((name) {
-                          return Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 2),
-                            child: GestureDetector(
-                              onTap: () {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Official profiles not implemented yet')),
-                                );
-                              },
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            SizedBox(
+                              width: 150,
                               child: Text(
-                                name,
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  color: Colors.blue,
-                                  decoration: TextDecoration.underline,
-                                  decorationColor: Colors.blue,
-                                ),
+                                '${e.key}:',
+                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
                               ),
                             ),
-                          );
-                        }).toList(),
+                            Expanded(
+                              child: Text(
+                                e.value,
+                                style: const TextStyle(fontSize: 16),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
+                    ),
                     const SizedBox(height: 20),
-                    const Text('Selected Officials', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                    if (!isAwayGame) ...[
+                      Text(
+                        'Confirmed Officials ($hiredOfficials/$requiredOfficials)',
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 10),
+                      if (confirmedOfficials.isEmpty)
+                        const Text('No officials confirmed.', style: TextStyle(fontSize: 16, color: Colors.grey))
+                      else
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: confirmedOfficials.map((name) {
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 2),
+                              child: GestureDetector(
+                                onTap: () {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Official profiles not implemented yet')),
+                                  );
+                                },
+                                child: Text(
+                                  name,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.blue,
+                                    decoration: TextDecoration.underline,
+                                    decorationColor: Colors.blue,
+                                  ),
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      const SizedBox(height: 20),
+                    ],
+                    const Text('Selected Officials', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 10),
-                    if (selectedOfficials.isEmpty)
+                    if (isAwayGame)
+                      const Text('No officials needed for away games.', style: TextStyle(fontSize: 16, color: Colors.grey))
+                    else if (selectedOfficials.isEmpty)
                       const Text('No officials selected.', style: TextStyle(fontSize: 16, color: Colors.grey))
                     else if (args['method'] == 'advanced' && args['selectedLists'] != null) ...[
                       ...selectedLists.map(

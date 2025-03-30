@@ -13,7 +13,7 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
   String? _levelOfCompetition;
   String? _gender;
   int? _officialsRequired;
-  List<String> _currentGenders = ['Boys', 'Girls', 'Co-ed']; // Initialize with default value
+  List<String> _currentGenders = ['Boys', 'Girls', 'Co-ed'];
   final TextEditingController _gameFeeController = TextEditingController();
   final TextEditingController _opponentController = TextEditingController();
   bool _hireAutomatically = false;
@@ -36,7 +36,6 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
 
   void _updateCurrentGenders() {
     if (_levelOfCompetition == null) {
-      print('Warning: _levelOfCompetition is null, defaulting to _youthGenders');
       _currentGenders = _youthGenders;
     } else {
       _currentGenders = (_levelOfCompetition == 'College' || _levelOfCompetition == 'Adult')
@@ -67,25 +66,13 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
     if (!_isInitialized) {
       final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
       if (args != null) {
-        print('didChangeDependencies - Args: $args');
         _isFromEdit = args['isEdit'] == true;
         _isAwayGame = args['isAwayGame'] == true;
-        // Ensure _levelOfCompetition is never null for non-away games
-        _levelOfCompetition = args['levelOfCompetition'] as String? ?? (_isAwayGame ? null : 'Grade School');
-        print('didChangeDependencies - _levelOfCompetition: $_levelOfCompetition, _isAwayGame: $_isAwayGame');
-        // Update _currentGenders
+        _levelOfCompetition = args['levelOfCompetition'] as String?;
         _updateCurrentGenders();
-        // Validate gender against currentGenders
-        String? initialGender = args['gender'] as String?;
-        if (initialGender != null && _currentGenders.contains(initialGender)) {
-          _gender = initialGender;
-        } else {
-          _gender = null;
-        }
-        print('didChangeDependencies - _gender: $_gender, _currentGenders: $_currentGenders');
-        _officialsRequired = args['officialsRequired'] != null
-            ? int.tryParse(args['officialsRequired'].toString()) ?? (_isAwayGame ? 0 : 1)
-            : (_isAwayGame ? 0 : 1);
+        final genderArg = args['gender'] as String?;
+        _gender = (genderArg != null && _currentGenders.contains(genderArg)) ? genderArg : null;
+        _officialsRequired = args['officialsRequired'] != null ? int.tryParse(args['officialsRequired'].toString()) : null;
         _gameFeeController.text = args['gameFee']?.toString() ?? '';
         _opponentController.text = args['opponent'] as String? ?? '';
         _hireAutomatically = args['hireAutomatically'] as bool? ?? false;
@@ -133,7 +120,6 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
       'selectedOfficials': args['selectedOfficials'] ?? <Map<String, dynamic>>[],
     };
 
-    print('handleContinue - Args: $updatedArgs, Edit: $_isFromEdit');
     Navigator.pushNamed(
       context,
       _isAwayGame || _hireAutomatically ? '/review_game_info' : '/select_officials',
@@ -145,21 +131,10 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
-    print('build - Start: _levelOfCompetition: $_levelOfCompetition, _currentGenders: $_currentGenders, _gender: $_gender');
-    // Validate _gender against currentGenders as a fallback
+    _updateCurrentGenders();
     if (_gender != null && !_currentGenders.contains(_gender)) {
-      print('build - Resetting _gender because it is not in _currentGenders');
       _gender = null;
     }
-    // Log the items lists for both dropdowns
-    final levelItems = _competitionLevels.map((level) => DropdownMenuItem(value: level, child: Text(level))).toList();
-    print('build - Level of Competition Dropdown Items: $levelItems');
-    print('build - _currentGenders before Gender Dropdown: $_currentGenders');
-    final genderItems = _currentGenders.isNotEmpty
-        ? _currentGenders.map((gender) => DropdownMenuItem(value: gender, child: Text(gender))).toList()
-        : [const DropdownMenuItem(value: 'Boys', child: Text('Boys'))];
-    print('build - Gender Dropdown Items: $genderItems');
 
     return Scaffold(
       appBar: AppBar(
@@ -180,60 +155,51 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   if (!_isAwayGame) ...[
-                    if (!_isInitialized || _levelOfCompetition == null || _currentGenders.isEmpty)
-                      const Center(child: CircularProgressIndicator())
-                    else ...[
-                      DropdownButtonFormField<String>(
-                        decoration: textFieldDecoration('Level of Competition'),
-                        value: _levelOfCompetition,
-                        hint: const Text('Select level'),
-                        onChanged: (value) {
-                          setState(() {
-                            _levelOfCompetition = value;
-                            // Update _currentGenders when level changes
-                            _updateCurrentGenders();
-                            if (_gender != null && !_currentGenders.contains(_gender)) {
-                              _gender = null;
-                            }
-                          });
-                        },
-                        items: _competitionLevels.isNotEmpty
-                            ? _competitionLevels.map((level) => DropdownMenuItem(value: level, child: Text(level))).toList()
-                            : [const DropdownMenuItem(value: 'Grade School', child: Text('Grade School'))],
+                    DropdownButtonFormField<String>(
+                      decoration: textFieldDecoration('Level of competition'),
+                      value: _levelOfCompetition,
+                      hint: const Text('Level of competition'),
+                      onChanged: (value) {
+                        setState(() {
+                          _levelOfCompetition = value;
+                          _updateCurrentGenders();
+                          if (_gender != null && !_currentGenders.contains(_gender)) {
+                            _gender = null;
+                          }
+                        });
+                      },
+                      items: _competitionLevels.map((level) => DropdownMenuItem(value: level, child: Text(level))).toList(),
+                    ),
+                    const SizedBox(height: 20),
+                    DropdownButtonFormField<String>(
+                      decoration: textFieldDecoration('Gender'),
+                      value: _gender,
+                      hint: const Text('Select gender'),
+                      onChanged: (value) => setState(() => _gender = value),
+                      items: _currentGenders.map((gender) => DropdownMenuItem(value: gender, child: Text(gender))).toList(),
+                    ),
+                    const SizedBox(height: 20),
+                    DropdownButtonFormField<int>(
+                      decoration: textFieldDecoration('Required number of officials'),
+                      value: _officialsRequired,
+                      hint: const Text('Required number of officials'),
+                      onChanged: (value) => setState(() => _officialsRequired = value),
+                      items: _officialsOptions.map((num) => DropdownMenuItem(value: num, child: Text(num.toString()))).toList(),
+                    ),
+                    const SizedBox(height: 20),
+                    TextField(
+                      controller: _gameFeeController,
+                      decoration: textFieldDecoration('Game Fee per Official').copyWith(
+                        prefixText: '\$',
+                        hintText: 'Enter fee (e.g., 50)',
                       ),
-                      const SizedBox(height: 20),
-                      DropdownButtonFormField<String>(
-                        decoration: textFieldDecoration('Gender'),
-                        value: _gender,
-                        hint: const Text('Select gender'),
-                        onChanged: (value) => setState(() => _gender = value),
-                        items: _currentGenders.isNotEmpty
-                            ? _currentGenders.map((gender) => DropdownMenuItem(value: gender, child: Text(gender))).toList()
-                            : [const DropdownMenuItem(value: 'Boys', child: Text('Boys'))],
-                      ),
-                      const SizedBox(height: 20),
-                      DropdownButtonFormField<int>(
-                        decoration: textFieldDecoration('Number of Officials Required'),
-                        value: _officialsRequired,
-                        hint: const Text('Number of Officials Required'),
-                        onChanged: (value) => setState(() => _officialsRequired = value),
-                        items: _officialsOptions.map((num) => DropdownMenuItem(value: num, child: Text(num.toString()))).toList(),
-                      ),
-                      const SizedBox(height: 20),
-                      TextField(
-                        controller: _gameFeeController,
-                        decoration: textFieldDecoration('Game Fee per Official').copyWith(
-                          prefixText: '\$',
-                          hintText: 'Enter fee (e.g., 50)',
-                        ),
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                          LengthLimitingTextInputFormatter(5),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-                    ],
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(5),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
                   ],
                   TextField(
                     controller: _opponentController,

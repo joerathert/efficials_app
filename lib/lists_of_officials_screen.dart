@@ -24,7 +24,6 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
       {'name': 'No saved lists', 'id': -1},
       {'name': '+ Create new list', 'id': 0},
     ];
-    // Do not set selectedList initially to show the hint
     _fetchLists();
   }
 
@@ -111,7 +110,13 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
   }
 
   void _handleContinue() {
-    final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+    final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>?;
+    if (args == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Error: Game data not found')),
+      );
+      return;
+    }
     final selected = lists.firstWhere((l) => l['name'] == selectedList);
     final officialsRaw = selected['officials'];
     List<Map<String, dynamic>> selectedOfficials = [];
@@ -139,8 +144,8 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
-    final sport = args['sport'] as String? ?? 'Unknown Sport';
+    final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>?;
+    final sport = args?['sport'] as String? ?? 'Unknown Sport'; // Updated to handle null args
 
     final dropdownItems = lists.isNotEmpty
         ? lists.map((list) {

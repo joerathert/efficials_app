@@ -76,7 +76,7 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
 
   void _handleContinue() {
     final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
-    final requiredOfficials = int.tryParse(args['officialsRequired'] as String? ?? '0') ?? 0;
+    final requiredOfficials = args['officialsRequired'] as int? ?? 0; // Updated to treat as int
 
     // Validate at least two lists are selected
     if (selectedLists.length < 2) {
@@ -120,8 +120,8 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
       arguments: {
         ...args,
         'selectedOfficials': finalOfficials,
-        'method': 'advanced', // Add method to indicate Advanced was used
-        'selectedLists': selectedLists.map((list) => { // Pass the selected lists with parameters
+        'method': 'advanced',
+        'selectedLists': selectedLists.map((list) => {
           'name': list['name'],
           'minOfficials': list['minOfficials'],
           'maxOfficials': list['maxOfficials'],
@@ -133,7 +133,7 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
   @override
   Widget build(BuildContext context) {
     final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
-    totalRequiredOfficials = int.tryParse(args['officialsRequired'] as String? ?? '0') ?? 0;
+    totalRequiredOfficials = args['officialsRequired'] as int? ?? 0; // Updated to treat as int
 
     final dropdownItems = lists.isNotEmpty
         ? lists.map((list) {
