@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'theme.dart';
 
 class NameScheduleScreen extends StatefulWidget {
@@ -35,6 +37,27 @@ class _NameScheduleScreenState extends State<NameScheduleScreen> {
     super.dispose();
   }
 
+  Future<void> _saveSchedule(String scheduleName) async {
+    final prefs = await SharedPreferences.getInstance();
+    final String? unpublishedGamesJson = prefs.getString('unpublished_games');
+    List<Map<String, dynamic>> unpublishedGames = [];
+    if (unpublishedGamesJson != null && unpublishedGamesJson.isNotEmpty) {
+      unpublishedGames = List<Map<String, dynamic>>.from(jsonDecode(unpublishedGamesJson));
+    }
+    // Add a dummy game entry to ensure the schedule name appears in SelectScheduleScreen
+    unpublishedGames.add({
+      'scheduleName': scheduleName,
+      'sport': _sport,
+      'id': DateTime.now().millisecondsSinceEpoch,
+      // Add minimal fields to avoid breaking other screens
+      'date': DateTime.now().toIso8601String(),
+      'time': TimeOfDay.now().format(context),
+      'location': null,
+      'isAway': false,
+    });
+    await prefs.setString('unpublished_games', jsonEncode(unpublishedGames));
+  }
+
   void _handleContinue() {
     final name = _nameController.text.trim();
     if (name.isEmpty) {
@@ -55,11 +78,15 @@ class _NameScheduleScreenState extends State<NameScheduleScreen> {
       );
       return;
     }
-    Navigator.pushNamed(
-      context,
-      '/date_time',
-      arguments: {'sport': _sport, 'scheduleName': name},
-    );
+    // Save the schedule and navigate back to SelectScheduleScreen
+    _saveSchedule(name).then((_) {
+      Navigator.popUntil(context, ModalRoute.withName('/select_schedule'));
+      Navigator.pushNamed(
+        context,
+        '/select_schedule',
+        arguments: {'newScheduleName': name},
+      );
+    });
   }
 
   @override

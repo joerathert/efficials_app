@@ -21,6 +21,20 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
     _fetchSchedules();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    if (args != null) {
+      final newScheduleName = args['newScheduleName'] as String?;
+      if (newScheduleName != null) {
+        setState(() {
+          selectedSchedule = newScheduleName;
+        });
+      }
+    }
+  }
+
   Future<void> _fetchSchedules() async {
     final prefs = await SharedPreferences.getInstance();
     final String? unpublishedGamesJson = prefs.getString('unpublished_games');
@@ -42,13 +56,8 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
       addSchedulesFromJson(unpublishedGamesJson);
       addSchedulesFromJson(publishedGamesJson);
 
-      schedules = scheduleNames
-          .map((name) => <String, dynamic>{'name': name, 'id': 1})
-          .toList();
-      if (schedules.isEmpty) {
-        schedules.add(<String, dynamic>{'name': 'No schedules available', 'id': -1});
-      }
-      schedules.add(<String, dynamic>{'name': '+ Create new schedule', 'id': 0});
+      schedules = scheduleNames.map((name) => {'name': name, 'id': 1}).toList();
+      schedules.add({'name': '+ Create new schedule', 'id': 0});
       isLoading = false;
     });
   }
@@ -57,7 +66,6 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: efficialsBlue,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, size: 36, color: Colors.white),
           onPressed: () => Navigator.pop(context),
@@ -83,7 +91,15 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
                           setState(() {
                             selectedSchedule = newValue;
                             if (newValue == '+ Create new schedule') {
-                              Navigator.pushNamed(context, '/select_sport');
+                              Navigator.pushNamed(context, '/select_sport').then((result) {
+                                if (result != null) {
+                                  final newScheduleName = result as String;
+                                  setState(() {
+                                    selectedSchedule = newScheduleName;
+                                    _fetchSchedules(); // Refresh the dropdown
+                                  });
+                                }
+                              });
                             }
                           });
                         },
@@ -92,18 +108,13 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
                             value: schedule['name'] as String,
                             child: Text(
                               schedule['name'] as String,
-                              style: schedule['name'] == 'No schedules available'
-                                  ? const TextStyle(color: Colors.red)
-                                  : null, // Black by default unless red
                             ),
                           );
                         }).toList(),
                       ),
                 const SizedBox(height: 60),
                 ElevatedButton(
-                  onPressed: (selectedSchedule == null ||
-                          selectedSchedule == 'No schedules available' ||
-                          selectedSchedule == '+ Create new schedule')
+                  onPressed: (selectedSchedule == null || selectedSchedule == '+ Create new schedule')
                       ? null
                       : () {
                           Navigator.pushNamed(
