@@ -222,6 +222,9 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
       if (!isAwayGame) ...additionalDetails,
     };
 
+    // Determine if the game is already published based on its status
+    final isPublished = args['status'] == 'Published';
+
     return WillPopScope(
       onWillPop: _onWillPop,
       child: Scaffold(
@@ -250,7 +253,11 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
                     children: [
                       const Text('Game Details', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                       TextButton(
-                        onPressed: () => Navigator.pushNamed(context, '/edit_game_info', arguments: args).then((result) {
+                        onPressed: () => Navigator.pushNamed(context, '/edit_game_info', arguments: {
+                          ...args,
+                          'isEdit': true, // Pass isEdit: true to EditGameInfoScreen
+                          'isFromGameInfo': isFromGameInfo,
+                        }).then((result) {
                           if (result != null && result is Map<String, dynamic>) {
                             setState(() {
                               args = result;
@@ -273,7 +280,6 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Removed the "Game Details" heading from here
                       ...allDetails.entries.map(
                         (e) => Padding(
                           padding: const EdgeInsets.symmetric(vertical: 4),
@@ -337,7 +343,7 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (isFromGameInfo || isEditMode) ...[
+              if (isPublished) ...[
                 ElevatedButton(
                   onPressed: _publishUpdate,
                   style: elevatedButtonStyle(),

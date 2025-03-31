@@ -14,6 +14,8 @@ class Game {
   final int officialsHired;
   final bool isAway;
   final List<Map<String, dynamic>>? selectedOfficials;
+  final String? opponent;
+  final String status;
 
   Game({
     required this.id,
@@ -25,6 +27,8 @@ class Game {
     required this.officialsHired,
     this.isAway = false,
     this.selectedOfficials,
+    this.opponent,
+    required this.status,
   });
 
   factory Game.fromJson(Map<String, dynamic> json) {
@@ -49,6 +53,8 @@ class Game {
               .map((e) => Map<String, dynamic>.from(e as Map))
               .toList()
           : null,
+      opponent: json['opponent'] as String?,
+      status: json['status'] as String? ?? 'Unpublished',
     );
   }
 
@@ -62,6 +68,8 @@ class Game {
         'officialsHired': officialsHired,
         'isAway': isAway,
         'selectedOfficials': selectedOfficials,
+        'opponent': opponent,
+        'status': status,
       };
 }
 
@@ -76,19 +84,23 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Game> publishedGames = [];
   List<String> existingSchedules = [];
   bool isLoading = true;
+  bool showAwayGames = true;
+  bool showFullyCoveredGames = true;
+  Map<String, Map<String, bool>> scheduleFilters = {};
 
   @override
   void initState() {
     super.initState();
-    _fetchPublishedGames();
+    _fetchGames();
+    _loadFilters();
   }
 
-  Future<void> _fetchPublishedGames() async {
+  Future<void> _fetchGames() async {
     final prefs = await SharedPreferences.getInstance();
     final String? gamesJson = prefs.getString('published_games');
     final String? unpublishedGamesJson = prefs.getString('unpublished_games');
 
-    // Fetch existing schedules
+    // Fetch existing schedules (from both published and unpublished games for filtering purposes)
     Set<String> scheduleNames = {};
     if (unpublishedGamesJson != null && unpublishedGamesJson.isNotEmpty) {
       final unpublished = List<Map<String, dynamic>>.from(jsonDecode(unpublishedGamesJson));
@@ -109,7 +121,6 @@ class _HomeScreenState extends State<HomeScreen> {
         try {
           publishedGames = List<Map<String, dynamic>>.from(jsonDecode(gamesJson))
               .map(Game.fromJson)
-              .where((game) => existingSchedules.contains(game.scheduleName))
               .toList();
         } catch (e) {
           publishedGames = [];
@@ -118,8 +129,88 @@ class _HomeScreenState extends State<HomeScreen> {
       } else {
         publishedGames = [];
       }
+
       isLoading = false;
     });
+
+    // Initialize schedule filters after fetching games
+    await _initializeScheduleFilters();
+  }
+
+  Future<void> _loadFilters() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      showAwayGames = prefs.getBool('showAwayGames') ?? true;
+      showFullyCoveredGames = prefs.getBool('showFullyCoveredGames') ?? true;
+
+      final String? scheduleFiltersJson = prefs.getString('scheduleFilters');
+      if (scheduleFiltersJson != null && scheduleFiltersJson.isNotEmpty) {
+        final Map<String, dynamic> decodedFilters = jsonDecode(scheduleFiltersJson);
+        scheduleFilters = decodedFilters.map((sport, schedules) => MapEntry(
+              sport,
+              (schedules as Map<String, dynamic>).map((schedule, selected) => MapEntry(schedule, selected as bool)),
+            ));
+      }
+    });
+  }
+
+  Future<void> _initializeScheduleFilters() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String? gamesJson = prefs.getString('published_games');
+    final String? unpublishedGamesJson = prefs.getString('unpublished_games');
+
+    List<Game> allGames = [];
+    if (gamesJson != null && gamesJson.isNotEmpty) {
+      try {
+        final published = List<Map<String, dynamic>>.from(jsonDecode(gamesJson));
+        allGames.addAll(published.map(Game.fromJson));
+      } catch (e) {
+        print('Error loading published games for filters: $e');
+      }
+    }
+    if (unpublishedGamesJson != null && unpublishedGamesJson.isNotEmpty) {
+      try {
+        final unpublished = List<Map<String, dynamic>>.from(jsonDecode(unpublishedGamesJson));
+        allGames.addAll(unpublished.map(Game.fromJson));
+      } catch (e) {
+        print('Error loading unpublished games for filters: $e');
+      }
+    }
+
+    final Map<String, Map<String, bool>> newScheduleFilters = {};
+    for (var game in allGames) {
+      if (!newScheduleFilters.containsKey(game.sport)) {
+        newScheduleFilters[game.sport] = {};
+      }
+      if (!newScheduleFilters[game.sport]!.containsKey(game.scheduleName)) {
+        newScheduleFilters[game.sport]![game.scheduleName] = true; // Default to selected
+      }
+    }
+
+    // Only update if there are new schedules or sports
+    if (newScheduleFilters.isNotEmpty && (scheduleFilters.isEmpty || _hasNewSchedules(newScheduleFilters))) {
+      setState(() {
+        scheduleFilters = newScheduleFilters;
+      });
+      await _saveFilters();
+    }
+  }
+
+  bool _hasNewSchedules(Map<String, Map<String, bool>> newFilters) {
+    for (var sport in newFilters.keys) {
+      if (!scheduleFilters.containsKey(sport)) return true;
+      for (var schedule in newFilters[sport]!.keys) {
+        if (!scheduleFilters[sport]!.containsKey(schedule)) return true;
+      }
+    }
+    return false;
+  }
+
+  Future<void> _saveFilters() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('showAwayGames', showAwayGames);
+    await prefs.setBool('showFullyCoveredGames', showFullyCoveredGames);
+    await prefs.setString('scheduleFilters', jsonEncode(scheduleFilters));
   }
 
   Future<Map<String, dynamic>?> _fetchGameById(int gameId) async {
@@ -172,11 +263,73 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  List<Game> _filterGames(List<Game> games) {
+    // Apply filters
+    var filteredGames = games.where((game) {
+      // Apply away games filter
+      if (!showAwayGames && game.isAway) return false;
+
+      // Apply fully covered games filter
+      if (!showFullyCoveredGames && game.officialsHired >= game.officialsRequired) return false;
+
+      // Apply schedule filters
+      if (scheduleFilters.containsKey(game.sport) && scheduleFilters[game.sport]!.containsKey(game.scheduleName)) {
+        return scheduleFilters[game.sport]![game.scheduleName]!;
+      }
+
+      return false; // If the sport or schedule isn't in the filters, don't show the game
+    }).toList();
+
+    // Sort games by date and time (most imminent first)
+    filteredGames.sort((a, b) {
+      // Handle null dates: games with null dates go to the bottom
+      if (a.date == null && b.date == null) return 0;
+      if (a.date == null) return 1;
+      if (b.date == null) return -1;
+
+      // Combine date and time into a single DateTime for comparison
+      DateTime aDateTime = a.date!;
+      DateTime bDateTime = b.date!;
+
+      if (a.time != null) {
+        aDateTime = DateTime(
+          aDateTime.year,
+          aDateTime.month,
+          aDateTime.day,
+          a.time!.hour,
+          a.time!.minute,
+        );
+      } else {
+        // If time is null, assume midnight (start of the day)
+        aDateTime = DateTime(aDateTime.year, aDateTime.month, aDateTime.day);
+      }
+
+      if (b.time != null) {
+        bDateTime = DateTime(
+          bDateTime.year,
+          bDateTime.month,
+          bDateTime.day,
+          b.time!.hour,
+          b.time!.minute,
+        );
+      } else {
+        bDateTime = DateTime(bDateTime.year, bDateTime.month, bDateTime.day);
+      }
+
+      // Compare DateTimes: earlier dates/times come first
+      return aDateTime.compareTo(bDateTime);
+    });
+
+    return filteredGames;
+  }
+
   @override
   Widget build(BuildContext context) {
     final double statusBarHeight = MediaQuery.of(context).padding.top;
     const double appBarHeight = kToolbarHeight;
     final double totalBannerHeight = statusBarHeight + appBarHeight;
+
+    final filteredPublishedGames = _filterGames(publishedGames);
 
     return Scaffold(
       backgroundColor: Colors.grey[100],
@@ -219,8 +372,31 @@ class _HomeScreenState extends State<HomeScreen> {
               onTap: () {
                 Navigator.pop(context);
                 Navigator.pushNamed(context, '/schedules').then((result) {
-                  _fetchPublishedGames();
+                  if (result == true) {
+                    _fetchGames();
+                  }
                 });
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.filter_list),
+              title: const Text('Filter Schedules'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ScheduleFilterScreen(
+                      scheduleFilters: scheduleFilters,
+                      onFiltersChanged: (updatedFilters) {
+                        setState(() {
+                          scheduleFilters = updatedFilters;
+                        });
+                        _saveFilters();
+                      },
+                    ),
+                  ),
+                );
               },
             ),
             ListTile(
@@ -263,140 +439,69 @@ class _HomeScreenState extends State<HomeScreen> {
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(20.0),
-          child: Center(
-            child: isLoading
-                ? const CircularProgressIndicator()
-                : publishedGames.isEmpty
-                    ? const Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Text(
-                            'Click the "+" icon to get started.',
-                            style: homeTextStyle,
-                            textAlign: TextAlign.center,
-                          ),
-                        ],
-                      )
-                    : ListView.builder(
-                        itemCount: publishedGames.length,
-                        itemBuilder: (context, index) {
-                          final game = publishedGames[index];
-                          final gameTitle = game.scheduleName;
-                          final gameDate = game.date != null
-                              ? DateFormat('EEEE, MMM d, yyyy').format(game.date!)
-                              : 'Not set';
-                          final gameTime = game.time != null ? game.time!.format(context) : 'Not set';
-                          final requiredOfficials = game.officialsRequired;
-                          final hiredOfficials = game.officialsHired;
-                          final isFullyHired = hiredOfficials >= requiredOfficials;
-                          final sport = game.sport;
-                          final sportIcon = _getSportIcon(sport);
-                          final isAway = game.isAway;
-
-                          return GestureDetector(
-                            onTap: () async {
-                              final gameId = game.id;
-                              final latestGame = await _fetchGameById(gameId);
-                              if (latestGame == null) {
-                                print('Error: Could not fetch game with ID $gameId');
-                                return;
-                              }
-                              Navigator.pushNamed(
-                                context,
-                                '/game_information',
-                                arguments: latestGame,
-                              ).then((result) async {
-                                if (result == true) {
-                                  _fetchPublishedGames();
-                                } else if (result != null && result is Map<String, dynamic>) {
-                                  setState(() {
-                                    final index = publishedGames.indexWhere((g) => g.id == game.id);
-                                    if (index != -1) {
-                                      publishedGames[index] = Game.fromJson(result);
-                                    }
-                                  });
-                                  final prefs = await SharedPreferences.getInstance();
-                                  final gamesToSave = publishedGames.map((g) => g.toJson()).toList();
-                                  await prefs.setString('published_games', jsonEncode(gamesToSave));
-                                  _fetchPublishedGames();
-                                }
-                              });
-                            },
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 8.0),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          gameDate,
-                                          style: const TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.black,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Row(
-                                          children: [
-                                            Text(
-                                              '$gameTime - $gameTitle ($sport)',
-                                              style: const TextStyle(
-                                                fontSize: 16,
-                                                color: Colors.black,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 8),
-                                            Icon(
-                                              sportIcon,
-                                              color: efficialsBlue,
-                                              size: 24,
-                                            ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Row(
-                                          children: [
-                                            if (isAway)
-                                              const Text(
-                                                'Away game',
-                                                style: TextStyle(
-                                                  fontSize: 14,
-                                                  color: Colors.grey,
-                                                ),
-                                              )
-                                            else ...[
-                                              Text(
-                                                '$hiredOfficials/$requiredOfficials Official(s)',
-                                                style: TextStyle(
-                                                  fontSize: 14,
-                                                  color: isFullyHired ? Colors.green : Colors.red,
-                                                ),
-                                              ),
-                                              if (!isFullyHired) ...[
-                                                const SizedBox(width: 8),
-                                                const Icon(
-                                                  Icons.warning_amber_rounded,
-                                                  color: Colors.red,
-                                                  size: 16,
-                                                ),
-                                              ],
-                                            ],
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
+          child: Column(
+            children: [
+              // Filter toggles
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  Row(
+                    children: [
+                      const Text('Show Away Games', style: TextStyle(fontSize: 14)),
+                      Switch(
+                        value: showAwayGames,
+                        onChanged: (value) {
+                          setState(() {
+                            showAwayGames = value;
+                          });
+                          _saveFilters();
                         },
+                        activeColor: efficialsBlue,
                       ),
+                    ],
+                  ),
+                  Row(
+                    children: [
+                      const Text('Show Fully Covered', style: TextStyle(fontSize: 14)),
+                      Switch(
+                        value: showFullyCoveredGames,
+                        onChanged: (value) {
+                          setState(() {
+                            showFullyCoveredGames = value;
+                          });
+                          _saveFilters();
+                        },
+                        activeColor: efficialsBlue,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Expanded(
+                child: isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : filteredPublishedGames.isEmpty
+                        ? const Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Text(
+                                'Click the "+" icon to get started.',
+                                style: homeTextStyle,
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          )
+                        : ListView.builder(
+                            itemCount: filteredPublishedGames.length,
+                            itemBuilder: (context, index) {
+                              final game = filteredPublishedGames[index];
+                              return _buildGameTile(game);
+                            },
+                          ),
+              ),
+            ],
           ),
         ),
       ),
@@ -408,6 +513,219 @@ class _HomeScreenState extends State<HomeScreen> {
         child: const Icon(Icons.add, size: 30, color: Colors.white),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+    );
+  }
+
+  Widget _buildGameTile(Game game) {
+    final gameTitle = game.scheduleName;
+    final gameDate = game.date != null
+        ? DateFormat('EEEE, MMM d, yyyy').format(game.date!)
+        : 'Not set';
+    final gameTime = game.time != null ? game.time!.format(context) : 'Not set';
+    final requiredOfficials = game.officialsRequired;
+    final hiredOfficials = game.officialsHired;
+    final isFullyHired = hiredOfficials >= requiredOfficials;
+    final sport = game.sport;
+    final sportIcon = _getSportIcon(sport);
+    final isAway = game.isAway;
+
+    return GestureDetector(
+      onTap: () async {
+        final gameId = game.id;
+        final latestGame = await _fetchGameById(gameId);
+        if (latestGame == null) {
+          print('Error: Could not fetch game with ID $gameId');
+          return;
+        }
+        Navigator.pushNamed(
+          context,
+          '/game_information',
+          arguments: latestGame,
+        ).then((result) async {
+          if (result == true) {
+            await _fetchGames();
+          } else if (result != null && result is Map<String, dynamic>) {
+            setState(() {
+              final index = publishedGames.indexWhere((g) => g.id == game.id);
+              if (index != -1) {
+                publishedGames[index] = Game.fromJson(result);
+              }
+            });
+            final prefs = await SharedPreferences.getInstance();
+            final gamesToSave = publishedGames.map((g) => g.toJson()).toList();
+            await prefs.setString('published_games', jsonEncode(gamesToSave));
+            await _fetchGames();
+          }
+        });
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8.0),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    gameDate,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Text(
+                        '$gameTime - $gameTitle',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          color: Colors.black,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Icon(
+                        sportIcon,
+                        color: efficialsBlue,
+                        size: 24,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      if (isAway)
+                        const Text(
+                          'Away game',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey,
+                          ),
+                        )
+                      else ...[
+                        Text(
+                          '$hiredOfficials/$requiredOfficials Official(s)',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: isFullyHired ? Colors.green : Colors.red,
+                          ),
+                        ),
+                        if (!isFullyHired) ...[
+                          const SizedBox(width: 8),
+                          const Icon(
+                            Icons.warning_amber_rounded,
+                            color: Colors.red,
+                            size: 16,
+                          ),
+                        ],
+                      ],
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class ScheduleFilterScreen extends StatefulWidget {
+  final Map<String, Map<String, bool>> scheduleFilters;
+  final Function(Map<String, Map<String, bool>>) onFiltersChanged;
+
+  const ScheduleFilterScreen({
+    super.key,
+    required this.scheduleFilters,
+    required this.onFiltersChanged,
+  });
+
+  @override
+  State<ScheduleFilterScreen> createState() => _ScheduleFilterScreenState();
+}
+
+class _ScheduleFilterScreenState extends State<ScheduleFilterScreen> {
+  late Map<String, Map<String, bool>> scheduleFilters;
+  Map<String, bool> sportExpanded = {};
+
+  @override
+  void initState() {
+    super.initState();
+    scheduleFilters = Map.from(widget.scheduleFilters);
+    for (var sport in scheduleFilters.keys) {
+      sportExpanded[sport] = false;
+    }
+  }
+
+  bool _areAllSchedulesSelected(String sport) {
+    return scheduleFilters[sport]!.values.every((selected) => selected);
+  }
+
+  void _toggleSport(String sport, bool? value) {
+    setState(() {
+      for (var schedule in scheduleFilters[sport]!.keys) {
+        scheduleFilters[sport]![schedule] = value ?? false;
+      }
+    });
+    widget.onFiltersChanged(scheduleFilters);
+  }
+
+  void _toggleSchedule(String sport, String schedule, bool? value) {
+    setState(() {
+      scheduleFilters[sport]![schedule] = value ?? false;
+    });
+    widget.onFiltersChanged(scheduleFilters);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: efficialsBlue,
+        title: const Text('Filter Schedules', style: appBarTextStyle),
+      ),
+      body: ListView(
+        children: scheduleFilters.keys.map((sport) {
+          return ExpansionTile(
+            title: Row(
+              children: [
+                Checkbox(
+                  value: _areAllSchedulesSelected(sport),
+                  onChanged: (value) => _toggleSport(sport, value),
+                  activeColor: efficialsBlue,
+                ),
+                Text(sport),
+              ],
+            ),
+            initiallyExpanded: sportExpanded[sport] ?? false,
+            onExpansionChanged: (expanded) {
+              setState(() {
+                sportExpanded[sport] = expanded;
+              });
+            },
+            children: scheduleFilters[sport]!.keys.map((schedule) {
+              return Padding(
+                padding: const EdgeInsets.only(left: 16.0), // Indent the schedule names
+                child: ListTile(
+                  title: Row(
+                    children: [
+                      Checkbox(
+                        value: scheduleFilters[sport]![schedule],
+                        onChanged: (value) => _toggleSchedule(sport, schedule, value),
+                        activeColor: efficialsBlue,
+                      ),
+                      Expanded(child: Text(schedule)),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
+          );
+        }).toList(),
+      ),
     );
   }
 }
