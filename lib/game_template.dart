@@ -14,14 +14,14 @@ class GameTemplate {
   final bool includeGender;
   final int? officialsRequired;
   final bool includeOfficialsRequired;
-  final double? gameFee;
+  final String? gameFee; // Stored as a String
   final bool includeGameFee;
   final bool? hireAutomatically;
   final bool includeHireAutomatically;
   final String? officialsListName;
   final bool includeOfficialsList;
-  final String? method; // "standard", "advanced", or "use_list"
-  final List<String>? selectedOfficials; // List of selected official names
+  final String? method;
+  final List<String>? selectedOfficials;
   final bool includeSelectedOfficials;
 
   GameTemplate({
@@ -82,6 +82,16 @@ class GameTemplate {
       time = TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
     }
 
+    // Handle gameFee, which could be a String (new templates) or a double (old templates)
+    String? gameFee;
+    if (json['gameFee'] != null) {
+      if (json['gameFee'] is String) {
+        gameFee = json['gameFee'] as String;
+      } else if (json['gameFee'] is double) {
+        gameFee = (json['gameFee'] as double).toStringAsFixed(0); // Convert double to String, e.g., 100.0 -> "100"
+      }
+    }
+
     return GameTemplate(
       name: json['name'] as String,
       sport: json['sport'] as String,
@@ -96,7 +106,7 @@ class GameTemplate {
       includeGender: json['includeGender'] as bool? ?? true,
       officialsRequired: json['officialsRequired'] as int?,
       includeOfficialsRequired: json['includeOfficialsRequired'] as bool? ?? true,
-      gameFee: json['gameFee'] as double?,
+      gameFee: gameFee,
       includeGameFee: json['includeGameFee'] as bool? ?? true,
       hireAutomatically: json['hireAutomatically'] as bool?,
       includeHireAutomatically: json['includeHireAutomatically'] as bool? ?? true,

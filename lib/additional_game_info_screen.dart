@@ -88,7 +88,7 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
               ? template!.officialsRequired
               : (args['officialsRequired'] != null ? int.tryParse(args['officialsRequired'].toString()) : null);
           _gameFeeController.text = template!.includeGameFee && template!.gameFee != null
-              ? template!.gameFee!.toString()
+              ? template!.gameFee!
               : (args['gameFee']?.toString() ?? '');
           _hireAutomatically = template!.includeHireAutomatically && template!.hireAutomatically != null
               ? template!.hireAutomatically!
@@ -117,13 +117,13 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
         return;
       }
       final feeText = _gameFeeController.text.trim();
-      if (feeText.isEmpty || !RegExp(r'^\d+$').hasMatch(feeText)) {
+      if (feeText.isEmpty || !RegExp(r'^\d+(\.\d+)?$').hasMatch(feeText)) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please enter a valid game fee (numbers only)')),
+          const SnackBar(content: Text('Please enter a valid game fee (e.g., 50 or 50.00)')),
         );
         return;
       }
-      final fee = int.parse(feeText);
+      final fee = double.parse(feeText);
       if (fee < 1 || fee > 99999) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Game fee must be between 1 and 99,999')),
@@ -147,6 +147,11 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
       'selectedOfficials': args['selectedOfficials'] ?? <Map<String, dynamic>>[],
       'template': template, // Pass the template to the next screen
     };
+
+    // Debug prints to verify navigation logic
+    print('AdditionalGameInfoScreen _handleContinue - _isAwayGame: $_isAwayGame');
+    print('AdditionalGameInfoScreen _handleContinue - _hireAutomatically: $_hireAutomatically');
+    print('AdditionalGameInfoScreen _handleContinue - Navigating to: ${_isAwayGame || _hireAutomatically ? '/review_game_info' : '/select_officials'}');
 
     Navigator.pushNamed(
       context,
@@ -219,12 +224,12 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
                       controller: _gameFeeController,
                       decoration: textFieldDecoration('Game Fee per Official').copyWith(
                         prefixText: '\$',
-                        hintText: 'Enter fee (e.g., 50)',
+                        hintText: 'Enter fee (e.g., 50 or 50.00)',
                       ),
                       keyboardType: TextInputType.number,
                       inputFormatters: [
-                        FilteringTextInputFormatter.digitsOnly,
-                        LengthLimitingTextInputFormatter(5),
+                        FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                        LengthLimitingTextInputFormatter(7), // Allow for "99999.99"
                       ],
                     ),
                     const SizedBox(height: 20),

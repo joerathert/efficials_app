@@ -366,6 +366,14 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
                       const SizedBox(height: 10),
                       if (isAwayGame)
                         const Text('No officials needed for away games.', style: TextStyle(fontSize: 16, color: Colors.grey))
+                      else if (args['method'] == 'use_list' && args['selectedListName'] != null)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: Text(
+                            'List Used: ${args['selectedListName']}',
+                            style: const TextStyle(fontSize: 16),
+                          ),
+                        )
                       else if (args['selectedOfficials'] == null || (args['selectedOfficials'] as List).isEmpty)
                         const Text('No officials selected.', style: TextStyle(fontSize: 16, color: Colors.grey))
                       else if (args['method'] == 'advanced' && args['selectedLists'] != null) ...[
@@ -378,15 +386,6 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
                             ),
                           ),
                         )),
-                      ]
-                      else if (args['method'] == 'use_list' && args['selectedListName'] != null) ...[
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 4),
-                          child: Text(
-                            'List Used: ${args['selectedListName']}',
-                            style: const TextStyle(fontSize: 16),
-                          ),
-                        ),
                       ]
                       else ...[
                         ...((args['selectedOfficials'] as List<Map<String, dynamic>>).map(

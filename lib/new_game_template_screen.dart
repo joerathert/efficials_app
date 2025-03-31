@@ -20,9 +20,9 @@ class _NewGameTemplateScreenState extends State<NewGameTemplateScreen> {
   late String? levelOfCompetition;
   late String? gender;
   late int? officialsRequired;
-  late double? gameFee;
+  late String? gameFee; // Changed from double? to String?
   late bool? hireAutomatically;
-  late String? selectedListName; // Changed from officialsListName to match the key
+  late String? selectedListName;
   late String? method;
   late List<String>? selectedOfficials;
   late String officialsDisplay; // For displaying the officials selection
@@ -69,11 +69,13 @@ class _NewGameTemplateScreenState extends State<NewGameTemplateScreen> {
     if (widget.gameData['gameFee'] != null) {
       if (widget.gameData['gameFee'] is String) {
         final feeStr = widget.gameData['gameFee'] as String;
-        // Remove any "$" symbol and parse the string to a double
+        // Remove any "$" symbol and ensure it's a clean numeric string
         final cleanedFeeStr = feeStr.replaceAll(r'$', '');
-        gameFee = double.tryParse(cleanedFeeStr);
+        // Parse to double to validate, then convert back to a clean string
+        final feeDouble = double.tryParse(cleanedFeeStr);
+        gameFee = feeDouble != null ? feeDouble.toStringAsFixed(0) : null; // e.g., "100"
       } else if (widget.gameData['gameFee'] is double) {
-        gameFee = widget.gameData['gameFee'] as double;
+        gameFee = (widget.gameData['gameFee'] as double).toStringAsFixed(0); // e.g., "100"
       } else {
         gameFee = null;
       }
@@ -81,7 +83,7 @@ class _NewGameTemplateScreenState extends State<NewGameTemplateScreen> {
       gameFee = null;
     }
     hireAutomatically = widget.gameData['hireAutomatically'] as bool?;
-    selectedListName = widget.gameData['selectedListName'] as String?; // Changed key to selectedListName
+    selectedListName = widget.gameData['selectedListName'] as String?;
     method = widget.gameData['method'] as String?;
     selectedOfficials = widget.gameData['selectedOfficials'] != null
         ? List<String>.from(widget.gameData['selectedOfficials'].map((official) => official['name'] as String))
@@ -91,6 +93,7 @@ class _NewGameTemplateScreenState extends State<NewGameTemplateScreen> {
     print('method: $method');
     print('selectedListName: $selectedListName');
     print('selectedOfficials: $selectedOfficials');
+    print('gameFee: $gameFee');
 
     // Compute the display string for officials
     if (method == 'use_list' && selectedListName != null) {
@@ -127,11 +130,11 @@ class _NewGameTemplateScreenState extends State<NewGameTemplateScreen> {
       includeGender: includeGender,
       officialsRequired: officialsRequired,
       includeOfficialsRequired: includeOfficialsRequired,
-      gameFee: gameFee,
+      gameFee: gameFee, // Now a String
       includeGameFee: includeGameFee,
       hireAutomatically: hireAutomatically,
       includeHireAutomatically: includeHireAutomatically,
-      officialsListName: selectedListName, // Updated to use selectedListName
+      officialsListName: selectedListName,
       includeOfficialsList: includeOfficialsList,
       method: method,
       selectedOfficials: selectedOfficials,
@@ -182,7 +185,7 @@ class _NewGameTemplateScreenState extends State<NewGameTemplateScreen> {
             if (levelOfCompetition != null) _buildFieldRow('Level of Competition', levelOfCompetition!, (value) => setState(() => includeLevelOfCompetition = value!)),
             if (gender != null) _buildFieldRow('Gender', gender!, (value) => setState(() => includeGender = value!)),
             if (officialsRequired != null) _buildFieldRow('Officials Required', officialsRequired.toString(), (value) => setState(() => includeOfficialsRequired = value!)),
-            if (gameFee != null) _buildFieldRow('Game Fee', '\$${gameFee!.toStringAsFixed(2)}', (value) => setState(() => includeGameFee = value!)),
+            if (gameFee != null) _buildFieldRow('Game Fee', '\$${double.parse(gameFee!).toStringAsFixed(2)}', (value) => setState(() => includeGameFee = value!)),
             if (hireAutomatically != null) _buildFieldRow('Hire Automatically', hireAutomatically! ? 'Yes' : 'No', (value) => setState(() => includeHireAutomatically = value!)),
             if (officialsDisplay != 'None') _buildFieldRow('Selected Officials', officialsDisplay, (value) => setState(() => includeSelectedOfficials = value!)),
             const SizedBox(height: 20),
