@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'theme.dart';
-import 'schedule_filter_screen.dart'; // Import the new file
+import 'schedule_filter_screen.dart';
+import 'game_template.dart';
 
 class Game {
   final int id;
@@ -324,6 +325,45 @@ class _HomeScreenState extends State<HomeScreen> {
     return filteredGames;
   }
 
+  Future<GameTemplate?> _showTemplateSelectionDialog() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String? templatesJson = prefs.getString('game_templates');
+    if (templatesJson == null || templatesJson.isEmpty) {
+      return null; // No templates available
+    }
+
+    final List<dynamic> decoded = jsonDecode(templatesJson);
+    final List<GameTemplate> templates = decoded.map((json) => GameTemplate.fromJson(json)).toList();
+
+    if (templates.isEmpty) {
+      return null;
+    }
+
+    return await showDialog<GameTemplate>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Use a Game Template?'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Would you like to use a game template?'),
+              const SizedBox(height: 10),
+              ...templates.map((template) => ListTile(
+                    title: Text(template.name),
+                    onTap: () => Navigator.pop(context, template),
+                  )),
+              ListTile(
+                title: const Text('No, create a new game from scratch'),
+                onTap: () => Navigator.pop(context, null),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final double statusBarHeight = MediaQuery.of(context).padding.top;
@@ -425,6 +465,14 @@ class _HomeScreenState extends State<HomeScreen> {
               },
             ),
             ListTile(
+              leading: const Icon(Icons.copy),
+              title: const Text('Game Templates'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/game_templates');
+              },
+            ),
+            ListTile(
               leading: const Icon(Icons.settings),
               title: const Text('Settings'),
               onTap: () {
@@ -507,8 +555,13 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.pushNamed(context, '/select_schedule');
+        onPressed: () async {
+          final selectedTemplate = await _showTemplateSelectionDialog();
+          Navigator.pushNamed(
+            context,
+            '/select_schedule',
+            arguments: {'template': selectedTemplate},
+          );
         },
         backgroundColor: efficialsBlue,
         child: const Icon(Icons.add, size: 30, color: Colors.white),

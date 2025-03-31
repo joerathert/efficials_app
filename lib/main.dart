@@ -29,7 +29,9 @@ import 'unpublished_games_screen.dart';
 import 'game_information_screen.dart';
 import 'select_schedule_screen.dart';
 import 'schedules_screen.dart';
-import 'schedule_details_screen.dart'; // Add this import
+import 'schedule_details_screen.dart';
+import 'new_game_template_screen.dart'; // Add this import
+import 'game_templates_screen.dart'; // Add this import
 
 void main() {
   runApp(const EfficialsApp());
@@ -96,7 +98,11 @@ class EfficialsApp extends StatelessWidget {
         '/game_information': (context) => const GameInformationScreen(),
         '/select_schedule': (context) => const SelectScheduleScreen(),
         '/schedules': (context) => const SchedulesScreen(),
-        '/schedule_details': (context) => const ScheduleDetailsScreen(), // Add this route
+        '/schedule_details': (context) => const ScheduleDetailsScreen(),
+        '/new_game_template': (context) => NewGameTemplateScreen(
+              gameData: ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>,
+            ),
+        '/game_templates': (context) => const GameTemplatesScreen(),
       },
     );
   }

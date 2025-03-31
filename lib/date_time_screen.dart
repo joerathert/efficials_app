@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'theme.dart';
+import 'game_template.dart'; // Import the GameTemplate model
 
 class DateTimeScreen extends StatefulWidget {
   const DateTimeScreen({super.key});
@@ -14,19 +15,25 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
   TimeOfDay? _selectedTime;
   String? sport;
   bool _isFromEdit = false;
-  bool _isInitialized = false; // Added to prevent override
+  bool _isInitialized = false;
+  GameTemplate? template; // Store the selected template
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (!_isInitialized) { // Only set initial values once
+    if (!_isInitialized) {
       final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
       if (args != null) {
         _selectedDate = args['date'] as DateTime?;
         _selectedTime = args['time'] as TimeOfDay?;
         _isFromEdit = args['isEdit'] == true;
         sport = args['sport'] as String?;
-        print('didChangeDependencies - Initial Args: $args, Date: $_selectedDate, Time: $_selectedTime, Edit: $_isFromEdit, Sport: $sport');
+        template = args['template'] as GameTemplate?; // Extract the template
+        // If a template is provided and includes a time, pre-fill the time
+        if (template != null && template!.includeTime && template!.time != null) {
+          _selectedTime = template!.time;
+        }
+        print('didChangeDependencies - Initial Args: $args, Date: $_selectedDate, Time: $_selectedTime, Edit: $_isFromEdit, Sport: $sport, Template: $template');
       }
       _isInitialized = true;
     }
@@ -99,7 +106,7 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    print('build - Date: $_selectedDate, Time: $_selectedTime, Sport: $sport');
+    print('build - Date: $_selectedDate, Time: $_selectedTime, Sport: $sport, Template: $template');
 
     return Scaffold(
       appBar: AppBar(
@@ -163,6 +170,7 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
                                 'date': _selectedDate,
                                 'time': _selectedTime,
                                 'sport': sport,
+                                'template': template, // Pass the template to the next screen
                               };
                               print('Continue - Args: $nextArgs, Edit: $_isFromEdit');
                               Navigator.pushNamed(

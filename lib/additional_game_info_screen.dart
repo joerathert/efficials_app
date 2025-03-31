@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'theme.dart';
+import 'game_template.dart'; // Import the GameTemplate model
 
 class AdditionalGameInfoScreen extends StatefulWidget {
   const AdditionalGameInfoScreen({super.key});
@@ -20,6 +21,7 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
   bool _isFromEdit = false;
   bool _isInitialized = false;
   bool _isAwayGame = false;
+  GameTemplate? template; // Store the selected template
 
   final List<String> _competitionLevels = [
     'Grade School',
@@ -68,14 +70,39 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
       if (args != null) {
         _isFromEdit = args['isEdit'] == true;
         _isAwayGame = args['isAwayGame'] == true;
-        _levelOfCompetition = args['levelOfCompetition'] as String?;
-        _updateCurrentGenders();
-        final genderArg = args['gender'] as String?;
-        _gender = (genderArg != null && _currentGenders.contains(genderArg)) ? genderArg : null;
-        _officialsRequired = args['officialsRequired'] != null ? int.tryParse(args['officialsRequired'].toString()) : null;
-        _gameFeeController.text = args['gameFee']?.toString() ?? '';
+        template = args['template'] as GameTemplate?; // Extract the template
+
+        // Pre-fill fields from the template if available, otherwise use args
+        if (template != null) {
+          _levelOfCompetition = template!.includeLevelOfCompetition && template!.levelOfCompetition != null
+              ? template!.levelOfCompetition
+              : args['levelOfCompetition'] as String?;
+          _updateCurrentGenders();
+          _gender = template!.includeGender && template!.gender != null
+              ? template!.gender
+              : (args['gender'] as String?);
+          if (_gender != null && !_currentGenders.contains(_gender)) {
+            _gender = null;
+          }
+          _officialsRequired = template!.includeOfficialsRequired && template!.officialsRequired != null
+              ? template!.officialsRequired
+              : (args['officialsRequired'] != null ? int.tryParse(args['officialsRequired'].toString()) : null);
+          _gameFeeController.text = template!.includeGameFee && template!.gameFee != null
+              ? template!.gameFee!.toString()
+              : (args['gameFee']?.toString() ?? '');
+          _hireAutomatically = template!.includeHireAutomatically && template!.hireAutomatically != null
+              ? template!.hireAutomatically!
+              : (args['hireAutomatically'] as bool? ?? false);
+        } else {
+          _levelOfCompetition = args['levelOfCompetition'] as String?;
+          _updateCurrentGenders();
+          final genderArg = args['gender'] as String?;
+          _gender = (genderArg != null && _currentGenders.contains(genderArg)) ? genderArg : null;
+          _officialsRequired = args['officialsRequired'] != null ? int.tryParse(args['officialsRequired'].toString()) : null;
+          _gameFeeController.text = args['gameFee']?.toString() ?? '';
+          _hireAutomatically = args['hireAutomatically'] as bool? ?? false;
+        }
         _opponentController.text = args['opponent'] as String? ?? '';
-        _hireAutomatically = args['hireAutomatically'] as bool? ?? false;
       }
       _isInitialized = true;
     }
@@ -118,6 +145,7 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
       'isAway': _isAwayGame,
       'officialsHired': args['officialsHired'] ?? 0,
       'selectedOfficials': args['selectedOfficials'] ?? <Map<String, dynamic>>[],
+      'template': template, // Pass the template to the next screen
     };
 
     Navigator.pushNamed(

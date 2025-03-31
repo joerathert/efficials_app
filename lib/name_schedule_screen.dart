@@ -51,13 +51,8 @@ class _NameScheduleScreenState extends State<NameScheduleScreen> {
       const SnackBar(content: Text('Schedule created!')),
     );
 
-    // Navigate back to SelectScheduleScreen with the new schedule name
-    Navigator.pushNamedAndRemoveUntil(
-      context,
-      '/select_schedule',
-      (route) => route.settings.name == '/home', // Stop at HomeScreen
-      arguments: name,
-    );
+    // Return the new schedule name to SelectScheduleScreen
+    Navigator.pop(context, name);
   }
 
   @override

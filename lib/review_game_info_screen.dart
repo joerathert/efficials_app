@@ -60,7 +60,7 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
     gameData['id'] = gameData['id'] ?? DateTime.now().millisecondsSinceEpoch;
     gameData['createdAt'] = DateTime.now().toIso8601String();
     gameData['officialsHired'] = gameData['officialsHired'] ?? 0;
-    gameData['status'] = 'Published'; // Add status for Game model
+    gameData['status'] = 'Published';
 
     if (gameData['date'] != null) {
       gameData['date'] = (gameData['date'] as DateTime).toIso8601String();
@@ -80,17 +80,51 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
     publishedGames.add(gameData);
     await prefs.setString('published_games', jsonEncode(publishedGames));
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Game published to Home screen!')),
+    // Show dialog to ask about creating a template
+    final shouldCreateTemplate = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Create Game Template'),
+        content: const Text('Would you like to create a Game Template using the information from this game?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('No', style: TextStyle(color: efficialsBlue)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Yes', style: TextStyle(color: efficialsBlue)),
+          ),
+        ],
+      ),
     );
-    Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
+
+    if (shouldCreateTemplate == true) {
+      Navigator.pushNamed(
+        context,
+        '/new_game_template',
+        arguments: gameData,
+      ).then((result) {
+        if (result == true) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Game Template created successfully!')),
+          );
+        }
+        Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
+      });
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Game published to Home screen!')),
+      );
+      Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
+    }
   }
 
   Future<void> _publishLater() async {
     final gameData = Map<String, dynamic>.from(args);
     gameData['id'] = gameData['id'] ?? DateTime.now().millisecondsSinceEpoch;
     gameData['createdAt'] = DateTime.now().toIso8601String();
-    gameData['status'] = 'Unpublished'; // Add status for Game model
+    gameData['status'] = 'Unpublished';
 
     if (gameData['date'] != null) {
       gameData['date'] = (gameData['date'] as DateTime).toIso8601String();
@@ -110,10 +144,44 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
     unpublishedGames.add(gameData);
     await prefs.setString('unpublished_games', jsonEncode(unpublishedGames));
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Game saved to Unpublished Games list!')),
+    // Show dialog to ask about creating a template
+    final shouldCreateTemplate = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Create Game Template'),
+        content: const Text('Would you like to create a Game Template using the information from this game?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('No', style: TextStyle(color: efficialsBlue)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Yes', style: TextStyle(color: efficialsBlue)),
+          ),
+        ],
+      ),
     );
-    Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
+
+    if (shouldCreateTemplate == true) {
+      Navigator.pushNamed(
+        context,
+        '/new_game_template',
+        arguments: gameData,
+      ).then((result) {
+        if (result == true) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Game Template created successfully!')),
+          );
+        }
+        Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
+      });
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Game saved to Unpublished Games list!')),
+      );
+      Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
+    }
   }
 
   Future<void> _publishUpdate() async {
@@ -126,7 +194,7 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
       final time = gameData['time'] as TimeOfDay;
       gameData['time'] = '${time.hour}:${time.minute}';
     }
-    gameData['status'] = 'Published'; // Update status
+    gameData['status'] = 'Published';
 
     final prefs = await SharedPreferences.getInstance();
     final String? gamesJson = prefs.getString('published_games');
@@ -216,13 +284,11 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
           }
         : {};
 
-    // Combine gameDetails and additionalDetails into a single list
     final allDetails = {
       ...gameDetails,
       if (!isAwayGame) ...additionalDetails,
     };
 
-    // Determine if the game is already published based on its status
     final isPublished = args['status'] == 'Published';
 
     return WillPopScope(
@@ -255,7 +321,7 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
                       TextButton(
                         onPressed: () => Navigator.pushNamed(context, '/edit_game_info', arguments: {
                           ...args,
-                          'isEdit': true, // Pass isEdit: true to EditGameInfoScreen
+                          'isEdit': true,
                           'isFromGameInfo': isFromGameInfo,
                         }).then((result) {
                           if (result != null && result is Map<String, dynamic>) {

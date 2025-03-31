@@ -56,10 +56,8 @@ class _SelectSportScreenState extends State<SelectSportScreen> {
                           '/name_schedule',
                           arguments: {'sport': selectedSport},
                         ).then((result) {
-                          if (result == true) {
-                            // Navigate back to SchedulesScreen and pass a refresh signal
-                            Navigator.pop(context, true);
-                          }
+                          // Forward the schedule name (a String) back to SelectScheduleScreen
+                          Navigator.pop(context, result);
                         });
                       } else {
                         ScaffoldMessenger.of(context).showSnackBar(

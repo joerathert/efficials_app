@@ -1,7 +1,8 @@
-import 'dart:convert'; // Added this import
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'theme.dart';
+import 'game_template.dart'; // Import the GameTemplate model
 
 class SelectOfficialsScreen extends StatefulWidget {
   const SelectOfficialsScreen({super.key});
@@ -13,11 +14,35 @@ class SelectOfficialsScreen extends StatefulWidget {
 class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
   bool _defaultChoice = false;
   String? _defaultMethod;
+  GameTemplate? template; // Store the selected template
 
   @override
   void initState() {
     super.initState();
     _loadDefaultChoice();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+    template = args['template'] as GameTemplate?; // Extract the template
+
+    // If the template includes an officials list, use it and skip this screen
+    if (template != null && template!.includeOfficialsList && template!.officialsListName != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Navigator.pushReplacementNamed(
+          context,
+          '/review_game_info',
+          arguments: <String, dynamic>{
+            ...args,
+            'method': 'use_list',
+            'selectedListName': template!.officialsListName,
+            'template': template,
+          },
+        );
+      });
+    }
   }
 
   Future<void> _loadDefaultChoice() async {
@@ -82,9 +107,7 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              // Navigate to the list creation screen using the correct route
               Navigator.pushNamed(context, '/create_new_list').then((result) {
-                // Refresh the screen to recheck the number of lists
                 setState(() {});
               });
             },
@@ -108,13 +131,14 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
           Navigator.pushNamed(
             context,
             '/populate_roster',
-            arguments: {
+            arguments: <String, dynamic>{
               ...args,
               'sport': sport,
               'listName': listName,
               'listId': listId,
               'method': 'standard',
               'requiredCount': 2,
+              'template': template,
             },
           );
         } else if (_defaultMethod == 'advanced') {
@@ -125,11 +149,12 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
             Navigator.pushNamed(
               context,
               '/advanced_officials_selection',
-              arguments: {
+              arguments: <String, dynamic>{
                 ...args,
                 'sport': sport,
                 'listName': listName,
                 'listId': listId,
+                'template': template,
               },
             );
           }
@@ -137,13 +162,21 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
           Navigator.pushNamed(
             context,
             '/lists_of_officials',
-            arguments: {
+            arguments: <String, dynamic>{
               ...args,
               'fromGameCreation': true,
+              'template': template,
             },
           ).then((result) {
             if (result != null) {
-              Navigator.pushNamed(context, '/review_game_info', arguments: result);
+              Navigator.pushNamed(
+                context,
+                '/review_game_info',
+                arguments: <String, dynamic>{
+                  ...result as Map<String, dynamic>,
+                  'template': template,
+                },
+              );
             }
           });
         }
@@ -180,13 +213,14 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
                       Navigator.pushNamed(
                         context,
                         '/populate_roster',
-                        arguments: {
+                        arguments: <String, dynamic>{
                           ...args,
                           'sport': sport,
                           'listName': listName,
                           'listId': listId,
                           'method': 'standard',
                           'requiredCount': 2,
+                          'template': template,
                         },
                       );
                     },
@@ -204,11 +238,12 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
                         Navigator.pushNamed(
                           context,
                           '/advanced_officials_selection',
-                          arguments: {
+                          arguments: <String, dynamic>{
                             ...args,
                             'sport': sport,
                             'listName': listName,
                             'listId': listId,
+                            'template': template,
                           },
                         );
                       }
@@ -223,13 +258,21 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
                       Navigator.pushNamed(
                         context,
                         '/lists_of_officials',
-                        arguments: {
+                        arguments: <String, dynamic>{
                           ...args,
                           'fromGameCreation': true,
+                          'template': template,
                         },
                       ).then((result) {
                         if (result != null) {
-                          Navigator.pushNamed(context, '/review_game_info', arguments: result);
+                          Navigator.pushNamed(
+                            context,
+                            '/review_game_info',
+                            arguments: <String, dynamic>{
+                              ...result as Map<String, dynamic>,
+                              'template': template,
+                            },
+                          );
                         }
                       });
                     },

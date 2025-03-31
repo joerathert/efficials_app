@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'theme.dart';
+import 'game_template.dart'; // Import the GameTemplate model
 
 class ChooseLocationScreen extends StatefulWidget {
   const ChooseLocationScreen({super.key});
@@ -15,7 +16,8 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
   List<Map<String, dynamic>> locations = [];
   bool isLoading = true;
   bool isFromEdit = false;
-  bool originalIsAway = false; // Track the original isAwayGame value
+  bool originalIsAway = false;
+  GameTemplate? template; // Store the selected template
 
   @override
   void initState() {
@@ -33,9 +35,53 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
     final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
     if (args != null) {
       isFromEdit = args['isEdit'] == true;
-      originalIsAway = args['isAwayGame'] == true; // Store the original isAwayGame value
+      originalIsAway = args['isAwayGame'] == true;
+      template = args['template'] as GameTemplate?; // Extract the template
       if (isFromEdit && selectedLocation == null) {
         selectedLocation = args['location'] as String?;
+      }
+      // If the template includes a location, use it and skip this screen
+      if (template != null && template!.includeLocation && template!.location != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          final isAwayGame = template!.location == 'Away Game';
+          final nextArgs = {
+            ...args,
+            'location': template!.location,
+            'isAwayGame': isAwayGame,
+            'template': template,
+          };
+          if (isFromEdit && originalIsAway != isAwayGame) {
+            if (isAwayGame) {
+              // Changed from home to away: Clear officials-related fields
+              nextArgs
+                ..remove('officialsRequired')
+                ..remove('gameFee')
+                ..remove('gender')
+                ..remove('levelOfCompetition')
+                ..remove('hireAutomatically')
+                ..remove('selectedOfficials')
+                ..remove('method');
+              Navigator.pushReplacementNamed(
+                context,
+                '/review_game_info',
+                arguments: nextArgs,
+              );
+            } else {
+              // Changed from away to home: Navigate to AdditionalGameInfoScreen
+              Navigator.pushReplacementNamed(
+                context,
+                '/additional_game_info',
+                arguments: nextArgs,
+              );
+            }
+          } else {
+            Navigator.pushReplacementNamed(
+              context,
+              isFromEdit ? '/review_game_info' : '/additional_game_info',
+              arguments: nextArgs,
+            );
+          }
+        });
       }
     }
   }
@@ -204,9 +250,9 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                               ...args,
                               'location': selectedLocation,
                               'isAwayGame': isAwayGame,
+                              'template': template, // Pass the template to the next screen
                             };
 
-                            // Check if isAwayGame has changed
                             if (isFromEdit && originalIsAway != isAwayGame) {
                               if (isAwayGame) {
                                 // Changed from home to away: Clear officials-related fields
@@ -232,7 +278,6 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                                 );
                               }
                             } else {
-                              // No change in isAwayGame, proceed as normal
                               print('Continue - Args: $nextArgs, Edit: $isFromEdit');
                               Navigator.pushNamed(
                                 context,
