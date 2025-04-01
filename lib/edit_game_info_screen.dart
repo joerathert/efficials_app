@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'theme.dart';
+import 'game_template.dart'; // Import the GameTemplate model
 
 class EditGameInfoScreen extends StatefulWidget {
   const EditGameInfoScreen({super.key});
@@ -11,14 +12,27 @@ class EditGameInfoScreen extends StatefulWidget {
 class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   bool _isAwayGame = false;
+  GameTemplate? template; // Store the template as a GameTemplate object
+  bool _isInitialized = false;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>?;
-    if (args != null) {
-      _isAwayGame = args['isAway'] == true;
-      print('didChangeDependencies - EditGameInfo Args: $args');
+    if (!_isInitialized) {
+      final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>?;
+      if (args != null) {
+        _isAwayGame = args['isAway'] == true;
+
+        // Convert args['template'] to GameTemplate if necessary
+        template = args['template'] != null
+            ? (args['template'] is GameTemplate
+                ? args['template'] as GameTemplate?
+                : GameTemplate.fromJson(args['template'] as Map<String, dynamic>))
+            : null;
+
+        print('didChangeDependencies - EditGameInfo Args: $args, Template: $template');
+      }
+      _isInitialized = true;
     }
   }
 
@@ -31,6 +45,7 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
       ...args,
       'isEdit': true,
       'isFromGameInfo': args['isFromGameInfo'] ?? false,
+      'template': template, // Pass the GameTemplate object
     };
 
     switch (method) {
@@ -61,6 +76,7 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
             ...updatedArgs,
             'isEdit': true,
             'isFromGameInfo': args['isFromGameInfo'] ?? false,
+            'template': template, // Pass the GameTemplate object
           },
         );
       }
@@ -114,6 +130,7 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
                           ...args,
                           'isEdit': true,
                           'isFromGameInfo': args['isFromGameInfo'] ?? false,
+                          'template': template, // Pass the GameTemplate object
                         }).then((result) {
                           if (result != null) {
                             final updatedArgs = result as Map<String, dynamic>;
@@ -125,6 +142,7 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
                                 ...updatedArgs,
                                 'isEdit': true,
                                 'isFromGameInfo': args['isFromGameInfo'] ?? false,
+                                'template': template, // Pass the GameTemplate object
                               },
                             );
                           }
@@ -150,6 +168,7 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
                           ...args,
                           'isEdit': true,
                           'isFromGameInfo': args['isFromGameInfo'] ?? false,
+                          'template': template, // Pass the GameTemplate object
                         }).then((result) {
                           if (result != null) {
                             final updatedArgs = result as Map<String, dynamic>;
@@ -161,6 +180,7 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
                                 ...updatedArgs,
                                 'isEdit': true,
                                 'isFromGameInfo': args['isFromGameInfo'] ?? false,
+                                'template': template, // Pass the GameTemplate object
                               },
                             );
                           }
@@ -186,6 +206,7 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
                           ...args,
                           'isEdit': true,
                           'isFromGameInfo': args['isFromGameInfo'] ?? false,
+                          'template': template, // Pass the GameTemplate object
                         }).then((result) {
                           if (result != null) {
                             final updatedArgs = result as Map<String, dynamic>;
@@ -197,6 +218,7 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
                                 ...updatedArgs,
                                 'isEdit': true,
                                 'isFromGameInfo': args['isFromGameInfo'] ?? false,
+                                'template': template, // Pass the GameTemplate object
                               },
                             );
                           }
@@ -224,6 +246,7 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
                                 ...args,
                                 'isEdit': true,
                                 'isFromGameInfo': args['isFromGameInfo'] ?? false,
+                                'template': template, // Pass the GameTemplate object
                               }).then((result) {
                                 if (result != null) {
                                   final updatedArgs = result as Map<String, dynamic>;
@@ -235,6 +258,7 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
                                       ...updatedArgs,
                                       'isEdit': true,
                                       'isFromGameInfo': args['isFromGameInfo'] ?? false,
+                                      'template': template, // Pass the GameTemplate object
                                     },
                                   );
                                 }

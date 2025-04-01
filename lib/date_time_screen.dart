@@ -28,7 +28,14 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
         _selectedTime = args['time'] as TimeOfDay?;
         _isFromEdit = args['isEdit'] == true;
         sport = args['sport'] as String?;
-        template = args['template'] as GameTemplate?; // Extract the template
+
+        // Convert args['template'] from Map to GameTemplate if necessary
+        template = args['template'] != null
+            ? (args['template'] is GameTemplate
+                ? args['template'] as GameTemplate?
+                : GameTemplate.fromJson(args['template'] as Map<String, dynamic>))
+            : null;
+
         // If a template is provided and includes a time, pre-fill the time
         if (template != null && template!.includeTime && template!.time != null) {
           _selectedTime = template!.time;

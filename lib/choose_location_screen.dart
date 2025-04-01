@@ -16,6 +16,7 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
   List<Map<String, dynamic>> locations = [];
   bool isLoading = true;
   bool isFromEdit = false;
+  bool isFromGameInfo = false; // Added to match the error context
   bool originalIsAway = false;
   GameTemplate? template; // Store the selected template
 
@@ -35,11 +36,20 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
     final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
     if (args != null) {
       isFromEdit = args['isEdit'] == true;
+      isFromGameInfo = args['isFromGameInfo'] == true; // Added to match the error context
       originalIsAway = args['isAwayGame'] == true;
-      template = args['template'] as GameTemplate?; // Extract the template
+
+      // Convert args['template'] from Map to GameTemplate if necessary
+      template = args['template'] != null
+          ? (args['template'] is GameTemplate
+              ? args['template'] as GameTemplate?
+              : GameTemplate.fromJson(args['template'] as Map<String, dynamic>))
+          : null;
+
       if (isFromEdit && selectedLocation == null) {
         selectedLocation = args['location'] as String?;
       }
+
       // If the template includes a location, use it and skip this screen
       if (template != null && template!.includeLocation && template!.location != null) {
         WidgetsBinding.instance.addPostFrameCallback((_) {

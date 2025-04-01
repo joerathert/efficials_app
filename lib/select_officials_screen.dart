@@ -15,6 +15,7 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
   bool _defaultChoice = false;
   String? _defaultMethod;
   GameTemplate? template; // Store the selected template
+  List<Map<String, dynamic>> _selectedOfficials = []; // Store the selected officials
 
   @override
   void initState() {
@@ -28,9 +29,16 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
     final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
     template = args['template'] as GameTemplate?; // Extract the template
 
-    // If the template includes an officials list, use it and skip this screen
+    // If the template includes an officials list, pre-fill the selection and navigate
     if (template != null && template!.includeOfficialsList && template!.officialsListName != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        // Fetch the officials from the specified list
+        final officials = await _fetchOfficialsFromList(template!.officialsListName!);
+        setState(() {
+          _selectedOfficials = officials;
+        });
+
+        // Navigate to ReviewGameInfoScreen with the populated selectedOfficials
         Navigator.pushReplacementNamed(
           context,
           '/review_game_info',
@@ -38,11 +46,32 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
             ...args,
             'method': 'use_list',
             'selectedListName': template!.officialsListName,
+            'selectedOfficials': _selectedOfficials,
             'template': template,
           },
         );
       });
     }
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchOfficialsFromList(String listName) async {
+    final prefs = await SharedPreferences.getInstance();
+    final String? listsJson = prefs.getString('saved_lists');
+    if (listsJson != null && listsJson.isNotEmpty) {
+      try {
+        final List<dynamic> lists = List<Map<String, dynamic>>.from(jsonDecode(listsJson));
+        final selectedList = lists.firstWhere(
+          (list) => list['name'] == listName,
+          orElse: () => <String, dynamic>{},
+        );
+        if (selectedList.isNotEmpty && selectedList['officials'] != null) {
+          return List<Map<String, dynamic>>.from(selectedList['officials']);
+        }
+      } catch (e) {
+        print('Error fetching officials from list: $e');
+      }
+    }
+    return [];
   }
 
   Future<void> _loadDefaultChoice() async {

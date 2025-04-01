@@ -1,120 +1,192 @@
 import 'package:flutter/material.dart';
 
 class GameTemplate {
-  final String name;
-  final String sport;
-  final bool includeSport;
+  final String name; // Made non-nullable with default
+  final String? scheduleName;
+  final String? sport;
+  final DateTime? date;
   final TimeOfDay? time;
-  final bool includeTime;
   final String? location;
-  final bool includeLocation;
+  final bool isAwayGame;
   final String? levelOfCompetition;
-  final bool includeLevelOfCompetition;
   final String? gender;
-  final bool includeGender;
   final int? officialsRequired;
-  final bool includeOfficialsRequired;
-  final String? gameFee; // Stored as a String
-  final bool includeGameFee;
+  final String? gameFee;
+  final String? opponent;
   final bool? hireAutomatically;
-  final bool includeHireAutomatically;
-  final String? officialsListName;
-  final bool includeOfficialsList;
   final String? method;
-  final List<String>? selectedOfficials;
+  final List<Map<String, dynamic>>? selectedOfficials;
+  final String? officialsListName;
+  final bool includeScheduleName;
+  final bool includeSport;
+  final bool includeDate;
+  final bool includeTime;
+  final bool includeLocation;
+  final bool includeIsAwayGame;
+  final bool includeLevelOfCompetition;
+  final bool includeGender;
+  final bool includeOfficialsRequired;
+  final bool includeGameFee;
+  final bool includeOpponent;
+  final bool includeHireAutomatically;
   final bool includeSelectedOfficials;
+  final bool includeOfficialsList;
 
   GameTemplate({
-    required this.name,
-    required this.sport,
-    this.includeSport = true,
+    String? name, // Allow null in constructor, but provide default
+    this.scheduleName,
+    this.sport,
+    this.date,
     this.time,
-    this.includeTime = true,
     this.location,
-    this.includeLocation = true,
+    this.isAwayGame = false,
     this.levelOfCompetition,
-    this.includeLevelOfCompetition = true,
     this.gender,
-    this.includeGender = true,
     this.officialsRequired,
-    this.includeOfficialsRequired = true,
     this.gameFee,
-    this.includeGameFee = true,
+    this.opponent,
     this.hireAutomatically,
-    this.includeHireAutomatically = true,
-    this.officialsListName,
-    this.includeOfficialsList = true,
     this.method,
     this.selectedOfficials,
-    this.includeSelectedOfficials = true,
-  });
+    this.officialsListName,
+    this.includeScheduleName = false,
+    this.includeSport = false,
+    this.includeDate = false,
+    this.includeTime = false,
+    this.includeLocation = false,
+    this.includeIsAwayGame = false,
+    this.includeLevelOfCompetition = false,
+    this.includeGender = false,
+    this.includeOfficialsRequired = false,
+    this.includeGameFee = false,
+    this.includeOpponent = false,
+    this.includeHireAutomatically = false,
+    this.includeSelectedOfficials = false,
+    this.includeOfficialsList = false,
+  }) : name = name ?? 'Unnamed Template'; // Default value for name
 
-  Map<String, dynamic> toJson() => {
-        'name': name,
-        'sport': sport,
-        'includeSport': includeSport,
-        'time': time != null ? '${time!.hour}:${time!.minute}' : null,
-        'includeTime': includeTime,
-        'location': location,
-        'includeLocation': includeLocation,
-        'levelOfCompetition': levelOfCompetition,
-        'includeLevelOfCompetition': includeLevelOfCompetition,
-        'gender': gender,
-        'includeGender': includeGender,
-        'officialsRequired': officialsRequired,
-        'includeOfficialsRequired': includeOfficialsRequired,
-        'gameFee': gameFee,
-        'includeGameFee': includeGameFee,
-        'hireAutomatically': hireAutomatically,
-        'includeHireAutomatically': includeHireAutomatically,
-        'officialsListName': officialsListName,
-        'includeOfficialsList': includeOfficialsList,
-        'method': method,
-        'selectedOfficials': selectedOfficials,
-        'includeSelectedOfficials': includeSelectedOfficials,
-      };
+  // Convert GameTemplate to Map for serialization
+  Map<String, dynamic> toJson() {
+    return {
+      'name': name,
+      'scheduleName': scheduleName,
+      'sport': sport,
+      'date': date?.toIso8601String(),
+      'time': time != null ? {'hour': time!.hour, 'minute': time!.minute} : null,
+      'location': location,
+      'isAwayGame': isAwayGame,
+      'levelOfCompetition': levelOfCompetition,
+      'gender': gender,
+      'officialsRequired': officialsRequired,
+      'gameFee': gameFee,
+      'opponent': opponent,
+      'hireAutomatically': hireAutomatically,
+      'method': method,
+      'selectedOfficials': selectedOfficials,
+      'officialsListName': officialsListName,
+      'includeScheduleName': includeScheduleName,
+      'includeSport': includeSport,
+      'includeDate': includeDate,
+      'includeTime': includeTime,
+      'includeLocation': includeLocation,
+      'includeIsAwayGame': includeIsAwayGame,
+      'includeLevelOfCompetition': includeLevelOfCompetition,
+      'includeGender': includeGender,
+      'includeOfficialsRequired': includeOfficialsRequired,
+      'includeGameFee': includeGameFee,
+      'includeOpponent': includeOpponent,
+      'includeHireAutomatically': includeHireAutomatically,
+      'includeSelectedOfficials': includeSelectedOfficials,
+      'includeOfficialsList': includeOfficialsList,
+    };
+  }
 
+  // Create GameTemplate from Map (deserialization)
   factory GameTemplate.fromJson(Map<String, dynamic> json) {
-    final timeStr = json['time'] as String?;
     TimeOfDay? time;
-    if (timeStr != null) {
-      final parts = timeStr.split(':');
-      time = TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+    if (json['time'] != null) {
+      if (json['time'] is Map) {
+        // Format: {"hour": "23", "minute": "0"} or {"hour": 23, "minute": 0}
+        time = TimeOfDay(
+          hour: int.parse(json['time']['hour'].toString()),
+          minute: int.parse(json['time']['minute'].toString()),
+        );
+      } else if (json['time'] is String) {
+        // Format: "23:00"
+        final parts = (json['time'] as String).split(':');
+        if (parts.length == 2) {
+          time = TimeOfDay(
+            hour: int.parse(parts[0]),
+            minute: int.parse(parts[1]),
+          );
+        }
+      }
     }
 
-    // Handle gameFee, which could be a String (new templates) or a double (old templates)
-    String? gameFee;
-    if (json['gameFee'] != null) {
-      if (json['gameFee'] is String) {
-        gameFee = json['gameFee'] as String;
-      } else if (json['gameFee'] is double) {
-        gameFee = (json['gameFee'] as double).toStringAsFixed(0); // Convert double to String, e.g., 100.0 -> "100"
+    List<Map<String, dynamic>>? selectedOfficials;
+    if (json['selectedOfficials'] != null) {
+      if (json['selectedOfficials'] is List) {
+        final officialsList = json['selectedOfficials'] as List;
+        if (officialsList.isNotEmpty) {
+          if (officialsList.first is Map) {
+            // Expected format: [{"name": "John Doe"}, {"name": "Jane Smith"}]
+            selectedOfficials = List<Map<String, dynamic>>.from(officialsList);
+          } else if (officialsList.first is String) {
+            // Format: ["John Doe", "Jane Smith"]
+            selectedOfficials = officialsList.map((name) => {'name': name as String}).toList();
+          } else {
+            print('Unexpected element type in selectedOfficials list: ${officialsList.first.runtimeType}');
+            selectedOfficials = null;
+          }
+        } else {
+          selectedOfficials = [];
+        }
+      } else if (json['selectedOfficials'] is String) {
+        // Legacy format: "John Doe, Jane Smith"
+        final officialsString = json['selectedOfficials'] as String;
+        if (officialsString.isNotEmpty) {
+          selectedOfficials = officialsString.split(',').map((name) => {'name': name.trim()}).toList();
+        } else {
+          selectedOfficials = [];
+        }
+      } else {
+        // Unexpected format: set to null and log the issue
+        print('Unexpected format for selectedOfficials: ${json['selectedOfficials']}');
+        selectedOfficials = null;
       }
     }
 
     return GameTemplate(
-      name: json['name'] as String,
-      sport: json['sport'] as String,
-      includeSport: json['includeSport'] as bool? ?? true,
+      name: json['name'] as String?,
+      scheduleName: json['scheduleName'] as String?,
+      sport: json['sport'] as String?,
+      date: json['date'] != null ? DateTime.parse(json['date'] as String) : null,
       time: time,
-      includeTime: json['includeTime'] as bool? ?? true,
       location: json['location'] as String?,
-      includeLocation: json['includeLocation'] as bool? ?? true,
+      isAwayGame: json['isAwayGame'] as bool? ?? false,
       levelOfCompetition: json['levelOfCompetition'] as String?,
-      includeLevelOfCompetition: json['includeLevelOfCompetition'] as bool? ?? true,
       gender: json['gender'] as String?,
-      includeGender: json['includeGender'] as bool? ?? true,
       officialsRequired: json['officialsRequired'] as int?,
-      includeOfficialsRequired: json['includeOfficialsRequired'] as bool? ?? true,
-      gameFee: gameFee,
-      includeGameFee: json['includeGameFee'] as bool? ?? true,
+      gameFee: json['gameFee'] as String?,
+      opponent: json['opponent'] as String?,
       hireAutomatically: json['hireAutomatically'] as bool?,
-      includeHireAutomatically: json['includeHireAutomatically'] as bool? ?? true,
-      officialsListName: json['officialsListName'] as String?,
-      includeOfficialsList: json['includeOfficialsList'] as bool? ?? true,
       method: json['method'] as String?,
-      selectedOfficials: json['selectedOfficials'] != null ? List<String>.from(json['selectedOfficials']) : null,
-      includeSelectedOfficials: json['includeSelectedOfficials'] as bool? ?? true,
+      selectedOfficials: selectedOfficials,
+      officialsListName: json['officialsListName'] as String?,
+      includeScheduleName: json['includeScheduleName'] as bool? ?? false,
+      includeSport: json['includeSport'] as bool? ?? false,
+      includeDate: json['includeDate'] as bool? ?? false,
+      includeTime: json['includeTime'] as bool? ?? false,
+      includeLocation: json['includeLocation'] as bool? ?? false,
+      includeIsAwayGame: json['includeIsAwayGame'] as bool? ?? false,
+      includeLevelOfCompetition: json['includeLevelOfCompetition'] as bool? ?? false,
+      includeGender: json['includeGender'] as bool? ?? false,
+      includeOfficialsRequired: json['includeOfficialsRequired'] as bool? ?? false,
+      includeGameFee: json['includeGameFee'] as bool? ?? false,
+      includeOpponent: json['includeOpponent'] as bool? ?? false,
+      includeHireAutomatically: json['includeHireAutomatically'] as bool? ?? false,
+      includeSelectedOfficials: json['includeSelectedOfficials'] as bool? ?? false,
+      includeOfficialsList: json['includeOfficialsList'] as bool? ?? false,
     );
   }
 }

@@ -44,7 +44,7 @@ class _NewGameTemplateScreenState extends State<NewGameTemplateScreen> {
   void initState() {
     super.initState();
     // Debug print to inspect gameData
-    print('gameData: ${widget.gameData}');
+    print('NewGameTemplateScreen gameData: ${widget.gameData}');
 
     sport = widget.gameData['sport'] as String;
     // Handle the time field, which may be a String in "hour:minute" format
@@ -55,6 +55,13 @@ class _NewGameTemplateScreenState extends State<NewGameTemplateScreen> {
         time = TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
       } else if (widget.gameData['time'] is TimeOfDay) {
         time = widget.gameData['time'] as TimeOfDay;
+      } else if (widget.gameData['time'] is Map) {
+        // Handle case where time is a Map (e.g., {"hour": 23, "minute": 0})
+        final timeMap = widget.gameData['time'] as Map<String, dynamic>;
+        time = TimeOfDay(
+          hour: int.parse(timeMap['hour'].toString()),
+          minute: int.parse(timeMap['minute'].toString()),
+        );
       } else {
         time = null;
       }
@@ -94,6 +101,7 @@ class _NewGameTemplateScreenState extends State<NewGameTemplateScreen> {
     print('selectedListName: $selectedListName');
     print('selectedOfficials: $selectedOfficials');
     print('gameFee: $gameFee');
+    print('time: $time');
 
     // Compute the display string for officials
     if (method == 'use_list' && selectedListName != null) {
@@ -137,7 +145,7 @@ class _NewGameTemplateScreenState extends State<NewGameTemplateScreen> {
       officialsListName: selectedListName,
       includeOfficialsList: includeOfficialsList,
       method: method,
-      selectedOfficials: selectedOfficials,
+      selectedOfficials: selectedOfficials?.map((name) => {'name': name}).toList(),
       includeSelectedOfficials: includeSelectedOfficials,
     );
 

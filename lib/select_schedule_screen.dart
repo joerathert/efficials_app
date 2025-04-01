@@ -199,10 +199,11 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
     }
 
     final scheduleSport = selected['sport'] as String;
-    if (scheduleSport.toLowerCase() != template!.sport.toLowerCase()) {
+    final templateSport = template!.sport?.toLowerCase() ?? ''; // Handle null sport
+    if (scheduleSport.toLowerCase() != templateSport) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('The selected schedule\'s sport ($scheduleSport) does not match the template\'s sport (${template!.sport}). Please select a different schedule.'),
+          content: Text('The selected schedule\'s sport ($scheduleSport) does not match the template\'s sport (${template!.sport ?? "Not set"}). Please select a different schedule.'),
         ),
       );
       return false;
