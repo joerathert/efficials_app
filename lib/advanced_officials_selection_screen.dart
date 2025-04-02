@@ -50,8 +50,7 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
         'name': listName,
         'id': selectedList['id'],
         'officials': selectedList['officials'] ?? [],
-        'minOfficials': 0,
-        'maxOfficials': 0,
+        // Remove default min/max values to use hints instead
       });
     });
   }
@@ -70,15 +69,14 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
 
   void _updateMaxOfficials(int index, String value) {
     setState(() {
-      selectedLists[index]['maxOfficials'] = int.tryParse(value) ?? 0;
+      selectedLists[index]['maxOfficials'] = int.tryParse(value) ?? 0; // Default to 0 if invalid, but hint will show initially
     });
   }
 
   void _handleContinue() {
     final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
-    final requiredOfficials = args['officialsRequired'] as int? ?? 0; // Updated to treat as int
+    final requiredOfficials = int.tryParse(args['officialsRequired'].toString()) ?? 0;
 
-    // Validate at least two lists are selected
     if (selectedLists.length < 2) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select at least two lists for the advanced method')),
@@ -86,32 +84,30 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
       return;
     }
 
-    // Validate constraints
+    // Check that min/max are set for all lists
+    for (var list in selectedLists) {
+      if (list['minOfficials'] == null || list['maxOfficials'] == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please set minimum and maximum officials for all lists')),
+        );
+        return;
+      }
+    }
+
     int totalMin = selectedLists.fold(0, (sum, list) => sum + (list['minOfficials'] as int));
     int totalMax = selectedLists.fold(0, (sum, list) => sum + (list['maxOfficials'] as int));
 
     if (totalMin > requiredOfficials || totalMax < requiredOfficials) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Total minimum and maximum officials must match the required number')),
+        const SnackBar(content: Text('Total min must be ≤ required officials, and total max must be ≥ required officials')),
       );
       return;
     }
 
-    // Combine officials based on constraints
-    List<Map<String, dynamic>> finalOfficials = [];
+    List<Map<String, dynamic>> selectedOfficials = [];
     for (var list in selectedLists) {
       final officials = (list['officials'] as List<dynamic>?)?.cast<Map<String, dynamic>>() ?? [];
-      final min = list['minOfficials'] as int;
-      final max = list['maxOfficials'] as int;
-      int count = 0;
-
-      for (var official in officials) {
-        if (count < max) {
-          finalOfficials.add(official);
-          count++;
-        }
-        if (count >= min) break;
-      }
+      selectedOfficials.addAll(officials); // Notify all officials from each list
     }
 
     Navigator.pushNamed(
@@ -119,7 +115,7 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
       '/review_game_info',
       arguments: {
         ...args,
-        'selectedOfficials': finalOfficials,
+        'selectedOfficials': selectedOfficials,
         'method': 'advanced',
         'selectedLists': selectedLists.map((list) => {
           'name': list['name'],
@@ -133,7 +129,7 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
   @override
   Widget build(BuildContext context) {
     final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
-    totalRequiredOfficials = args['officialsRequired'] as int? ?? 0; // Updated to treat as int
+    totalRequiredOfficials = int.tryParse(args['officialsRequired'].toString()) ?? 0;
 
     final dropdownItems = lists.isNotEmpty
         ? lists.map((list) {
@@ -184,7 +180,9 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
                     style: const TextStyle(fontSize: 16, color: Colors.black),
                   ),
                   const SizedBox(height: 20),
-                  if (selectedLists.isEmpty) ...[
+                  if (isLoading)
+                    const Center(child: CircularProgressIndicator())
+                  else if (selectedLists.isEmpty) ...[
                     DropdownButtonFormField<String>(
                       decoration: textFieldDecoration('Select First List'),
                       value: null,
@@ -266,9 +264,8 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
                       style: elevatedButtonStyle(),
                       child: const Text('Add Another List', style: signInButtonTextStyle),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 20),
                   ],
-                  const SizedBox(height: 20),
                   ElevatedButton(
                     onPressed: selectedLists.length >= 2 ? _handleContinue : null,
                     style: elevatedButtonStyle(),

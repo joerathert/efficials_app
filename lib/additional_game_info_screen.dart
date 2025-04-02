@@ -109,58 +109,54 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
   }
 
   void _handleContinue() {
-    if (!_isAwayGame) {
-      if (_levelOfCompetition == null || _gender == null || _officialsRequired == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select a level, gender, and number of officials')),
-        );
-        return;
-      }
-      final feeText = _gameFeeController.text.trim();
-      if (feeText.isEmpty || !RegExp(r'^\d+(\.\d+)?$').hasMatch(feeText)) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please enter a valid game fee (e.g., 50 or 50.00)')),
-        );
-        return;
-      }
-      final fee = double.parse(feeText);
-      if (fee < 1 || fee > 99999) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Game fee must be between 1 and 99,999')),
-        );
-        return;
-      }
+  if (!_isAwayGame) {
+    if (_levelOfCompetition == null || _gender == null || _officialsRequired == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a level, gender, and number of officials')),
+      );
+      return;
     }
-
-    final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
-    final updatedArgs = {
-      ...args,
-      'id': args['id'] ?? DateTime.now().millisecondsSinceEpoch,
-      'levelOfCompetition': _isAwayGame ? null : _levelOfCompetition,
-      'gender': _isAwayGame ? null : _gender,
-      'officialsRequired': _isAwayGame ? 0 : _officialsRequired,
-      'gameFee': _isAwayGame ? '0' : _gameFeeController.text.trim(),
-      'opponent': _opponentController.text.trim(),
-      'hireAutomatically': _isAwayGame ? false : _hireAutomatically,
-      'isAway': _isAwayGame,
-      'officialsHired': args['officialsHired'] ?? 0,
-      'selectedOfficials': args['selectedOfficials'] ?? <Map<String, dynamic>>[],
-      'template': template, // Pass the template to the next screen
-    };
-
-    // Debug prints to verify navigation logic
-    print('AdditionalGameInfoScreen _handleContinue - _isAwayGame: $_isAwayGame');
-    print('AdditionalGameInfoScreen _handleContinue - _hireAutomatically: $_hireAutomatically');
-    print('AdditionalGameInfoScreen _handleContinue - Navigating to: ${_isAwayGame || _hireAutomatically ? '/review_game_info' : '/select_officials'}');
-
-    Navigator.pushNamed(
-      context,
-      _isAwayGame || _hireAutomatically ? '/review_game_info' : '/select_officials',
-      arguments: _isFromEdit
-          ? {...updatedArgs, 'isEdit': true, 'isFromGameInfo': args['isFromGameInfo'] ?? false}
-          : updatedArgs,
-    );
+    final feeText = _gameFeeController.text.trim();
+    if (feeText.isEmpty || !RegExp(r'^\d+(\.\d+)?$').hasMatch(feeText)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a valid game fee (e.g., 50 or 50.00)')),
+      );
+      return;
+    }
+    final fee = double.parse(feeText);
+    if (fee < 1 || fee > 99999) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Game fee must be between 1 and 99,999')),
+      );
+      return;
+    }
   }
+
+  final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+  final updatedArgs = {
+    ...args,
+    'id': args['id'] ?? DateTime.now().millisecondsSinceEpoch,
+    'levelOfCompetition': _isAwayGame ? null : _levelOfCompetition,
+    'gender': _isAwayGame ? null : _gender,
+    'officialsRequired': _isAwayGame ? 0 : _officialsRequired,
+    'gameFee': _isAwayGame ? '0' : _gameFeeController.text.trim(),
+    'opponent': _opponentController.text.trim(),
+    'hireAutomatically': _isAwayGame ? false : _hireAutomatically,
+    'isAway': _isAwayGame,
+    'officialsHired': args['officialsHired'] ?? 0,
+    'selectedOfficials': args['selectedOfficials'] ?? <Map<String, dynamic>>[],
+    'template': template,
+  };
+
+  print('AdditionalGameInfoScreen _handleContinue - Navigating to: ${_isAwayGame ? '/review_game_info' : '/select_officials'}');
+  Navigator.pushNamed(
+    context,
+    _isAwayGame ? '/review_game_info' : '/select_officials', // Always go to select_officials for home games
+    arguments: _isFromEdit
+        ? {...updatedArgs, 'isEdit': true, 'isFromGameInfo': args['isFromGameInfo'] ?? false}
+        : updatedArgs,
+  );
+}
 
   @override
   Widget build(BuildContext context) {

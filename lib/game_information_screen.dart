@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -27,6 +28,9 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
   late List<Map<String, dynamic>> selectedLists;
   late bool isAwayGame;
   late String opponent;
+  late int officialsHired;
+  List<Map<String, dynamic>> interestedOfficials = [];
+  Map<int, bool> selectedForHire = {};
 
   @override
   void didChangeDependencies() {
@@ -58,6 +62,7 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
       hireAutomatically = args['hireAutomatically'] as bool? ?? false;
       isAwayGame = args['isAwayGame'] as bool? ?? false;
       opponent = args['opponent'] as String? ?? 'Not set';
+      officialsHired = args['officialsHired'] as int? ?? 0;
       try {
         final officialsRaw = args['selectedOfficials'] as List<dynamic>? ?? [];
         selectedOfficials = officialsRaw.map((official) {
@@ -82,7 +87,20 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
         selectedLists = [];
         print('Error casting selectedLists: $e');
       }
-      print('GameInformationScreen didChangeDependencies - Args: $args');
+      if (!isAwayGame && !hireAutomatically && selectedOfficials.isNotEmpty && officialsHired < (officialsRequired ?? 0)) {
+        final random = Random();
+        final interestCount = random.nextInt(4) + 3; // Random 3-6
+        final shuffledOfficials = List<Map<String, dynamic>>.from(selectedOfficials)..shuffle(random);
+        interestedOfficials = shuffledOfficials.take(interestCount.clamp(0, selectedOfficials.length)).toList();
+        selectedForHire = {};
+        for (var official in interestedOfficials) {
+          selectedForHire[official['id'] as int] = false;
+        }
+      } else {
+        interestedOfficials = [];
+        selectedForHire = {};
+      }
+      print('GameInformationScreen didChangeDependencies - Args: $args, Interested Officials: ${interestedOfficials.length}');
     });
   }
 
@@ -104,6 +122,7 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
     selectedLists = [];
     isAwayGame = false;
     opponent = 'Not set';
+    officialsHired = 0;
   }
 
   Future<void> _deleteGame() async {
@@ -133,6 +152,119 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
     }
   }
 
+  Future<void> _confirmHires() async {
+    final selectedCount = selectedForHire.values.where((v) => v).length;
+    if (selectedCount == 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select at least one official to confirm')),
+      );
+      return;
+    }
+
+    // Check if adding these officials would exceed the total required
+    final newTotalHired = officialsHired + selectedCount;
+    if (newTotalHired > (officialsRequired ?? 0)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Cannot hire more than $officialsRequired officials')),
+      );
+      return;
+    }
+
+    // Enforce min/max per list for Advanced method
+    if (args['method'] == 'advanced' && args['selectedLists'] != null) {
+      final listCounts = <String, int>{};
+      final selectedIds = selectedForHire.entries.where((e) => e.value).map((e) => e.key).toList();
+      final hiredOfficials = interestedOfficials.where((o) => selectedIds.contains(o['id'])).toList();
+
+      final prefs = await SharedPreferences.getInstance();
+      final String? listsJson = prefs.getString('saved_lists');
+      final List<Map<String, dynamic>> savedListsRaw = listsJson != null && listsJson.isNotEmpty
+          ? List<Map<String, dynamic>>.from(jsonDecode(listsJson))
+          : [];
+      final Map<String, List<Map<String, dynamic>>> savedLists = {
+        for (var list in savedListsRaw) list['name'] as String: List<Map<String, dynamic>>.from(list['officials'] ?? [])
+      };
+
+      // Count currently selected officials per list
+      for (var official in hiredOfficials) {
+        final listName = (args['selectedLists'] as List<dynamic>)
+            .map((list) => Map<String, dynamic>.from(list as Map))
+            .firstWhere(
+              (list) => (savedLists[list['name']] ?? []).any((o) => o['id'] == official['id']),
+              orElse: () => {'name': 'Unknown'},
+            )['name'];
+        listCounts[listName] = (listCounts[listName] ?? 0) + 1;
+      }
+
+      // Add existing hired officials to the count
+      for (var official in selectedOfficials) {
+        final listName = (args['selectedLists'] as List<dynamic>)
+            .map((list) => Map<String, dynamic>.from(list as Map))
+            .firstWhere(
+              (list) => (savedLists[list['name']] ?? []).any((o) => o['id'] == official['id']),
+              orElse: () => {'name': 'Unknown'},
+            )['name'];
+        listCounts[listName] = (listCounts[listName] ?? 0) + 1;
+      }
+
+      // Validate against min/max constraints
+      for (var list in (args['selectedLists'] as List<dynamic>).map((list) => Map<String, dynamic>.from(list as Map))) {
+        final count = listCounts[list['name']] ?? 0;
+        if (count > list['maxOfficials']) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Cannot exceed max (${list['maxOfficials']}) for ${list['name']}')),
+          );
+          return;
+        }
+      }
+    }
+
+    final hiredIds = selectedForHire.entries.where((e) => e.value).map((e) => e.key).toList();
+    final hiredOfficials = interestedOfficials.where((o) => hiredIds.contains(o['id'])).toList();
+
+    setState(() {
+      officialsHired += selectedCount;
+      args['officialsHired'] = officialsHired;
+      selectedOfficials.addAll(hiredOfficials);
+      // Remove hired officials from interested list
+      interestedOfficials.removeWhere((o) => hiredIds.contains(o['id']));
+      selectedForHire.clear();
+      // Refresh interested officials if still needed
+      if (officialsHired < (officialsRequired ?? 0)) {
+        final random = Random();
+        final interestCount = random.nextInt(4) + 3;
+        final remainingOfficials = selectedOfficials
+            .where((o) => !hiredOfficials.any((h) => h['id'] == o['id']))
+            .toList()
+          ..shuffle(random);
+        interestedOfficials = remainingOfficials.take(interestCount.clamp(0, remainingOfficials.length)).toList();
+        for (var official in interestedOfficials) {
+          selectedForHire[official['id'] as int] = false;
+        }
+      }
+    });
+
+    final prefs = await SharedPreferences.getInstance();
+    final String? gamesJson = prefs.getString('published_games');
+    if (gamesJson != null && gamesJson.isNotEmpty) {
+      List<Map<String, dynamic>> publishedGames = List<Map<String, dynamic>>.from(jsonDecode(gamesJson));
+      final index = publishedGames.indexWhere((g) => g['id'] == args['id']);
+      if (index != -1) {
+        publishedGames[index] = {
+          ...publishedGames[index],
+          'officialsHired': officialsHired,
+          'selectedOfficials': selectedOfficials,
+        };
+        await prefs.setString('published_games', jsonEncode(publishedGames));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Officials hired successfully!')),
+        );
+        print('Returning args: $args');
+        Navigator.pop(context, args);
+      }
+    }
+  }
+
   void _showDeleteConfirmationDialog() {
     showDialog(
       context: context,
@@ -154,6 +286,23 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
         ],
       ),
     );
+  }
+
+  Map<String, int> _getSelectedCounts(Map<String, List<Map<String, dynamic>>> savedLists) {
+    final listCounts = <String, int>{};
+    final selectedIds = selectedForHire.entries.where((e) => e.value).map((e) => e.key).toList();
+    final selectedOfficials = interestedOfficials.where((o) => selectedIds.contains(o['id'])).toList();
+
+    for (var official in selectedOfficials) {
+      final listName = (args['selectedLists'] as List<dynamic>)
+          .map((list) => Map<String, dynamic>.from(list as Map))
+          .firstWhere(
+            (list) => (savedLists[list['name']] ?? []).any((o) => o['id'] == official['id']),
+            orElse: () => {'name': 'Unknown'},
+          )['name'];
+      listCounts[listName] = (listCounts[listName] ?? 0) + 1;
+    }
+    return listCounts;
   }
 
   @override
@@ -180,9 +329,8 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
     };
 
     final requiredOfficials = officialsRequired ?? 0;
-    final hiredOfficials = args['officialsHired'] as int? ?? 0;
     final confirmedOfficials = selectedOfficials
-        .take(hiredOfficials)
+        .take(officialsHired)
         .map((official) => official['name'] as String)
         .toList();
 
@@ -191,7 +339,7 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
         backgroundColor: efficialsBlue,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, size: 36, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => Navigator.pop(context, args),
         ),
         title: const Text('Game Information', style: appBarTextStyle),
       ),
@@ -244,6 +392,7 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                             hireAutomatically = args['hireAutomatically'] as bool? ?? hireAutomatically;
                             isAwayGame = args['isAwayGame'] as bool? ?? isAwayGame;
                             opponent = args['opponent'] as String? ?? opponent;
+                            officialsHired = args['officialsHired'] as int? ?? officialsHired;
                             try {
                               final officialsRaw = args['selectedOfficials'] as List<dynamic>? ?? [];
                               selectedOfficials = officialsRaw.map((official) {
@@ -268,7 +417,20 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                               selectedLists = [];
                               print('Error casting selectedLists after edit: $e');
                             }
-                            print('GameInformationScreen Edit callback - Updated Args: $args');
+                            if (!isAwayGame && !hireAutomatically && selectedOfficials.isNotEmpty && officialsHired < (officialsRequired ?? 0)) {
+                              final random = Random();
+                              final interestCount = random.nextInt(4) + 3;
+                              final shuffledOfficials = List<Map<String, dynamic>>.from(selectedOfficials)..shuffle(random);
+                              interestedOfficials = shuffledOfficials.take(interestCount.clamp(0, selectedOfficials.length)).toList();
+                              selectedForHire = {};
+                              for (var official in interestedOfficials) {
+                                selectedForHire[official['id'] as int] = false;
+                              }
+                            } else {
+                              interestedOfficials = [];
+                              selectedForHire = {};
+                            }
+                            print('GameInformationScreen Edit callback - Updated Args: $args, Interested Officials: ${interestedOfficials.length}');
                           });
                           Navigator.pop(context, result);
                         }
@@ -314,7 +476,7 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                     const SizedBox(height: 20),
                     if (!isAwayGame) ...[
                       Text(
-                        'Confirmed Officials ($hiredOfficials/$requiredOfficials)',
+                        'Confirmed Officials ($officialsHired/$requiredOfficials)',
                         style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 10),
@@ -345,6 +507,48 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                             );
                           }).toList(),
                         ),
+                      if (!hireAutomatically && officialsHired < requiredOfficials) ...[
+                        const SizedBox(height: 20),
+                        const Text(
+                          'Interested Officials',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 10),
+                        if (interestedOfficials.isEmpty)
+                          const Text('No officials have expressed interest yet.', style: TextStyle(fontSize: 16, color: Colors.grey))
+                        else
+                          Column(
+                            children: interestedOfficials.map((official) {
+                              final officialId = official['id'] as int;
+                              return CheckboxListTile(
+                                title: Text(official['name'] as String),
+                                subtitle: Text('Distance: ${(official['distance'] as num?)?.toStringAsFixed(1) ?? '0.0'} mi'),
+                                value: selectedForHire[officialId] ?? false,
+                                onChanged: (value) {
+                                  setState(() {
+                                    final currentSelected = selectedForHire.values.where((v) => v).length;
+                                    if (value == true && currentSelected < requiredOfficials) {
+                                      selectedForHire[officialId] = true;
+                                    } else if (value == false) {
+                                      selectedForHire[officialId] = false;
+                                    }
+                                  });
+                                },
+                                activeColor: efficialsBlue,
+                              );
+                            }).toList(),
+                          ),
+                        if (interestedOfficials.isNotEmpty) ...[
+                          const SizedBox(height: 10),
+                          Center(
+                            child: ElevatedButton(
+                              onPressed: _confirmHires,
+                              style: elevatedButtonStyle(),
+                              child: const Text('Confirm Hire(s)', style: signInButtonTextStyle),
+                            ),
+                          ),
+                        ],
+                      ],
                       const SizedBox(height: 20),
                     ],
                     const Text('Selected Officials', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
@@ -353,6 +557,44 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                       const Text('No officials needed for away games.', style: TextStyle(fontSize: 16, color: Colors.grey))
                     else if (selectedOfficials.isEmpty)
                       const Text('No officials selected.', style: TextStyle(fontSize: 16, color: Colors.grey))
+                    else if (args['method'] == 'advanced' && args['selectedLists'] != null && !hireAutomatically && officialsHired < requiredOfficials) ...[
+                      FutureBuilder<Map<String, List<Map<String, dynamic>>>>(
+                        future: Future<Map<String, List<Map<String, dynamic>>>>.sync(() async {
+                          final prefs = await SharedPreferences.getInstance();
+                          final String? listsJson = prefs.getString('saved_lists');
+                          final List<Map<String, dynamic>> savedListsRaw = listsJson != null && listsJson.isNotEmpty
+                              ? List<Map<String, dynamic>>.from(jsonDecode(listsJson))
+                              : [];
+                          return {
+                            for (var list in savedListsRaw) list['name'] as String: List<Map<String, dynamic>>.from(list['officials'] ?? [])
+                          };
+                        }),
+                        builder: (context, snapshot) {
+                          if (!snapshot.hasData) {
+                            return const CircularProgressIndicator();
+                          }
+                          final savedLists = snapshot.data!;
+                          final selectedCounts = _getSelectedCounts(savedLists);
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: selectedLists.map((list) {
+                              final listName = list['name'] as String;
+                              final min = list['minOfficials'] as int;
+                              final max = list['maxOfficials'] as int;
+                              final currentCount = selectedCounts[listName] ?? 0;
+                              final textColor = currentCount > max || currentCount < min ? Colors.red : Colors.black;
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 4),
+                                child: Text(
+                                  '$listName: $currentCount/$max selected (min $min, max $max)',
+                                  style: TextStyle(fontSize: 16, color: textColor),
+                                ),
+                              );
+                            }).toList(),
+                          );
+                        },
+                      ),
+                    ]
                     else if (args['method'] == 'advanced' && args['selectedLists'] != null) ...[
                       ...selectedLists.map(
                         (list) => Padding(
