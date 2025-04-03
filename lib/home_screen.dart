@@ -34,13 +34,15 @@ class Game {
   });
 
   factory Game.fromJson(Map<String, dynamic> json) {
-    final timeStr = json['time'] as String?;
     TimeOfDay? time;
-    if (timeStr != null) {
-      final parts = timeStr.split(':');
-      time = TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+    if (json['time'] != null) {
+      if (json['time'] is String) {
+        final parts = (json['time'] as String).split(':');
+        time = TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+      } else if (json['time'] is TimeOfDay) {
+        time = json['time'] as TimeOfDay;
+      }
     }
-
     return Game(
       id: json['id'] as int,
       scheduleName: json['scheduleName'] as String,
@@ -102,7 +104,6 @@ class _HomeScreenState extends State<HomeScreen> {
     final String? gamesJson = prefs.getString('published_games');
     final String? unpublishedGamesJson = prefs.getString('unpublished_games');
 
-    // Fetch existing schedules (from both published and unpublished games for filtering purposes)
     Set<String> scheduleNames = {};
     if (unpublishedGamesJson != null && unpublishedGamesJson.isNotEmpty) {
       final unpublished = List<Map<String, dynamic>>.from(jsonDecode(unpublishedGamesJson));
@@ -131,11 +132,9 @@ class _HomeScreenState extends State<HomeScreen> {
       } else {
         publishedGames = [];
       }
-
       isLoading = false;
     });
 
-    // Initialize schedule filters after fetching games
     await _initializeScheduleFilters();
   }
 
@@ -185,11 +184,10 @@ class _HomeScreenState extends State<HomeScreen> {
         newScheduleFilters[game.sport] = {};
       }
       if (!newScheduleFilters[game.sport]!.containsKey(game.scheduleName)) {
-        newScheduleFilters[game.sport]![game.scheduleName] = true; // Default to selected
+        newScheduleFilters[game.sport]![game.scheduleName] = true;
       }
     }
 
-    // Only update if there are new schedules or sports
     if (newScheduleFilters.isNotEmpty && (scheduleFilters.isEmpty || _hasNewSchedules(newScheduleFilters))) {
       setState(() {
         scheduleFilters = newScheduleFilters;
@@ -266,30 +264,20 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   List<Game> _filterGames(List<Game> games) {
-    // Apply filters
     var filteredGames = games.where((game) {
-      // Apply away games filter
       if (!showAwayGames && game.isAway) return false;
-
-      // Apply fully covered games filter
       if (!showFullyCoveredGames && game.officialsHired >= game.officialsRequired) return false;
-
-      // Apply schedule filters
       if (scheduleFilters.containsKey(game.sport) && scheduleFilters[game.sport]!.containsKey(game.scheduleName)) {
         return scheduleFilters[game.sport]![game.scheduleName]!;
       }
-
-      return false; // If the sport or schedule isn't in the filters, don't show the game
+      return false;
     }).toList();
 
-    // Sort games by date and time (most imminent first)
     filteredGames.sort((a, b) {
-      // Handle null dates: games with null dates go to the bottom
       if (a.date == null && b.date == null) return 0;
       if (a.date == null) return 1;
       if (b.date == null) return -1;
 
-      // Combine date and time into a single DateTime for comparison
       DateTime aDateTime = a.date!;
       DateTime bDateTime = b.date!;
 
@@ -302,7 +290,6 @@ class _HomeScreenState extends State<HomeScreen> {
           a.time!.minute,
         );
       } else {
-        // If time is null, assume midnight (start of the day)
         aDateTime = DateTime(aDateTime.year, aDateTime.month, aDateTime.day);
       }
 
@@ -318,7 +305,6 @@ class _HomeScreenState extends State<HomeScreen> {
         bDateTime = DateTime(bDateTime.year, bDateTime.month, bDateTime.day);
       }
 
-      // Compare DateTimes: earlier dates/times come first
       return aDateTime.compareTo(bDateTime);
     });
 
@@ -329,7 +315,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final prefs = await SharedPreferences.getInstance();
     final String? templatesJson = prefs.getString('game_templates');
     if (templatesJson == null || templatesJson.isEmpty) {
-      return null; // No templates available
+      return null;
     }
 
     final List<dynamic> decoded = jsonDecode(templatesJson);
@@ -490,7 +476,6 @@ class _HomeScreenState extends State<HomeScreen> {
           padding: const EdgeInsets.all(20.0),
           child: Column(
             children: [
-              // Filter toggles
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
@@ -591,25 +576,40 @@ class _HomeScreenState extends State<HomeScreen> {
           print('Error: Could not fetch game with ID $gameId');
           return;
         }
+        print('Navigating to GameInformationScreen with game: $latestGame');
         Navigator.pushNamed(
           context,
           '/game_information',
           arguments: latestGame,
         ).then((result) async {
+          print('Returned from GameInformationScreen with result: $result');
           if (result == true) {
+            print('Result is true, refreshing games');
             await _fetchGames();
           } else if (result != null && result is Map<String, dynamic>) {
-            setState(() {
-              final index = publishedGames.indexWhere((g) => g.id == game.id);
-              if (index != -1) {
-                publishedGames[index] = Game.fromJson(result);
-              }
-            });
+            print('Result is Map, updating game: $result');
             final prefs = await SharedPreferences.getInstance();
-            final gamesToSave = publishedGames.map((g) => g.toJson()).toList();
-            await prefs.setString('published_games', jsonEncode(gamesToSave));
+            final String? gamesJson = prefs.getString('published_games');
+            if (gamesJson != null && gamesJson.isNotEmpty) {
+              List<Map<String, dynamic>> updatedGames = List<Map<String, dynamic>>.from(jsonDecode(gamesJson));
+              final index = updatedGames.indexWhere((g) => g['id'] == game.id);
+              if (index != -1) {
+                updatedGames[index] = {
+                  ...updatedGames[index],
+                  ...result,
+                  'date': result['date'] is DateTime ? (result['date'] as DateTime).toIso8601String() : result['date'],
+                  'time': result['time'] is TimeOfDay ? '${(result['time'] as TimeOfDay).hour}:${(result['time'] as TimeOfDay).minute}' : result['time'],
+                };
+                await prefs.setString('published_games', jsonEncode(updatedGames));
+                print('Updated SharedPreferences with: ${updatedGames[index]}');
+              }
+            }
             await _fetchGames();
+            print('Games refreshed');
+          } else {
+            print('Unexpected result type or null: $result');
           }
+          print('Navigation callback completed');
         });
       },
       child: Padding(

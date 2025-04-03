@@ -89,9 +89,12 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
       }
       if (!isAwayGame && !hireAutomatically && selectedOfficials.isNotEmpty && officialsHired < (officialsRequired ?? 0)) {
         final random = Random();
-        final interestCount = random.nextInt(4) + 3; // Random 3-6
-        final shuffledOfficials = List<Map<String, dynamic>>.from(selectedOfficials)..shuffle(random);
-        interestedOfficials = shuffledOfficials.take(interestCount.clamp(0, selectedOfficials.length)).toList();
+        final interestCount = random.nextInt(4) + 3;
+        final availableOfficials = selectedOfficials
+            .where((o) => !selectedOfficials.take(officialsHired).any((h) => h['id'] == o['id']))
+            .toList()
+          ..shuffle(random);
+        interestedOfficials = availableOfficials.take(interestCount.clamp(0, availableOfficials.length)).toList();
         selectedForHire = {};
         for (var official in interestedOfficials) {
           selectedForHire[official['id'] as int] = false;
@@ -161,7 +164,6 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
       return;
     }
 
-    // Check if adding these officials would exceed the total required
     final newTotalHired = officialsHired + selectedCount;
     if (newTotalHired > (officialsRequired ?? 0)) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -170,7 +172,6 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
       return;
     }
 
-    // Enforce min/max per list for Advanced method
     if (args['method'] == 'advanced' && args['selectedLists'] != null) {
       final listCounts = <String, int>{};
       final selectedIds = selectedForHire.entries.where((e) => e.value).map((e) => e.key).toList();
@@ -185,7 +186,6 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
         for (var list in savedListsRaw) list['name'] as String: List<Map<String, dynamic>>.from(list['officials'] ?? [])
       };
 
-      // Count currently selected officials per list
       for (var official in hiredOfficials) {
         final listName = (args['selectedLists'] as List<dynamic>)
             .map((list) => Map<String, dynamic>.from(list as Map))
@@ -196,7 +196,6 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
         listCounts[listName] = (listCounts[listName] ?? 0) + 1;
       }
 
-      // Add existing hired officials to the count
       for (var official in selectedOfficials) {
         final listName = (args['selectedLists'] as List<dynamic>)
             .map((list) => Map<String, dynamic>.from(list as Map))
@@ -207,7 +206,6 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
         listCounts[listName] = (listCounts[listName] ?? 0) + 1;
       }
 
-      // Validate against min/max constraints
       for (var list in (args['selectedLists'] as List<dynamic>).map((list) => Map<String, dynamic>.from(list as Map))) {
         final count = listCounts[list['name']] ?? 0;
         if (count > list['maxOfficials']) {
@@ -226,10 +224,8 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
       officialsHired += selectedCount;
       args['officialsHired'] = officialsHired;
       selectedOfficials.addAll(hiredOfficials);
-      // Remove hired officials from interested list
       interestedOfficials.removeWhere((o) => hiredIds.contains(o['id']));
       selectedForHire.clear();
-      // Refresh interested officials if still needed
       if (officialsHired < (officialsRequired ?? 0)) {
         final random = Random();
         final interestCount = random.nextInt(4) + 3;
@@ -242,6 +238,7 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
           selectedForHire[official['id'] as int] = false;
         }
       }
+      print('After setState - officialsHired: $officialsHired, selectedOfficials: $selectedOfficials');
     });
 
     final prefs = await SharedPreferences.getInstance();
@@ -256,11 +253,20 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
           'selectedOfficials': selectedOfficials,
         };
         await prefs.setString('published_games', jsonEncode(publishedGames));
+        print('Saved to SharedPreferences - updated game: ${publishedGames[index]}');
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Officials hired successfully!')),
         );
-        print('Returning args: $args');
-        Navigator.pop(context, args);
+        final returnArgs = {
+          ...args,
+          'date': selectedDate?.toIso8601String(),
+          'time': selectedTime != null ? '${selectedTime!.hour}:${selectedTime!.minute}' : null,
+          'officialsRequired': officialsRequired,
+          'selectedOfficials': selectedOfficials,
+          'selectedLists': selectedLists,
+        };
+        print('Returning args after hire: $returnArgs');
+        Navigator.pop(context, returnArgs);
       }
     }
   }
@@ -339,7 +345,18 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
         backgroundColor: efficialsBlue,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, size: 36, color: Colors.white),
-          onPressed: () => Navigator.pop(context, args),
+          onPressed: () {
+            final returnArgs = {
+              ...args,
+              'date': selectedDate?.toIso8601String(),
+              'time': selectedTime != null ? '${selectedTime!.hour}:${selectedTime!.minute}' : null,
+              'officialsRequired': officialsRequired,
+              'selectedOfficials': selectedOfficials,
+              'selectedLists': selectedLists,
+            };
+            print('Back button pressed, returning serialized args: $returnArgs');
+            Navigator.pop(context, returnArgs);
+          },
         ),
         title: const Text('Game Information', style: appBarTextStyle),
       ),
