@@ -21,7 +21,7 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
     if (!_isInitialized) {
       final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>?;
       if (args != null) {
-        _isAwayGame = args['isAway'] == true;
+        _isAwayGame = args['isAway'] as bool? ?? false;
 
         // Convert args['template'] to GameTemplate if necessary
         template = args['template'] != null
@@ -90,8 +90,17 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
     final scheduleName = args['scheduleName'] as String? ?? 'Unnamed Schedule';
     final sport = args['sport'] as String? ?? 'Unknown Sport';
     final location = args['location'] as String? ?? 'Unknown Location';
-    final date = args['date'] as DateTime? ?? DateTime.now();
-    final time = args['time'] as TimeOfDay? ?? const TimeOfDay(hour: 12, minute: 0);
+    final date = args['date'] != null
+        ? (args['date'] is String ? DateTime.parse(args['date'] as String) : args['date'] as DateTime)
+        : DateTime.now();
+    final time = args['time'] != null
+        ? (args['time'] is String
+            ? () {
+                final timeParts = (args['time'] as String).split(':');
+                return TimeOfDay(hour: int.parse(timeParts[0]), minute: int.parse(timeParts[1]));
+              }()
+            : args['time'] as TimeOfDay)
+        : const TimeOfDay(hour: 12, minute: 0);
     final levelOfCompetition = args['levelOfCompetition'] as String? ?? 'Not set';
     final gender = args['gender'] as String? ?? 'Not set';
     // Handle officialsRequired as either String or int

@@ -215,15 +215,16 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Game updated on Home screen!')),
     );
+    // Return to HomeScreen directly with a refresh flag
     if (isFromGameInfo) {
       Navigator.pushNamedAndRemoveUntil(
         context,
-        '/game_information',
-        (route) => route.settings.name == '/home',
-        arguments: gameData,
+        '/home',
+        (route) => false,
+        arguments: {'refresh': true, 'gameData': gameData},
       );
     } else {
-      Navigator.pop(context, gameData);
+      Navigator.pop(context, {'refresh': true, 'gameData': gameData});
     }
   }
 

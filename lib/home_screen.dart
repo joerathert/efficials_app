@@ -99,6 +99,15 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadFilters();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final args = ModalRoute.of(context)?.settings.arguments;
+    if (args != null && args is Map<String, dynamic> && args['refresh'] == true) {
+      _fetchGames(); // Force refresh when returning with 'refresh' flag
+    }
+  }
+
   Future<void> _fetchGames() async {
     final prefs = await SharedPreferences.getInstance();
     final String? gamesJson = prefs.getString('published_games');
@@ -125,6 +134,7 @@ class _HomeScreenState extends State<HomeScreen> {
           publishedGames = List<Map<String, dynamic>>.from(jsonDecode(gamesJson))
               .map(Game.fromJson)
               .toList();
+          print('Fetched publishedGames: $publishedGames'); // Debug log
         } catch (e) {
           publishedGames = [];
           print('Error loading published games: $e');
@@ -415,9 +425,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   MaterialPageRoute(
                     builder: (context) => ScheduleFilterScreen(
                       scheduleFilters: scheduleFilters,
-                      onFiltersChanged: (updatedFilters) {
+                      showAwayGames: showAwayGames,
+                      showFullyCoveredGames: showFullyCoveredGames,
+                      onFiltersChanged: (updatedFilters, away, fullyCovered) {
                         setState(() {
                           scheduleFilters = updatedFilters;
+                          showAwayGames = away;
+                          showFullyCoveredGames = fullyCovered;
                         });
                         _saveFilters();
                       },
@@ -476,41 +490,6 @@ class _HomeScreenState extends State<HomeScreen> {
           padding: const EdgeInsets.all(20.0),
           child: Column(
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  Row(
-                    children: [
-                      const Text('Show Away Games', style: TextStyle(fontSize: 14)),
-                      Switch(
-                        value: showAwayGames,
-                        onChanged: (value) {
-                          setState(() {
-                            showAwayGames = value;
-                          });
-                          _saveFilters();
-                        },
-                        activeColor: efficialsBlue,
-                      ),
-                    ],
-                  ),
-                  Row(
-                    children: [
-                      const Text('Show Fully Covered', style: TextStyle(fontSize: 14)),
-                      Switch(
-                        value: showFullyCoveredGames,
-                        onChanged: (value) {
-                          setState(() {
-                            showFullyCoveredGames = value;
-                          });
-                          _saveFilters();
-                        },
-                        activeColor: efficialsBlue,
-                      ),
-                    ],
-                  ),
-                ],
-              ),
               const SizedBox(height: 10),
               Expanded(
                 child: isLoading
@@ -594,18 +573,33 @@ class _HomeScreenState extends State<HomeScreen> {
               List<Map<String, dynamic>> updatedGames = List<Map<String, dynamic>>.from(jsonDecode(gamesJson));
               final index = updatedGames.indexWhere((g) => g['id'] == game.id);
               if (index != -1) {
+                // Ensure all fields are updated, including date and time
                 updatedGames[index] = {
                   ...updatedGames[index],
                   ...result,
-                  'date': result['date'] is DateTime ? (result['date'] as DateTime).toIso8601String() : result['date'],
-                  'time': result['time'] is TimeOfDay ? '${(result['time'] as TimeOfDay).hour}:${(result['time'] as TimeOfDay).minute}' : result['time'],
+                  'date': result['date'] is String
+                      ? result['date']
+                      : (result['date'] as DateTime?)?.toIso8601String(),
+                  'time': result['time'] is String
+                      ? result['time']
+                      : result['time'] != null
+                          ? '${(result['time'] as TimeOfDay).hour}:${(result['time'] as TimeOfDay).minute}'
+                          : null,
                 };
                 await prefs.setString('published_games', jsonEncode(updatedGames));
                 print('Updated SharedPreferences with: ${updatedGames[index]}');
+                // Force UI refresh after update
+                await _fetchGames();
+              } else {
+                print('Game with ID $gameId not found in SharedPreferences');
               }
+            } else {
+              print('No published games found in SharedPreferences');
             }
-            await _fetchGames();
             print('Games refreshed');
+          } else if (result != null && (result as Map<String, dynamic>)['refresh'] == true) {
+            print('Refresh flag detected, refreshing games');
+            await _fetchGames();
           } else {
             print('Unexpected result type or null: $result');
           }
