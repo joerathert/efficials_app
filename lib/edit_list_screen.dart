@@ -235,6 +235,7 @@ class _EditListScreenState extends State<EditListScreen> {
                     'listName': listName,
                     'listId': listId,
                     'selectedOfficials': selectedOfficialsList.where((official) => selectedOfficials[official['id'] as int] ?? false).toList(),
+                    'isEdit': true, // Add isEdit flag to indicate edit mode
                   },
                 ).then((result) {
                   if (result != null) {

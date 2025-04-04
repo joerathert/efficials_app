@@ -493,26 +493,22 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: 10),
               Expanded(
                 child: isLoading
-                    ? const Center(child: CircularProgressIndicator())
-                    : filteredPublishedGames.isEmpty
-                        ? const Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              Text(
-                                'Click the "+" icon to get started.',
-                                style: homeTextStyle,
-                                textAlign: TextAlign.center,
-                              ),
-                            ],
-                          )
-                        : ListView.builder(
-                            itemCount: filteredPublishedGames.length,
-                            itemBuilder: (context, index) {
-                              final game = filteredPublishedGames[index];
-                              return _buildGameTile(game);
-                            },
-                          ),
+                  ? const Center(child: CircularProgressIndicator())
+                  : filteredPublishedGames.isEmpty
+                    ? const Center(
+                      child: Text(
+                        'Click the "+" icon to get started.',
+                        style: homeTextStyle,
+                        textAlign: TextAlign.center,
+                      ),
+                    )
+                  : ListView.builder(
+                      itemCount: filteredPublishedGames.length,
+                      itemBuilder: (context, index) {
+                        final game = filteredPublishedGames[index];
+                        return _buildGameTile(game);
+                      },
+                    ),
               ),
             ],
           ),

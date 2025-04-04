@@ -70,47 +70,47 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
   }
 
   Future<void> _loadOfficials() async {
-  setState(() => isLoading = true);
-  List<Map<String, dynamic>> newOfficials = [
-    {'id': 1, 'name': 'John Doe', 'cityState': 'Chicago, IL', 'distance': 5.2, 'yearsExperience': 10, 'ihsaRegistered': true, 'ihsaRecognized': false, 'ihsaCertified': false, 'level': 'Varsity', 'sports': ['Football', 'Basketball']},
-    {'id': 2, 'name': 'Jane Smith', 'cityState': 'Naperville, IL', 'distance': 15.7, 'yearsExperience': 8, 'ihsaRegistered': false, 'ihsaRecognized': true, 'ihsaCertified': false, 'level': 'Varsity', 'sports': ['Basketball', 'Soccer']},
-    {'id': 3, 'name': 'Mike Johnson', 'cityState': 'Aurora, IL', 'distance': 10.0, 'yearsExperience': 12, 'ihsaRegistered': true, 'ihsaRecognized': true, 'ihsaCertified': true, 'level': 'Varsity', 'sports': ['Football', 'Baseball']},
-    {'id': 4, 'name': 'Sarah Lee', 'cityState': 'Evanston, IL', 'distance': 8.5, 'yearsExperience': 6, 'ihsaRegistered': true, 'ihsaRecognized': false, 'ihsaCertified': false, 'level': 'Varsity', 'sports': ['Soccer', 'Volleyball']},
-    {'id': 5, 'name': 'Tom Brown', 'cityState': 'Joliet, IL', 'distance': 20.1, 'yearsExperience': 15, 'ihsaRegistered': false, 'ihsaRecognized': true, 'ihsaCertified': true, 'level': 'Varsity', 'sports': ['Football', 'Basketball']},
-    {'id': 6, 'name': 'Emily Davis', 'cityState': 'Schaumburg, IL', 'distance': 12.3, 'yearsExperience': 9, 'ihsaRegistered': true, 'ihsaRecognized': false, 'ihsaCertified': false, 'level': 'Varsity', 'sports': ['Baseball', 'Soccer']},
-    {'id': 7, 'name': 'Chris Wilson', 'cityState': 'Peoria, IL', 'distance': 25.0, 'yearsExperience': 11, 'ihsaRegistered': false, 'ihsaRecognized': true, 'ihsaCertified': false, 'level': 'Varsity', 'sports': ['Basketball', 'Volleyball']},
-    {'id': 8, 'name': 'Lisa Adams', 'cityState': 'Rockford, IL', 'distance': 30.2, 'yearsExperience': 7, 'ihsaRegistered': true, 'ihsaRecognized': true, 'ihsaCertified': false, 'level': 'Varsity', 'sports': ['Football', 'Soccer']},
-    {'id': 9, 'name': 'David Kim', 'cityState': 'Springfield, IL', 'distance': 18.9, 'yearsExperience': 13, 'ihsaRegistered': false, 'ihsaRecognized': false, 'ihsaCertified': true, 'level': 'Varsity', 'sports': ['Baseball', 'Basketball']},
-    {'id': 10, 'name': 'Rachel Patel', 'cityState': 'Elgin, IL', 'distance': 14.6, 'yearsExperience': 5, 'ihsaRegistered': true, 'ihsaRecognized': false, 'ihsaCertified': false, 'level': 'Varsity', 'sports': ['Volleyball', 'Football']},
-  ];
+    setState(() => isLoading = true);
+    List<Map<String, dynamic>> newOfficials = [
+      {'id': 1, 'name': 'John Doe', 'cityState': 'Chicago, IL', 'distance': 5.2, 'yearsExperience': 10, 'ihsaRegistered': true, 'ihsaRecognized': false, 'ihsaCertified': false, 'level': 'Varsity', 'sports': ['Football', 'Basketball']},
+      {'id': 2, 'name': 'Jane Smith', 'cityState': 'Naperville, IL', 'distance': 15.7, 'yearsExperience': 8, 'ihsaRegistered': false, 'ihsaRecognized': true, 'ihsaCertified': false, 'level': 'Varsity', 'sports': ['Basketball', 'Soccer']},
+      {'id': 3, 'name': 'Mike Johnson', 'cityState': 'Aurora, IL', 'distance': 10.0, 'yearsExperience': 12, 'ihsaRegistered': true, 'ihsaRecognized': true, 'ihsaCertified': true, 'level': 'Varsity', 'sports': ['Football', 'Baseball']},
+      {'id': 4, 'name': 'Sarah Lee', 'cityState': 'Evanston, IL', 'distance': 8.5, 'yearsExperience': 6, 'ihsaRegistered': true, 'ihsaRecognized': false, 'ihsaCertified': false, 'level': 'Varsity', 'sports': ['Soccer', 'Volleyball']},
+      {'id': 5, 'name': 'Tom Brown', 'cityState': 'Joliet, IL', 'distance': 20.1, 'yearsExperience': 15, 'ihsaRegistered': false, 'ihsaRecognized': true, 'ihsaCertified': true, 'level': 'Varsity', 'sports': ['Football', 'Basketball']},
+      {'id': 6, 'name': 'Emily Davis', 'cityState': 'Schaumburg, IL', 'distance': 12.3, 'yearsExperience': 9, 'ihsaRegistered': true, 'ihsaRecognized': false, 'ihsaCertified': false, 'level': 'Varsity', 'sports': ['Baseball', 'Soccer']},
+      {'id': 7, 'name': 'Chris Wilson', 'cityState': 'Peoria, IL', 'distance': 25.0, 'yearsExperience': 11, 'ihsaRegistered': false, 'ihsaRecognized': true, 'ihsaCertified': false, 'level': 'Varsity', 'sports': ['Basketball', 'Volleyball']},
+      {'id': 8, 'name': 'Lisa Adams', 'cityState': 'Rockford, IL', 'distance': 30.2, 'yearsExperience': 7, 'ihsaRegistered': true, 'ihsaRecognized': true, 'ihsaCertified': false, 'level': 'Varsity', 'sports': ['Football', 'Soccer']},
+      {'id': 9, 'name': 'David Kim', 'cityState': 'Springfield, IL', 'distance': 18.9, 'yearsExperience': 13, 'ihsaRegistered': false, 'ihsaRecognized': false, 'ihsaCertified': true, 'level': 'Varsity', 'sports': ['Baseball', 'Basketball']},
+      {'id': 10, 'name': 'Rachel Patel', 'cityState': 'Elgin, IL', 'distance': 14.6, 'yearsExperience': 5, 'ihsaRegistered': true, 'ihsaRecognized': false, 'ihsaCertified': false, 'level': 'Varsity', 'sports': ['Volleyball', 'Football']},
+    ];
 
-  if (filterSettings != null) {
-    final sport = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>?; // Get sport from args
-    final gameSport = sport?['sport'] as String? ?? 'Football'; // Default to Football if not found
-    newOfficials = newOfficials.where((official) {
-      bool matches = true;
-      if (filterSettings!['ihsaRegistered'] && !(official['ihsaRegistered'] ?? false)) matches = false;
-      if (filterSettings!['ihsaRecognized'] && !(official['ihsaRecognized'] ?? false)) matches = false;
-      if (filterSettings!['ihsaCertified'] && !(official['ihsaCertified'] ?? false)) matches = false;
-      if (filterSettings!['minYears'] > (official['yearsExperience'] ?? 0)) matches = false;
-      if (filterSettings!['levels'].isNotEmpty && !filterSettings!['levels'].contains(official['level'])) matches = false;
-      if (filterSettings!['radius'] < (official['distance'] ?? double.infinity)) matches = false;
-      if (!(official['sports'] as List).contains(gameSport)) matches = false; // Filter by sport
-      return matches;
-    }).toList();
-  }
-
-  setState(() {
-    for (var newOfficial in newOfficials) {
-      if (!officials.any((o) => o['id'] == newOfficial['id'])) {
-        officials.add(newOfficial);
-      }
+    if (filterSettings != null) {
+      final sport = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>?; // Get sport from args
+      final gameSport = sport?['sport'] as String? ?? 'Football'; // Default to Football if not found
+      newOfficials = newOfficials.where((official) {
+        bool matches = true;
+        if (filterSettings!['ihsaRegistered'] && !(official['ihsaRegistered'] ?? false)) matches = false;
+        if (filterSettings!['ihsaRecognized'] && !(official['ihsaRecognized'] ?? false)) matches = false;
+        if (filterSettings!['ihsaCertified'] && !(official['ihsaCertified'] ?? false)) matches = false;
+        if (filterSettings!['minYears'] > (official['yearsExperience'] ?? 0)) matches = false;
+        if (filterSettings!['levels'].isNotEmpty && !filterSettings!['levels'].contains(official['level'])) matches = false;
+        if (filterSettings!['radius'] < (official['distance'] ?? double.infinity)) matches = false;
+        if (!(official['sports'] as List).contains(gameSport)) matches = false; // Filter by sport
+        return matches;
+      }).toList();
     }
-    filteredOfficials = List.from(officials);
-    filteredOfficialsWithoutSearch = List.from(officials);
-    isLoading = false;
-  });
-}
+
+    setState(() {
+      for (var newOfficial in newOfficials) {
+        if (!officials.any((o) => o['id'] == newOfficial['id'])) {
+          officials.add(newOfficial);
+        }
+      }
+      filteredOfficials = List.from(officials);
+      filteredOfficialsWithoutSearch = List.from(officials);
+      isLoading = false;
+    });
+  }
 
   void _applyFiltersWithSettings(Map<String, dynamic> settings) {
     setState(() {
@@ -202,7 +202,7 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
   Widget build(BuildContext context) {
     final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
     final sport = args['sport'] as String;
-    final listName = args['listName'] as String;
+    final listName = args['listName'] as String?;
     final int selectedCount = selectedOfficials.values.where((selected) => selected).length;
 
     return Scaffold(
@@ -355,10 +355,10 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
                             final updatedArgs = {
                               ...args,
                               'selectedOfficials': selected,
-                              'isEdit': false, // Explicitly set to false for new game
-                              'isFromGameInfo': false, // Explicitly set to false for new game
-                              'id': null, // Explicitly remove id to ensure new game
-                              'officialsRequired': args['officialsRequired'].toString(),
+                              'isEdit': isEdit, // Preserve the isEdit flag
+                              'isFromGameInfo': isFromGameCreation, // Preserve the game creation context
+                              'listId': args['listId'], // Preserve the listId
+                              'listName': args['listName'], // Preserve the listName
                             };
                             Navigator.pushNamed(
                               context,
