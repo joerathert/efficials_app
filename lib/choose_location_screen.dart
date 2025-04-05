@@ -33,10 +33,12 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    final args =
+        ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
     if (args != null) {
       isFromEdit = args['isEdit'] == true;
-      isFromGameInfo = args['isFromGameInfo'] == true; // Added to match the error context
+      isFromGameInfo =
+          args['isFromGameInfo'] == true; // Added to match the error context
       originalIsAway = args['isAwayGame'] == true;
 
       // Convert args['template'] from Map to GameTemplate if necessary
@@ -51,7 +53,9 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
       }
 
       // If the template includes a location, use it and skip this screen
-      if (template != null && template!.includeLocation && template!.location != null) {
+      if (template != null &&
+          template!.includeLocation &&
+          template!.location != null) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           final isAwayGame = template!.location == 'Away Game';
           final nextArgs = {
@@ -59,10 +63,12 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
             'location': template!.location,
             'isAwayGame': isAwayGame,
             'template': template,
+            'fromScheduleDetails':
+                args['fromScheduleDetails'] ?? false, // Add flag
+            'scheduleId': args['scheduleId'], // Add scheduleId
           };
           if (isFromEdit && originalIsAway != isAwayGame) {
             if (isAwayGame) {
-              // Changed from home to away: Clear officials-related fields
               nextArgs
                 ..remove('officialsRequired')
                 ..remove('gameFee')
@@ -77,7 +83,6 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                 arguments: nextArgs,
               );
             } else {
-              // Changed from away to home: Navigate to AdditionalGameInfoScreen
               Navigator.pushReplacementNamed(
                 context,
                 '/additional_game_info',
@@ -105,7 +110,8 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
       ];
       try {
         if (locationsJson != null && locationsJson.isNotEmpty) {
-          locations.addAll(List<Map<String, dynamic>>.from(jsonDecode(locationsJson)));
+          locations.addAll(
+              List<Map<String, dynamic>>.from(jsonDecode(locationsJson)));
         }
       } catch (e) {
         print('Error fetching locations: $e');
@@ -151,7 +157,8 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+    final args =
+        ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
     final scheduleName = args['scheduleName'] as String? ?? 'Unnamed Schedule';
     final sport = args['sport'] as String? ?? 'Unknown Sport';
     final date = args['date'] as DateTime?;
@@ -177,7 +184,10 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                 children: [
                   const Text(
                     'Where will the game be played?',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black),
+                    style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 20),
@@ -186,15 +196,19 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                       : DropdownButtonFormField<String>(
                           decoration: textFieldDecoration('Locations'),
                           value: selectedLocation,
-                          hint: const Text('Choose location', style: TextStyle(color: Colors.grey)),
+                          hint: const Text('Choose location',
+                              style: TextStyle(color: Colors.grey)),
                           onChanged: (newValue) {
                             if (newValue == null) return;
                             setState(() {
                               selectedLocation = newValue;
                               if (newValue == '+ Create new location') {
-                                Navigator.pushNamed(context, '/add_new_location').then((result) {
+                                Navigator.pushNamed(
+                                        context, '/add_new_location')
+                                    .then((result) {
                                   if (result != null) {
-                                    final newLoc = result as Map<String, dynamic>;
+                                    final newLoc =
+                                        result as Map<String, dynamic>;
                                     setState(() {
                                       locations.insert(locations.length - 1, {
                                         'name': newLoc['name'],
@@ -202,7 +216,8 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                                         'city': newLoc['city'],
                                         'state': newLoc['state'],
                                         'zip': newLoc['zip'],
-                                        'id': DateTime.now().millisecondsSinceEpoch,
+                                        'id': DateTime.now()
+                                            .millisecondsSinceEpoch,
                                       });
                                       selectedLocation = newLoc['name'];
                                       _saveLocations();
@@ -212,10 +227,12 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                               }
                             });
                           },
-                          items: locations.map((loc) => DropdownMenuItem(
-                                value: loc['name'] as String,
-                                child: Text(loc['name'] as String),
-                              )).toList(),
+                          items: locations
+                              .map((loc) => DropdownMenuItem(
+                                    value: loc['name'] as String,
+                                    child: Text(loc['name'] as String),
+                                  ))
+                              .toList(),
                         ),
                   const SizedBox(height: 20),
                   if (selectedLocation != null &&
@@ -223,12 +240,15 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                       selectedLocation != '+ Create new location') ...[
                     ElevatedButton(
                       onPressed: () {
-                        final selected = locations.firstWhere((l) => l['name'] == selectedLocation);
-                        Navigator.pushNamed(context, '/edit_location', arguments: {'location': selected}).then((result) {
+                        final selected = locations
+                            .firstWhere((l) => l['name'] == selectedLocation);
+                        Navigator.pushNamed(context, '/edit_location',
+                            arguments: {'location': selected}).then((result) {
                           if (result != null) {
                             final updatedLoc = result as Map<String, dynamic>;
                             setState(() {
-                              final index = locations.indexWhere((l) => l['id'] == selected['id']);
+                              final index = locations
+                                  .indexWhere((l) => l['id'] == selected['id']);
                               if (index != -1) {
                                 locations[index] = updatedLoc;
                                 selectedLocation = updatedLoc['name'];
@@ -239,33 +259,44 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                         });
                       },
                       style: elevatedButtonStyle(),
-                      child: const Text('Edit Location', style: signInButtonTextStyle),
+                      child: const Text('Edit Location',
+                          style: signInButtonTextStyle),
                     ),
                     const SizedBox(height: 8),
                     ElevatedButton(
                       onPressed: () {
-                        final selected = locations.firstWhere((l) => l['name'] == selectedLocation);
-                        _showDeleteConfirmationDialog(selectedLocation!, selected['id'] as int);
+                        final selected = locations
+                            .firstWhere((l) => l['name'] == selectedLocation);
+                        _showDeleteConfirmationDialog(
+                            selectedLocation!, selected['id'] as int);
                       },
                       style: elevatedButtonStyle(backgroundColor: Colors.red),
-                      child: const Text('Delete Location', style: signInButtonTextStyle),
+                      child: const Text('Delete Location',
+                          style: signInButtonTextStyle),
                     ),
                   ],
                   const SizedBox(height: 60),
                   ElevatedButton(
-                    onPressed: (selectedLocation != null && selectedLocation != '+ Create new location')
+                    onPressed: (selectedLocation != null &&
+                            selectedLocation != '+ Create new location')
                         ? () {
+                            final selected = locations.firstWhere(
+                                (l) => l['name'] == selectedLocation);
                             final isAwayGame = selectedLocation == 'Away Game';
                             final nextArgs = {
                               ...args,
-                              'location': selectedLocation,
+                              'locationData': isAwayGame ? null : selected,
                               'isAwayGame': isAwayGame,
-                              'template': template, // Pass the template to the next screen
+                              'template': template,
+                              'fromScheduleDetails':
+                                  args['fromScheduleDetails'] ??
+                                      false, // Add flag
+                              'scheduleId':
+                                  args['scheduleId'], // Add scheduleId
                             };
 
                             if (isFromEdit && originalIsAway != isAwayGame) {
                               if (isAwayGame) {
-                                // Changed from home to away: Clear officials-related fields
                                 nextArgs
                                   ..remove('officialsRequired')
                                   ..remove('gameFee')
@@ -280,7 +311,6 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                                   arguments: nextArgs,
                                 );
                               } else {
-                                // Changed from away to home: Navigate to AdditionalGameInfoScreen
                                 Navigator.pushNamed(
                                   context,
                                   '/additional_game_info',
@@ -288,10 +318,13 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                                 );
                               }
                             } else {
-                              print('Continue - Args: $nextArgs, Edit: $isFromEdit');
+                              print(
+                                  'Continue - Args: $nextArgs, Edit: $isFromEdit');
                               Navigator.pushNamed(
                                 context,
-                                isFromEdit ? '/review_game_info' : '/additional_game_info',
+                                isFromEdit
+                                    ? '/review_game_info'
+                                    : '/additional_game_info',
                                 arguments: nextArgs,
                               );
                             }

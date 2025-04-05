@@ -7,7 +7,8 @@ class AdditionalGameInfoScreen extends StatefulWidget {
   const AdditionalGameInfoScreen({super.key});
 
   @override
-  _AdditionalGameInfoScreenState createState() => _AdditionalGameInfoScreenState();
+  _AdditionalGameInfoScreenState createState() =>
+      _AdditionalGameInfoScreenState();
 }
 
 class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
@@ -40,9 +41,10 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
     if (_levelOfCompetition == null) {
       _currentGenders = _youthGenders;
     } else {
-      _currentGenders = (_levelOfCompetition == 'College' || _levelOfCompetition == 'Adult')
-          ? _adultGenders
-          : _youthGenders;
+      _currentGenders =
+          (_levelOfCompetition == 'College' || _levelOfCompetition == 'Adult')
+              ? _adultGenders
+              : _youthGenders;
     }
   }
 
@@ -51,7 +53,8 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Hire Automatically'),
-        content: const Text('When checked, the system will automatically assign officials based on your preferences and availability. Uncheck to manually select officials.'),
+        content: const Text(
+            'When checked, the system will automatically assign officials based on your preferences and availability. Uncheck to manually select officials.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -66,7 +69,8 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (!_isInitialized) {
-      final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+      final args =
+          ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
       if (args != null) {
         _isFromEdit = args['isEdit'] == true;
         _isAwayGame = args['isAwayGame'] == true;
@@ -74,7 +78,8 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
 
         // Pre-fill fields from the template if available, otherwise use args
         if (template != null) {
-          _levelOfCompetition = template!.includeLevelOfCompetition && template!.levelOfCompetition != null
+          _levelOfCompetition = template!.includeLevelOfCompetition &&
+                  template!.levelOfCompetition != null
               ? template!.levelOfCompetition
               : args['levelOfCompetition'] as String?;
           _updateCurrentGenders();
@@ -84,21 +89,30 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
           if (_gender != null && !_currentGenders.contains(_gender)) {
             _gender = null;
           }
-          _officialsRequired = template!.includeOfficialsRequired && template!.officialsRequired != null
+          _officialsRequired = template!.includeOfficialsRequired &&
+                  template!.officialsRequired != null
               ? template!.officialsRequired
-              : (args['officialsRequired'] != null ? int.tryParse(args['officialsRequired'].toString()) : null);
-          _gameFeeController.text = template!.includeGameFee && template!.gameFee != null
-              ? template!.gameFee!
-              : (args['gameFee']?.toString() ?? '');
-          _hireAutomatically = template!.includeHireAutomatically && template!.hireAutomatically != null
+              : (args['officialsRequired'] != null
+                  ? int.tryParse(args['officialsRequired'].toString())
+                  : null);
+          _gameFeeController.text =
+              template!.includeGameFee && template!.gameFee != null
+                  ? template!.gameFee!
+                  : (args['gameFee']?.toString() ?? '');
+          _hireAutomatically = template!.includeHireAutomatically &&
+                  template!.hireAutomatically != null
               ? template!.hireAutomatically!
               : (args['hireAutomatically'] as bool? ?? false);
         } else {
           _levelOfCompetition = args['levelOfCompetition'] as String?;
           _updateCurrentGenders();
           final genderArg = args['gender'] as String?;
-          _gender = (genderArg != null && _currentGenders.contains(genderArg)) ? genderArg : null;
-          _officialsRequired = args['officialsRequired'] != null ? int.tryParse(args['officialsRequired'].toString()) : null;
+          _gender = (genderArg != null && _currentGenders.contains(genderArg))
+              ? genderArg
+              : null;
+          _officialsRequired = args['officialsRequired'] != null
+              ? int.tryParse(args['officialsRequired'].toString())
+              : null;
           _gameFeeController.text = args['gameFee']?.toString() ?? '';
           _hireAutomatically = args['hireAutomatically'] as bool? ?? false;
         }
@@ -109,54 +123,70 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
   }
 
   void _handleContinue() {
-  if (!_isAwayGame) {
-    if (_levelOfCompetition == null || _gender == null || _officialsRequired == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a level, gender, and number of officials')),
-      );
-      return;
+    if (!_isAwayGame) {
+      if (_levelOfCompetition == null ||
+          _gender == null ||
+          _officialsRequired == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text(
+                  'Please select a level, gender, and number of officials')),
+        );
+        return;
+      }
+      final feeText = _gameFeeController.text.trim();
+      if (feeText.isEmpty || !RegExp(r'^\d+(\.\d+)?$').hasMatch(feeText)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content:
+                  Text('Please enter a valid game fee (e.g., 50 or 50.00)')),
+        );
+        return;
+      }
+      final fee = double.parse(feeText);
+      if (fee < 1 || fee > 99999) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Game fee must be between 1 and 99,999')),
+        );
+        return;
+      }
     }
-    final feeText = _gameFeeController.text.trim();
-    if (feeText.isEmpty || !RegExp(r'^\d+(\.\d+)?$').hasMatch(feeText)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a valid game fee (e.g., 50 or 50.00)')),
-      );
-      return;
-    }
-    final fee = double.parse(feeText);
-    if (fee < 1 || fee > 99999) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Game fee must be between 1 and 99,999')),
-      );
-      return;
-    }
+
+    final args =
+        ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+    final updatedArgs = {
+      ...args,
+      'id': args['id'] ?? DateTime.now().millisecondsSinceEpoch,
+      'levelOfCompetition': _isAwayGame ? null : _levelOfCompetition,
+      'gender': _isAwayGame ? null : _gender,
+      'officialsRequired': _isAwayGame ? 0 : _officialsRequired,
+      'gameFee': _isAwayGame ? '0' : _gameFeeController.text.trim(),
+      'opponent': _opponentController.text.trim(),
+      'hireAutomatically': _isAwayGame ? false : _hireAutomatically,
+      'isAway': _isAwayGame,
+      'officialsHired': args['officialsHired'] ?? 0,
+      'selectedOfficials':
+          args['selectedOfficials'] ?? <Map<String, dynamic>>[],
+      'template': template,
+      'fromScheduleDetails': args['fromScheduleDetails'] ?? false, // Add flag
+      'scheduleId': args['scheduleId'], // Add scheduleId
+    };
+
+    print(
+        'AdditionalGameInfoScreen _handleContinue - Navigating to: ${_isAwayGame ? '/review_game_info' : '/select_officials'}');
+    Navigator.pushNamed(
+      context,
+      _isAwayGame ? '/review_game_info' : '/select_officials',
+      arguments: _isFromEdit
+          ? {
+              ...updatedArgs,
+              'isEdit': true,
+              'isFromGameInfo': args['isFromGameInfo'] ?? false
+            }
+          : updatedArgs,
+    );
   }
-
-  final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
-  final updatedArgs = {
-    ...args,
-    'id': args['id'] ?? DateTime.now().millisecondsSinceEpoch,
-    'levelOfCompetition': _isAwayGame ? null : _levelOfCompetition,
-    'gender': _isAwayGame ? null : _gender,
-    'officialsRequired': _isAwayGame ? 0 : _officialsRequired,
-    'gameFee': _isAwayGame ? '0' : _gameFeeController.text.trim(),
-    'opponent': _opponentController.text.trim(),
-    'hireAutomatically': _isAwayGame ? false : _hireAutomatically,
-    'isAway': _isAwayGame,
-    'officialsHired': args['officialsHired'] ?? 0,
-    'selectedOfficials': args['selectedOfficials'] ?? <Map<String, dynamic>>[],
-    'template': template,
-  };
-
-  print('AdditionalGameInfoScreen _handleContinue - Navigating to: ${_isAwayGame ? '/review_game_info' : '/select_officials'}');
-  Navigator.pushNamed(
-    context,
-    _isAwayGame ? '/review_game_info' : '/select_officials', // Always go to select_officials for home games
-    arguments: _isFromEdit
-        ? {...updatedArgs, 'isEdit': true, 'isFromGameInfo': args['isFromGameInfo'] ?? false}
-        : updatedArgs,
-  );
-}
 
   @override
   Widget build(BuildContext context) {
@@ -192,12 +222,16 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
                         setState(() {
                           _levelOfCompetition = value;
                           _updateCurrentGenders();
-                          if (_gender != null && !_currentGenders.contains(_gender)) {
+                          if (_gender != null &&
+                              !_currentGenders.contains(_gender)) {
                             _gender = null;
                           }
                         });
                       },
-                      items: _competitionLevels.map((level) => DropdownMenuItem(value: level, child: Text(level))).toList(),
+                      items: _competitionLevels
+                          .map((level) => DropdownMenuItem(
+                              value: level, child: Text(level)))
+                          .toList(),
                     ),
                     const SizedBox(height: 20),
                     DropdownButtonFormField<String>(
@@ -205,27 +239,37 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
                       value: _gender,
                       hint: const Text('Select gender'),
                       onChanged: (value) => setState(() => _gender = value),
-                      items: _currentGenders.map((gender) => DropdownMenuItem(value: gender, child: Text(gender))).toList(),
+                      items: _currentGenders
+                          .map((gender) => DropdownMenuItem(
+                              value: gender, child: Text(gender)))
+                          .toList(),
                     ),
                     const SizedBox(height: 20),
                     DropdownButtonFormField<int>(
-                      decoration: textFieldDecoration('Required number of officials'),
+                      decoration:
+                          textFieldDecoration('Required number of officials'),
                       value: _officialsRequired,
                       hint: const Text('Required number of officials'),
-                      onChanged: (value) => setState(() => _officialsRequired = value),
-                      items: _officialsOptions.map((num) => DropdownMenuItem(value: num, child: Text(num.toString()))).toList(),
+                      onChanged: (value) =>
+                          setState(() => _officialsRequired = value),
+                      items: _officialsOptions
+                          .map((num) => DropdownMenuItem(
+                              value: num, child: Text(num.toString())))
+                          .toList(),
                     ),
                     const SizedBox(height: 20),
                     TextField(
                       controller: _gameFeeController,
-                      decoration: textFieldDecoration('Game Fee per Official').copyWith(
+                      decoration:
+                          textFieldDecoration('Game Fee per Official').copyWith(
                         prefixText: '\$',
                         hintText: 'Enter fee (e.g., 50 or 50.00)',
                       ),
                       keyboardType: TextInputType.number,
                       inputFormatters: [
                         FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-                        LengthLimitingTextInputFormatter(7), // Allow for "99999.99"
+                        LengthLimitingTextInputFormatter(
+                            7), // Allow for "99999.99"
                       ],
                     ),
                     const SizedBox(height: 20),
@@ -242,12 +286,14 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
                       children: [
                         Checkbox(
                           value: _hireAutomatically,
-                          onChanged: (value) => setState(() => _hireAutomatically = value ?? false),
+                          onChanged: (value) => setState(
+                              () => _hireAutomatically = value ?? false),
                           activeColor: efficialsBlue,
                         ),
                         const Text('Hire Automatically'),
                         IconButton(
-                          icon: const Icon(Icons.help_outline, color: efficialsBlue),
+                          icon: const Icon(Icons.help_outline,
+                              color: efficialsBlue),
                           onPressed: _showHireInfoDialog,
                         ),
                       ],
@@ -257,7 +303,8 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
                     child: ElevatedButton(
                       onPressed: _handleContinue,
                       style: elevatedButtonStyle(),
-                      child: const Text('Continue', style: signInButtonTextStyle),
+                      child:
+                          const Text('Continue', style: signInButtonTextStyle),
                     ),
                   ),
                 ],

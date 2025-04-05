@@ -15,7 +15,8 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
   bool _defaultChoice = false;
   String? _defaultMethod;
   GameTemplate? template; // Store the selected template
-  List<Map<String, dynamic>> _selectedOfficials = []; // Store the selected officials
+  List<Map<String, dynamic>> _selectedOfficials =
+      []; // Store the selected officials
 
   @override
   void initState() {
@@ -26,19 +27,21 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+    final args =
+        ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
     template = args['template'] as GameTemplate?; // Extract the template
 
     // If the template includes an officials list, pre-fill the selection and navigate
-    if (template != null && template!.includeOfficialsList && template!.officialsListName != null) {
+    if (template != null &&
+        template!.includeOfficialsList &&
+        template!.officialsListName != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) async {
-        // Fetch the officials from the specified list
-        final officials = await _fetchOfficialsFromList(template!.officialsListName!);
+        final officials =
+            await _fetchOfficialsFromList(template!.officialsListName!);
         setState(() {
           _selectedOfficials = officials;
         });
 
-        // Navigate to ReviewGameInfoScreen with the populated selectedOfficials
         Navigator.pushReplacementNamed(
           context,
           '/review_game_info',
@@ -48,18 +51,23 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
             'selectedListName': template!.officialsListName,
             'selectedOfficials': _selectedOfficials,
             'template': template,
+            'fromScheduleDetails':
+                args['fromScheduleDetails'] ?? false, // Add flag
+            'scheduleId': args['scheduleId'], // Add scheduleId
           },
         );
       });
     }
   }
 
-  Future<List<Map<String, dynamic>>> _fetchOfficialsFromList(String listName) async {
+  Future<List<Map<String, dynamic>>> _fetchOfficialsFromList(
+      String listName) async {
     final prefs = await SharedPreferences.getInstance();
     final String? listsJson = prefs.getString('saved_lists');
     if (listsJson != null && listsJson.isNotEmpty) {
       try {
-        final List<dynamic> lists = List<Map<String, dynamic>>.from(jsonDecode(listsJson));
+        final List<dynamic> lists =
+            List<Map<String, dynamic>>.from(jsonDecode(listsJson));
         final selectedList = lists.firstWhere(
           (list) => list['name'] == listName,
           orElse: () => <String, dynamic>{},
@@ -97,7 +105,8 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
     final String? listsJson = prefs.getString('saved_lists');
     if (listsJson != null && listsJson.isNotEmpty) {
       try {
-        final List<dynamic> lists = List<Map<String, dynamic>>.from(jsonDecode(listsJson));
+        final List<dynamic> lists =
+            List<Map<String, dynamic>>.from(jsonDecode(listsJson));
         return lists.length;
       } catch (e) {
         return 0;
@@ -111,7 +120,8 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Standard vs. Advanced'),
-        content: const Text('Standard method uses basic filters to find officials. Advanced method allows detailed customization of filters for more specific selections.'),
+        content: const Text(
+            'Standard method uses basic filters to find officials. Advanced method allows detailed customization of filters for more specific selections.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -127,7 +137,8 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Insufficient Lists'),
-        content: const Text('The Advanced method requires at least two lists of officials. Would you like to create a new list?'),
+        content: const Text(
+            'The Advanced method requires at least two lists of officials. Would you like to create a new list?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -140,7 +151,8 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
                 setState(() {});
               });
             },
-            child: const Text('Create List', style: TextStyle(color: efficialsBlue)),
+            child: const Text('Create List',
+                style: TextStyle(color: efficialsBlue)),
           ),
         ],
       ),
@@ -149,10 +161,12 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+    final args =
+        ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
     final sport = args['sport'] as String? ?? 'Baseball';
     final listName = args['scheduleName'] as String? ?? 'New Roster';
-    final listId = args['listId'] as int? ?? DateTime.now().millisecondsSinceEpoch;
+    final listId =
+        args['listId'] as int? ?? DateTime.now().millisecondsSinceEpoch;
 
     if (_defaultChoice && _defaultMethod != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -167,7 +181,12 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
               'listId': listId,
               'method': 'standard',
               'requiredCount': 2,
+              'locationData': args['locationData'],
+              'isAwayGame': args['isAwayGame'] ?? false,
               'template': template,
+              'fromScheduleDetails':
+                  args['fromScheduleDetails'] ?? false, // Add flag
+              'scheduleId': args['scheduleId'], // Add scheduleId
             },
           );
         } else if (_defaultMethod == 'advanced') {
@@ -183,7 +202,12 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
                 'sport': sport,
                 'listName': listName,
                 'listId': listId,
+                'locationData': args['locationData'],
+                'isAwayGame': args['isAwayGame'] ?? false,
                 'template': template,
+                'fromScheduleDetails':
+                    args['fromScheduleDetails'] ?? false, // Add flag
+                'scheduleId': args['scheduleId'], // Add scheduleId
               },
             );
           }
@@ -194,7 +218,12 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
             arguments: <String, dynamic>{
               ...args,
               'fromGameCreation': true,
+              'locationData': args['locationData'],
+              'isAwayGame': args['isAwayGame'] ?? false,
               'template': template,
+              'fromScheduleDetails':
+                  args['fromScheduleDetails'] ?? false, // Add flag
+              'scheduleId': args['scheduleId'], // Add scheduleId
             },
           ).then((result) {
             if (result != null) {
@@ -204,6 +233,9 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
                 arguments: <String, dynamic>{
                   ...result as Map<String, dynamic>,
                   'template': template,
+                  'fromScheduleDetails':
+                      args['fromScheduleDetails'] ?? false, // Add flag
+                  'scheduleId': args['scheduleId'], // Add scheduleId
                 },
               );
             }
@@ -232,7 +264,10 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
                 children: [
                   const Text(
                     'Choose a method for finding your officials.',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black),
+                    style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 60),
@@ -249,7 +284,12 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
                           'listId': listId,
                           'method': 'standard',
                           'requiredCount': 2,
+                          'locationData': args['locationData'],
+                          'isAwayGame': args['isAwayGame'] ?? false,
                           'template': template,
+                          'fromScheduleDetails':
+                              args['fromScheduleDetails'] ?? false, // Add flag
+                          'scheduleId': args['scheduleId'], // Add scheduleId
                         },
                       );
                     },
@@ -272,7 +312,13 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
                             'sport': sport,
                             'listName': listName,
                             'listId': listId,
+                            'locationData': args['locationData'],
+                            'isAwayGame': args['isAwayGame'] ?? false,
                             'template': template,
+                            'fromScheduleDetails':
+                                args['fromScheduleDetails'] ??
+                                    false, // Add flag
+                            'scheduleId': args['scheduleId'], // Add scheduleId
                           },
                         );
                       }
@@ -290,7 +336,12 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
                         arguments: <String, dynamic>{
                           ...args,
                           'fromGameCreation': true,
+                          'locationData': args['locationData'],
+                          'isAwayGame': args['isAwayGame'] ?? false,
                           'template': template,
+                          'fromScheduleDetails':
+                              args['fromScheduleDetails'] ?? false, // Add flag
+                          'scheduleId': args['scheduleId'], // Add scheduleId
                         },
                       ).then((result) {
                         if (result != null) {
@@ -300,6 +351,11 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
                             arguments: <String, dynamic>{
                               ...result as Map<String, dynamic>,
                               'template': template,
+                              'fromScheduleDetails':
+                                  args['fromScheduleDetails'] ??
+                                      false, // Add flag
+                              'scheduleId':
+                                  args['scheduleId'], // Add scheduleId
                             },
                           );
                         }
@@ -313,7 +369,9 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
                     onTap: _showDifferenceDialog,
                     child: const Text(
                       'What\'s the difference?',
-                      style: TextStyle(color: efficialsBlue, decoration: TextDecoration.underline),
+                      style: TextStyle(
+                          color: efficialsBlue,
+                          decoration: TextDecoration.underline),
                     ),
                   ),
                   const SizedBox(height: 20),
@@ -322,7 +380,8 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
                     children: [
                       Checkbox(
                         value: _defaultChoice,
-                        onChanged: (value) => setState(() => _defaultChoice = value ?? false),
+                        onChanged: (value) =>
+                            setState(() => _defaultChoice = value ?? false),
                         activeColor: efficialsBlue,
                       ),
                       const Text('Make this my default choice'),

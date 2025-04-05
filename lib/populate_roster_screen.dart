@@ -37,11 +37,14 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (!isInitialized) {
-      final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+      final args =
+          ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
       if (args != null) {
-        initialOfficials = (args['selectedOfficials'] as List<dynamic>?)?.map((item) {
-          return Map<String, dynamic>.from(item as Map);
-        }).toList() ?? [];
+        initialOfficials =
+            (args['selectedOfficials'] as List<dynamic>?)?.map((item) {
+                  return Map<String, dynamic>.from(item as Map);
+                }).toList() ??
+                [];
         isFromGameCreation = args['method'] == 'standard';
         isEdit = args['isEdit'] == true;
 
@@ -50,7 +53,8 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
           if (officialId is int) {
             selectedOfficials[officialId] = true;
           } else {
-            official['id'] = DateTime.now().millisecondsSinceEpoch + initialOfficials.indexOf(official);
+            official['id'] = DateTime.now().millisecondsSinceEpoch +
+                initialOfficials.indexOf(official);
             selectedOfficials[official['id'] as int] = true;
           }
         }
@@ -71,31 +75,162 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
 
   Future<void> _loadOfficials() async {
     setState(() => isLoading = true);
+    // Placeholder for real official data with addresses
     List<Map<String, dynamic>> newOfficials = [
-      {'id': 1, 'name': 'John Doe', 'cityState': 'Chicago, IL', 'distance': 5.2, 'yearsExperience': 10, 'ihsaRegistered': true, 'ihsaRecognized': false, 'ihsaCertified': false, 'level': 'Varsity', 'sports': ['Football', 'Basketball']},
-      {'id': 2, 'name': 'Jane Smith', 'cityState': 'Naperville, IL', 'distance': 15.7, 'yearsExperience': 8, 'ihsaRegistered': false, 'ihsaRecognized': true, 'ihsaCertified': false, 'level': 'Varsity', 'sports': ['Basketball', 'Soccer']},
-      {'id': 3, 'name': 'Mike Johnson', 'cityState': 'Aurora, IL', 'distance': 10.0, 'yearsExperience': 12, 'ihsaRegistered': true, 'ihsaRecognized': true, 'ihsaCertified': true, 'level': 'Varsity', 'sports': ['Football', 'Baseball']},
-      {'id': 4, 'name': 'Sarah Lee', 'cityState': 'Evanston, IL', 'distance': 8.5, 'yearsExperience': 6, 'ihsaRegistered': true, 'ihsaRecognized': false, 'ihsaCertified': false, 'level': 'Varsity', 'sports': ['Soccer', 'Volleyball']},
-      {'id': 5, 'name': 'Tom Brown', 'cityState': 'Joliet, IL', 'distance': 20.1, 'yearsExperience': 15, 'ihsaRegistered': false, 'ihsaRecognized': true, 'ihsaCertified': true, 'level': 'Varsity', 'sports': ['Football', 'Basketball']},
-      {'id': 6, 'name': 'Emily Davis', 'cityState': 'Schaumburg, IL', 'distance': 12.3, 'yearsExperience': 9, 'ihsaRegistered': true, 'ihsaRecognized': false, 'ihsaCertified': false, 'level': 'Varsity', 'sports': ['Baseball', 'Soccer']},
-      {'id': 7, 'name': 'Chris Wilson', 'cityState': 'Peoria, IL', 'distance': 25.0, 'yearsExperience': 11, 'ihsaRegistered': false, 'ihsaRecognized': true, 'ihsaCertified': false, 'level': 'Varsity', 'sports': ['Basketball', 'Volleyball']},
-      {'id': 8, 'name': 'Lisa Adams', 'cityState': 'Rockford, IL', 'distance': 30.2, 'yearsExperience': 7, 'ihsaRegistered': true, 'ihsaRecognized': true, 'ihsaCertified': false, 'level': 'Varsity', 'sports': ['Football', 'Soccer']},
-      {'id': 9, 'name': 'David Kim', 'cityState': 'Springfield, IL', 'distance': 18.9, 'yearsExperience': 13, 'ihsaRegistered': false, 'ihsaRecognized': false, 'ihsaCertified': true, 'level': 'Varsity', 'sports': ['Baseball', 'Basketball']},
-      {'id': 10, 'name': 'Rachel Patel', 'cityState': 'Elgin, IL', 'distance': 14.6, 'yearsExperience': 5, 'ihsaRegistered': true, 'ihsaRecognized': false, 'ihsaCertified': false, 'level': 'Varsity', 'sports': ['Volleyball', 'Football']},
+      {
+        'id': 1,
+        'name': 'John Doe',
+        'cityState': 'Chicago, IL',
+        'distance': 5.2,
+        'yearsExperience': 10,
+        'ihsaRegistered': true,
+        'ihsaRecognized': false,
+        'ihsaCertified': false,
+        'level': 'Varsity',
+        'sports': ['Football', 'Basketball']
+      },
+      {
+        'id': 2,
+        'name': 'Jane Smith',
+        'cityState': 'Naperville, IL',
+        'distance': 15.7,
+        'yearsExperience': 8,
+        'ihsaRegistered': false,
+        'ihsaRecognized': true,
+        'ihsaCertified': false,
+        'level': 'Varsity',
+        'sports': ['Basketball', 'Soccer']
+      },
+      {
+        'id': 3,
+        'name': 'Mike Johnson',
+        'cityState': 'Aurora, IL',
+        'distance': 10.0,
+        'yearsExperience': 12,
+        'ihsaRegistered': true,
+        'ihsaRecognized': true,
+        'ihsaCertified': true,
+        'level': 'Varsity',
+        'sports': ['Football', 'Baseball']
+      },
+      {
+        'id': 4,
+        'name': 'Sarah Lee',
+        'cityState': 'Evanston, IL',
+        'distance': 8.5,
+        'yearsExperience': 6,
+        'ihsaRegistered': true,
+        'ihsaRecognized': false,
+        'ihsaCertified': false,
+        'level': 'Varsity',
+        'sports': ['Soccer', 'Volleyball']
+      },
+      {
+        'id': 5,
+        'name': 'Tom Brown',
+        'cityState': 'Joliet, IL',
+        'distance': 20.1,
+        'yearsExperience': 15,
+        'ihsaRegistered': false,
+        'ihsaRecognized': true,
+        'ihsaCertified': true,
+        'level': 'Varsity',
+        'sports': ['Football', 'Basketball']
+      },
+      {
+        'id': 6,
+        'name': 'Emily Davis',
+        'cityState': 'Schaumburg, IL',
+        'distance': 12.3,
+        'yearsExperience': 9,
+        'ihsaRegistered': true,
+        'ihsaRecognized': false,
+        'ihsaCertified': false,
+        'level': 'Varsity',
+        'sports': ['Baseball', 'Soccer']
+      },
+      {
+        'id': 7,
+        'name': 'Chris Wilson',
+        'cityState': 'Peoria, IL',
+        'distance': 25.0,
+        'yearsExperience': 11,
+        'ihsaRegistered': false,
+        'ihsaRecognized': true,
+        'ihsaCertified': false,
+        'level': 'Varsity',
+        'sports': ['Basketball', 'Volleyball']
+      },
+      {
+        'id': 8,
+        'name': 'Lisa Adams',
+        'cityState': 'Rockford, IL',
+        'distance': 30.2,
+        'yearsExperience': 7,
+        'ihsaRegistered': true,
+        'ihsaRecognized': true,
+        'ihsaCertified': false,
+        'level': 'Varsity',
+        'sports': ['Football', 'Soccer']
+      },
+      {
+        'id': 9,
+        'name': 'David Kim',
+        'cityState': 'Springfield, IL',
+        'distance': 18.9,
+        'yearsExperience': 13,
+        'ihsaRegistered': false,
+        'ihsaRecognized': false,
+        'ihsaCertified': true,
+        'level': 'Varsity',
+        'sports': ['Baseball', 'Basketball']
+      },
+      {
+        'id': 10,
+        'name': 'Rachel Patel',
+        'cityState': 'Elgin, IL',
+        'distance': 14.6,
+        'yearsExperience': 5,
+        'ihsaRegistered': true,
+        'ihsaRecognized': false,
+        'ihsaCertified': false,
+        'level': 'Varsity',
+        'sports': ['Volleyball', 'Football']
+      },
     ];
 
     if (filterSettings != null) {
-      final sport = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>?; // Get sport from args
-      final gameSport = sport?['sport'] as String? ?? 'Football'; // Default to Football if not found
+      final args =
+          ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>? ??
+              {'sport': 'Football'};
+      final sport = args['sport'] as String? ?? 'Football';
+      final locationData =
+          filterSettings!['locationData'] as Map<String, dynamic>?;
+      final isAwayGame = args['isAwayGame'] as bool? ?? false;
+
+      if (!isAwayGame && locationData != null) {
+        // TODO: Replace with geolocation API call when implemented
+        // For now, use hardcoded distances; later, calculate from locationData['address'] to official['address']
+      }
+
       newOfficials = newOfficials.where((official) {
         bool matches = true;
-        if (filterSettings!['ihsaRegistered'] && !(official['ihsaRegistered'] ?? false)) matches = false;
-        if (filterSettings!['ihsaRecognized'] && !(official['ihsaRecognized'] ?? false)) matches = false;
-        if (filterSettings!['ihsaCertified'] && !(official['ihsaCertified'] ?? false)) matches = false;
-        if (filterSettings!['minYears'] > (official['yearsExperience'] ?? 0)) matches = false;
-        if (filterSettings!['levels'].isNotEmpty && !filterSettings!['levels'].contains(official['level'])) matches = false;
-        if (filterSettings!['radius'] < (official['distance'] ?? double.infinity)) matches = false;
-        if (!(official['sports'] as List).contains(gameSport)) matches = false; // Filter by sport
+        if (filterSettings!['ihsaRegistered'] &&
+            !(official['ihsaRegistered'] ?? false)) matches = false;
+        if (filterSettings!['ihsaRecognized'] &&
+            !(official['ihsaRecognized'] ?? false)) matches = false;
+        if (filterSettings!['ihsaCertified'] &&
+            !(official['ihsaCertified'] ?? false)) matches = false;
+        if (filterSettings!['minYears'] > (official['yearsExperience'] ?? 0))
+          matches = false;
+        if (filterSettings!['levels'].isNotEmpty &&
+            !filterSettings!['levels'].contains(official['level']))
+          matches = false;
+        if (!isAwayGame &&
+            filterSettings!['radius'] != null &&
+            filterSettings!['radius'] <
+                (official['distance'] ?? double.infinity)) matches = false;
+        if (!(official['sports'] as List).contains(sport)) matches = false;
         return matches;
       }).toList();
     }
@@ -127,7 +262,10 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
         filteredOfficials = List.from(filteredOfficialsWithoutSearch);
         if (query.isNotEmpty) {
           filteredOfficials = filteredOfficials
-              .where((o) => o['name'].toString().toLowerCase().contains(query.toLowerCase()))
+              .where((o) => o['name']
+                  .toString()
+                  .toLowerCase()
+                  .contains(query.toLowerCase()))
               .toList();
         }
       }
@@ -164,8 +302,10 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
   }
 
   void _saveList(String name) async {
-    final selected = officials.where((o) => selectedOfficials[o['id']] ?? false).toList();
-    final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+    final selected =
+        officials.where((o) => selectedOfficials[o['id']] ?? false).toList();
+    final args =
+        ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
     final sport = args['sport'] as String;
 
     final prefs = await SharedPreferences.getInstance();
@@ -179,7 +319,12 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
       'name': name,
       'sport': sport,
       'officials': selected,
-      'id': existingLists.isEmpty ? 1 : (existingLists.map((list) => list['id'] as int).reduce((a, b) => a > b ? a : b) + 1),
+      'id': existingLists.isEmpty
+          ? 1
+          : (existingLists
+                  .map((list) => list['id'] as int)
+                  .reduce((a, b) => a > b ? a : b) +
+              1),
     };
 
     if (existingLists.any((list) => list['name'] == name)) {
@@ -193,17 +338,20 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
     await prefs.setString('saved_lists', jsonEncode(existingLists));
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('List created!'), duration: Duration(seconds: 2)),
+      const SnackBar(
+          content: Text('List created!'), duration: Duration(seconds: 2)),
     );
     setState(() => showSaveListButton = false);
   }
 
   @override
   Widget build(BuildContext context) {
-    final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+    final args =
+        ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
     final sport = args['sport'] as String;
     final listName = args['listName'] as String?;
-    final int selectedCount = selectedOfficials.values.where((selected) => selected).length;
+    final int selectedCount =
+        selectedOfficials.values.where((selected) => selected).length;
 
     return Scaffold(
       appBar: AppBar(
@@ -213,7 +361,11 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          isEdit ? 'Edit Selected Officials' : (isFromGameCreation ? 'Select Officials for Game' : 'Find Officials'),
+          isEdit
+              ? 'Edit Selected Officials'
+              : (isFromGameCreation
+                  ? 'Select Officials for Game'
+                  : 'Find Officials'),
           style: appBarTextStyle,
         ),
       ),
@@ -235,7 +387,8 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
             ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 600),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: TextField(
                   decoration: textFieldDecoration('Search Officials'),
                   style: const TextStyle(fontSize: 18),
@@ -250,7 +403,10 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: filteredOfficials.isEmpty
-                        ? const Center(child: Text('No officials found.', style: TextStyle(fontSize: 18, color: Colors.grey)))
+                        ? const Center(
+                            child: Text('No officials found.',
+                                style: TextStyle(
+                                    fontSize: 18, color: Colors.grey)))
                         : Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -259,7 +415,9 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
                                   Checkbox(
                                     value: filteredOfficials.every((o) {
                                       final officialId = o['id'];
-                                      return officialId is int && (selectedOfficials[officialId] ?? false);
+                                      return officialId is int &&
+                                          (selectedOfficials[officialId] ??
+                                              false);
                                     }),
                                     onChanged: (value) {
                                       setState(() {
@@ -267,14 +425,16 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
                                           for (final o in filteredOfficials) {
                                             final officialId = o['id'];
                                             if (officialId is int) {
-                                              selectedOfficials[officialId] = true;
+                                              selectedOfficials[officialId] =
+                                                  true;
                                             }
                                           }
                                         } else {
                                           for (final o in filteredOfficials) {
                                             final officialId = o['id'];
                                             if (officialId is int) {
-                                              selectedOfficials.remove(officialId);
+                                              selectedOfficials
+                                                  .remove(officialId);
                                             }
                                           }
                                         }
@@ -282,7 +442,8 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
                                     },
                                     activeColor: efficialsBlue,
                                   ),
-                                  const Text('Select all', style: TextStyle(fontSize: 18)),
+                                  const Text('Select all',
+                                      style: TextStyle(fontSize: 18)),
                                 ],
                               ),
                               Expanded(
@@ -291,24 +452,38 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
                                   itemBuilder: (context, index) {
                                     final official = filteredOfficials[index];
                                     final officialId = official['id'];
-                                    if (officialId == null || officialId is! int) {
+                                    if (officialId == null ||
+                                        officialId is! int) {
                                       return const SizedBox.shrink();
                                     }
                                     return ListTile(
                                       leading: IconButton(
                                         icon: Icon(
-                                          selectedOfficials[officialId] ?? false ? Icons.check_circle : Icons.add_circle,
-                                          color: selectedOfficials[officialId] ?? false ? Colors.green : efficialsBlue,
+                                          selectedOfficials[officialId] ?? false
+                                              ? Icons.check_circle
+                                              : Icons.add_circle,
+                                          color:
+                                              selectedOfficials[officialId] ??
+                                                      false
+                                                  ? Colors.green
+                                                  : efficialsBlue,
                                           size: 36,
                                         ),
                                         onPressed: () {
                                           setState(() {
-                                            selectedOfficials[officialId] = !(selectedOfficials[officialId] ?? false);
-                                            if (selectedOfficials[officialId] == false) selectedOfficials.remove(officialId);
+                                            selectedOfficials[officialId] =
+                                                !(selectedOfficials[
+                                                        officialId] ??
+                                                    false);
+                                            if (selectedOfficials[officialId] ==
+                                                false)
+                                              selectedOfficials
+                                                  .remove(officialId);
                                           });
                                         },
                                       ),
-                                      title: Text('${official['name']} (${official['cityState'] ?? 'Unknown'})'),
+                                      title: Text(
+                                          '${official['name']} (${official['cityState'] ?? 'Unknown'})'),
                                       subtitle: Text(
                                         'Distance: ${official['distance']?.toStringAsFixed(1) ?? '0.0'} mi, Experience: ${official['yearsExperience'] ?? 0} yrs',
                                       ),
@@ -326,13 +501,20 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
         ],
       ),
       floatingActionButton: Padding(
-        padding: filtersApplied ? const EdgeInsets.only(bottom: 0) : const EdgeInsets.only(bottom: 106),
+        padding: filtersApplied
+            ? const EdgeInsets.only(bottom: 0)
+            : const EdgeInsets.only(bottom: 106),
         child: FloatingActionButton(
-          onPressed: () => Navigator.pushNamed(context, '/filter_settings', arguments: sport).then((result) {
-            if (result != null) _loadOfficials().then((_) => _applyFiltersWithSettings(result as Map<String, dynamic>));
+          onPressed: () =>
+              Navigator.pushNamed(context, '/filter_settings', arguments: args)
+                  .then((result) {
+            if (result != null)
+              _loadOfficials().then((_) =>
+                  _applyFiltersWithSettings(result as Map<String, dynamic>));
           }),
           backgroundColor: efficialsBlue,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           child: const Icon(Icons.filter_list, size: 30, color: Colors.white),
         ),
       ),
@@ -343,26 +525,33 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text('($selectedCount) Selected', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  Text('($selectedCount) Selected',
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
                   ElevatedButton(
                     onPressed: selectedCount > 0
                         ? () {
                             final selected = officials.where((o) {
                               final officialId = o['id'];
-                              return officialId is int && (selectedOfficials[officialId] ?? false);
+                              return officialId is int &&
+                                  (selectedOfficials[officialId] ?? false);
                             }).toList();
                             final updatedArgs = {
                               ...args,
                               'selectedOfficials': selected,
                               'isEdit': isEdit, // Preserve the isEdit flag
-                              'isFromGameInfo': isFromGameCreation, // Preserve the game creation context
+                              'isFromGameInfo':
+                                  isFromGameCreation, // Preserve the game creation context
                               'listId': args['listId'], // Preserve the listId
-                              'listName': args['listName'], // Preserve the listName
+                              'listName':
+                                  args['listName'], // Preserve the listName
                             };
                             Navigator.pushNamed(
                               context,
-                              isFromGameCreation ? '/review_game_info' : '/review_list',
+                              isFromGameCreation
+                                  ? '/review_game_info'
+                                  : '/review_list',
                               arguments: updatedArgs,
                             ).then((result) {
                               if (result != null) {
@@ -379,7 +568,8 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
                     ElevatedButton(
                       onPressed: selectedCount > 0 ? _promptSaveList : null,
                       style: elevatedButtonStyle(),
-                      child: const Text('Save List', style: signInButtonTextStyle),
+                      child:
+                          const Text('Save List', style: signInButtonTextStyle),
                     ),
                   ],
                 ],

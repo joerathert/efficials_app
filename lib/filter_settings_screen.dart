@@ -23,27 +23,21 @@ class _FilterSettingsScreenState extends State<FilterSettingsScreen> {
     'College': false,
     'Adult': false,
   };
-  final _zipCodeController = TextEditingController();
-  final _radiusController = TextEditingController(); // Removed default value
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final args = ModalRoute.of(context)!.settings.arguments as String;
-    // Optionally pre-fill zip code based on game location (requires location data in args)
-  }
+  final _radiusController = TextEditingController();
 
   @override
   void dispose() {
     _yearsController.dispose();
-    _zipCodeController.dispose();
     _radiusController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final sport = ModalRoute.of(context)!.settings.arguments as String;
+    final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+    final sport = args['sport'] as String;
+    final locationData = args['locationData'] as Map<String, dynamic>?;
+    final isAwayGame = args['isAwayGame'] as bool? ?? false;
 
     return Scaffold(
       appBar: AppBar(
@@ -63,10 +57,7 @@ class _FilterSettingsScreenState extends State<FilterSettingsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'IHSA Certifications',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
+                  const Text('IHSA Certifications', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
                   CheckboxListTile(
                     title: const Text('IHSA - Registered', style: TextStyle(fontSize: 18)),
@@ -96,10 +87,7 @@ class _FilterSettingsScreenState extends State<FilterSettingsScreen> {
                     activeColor: efficialsBlue,
                   ),
                   const SizedBox(height: 16),
-                  const Text(
-                    'Experience',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
+                  const Text('Experience', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
                   TextField(
                     controller: _yearsController,
@@ -113,10 +101,7 @@ class _FilterSettingsScreenState extends State<FilterSettingsScreen> {
                     buildCounter: (context, {required currentLength, required maxLength, required isFocused}) => null,
                   ),
                   const SizedBox(height: 16),
-                  const Text(
-                    'Competition Levels',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
+                  const Text('Competition Levels', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
                   Column(
                     children: competitionLevels.keys.map((level) {
@@ -125,11 +110,7 @@ class _FilterSettingsScreenState extends State<FilterSettingsScreen> {
                         child: CheckboxListTile(
                           title: Text(level, style: const TextStyle(fontSize: 18)),
                           value: competitionLevels[level],
-                          onChanged: (value) {
-                            setState(() {
-                              competitionLevels[level] = value ?? false;
-                            });
-                          },
+                          onChanged: (value) => setState(() => competitionLevels[level] = value ?? false),
                           controlAffinity: ListTileControlAffinity.leading,
                           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
                           dense: true,
@@ -139,72 +120,66 @@ class _FilterSettingsScreenState extends State<FilterSettingsScreen> {
                     }).toList(),
                   ),
                   const SizedBox(height: 16),
-                  const Text(
-                    'Location',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
+                  const Text('Location', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
-                  TextField(
-                    controller: _zipCodeController,
-                    decoration: textFieldDecoration('Zip Code'),
-                    textAlign: TextAlign.left,
-                    style: const TextStyle(fontSize: 18),
-                    keyboardType: TextInputType.number,
-                    textInputAction: TextInputAction.next,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    maxLength: 5,
-                    buildCounter: (context, {required currentLength, required maxLength, required isFocused}) => null,
-                    contextMenuBuilder: (context, editableTextState) => const SizedBox.shrink(),
-                    enableInteractiveSelection: false,
-                    enableSuggestions: false,
-                    autocorrect: false,
-                    showCursor: true,
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: _radiusController,
-                    decoration: textFieldDecoration('Search Radius (miles)').copyWith(
-                      hintText: 'Enter radius (e.g., 50)', // Added hint
+                  if (isAwayGame) ...[
+                    const Text(
+                      'Radius filtering unavailable for Away Games.',
+                      style: TextStyle(fontSize: 16, color: Colors.grey),
                     ),
-                    textAlign: TextAlign.left,
-                    style: const TextStyle(fontSize: 18),
-                    keyboardType: TextInputType.number,
-                    textInputAction: TextInputAction.done,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    maxLength: 3,
-                    buildCounter: (context, {required currentLength, required maxLength, required isFocused}) => null,
-                  ),
+                  ] else ...[
+                    Text(
+                      'Game Location: ${locationData?['name'] ?? 'Not set'}',
+                      style: const TextStyle(fontSize: 16),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _radiusController,
+                      decoration: textFieldDecoration('Search Radius (miles)').copyWith(
+                        hintText: 'Enter search radius (miles)',
+                      ),
+                      textAlign: TextAlign.left,
+                      style: const TextStyle(fontSize: 18),
+                      keyboardType: TextInputType.number,
+                      textInputAction: TextInputAction.done,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      maxLength: 3,
+                      buildCounter: (context, {required currentLength, required maxLength, required isFocused}) => null,
+                    ),
+                  ],
                   const SizedBox(height: 30),
                   Center(
                     child: ElevatedButton(
                       onPressed: () {
-                        if (competitionLevels.values.any((selected) => selected) &&
-                            _zipCodeController.text.length == 5 &&
-                            RegExp(r'^\d{5}$').hasMatch(_zipCodeController.text) &&
-                            _radiusController.text.isNotEmpty) {
-                          final selectedLevels = competitionLevels.entries
-                              .where((entry) => entry.value)
-                              .map((entry) => entry.key)
-                              .toList();
-                          Navigator.pop(context, {
+                        if (!competitionLevels.values.any((selected) => selected)) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Please select at least one competition level!')),
+                          );
+                          return;
+                        }
+                        if (!isAwayGame && _radiusController.text.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Please specify a search radius!')),
+                          );
+                          return;
+                        }
+                        final selectedLevels = competitionLevels.entries
+                            .where((entry) => entry.value)
+                            .map((entry) => entry.key)
+                            .toList();
+                        Navigator.pop(
+                          context,
+                          {
                             'sport': sport,
                             'ihsaRegistered': ihsaRegistered,
                             'ihsaRecognized': ihsaRecognized,
                             'ihsaCertified': ihsaCertified,
                             'minYears': _yearsController.text.isNotEmpty ? int.parse(_yearsController.text) : 0,
                             'levels': selectedLevels,
-                            'zipCode': _zipCodeController.text,
-                            'radius': int.parse(_radiusController.text),
-                          });
-                        } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Please select at least one competition level, enter a valid 5-digit zip code, and specify a search radius!',
-                              ),
-                            ),
-                          );
-                        }
+                            'locationData': locationData,
+                            'radius': isAwayGame ? null : int.parse(_radiusController.text),
+                          },
+                        );
                       },
                       style: elevatedButtonStyle(),
                       child: const Text('Apply Filters', style: signInButtonTextStyle),

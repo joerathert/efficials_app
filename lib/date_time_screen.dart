@@ -22,7 +22,8 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (!_isInitialized) {
-      final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+      final args =
+          ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
       if (args != null) {
         _selectedDate = args['date'] as DateTime?;
         _selectedTime = args['time'] as TimeOfDay?;
@@ -33,14 +34,18 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
         template = args['template'] != null
             ? (args['template'] is GameTemplate
                 ? args['template'] as GameTemplate?
-                : GameTemplate.fromJson(args['template'] as Map<String, dynamic>))
+                : GameTemplate.fromJson(
+                    args['template'] as Map<String, dynamic>))
             : null;
 
         // If a template is provided and includes a time, pre-fill the time
-        if (template != null && template!.includeTime && template!.time != null) {
+        if (template != null &&
+            template!.includeTime &&
+            template!.time != null) {
           _selectedTime = template!.time;
         }
-        print('didChangeDependencies - Initial Args: $args, Date: $_selectedDate, Time: $_selectedTime, Edit: $_isFromEdit, Sport: $sport, Template: $template');
+        print(
+            'didChangeDependencies - Initial Args: $args, Date: $_selectedDate, Time: $_selectedTime, Edit: $_isFromEdit, Sport: $sport, Template: $template');
       }
       _isInitialized = true;
     }
@@ -105,15 +110,18 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
   }
 
   String _formatDateTime() {
-    if (_selectedDate == null && _selectedTime == null) return 'Date and time not set';
+    if (_selectedDate == null && _selectedTime == null)
+      return 'Date and time not set';
     if (_selectedDate == null) return 'Date not set';
-    if (_selectedTime == null) return DateFormat('EEEE, MMMM d, y').format(_selectedDate!);
+    if (_selectedTime == null)
+      return DateFormat('EEEE, MMMM d, y').format(_selectedDate!);
     return '${DateFormat('EEEE, MMMM d, y').format(_selectedDate!)} at ${_selectedTime!.format(context)}';
   }
 
   @override
   Widget build(BuildContext context) {
-    print('build - Date: $_selectedDate, Time: $_selectedTime, Sport: $sport, Template: $template');
+    print(
+        'build - Date: $_selectedDate, Time: $_selectedTime, Sport: $sport, Template: $template');
 
     return Scaffold(
       appBar: AppBar(
@@ -135,7 +143,10 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
                 children: [
                   const Text(
                     'When will the game be played?',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black),
+                    style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 60),
@@ -169,26 +180,38 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
                   const SizedBox(height: 60),
                   Center(
                     child: ElevatedButton(
-                      onPressed: (_selectedDate != null && _selectedTime != null)
-                          ? () {
-                              final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
-                              final nextArgs = {
-                                ...args,
-                                'date': _selectedDate,
-                                'time': _selectedTime,
-                                'sport': sport,
-                                'template': template, // Pass the template to the next screen
-                              };
-                              print('Continue - Args: $nextArgs, Edit: $_isFromEdit');
-                              Navigator.pushNamed(
-                                context,
-                                _isFromEdit ? '/review_game_info' : '/choose_location',
-                                arguments: nextArgs,
-                              );
-                            }
-                          : null,
+                      onPressed:
+                          (_selectedDate != null && _selectedTime != null)
+                              ? () {
+                                  final args = ModalRoute.of(context)!
+                                      .settings
+                                      .arguments as Map<String, dynamic>;
+                                  final nextArgs = {
+                                    ...args,
+                                    'date': _selectedDate,
+                                    'time': _selectedTime,
+                                    'sport': sport,
+                                    'template': template,
+                                    'fromScheduleDetails':
+                                        args['fromScheduleDetails'] ??
+                                            false, // Add flag
+                                    'scheduleId':
+                                        args['scheduleId'], // Add scheduleId
+                                  };
+                                  print(
+                                      'Continue - Args: $nextArgs, Edit: $_isFromEdit');
+                                  Navigator.pushNamed(
+                                    context,
+                                    _isFromEdit
+                                        ? '/review_game_info'
+                                        : '/choose_location',
+                                    arguments: nextArgs,
+                                  );
+                                }
+                              : null,
                       style: elevatedButtonStyle(),
-                      child: const Text('Continue', style: signInButtonTextStyle),
+                      child:
+                          const Text('Continue', style: signInButtonTextStyle),
                     ),
                   ),
                 ],

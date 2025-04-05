@@ -10,13 +10,21 @@ class CreateNewListScreen extends StatefulWidget {
 
 class _CreateNewListScreenState extends State<CreateNewListScreen> {
   String? selectedSport;
-  final List<String> sports = ['Football', 'Basketball', 'Baseball', 'Soccer', 'Volleyball', 'Other'];
+  final List<String> sports = [
+    'Football',
+    'Basketball',
+    'Baseball',
+    'Soccer',
+    'Volleyball',
+    'Other'
+  ];
   List<String> existingLists = [];
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>?;
+    final args =
+        ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>?;
     existingLists = args?['existingLists'] as List<String>? ?? [];
   }
 
@@ -31,7 +39,8 @@ class _CreateNewListScreenState extends State<CreateNewListScreen> {
         ),
         title: const Text(
           'Create New List',
-          style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+          style: TextStyle(
+              color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
         ),
       ),
       body: Center(
@@ -45,26 +54,38 @@ class _CreateNewListScreenState extends State<CreateNewListScreen> {
                 children: [
                   const Text(
                     'Choose a sport for your new list.',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black),
+                    style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 30),
                   DropdownButtonFormField<String>(
                     decoration: textFieldDecoration('Sport'),
                     value: selectedSport,
-                    onChanged: (newValue) => setState(() => selectedSport = newValue),
-                    items: sports.map((value) => DropdownMenuItem(value: value, child: Text(value))).toList(),
+                    onChanged: (newValue) =>
+                        setState(() => selectedSport = newValue),
+                    items: sports
+                        .map((value) =>
+                            DropdownMenuItem(value: value, child: Text(value)))
+                        .toList(),
                   ),
                   const SizedBox(height: 30),
                   ElevatedButton(
                     onPressed: () {
                       if (selectedSport != null) {
+                        final args = ModalRoute.of(context)!.settings.arguments
+                                as Map<String, dynamic>? ??
+                            {};
                         Navigator.pushNamed(
                           context,
                           '/name_list',
                           arguments: {
                             'sport': selectedSport,
                             'existingLists': existingLists,
+                            'locationData': args['locationData'],
+                            'isAwayGame': args['isAwayGame'] ?? false,
                           },
                         ).then((result) {
                           if (result != null) {
@@ -73,7 +94,8 @@ class _CreateNewListScreenState extends State<CreateNewListScreen> {
                         });
                       } else {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Please select a sport!')),
+                          const SnackBar(
+                              content: Text('Please select a sport!')),
                         );
                       }
                     },
