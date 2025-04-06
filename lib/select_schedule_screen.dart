@@ -28,7 +28,7 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
     super.didChangeDependencies();
     // Get the arguments from the current route
     final args = ModalRoute.of(context)!.settings.arguments;
-    
+
     // Handle the case when args is a Map (coming from HomeScreen with a template)
     if (args is Map<String, dynamic>?) {
       if (args != null && args.containsKey('template')) {
@@ -104,6 +104,15 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
       } catch (e) {
         print('Error fetching schedules: $e');
       }
+
+      // Filter schedules by the template's sport if a template is provided
+      if (template != null && template!.includeSport && template!.sport != null) {
+        schedules = schedules
+            .where((schedule) =>
+                schedule['sport'] == template!.sport || schedule['name'] == '+ Create new schedule')
+            .toList();
+      }
+
       if (schedules.isEmpty) {
         schedules.add({'name': 'No schedules available', 'id': -1, 'sport': 'None'});
       }
@@ -243,7 +252,10 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
                             if (newValue == '+ Create new schedule') {
                               // Reset selectedSchedule to ensure the dropdown updates correctly
                               selectedSchedule = null;
-                              Navigator.pushNamed(context, '/select_sport').then((result) async {
+                              Navigator.pushNamed(context, '/select_sport', arguments: {
+                                'fromTemplate': true, // Indicate this navigation is from a template
+                                'sport': template?.sport, // Pass the template's sport
+                              }).then((result) async {
                                 print('Returned from SelectSportScreen with result: $result');
                                 if (result != null && result is String) {
                                   await _fetchSchedules();

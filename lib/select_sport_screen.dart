@@ -11,6 +11,23 @@ class SelectSportScreen extends StatefulWidget {
 class _SelectSportScreenState extends State<SelectSportScreen> {
   String? selectedSport;
   final List<String> sports = ['Football', 'Basketball', 'Baseball', 'Soccer', 'Volleyball', 'Other'];
+  bool _isInitialized = false; // Flag to ensure initialization happens once
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Only initialize once
+    if (!_isInitialized) {
+      // Check if coming from a template flow and pre-fill the sport
+      final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+      if (args != null && args['fromTemplate'] == true && args['sport'] != null) {
+        setState(() {
+          selectedSport = args['sport'] as String;
+        });
+      }
+      _isInitialized = true;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
