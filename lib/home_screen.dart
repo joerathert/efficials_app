@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'theme.dart';
 import 'schedule_filter_screen.dart';
 import 'game_template.dart';
+import 'utils.dart'; // Added import for shared sport icon utility
 
 class Game {
   final int id;
@@ -269,24 +270,6 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     }
     return null;
-  }
-
-  IconData _getSportIcon(String sport) {
-    print('Sport value for game: $sport');
-    switch (sport.toLowerCase()) {
-      case 'football':
-        return Icons.sports_football;
-      case 'basketball':
-        return Icons.sports_basketball;
-      case 'baseball':
-        return Icons.sports_baseball;
-      case 'soccer':
-        return Icons.sports_soccer;
-      case 'volleyball':
-        return Icons.sports_volleyball;
-      default:
-        return Icons.sports;
-    }
   }
 
   List<Game> _filterGames(List<Game> games) {
@@ -601,7 +584,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final hiredOfficials = game.officialsHired;
     final isFullyHired = hiredOfficials >= requiredOfficials;
     final sport = game.sport;
-    final sportIcon = _getSportIcon(sport);
+    final sportIcon = getSportIcon(sport); // Updated to use getSportIcon
     final isAway = game.isAway;
 
     return GestureDetector(
@@ -643,8 +626,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ? '${(result['time'] as TimeOfDay).hour}:${(result['time'] as TimeOfDay).minute}'
                           : null,
                 };
-                await prefs.setString(
-                    'published_games', jsonEncode(updatedGames));
+                await prefs.setString('published_games', jsonEncode(updatedGames));
                 print('Updated SharedPreferences with: ${updatedGames[index]}');
                 await _fetchGames();
               } else {

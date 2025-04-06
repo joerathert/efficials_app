@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'game_template.dart';
 import 'theme.dart';
+import 'utils.dart';
 
 class GameTemplatesScreen extends StatefulWidget {
   const GameTemplatesScreen({super.key});
@@ -14,6 +15,7 @@ class GameTemplatesScreen extends StatefulWidget {
 class _GameTemplatesScreenState extends State<GameTemplatesScreen> {
   List<GameTemplate> templates = [];
   bool isLoading = true;
+  List<String> sports = [];
 
   @override
   void initState() {
@@ -30,38 +32,15 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen> {
         final List<dynamic> decoded = jsonDecode(templatesJson);
         templates = decoded.map((json) => GameTemplate.fromJson(json)).toList();
       }
+      // Extract unique sports from templates, excluding null values
+      sports = templates
+          .where((t) => t.includeSport && t.sport != null) // Ensure sport is not null
+          .map((t) => t.sport!) // Use ! since we filtered out nulls
+          .toSet()
+          .toList();
+      sports.sort(); // Sort alphabetically for consistency
       isLoading = false;
     });
-  }
-
-  Future<void> _deleteTemplate(GameTemplate template) async {
-    final prefs = await SharedPreferences.getInstance();
-    templates.removeWhere((t) => t.name == template.name);
-    await prefs.setString('game_templates', jsonEncode(templates.map((t) => t.toJson()).toList()));
-    setState(() {});
-  }
-
-  void _showDeleteConfirmationDialog(GameTemplate template) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Confirm Delete'),
-        content: Text('Are you sure you want to delete the template "${template.name}"?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel', style: TextStyle(color: efficialsBlue)),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _deleteTemplate(template);
-            },
-            child: const Text('Delete', style: TextStyle(color: efficialsBlue)),
-          ),
-        ],
-      ),
-    );
   }
 
   @override
@@ -73,30 +52,57 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen> {
       ),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
-          : templates.isEmpty
-              ? const Center(child: Text('No templates available. Create a game to add a template.'))
-              : ListView.builder(
-                  itemCount: templates.length,
+          : sports.isEmpty
+              ? const Center(
+                  child: Text(
+                    'No templates available. Create a game to add a template.',
+                    textAlign: TextAlign.center,
+                  ),
+                )
+              : GridView.builder(
+                  padding: const EdgeInsets.all(16),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 16,
+                    mainAxisSpacing: 16,
+                    childAspectRatio: 1, // Square tiles
+                  ),
+                  itemCount: sports.length,
                   itemBuilder: (context, index) {
-                    final template = templates[index];
-                    return ListTile(
-                      title: Text(template.name),
-                      subtitle: Text('Sport: ${template.includeSport ? template.sport : "Not included"}'),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.delete, color: Colors.red),
-                            onPressed: () => _showDeleteConfirmationDialog(template),
-                          ),
-                        ],
-                      ),
+                    final sport = sports[index];
+                    return GestureDetector(
                       onTap: () {
-                        // Optionally, add an edit functionality here
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Edit functionality not implemented yet')),
+                        Navigator.pushNamed(
+                          context,
+                          '/sport_templates',
+                          arguments: {'sport': sport},
                         );
                       },
+                      child: Card(
+                        elevation: 4,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              getSportIcon(sport),
+                              size: 48,
+                              color: efficialsBlue,
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              sport,
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ),
+                      ),
                     );
                   },
                 ),
