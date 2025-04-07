@@ -117,50 +117,51 @@ class _NewGameTemplateScreenState extends State<NewGameTemplateScreen> {
   }
 
   Future<void> _saveTemplate() async {
-    if (_nameController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a name for the template')),
-      );
-      return;
-    }
-
-    final template = GameTemplate(
-      name: _nameController.text,
-      sport: sport,
-      includeSport: includeSport,
-      time: time,
-      includeTime: includeTime,
-      location: location,
-      includeLocation: includeLocation,
-      levelOfCompetition: levelOfCompetition,
-      includeLevelOfCompetition: includeLevelOfCompetition,
-      gender: gender,
-      includeGender: includeGender,
-      officialsRequired: officialsRequired,
-      includeOfficialsRequired: includeOfficialsRequired,
-      gameFee: gameFee, // Now a String
-      includeGameFee: includeGameFee,
-      hireAutomatically: hireAutomatically,
-      includeHireAutomatically: includeHireAutomatically,
-      officialsListName: selectedListName,
-      includeOfficialsList: includeOfficialsList,
-      method: method,
-      selectedOfficials: selectedOfficials?.map((name) => {'name': name}).toList(),
-      includeSelectedOfficials: includeSelectedOfficials,
+  if (_nameController.text.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Please enter a name for the template')),
     );
-
-    final prefs = await SharedPreferences.getInstance();
-    final String? templatesJson = prefs.getString('game_templates');
-    List<GameTemplate> templates = [];
-    if (templatesJson != null && templatesJson.isNotEmpty) {
-      final List<dynamic> decoded = jsonDecode(templatesJson);
-      templates = decoded.map((json) => GameTemplate.fromJson(json)).toList();
-    }
-    templates.add(template);
-    await prefs.setString('game_templates', jsonEncode(templates.map((t) => t.toJson()).toList()));
-
-    Navigator.pop(context, true); // Return true to indicate a template was saved
+    return;
   }
+
+  final template = GameTemplate(
+    id: DateTime.now().millisecondsSinceEpoch.toString(), // Generate unique ID
+    name: _nameController.text,
+    sport: sport,
+    includeSport: includeSport,
+    time: time,
+    includeTime: includeTime,
+    location: location,
+    includeLocation: includeLocation,
+    levelOfCompetition: levelOfCompetition,
+    includeLevelOfCompetition: includeLevelOfCompetition,
+    gender: gender,
+    includeGender: includeGender,
+    officialsRequired: officialsRequired,
+    includeOfficialsRequired: includeOfficialsRequired,
+    gameFee: gameFee,
+    includeGameFee: includeGameFee,
+    hireAutomatically: hireAutomatically,
+    includeHireAutomatically: includeHireAutomatically,
+    officialsListName: selectedListName,
+    includeOfficialsList: includeOfficialsList,
+    method: method,
+    selectedOfficials: selectedOfficials?.map((name) => {'name': name}).toList(),
+    includeSelectedOfficials: includeSelectedOfficials,
+  );
+
+  final prefs = await SharedPreferences.getInstance();
+  final String? templatesJson = prefs.getString('game_templates');
+  List<GameTemplate> templates = [];
+  if (templatesJson != null && templatesJson.isNotEmpty) {
+    final List<dynamic> decoded = jsonDecode(templatesJson);
+    templates = decoded.map((json) => GameTemplate.fromJson(json)).toList();
+  }
+  templates.add(template);
+  await prefs.setString('game_templates', jsonEncode(templates.map((t) => t.toJson()).toList()));
+
+  Navigator.pop(context, true);
+}
 
   @override
   void dispose() {

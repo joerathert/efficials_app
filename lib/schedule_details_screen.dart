@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'theme.dart';
+import 'game_template.dart'; // Import the GameTemplate model
 
 class ScheduleDetailsScreen extends StatefulWidget {
   const ScheduleDetailsScreen({super.key});
@@ -20,15 +21,16 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
   DateTime? _selectedDay;
   List<Map<String, dynamic>> _selectedDayGames = [];
   bool _showOnlyNeedsOfficials = false; // Toggle state for filtering
+  String? associatedTemplateName; // Store the associated template name
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final args =
-        ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+    final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
     scheduleName = args['scheduleName'] as String?;
     scheduleId = args['scheduleId'] as int?;
     _fetchGames();
+    _loadAssociatedTemplate(); // Load the associated template
   }
 
   Future<void> _fetchGames() async {
@@ -41,13 +43,11 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
       games.clear();
       try {
         if (unpublishedGamesJson != null && unpublishedGamesJson.isNotEmpty) {
-          final unpublished =
-              List<Map<String, dynamic>>.from(jsonDecode(unpublishedGamesJson));
+          final unpublished = List<Map<String, dynamic>>.from(jsonDecode(unpublishedGamesJson));
           allGames.addAll(unpublished);
         }
         if (publishedGamesJson != null && publishedGamesJson.isNotEmpty) {
-          final published =
-              List<Map<String, dynamic>>.from(jsonDecode(publishedGamesJson));
+          final published = List<Map<String, dynamic>>.from(jsonDecode(publishedGamesJson));
           allGames.addAll(published);
         }
       } catch (e) {
@@ -74,8 +74,7 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
       }
 
       if (games.isNotEmpty) {
-        games.sort(
-            (a, b) => (a['date'] as DateTime).compareTo(b['date'] as DateTime));
+        games.sort((a, b) => (a['date'] as DateTime).compareTo(b['date'] as DateTime));
         _focusedDay = games.first['date'] as DateTime;
       } else {
         _focusedDay = DateTime.now();
@@ -83,6 +82,30 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
 
       isLoading = false;
     });
+  }
+
+  Future<void> _loadAssociatedTemplate() async {
+    if (scheduleName == null) return;
+    final prefs = await SharedPreferences.getInstance();
+    final String? templateJson = prefs.getString('schedule_template_${scheduleName!.toLowerCase()}');
+    if (templateJson != null) {
+      final templateData = jsonDecode(templateJson) as Map<String, dynamic>;
+      setState(() {
+        associatedTemplateName = templateData['name'] as String?;
+      });
+    }
+  }
+
+  Future<void> _removeAssociatedTemplate() async {
+    if (scheduleName == null) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('schedule_template_${scheduleName!.toLowerCase()}');
+    setState(() {
+      associatedTemplateName = null;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Template association removed')),
+    );
   }
 
   List<Map<String, dynamic>> _getGamesForDay(DateTime day) {
@@ -94,8 +117,7 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
           gameDate.day == day.day;
       if (_showOnlyNeedsOfficials) {
         final hiredOfficials = game['officialsHired'] as int? ?? 0;
-        final requiredOfficials =
-            int.tryParse(game['officialsRequired']?.toString() ?? '0') ?? 0;
+        final requiredOfficials = int.tryParse(game['officialsRequired']?.toString() ?? '0') ?? 0;
         return matchesDay && hiredOfficials < requiredOfficials;
       }
       return matchesDay;
@@ -120,10 +142,31 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                 children: [
                   Padding(
                     padding: const EdgeInsets.all(16.0),
-                    child: Text(
-                      scheduleName ?? 'Unnamed Schedule',
-                      style: const TextStyle(
-                          fontSize: 24, fontWeight: FontWeight.bold),
+                    child: Column(
+                      children: [
+                        Text(
+                          scheduleName ?? 'Unnamed Schedule',
+                          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 8),
+                        // Display the associated template (if any)
+                        if (associatedTemplateName != null) ...[
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Chip(
+                                label: Text('Template: $associatedTemplateName'),
+                                backgroundColor: Colors.grey[200],
+                              ),
+                              const SizedBox(width: 8),
+                              IconButton(
+                                icon: const Icon(Icons.clear, color: Colors.red, size: 20),
+                                onPressed: _removeAssociatedTemplate,
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                   Column(
@@ -167,12 +210,9 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                             shape: BoxShape.rectangle,
                             borderRadius: BorderRadius.circular(4),
                           ),
-                          defaultTextStyle: const TextStyle(
-                              fontSize: 16, color: Colors.black),
-                          weekendTextStyle: const TextStyle(
-                              fontSize: 16, color: Colors.black),
-                          outsideTextStyle:
-                              const TextStyle(fontSize: 16, color: Colors.grey),
+                          defaultTextStyle: const TextStyle(fontSize: 16, color: Colors.black),
+                          weekendTextStyle: const TextStyle(fontSize: 16, color: Colors.black),
+                          outsideTextStyle: const TextStyle(fontSize: 16, color: Colors.grey),
                           markersMaxCount: 0,
                         ),
                         daysOfWeekStyle: DaysOfWeekStyle(
@@ -194,12 +234,9 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                         ),
                         headerStyle: HeaderStyle(
                           formatButtonVisible: false,
-                          titleTextStyle: const TextStyle(
-                              fontSize: 18, fontWeight: FontWeight.bold),
-                          leftChevronIcon: const Icon(Icons.chevron_left,
-                              color: efficialsBlue),
-                          rightChevronIcon: const Icon(Icons.chevron_right,
-                              color: efficialsBlue),
+                          titleTextStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          leftChevronIcon: const Icon(Icons.chevron_left, color: efficialsBlue),
+                          rightChevronIcon: const Icon(Icons.chevron_right, color: efficialsBlue),
                           titleCentered: true,
                         ),
                         calendarBuilders: CalendarBuilders(
@@ -207,16 +244,14 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                             final events = _getGamesForDay(day);
                             final hasEvents = events.isNotEmpty;
                             final isToday = isSameDay(day, DateTime.now());
-                            final isOutsideMonth =
-                                day.month != focusedDay.month;
+                            final isOutsideMonth = day.month != focusedDay.month;
                             final isSelected = _selectedDay != null &&
                                 day.year == _selectedDay!.year &&
                                 day.month == _selectedDay!.month &&
                                 day.day == _selectedDay!.day;
 
                             Color? backgroundColor;
-                            Color textColor =
-                                isOutsideMonth ? Colors.grey : Colors.black;
+                            Color textColor = isOutsideMonth ? Colors.grey : Colors.black;
 
                             if (hasEvents) {
                               bool allAway = true;
@@ -224,22 +259,15 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                               bool needsOfficials = false;
 
                               for (var event in events) {
-                                final isEventAway =
-                                    event['isAway'] as bool? ?? false;
-                                final hiredOfficials =
-                                    event['officialsHired'] as int? ?? 0;
+                                final isEventAway = event['isAway'] as bool? ?? false;
+                                final hiredOfficials = event['officialsHired'] as int? ?? 0;
                                 final requiredOfficials = int.tryParse(
-                                        event['officialsRequired']
-                                                ?.toString() ??
-                                            '0') ??
-                                    0;
-                                final isFullyHired =
-                                    hiredOfficials >= requiredOfficials;
+                                        event['officialsRequired']?.toString() ?? '0') ?? 0;
+                                final isFullyHired = hiredOfficials >= requiredOfficials;
 
                                 if (!isEventAway) allAway = false;
                                 if (!isFullyHired) allFullyHired = false;
-                                if (!isEventAway && !isFullyHired)
-                                  needsOfficials = true;
+                                if (!isEventAway && !isFullyHired) needsOfficials = true;
                               }
 
                               if (allAway) {
@@ -267,11 +295,9 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                                   color: backgroundColor,
                                   borderRadius: BorderRadius.circular(4),
                                   border: isSelected && backgroundColor == null
-                                      ? Border.all(
-                                          color: efficialsBlue, width: 2)
+                                      ? Border.all(color: efficialsBlue, width: 2)
                                       : isToday && backgroundColor == null
-                                          ? Border.all(
-                                              color: efficialsBlue, width: 2)
+                                          ? Border.all(color: efficialsBlue, width: 2)
                                           : null,
                                 ),
                                 child: Center(
@@ -289,8 +315,7 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                         ),
                       ),
                       Padding(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16.0, vertical: 8.0),
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
@@ -343,8 +368,7 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                       ),
                       // Add toggle checkbox below the legend
                       Padding(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16.0, vertical: 8.0),
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
@@ -355,8 +379,7 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                                   _showOnlyNeedsOfficials = value ?? false;
                                   // Update selected day games based on the new filter
                                   if (_selectedDay != null) {
-                                    _selectedDayGames =
-                                        _getGamesForDay(_selectedDay!);
+                                    _selectedDayGames = _getGamesForDay(_selectedDay!);
                                   }
                                 });
                               },
@@ -378,16 +401,11 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                               final gameTime = game['time'] != null
                                   ? (game['time'] as TimeOfDay).format(context)
                                   : 'Not set';
-                              final hiredOfficials =
-                                  game['officialsHired'] as int? ?? 0;
+                              final hiredOfficials = game['officialsHired'] as int? ?? 0;
                               final requiredOfficials = int.tryParse(
-                                      game['officialsRequired']?.toString() ??
-                                          '0') ??
-                                  0;
-                              final location =
-                                  game['location'] as String? ?? 'Not set';
-                              final opponent =
-                                  game['opponent'] as String? ?? 'Not set';
+                                      game['officialsRequired']?.toString() ?? '0') ?? 0;
+                              final location = game['location'] as String? ?? 'Not set';
+                              final opponent = game['opponent'] as String? ?? 'Not set';
 
                               return GestureDetector(
                                 onTap: () {
@@ -396,36 +414,30 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                                     '/game_information',
                                     arguments: game,
                                   ).then((result) {
-                                    if (result == true ||
-                                        (result is Map<String, dynamic> &&
-                                            result.isNotEmpty)) {
+                                    if (result == true || (result is Map<String, dynamic> && result.isNotEmpty)) {
                                       _fetchGames();
                                     }
                                   });
                                 },
                                 child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                      vertical: 4.0, horizontal: 16.0),
+                                  padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 16.0),
                                   child: Card(
                                     elevation: 2,
                                     child: Padding(
                                       padding: const EdgeInsets.all(8.0),
                                       child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
+                                        crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
                                           Text(
                                             'Time: $gameTime',
-                                            style:
-                                                const TextStyle(fontSize: 16),
+                                            style: const TextStyle(fontSize: 16),
                                           ),
                                           const SizedBox(height: 4),
                                           Text(
                                             '$hiredOfficials/$requiredOfficials officials confirmed',
                                             style: TextStyle(
                                               fontSize: 16,
-                                              color: hiredOfficials >=
-                                                      requiredOfficials
+                                              color: hiredOfficials >= requiredOfficials
                                                   ? Colors.green
                                                   : Colors.red,
                                             ),
@@ -433,14 +445,12 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                                           const SizedBox(height: 4),
                                           Text(
                                             'Location: $location',
-                                            style:
-                                                const TextStyle(fontSize: 16),
+                                            style: const TextStyle(fontSize: 16),
                                           ),
                                           const SizedBox(height: 4),
                                           Text(
                                             'Opponent: $opponent',
-                                            style:
-                                                const TextStyle(fontSize: 16),
+                                            style: const TextStyle(fontSize: 16),
                                           ),
                                         ],
                                       ),
@@ -456,25 +466,60 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                 ],
               ),
             ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _selectedDay == null
-            ? null
-            : () {
-                Navigator.pushNamed(
-                  context,
-                  '/date_time',
-                  arguments: {
-                    'scheduleName': scheduleName,
-                    'scheduleId': scheduleId,
-                    'date': _selectedDay,
-                    'fromScheduleDetails': true, // Add origin flag
+      floatingActionButton: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          FloatingActionButton(
+            heroTag: 'setTemplate',
+            onPressed: () {
+              Navigator.pushNamed(
+                context,
+                '/select_game_template',
+                arguments: {'scheduleName': scheduleName},
+              ).then((_) {
+                // Reload the associated template when returning
+                _loadAssociatedTemplate();
+              });
+            },
+            backgroundColor: efficialsBlue,
+            child: const Icon(Icons.link, color: Colors.white),
+            tooltip: 'Set Template',
+          ),
+          const SizedBox(height: 10),
+          FloatingActionButton(
+            heroTag: 'addGame',
+            onPressed: _selectedDay == null
+                ? null
+                : () async {
+                    // Check for an associated template
+                    final prefs = await SharedPreferences.getInstance();
+                    final String? templateJson = prefs.getString('schedule_template_${scheduleName!.toLowerCase()}');
+                    GameTemplate? template;
+                    if (templateJson != null) {
+                      final templateData = jsonDecode(templateJson) as Map<String, dynamic>;
+                      template = GameTemplate.fromJson(templateData);
+                    }
+
+                    // Navigate to the game creation flow with the template (if any)
+                    Navigator.pushNamed(
+                      context,
+                      '/date_time',
+                      arguments: {
+                        'scheduleName': scheduleName,
+                        'scheduleId': scheduleId,
+                        'date': _selectedDay,
+                        'fromScheduleDetails': true,
+                        'template': template, // Pass the associated template
+                      },
+                    ).then((_) {
+                      _fetchGames();
+                    });
                   },
-                ).then((_) {
-                  _fetchGames();
-                });
-              },
-        backgroundColor: _selectedDay == null ? Colors.grey : efficialsBlue,
-        child: const Icon(Icons.add, size: 30, color: Colors.white),
+            backgroundColor: _selectedDay == null ? Colors.grey : efficialsBlue,
+            child: const Icon(Icons.add, size: 30, color: Colors.white),
+            tooltip: 'Add Game',
+          ),
+        ],
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );

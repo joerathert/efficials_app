@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 class GameTemplate {
+  final String id; // Added id field
   final String name; // Made non-nullable with default
   final String? scheduleName;
   final String? sport;
@@ -33,6 +34,7 @@ class GameTemplate {
   final bool includeOfficialsList;
 
   GameTemplate({
+    required this.id, // Added required id parameter
     String? name, // Allow null in constructor, but provide default
     this.scheduleName,
     this.sport,
@@ -68,6 +70,7 @@ class GameTemplate {
   // Convert GameTemplate to Map for serialization
   Map<String, dynamic> toJson() {
     return {
+      'id': id, // Added id to serialization
       'name': name,
       'scheduleName': scheduleName,
       'sport': sport,
@@ -157,6 +160,7 @@ class GameTemplate {
     }
 
     return GameTemplate(
+      id: json['id'] as String? ?? DateTime.now().millisecondsSinceEpoch.toString(), // Fallback if id is missing
       name: json['name'] as String?,
       scheduleName: json['scheduleName'] as String?,
       sport: json['sport'] as String?,
