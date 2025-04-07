@@ -216,20 +216,30 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
       newOfficials = newOfficials.where((official) {
         bool matches = true;
         if (filterSettings!['ihsaRegistered'] &&
-            !(official['ihsaRegistered'] ?? false)) matches = false;
+            !(official['ihsaRegistered'] ?? false)) {
+          matches = false;
+        }
         if (filterSettings!['ihsaRecognized'] &&
-            !(official['ihsaRecognized'] ?? false)) matches = false;
+            !(official['ihsaRecognized'] ?? false)) {
+          matches = false;
+        }
         if (filterSettings!['ihsaCertified'] &&
-            !(official['ihsaCertified'] ?? false)) matches = false;
-        if (filterSettings!['minYears'] > (official['yearsExperience'] ?? 0))
+            !(official['ihsaCertified'] ?? false)) {
           matches = false;
+        }
+        if (filterSettings!['minYears'] > (official['yearsExperience'] ?? 0)) {
+          matches = false;
+        }
         if (filterSettings!['levels'].isNotEmpty &&
-            !filterSettings!['levels'].contains(official['level']))
+            !filterSettings!['levels'].contains(official['level'])) {
           matches = false;
+        }
         if (!isAwayGame &&
             filterSettings!['radius'] != null &&
             filterSettings!['radius'] <
-                (official['distance'] ?? double.infinity)) matches = false;
+                (official['distance'] ?? double.infinity)) {
+          matches = false;
+        }
         if (!(official['sports'] as List).contains(sport)) matches = false;
         return matches;
       }).toList();
@@ -476,9 +486,10 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
                                                         officialId] ??
                                                     false);
                                             if (selectedOfficials[officialId] ==
-                                                false)
+                                                false) {
                                               selectedOfficials
                                                   .remove(officialId);
+                                            }
                                           });
                                         },
                                       ),
@@ -508,9 +519,10 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
           onPressed: () =>
               Navigator.pushNamed(context, '/filter_settings', arguments: args)
                   .then((result) {
-            if (result != null)
+            if (result != null) {
               _loadOfficials().then((_) =>
                   _applyFiltersWithSettings(result as Map<String, dynamic>));
+            }
           }),
           backgroundColor: efficialsBlue,
           shape:

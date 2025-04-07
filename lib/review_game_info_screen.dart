@@ -17,8 +17,8 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
   bool isEditMode = false;
   bool isFromGameInfo = false;
   bool isAwayGame = false;
-  bool fromScheduleDetails = false; // Added flag
-  int? scheduleId; // Added scheduleId
+  bool fromScheduleDetails = false;
+  int? scheduleId;
 
   @override
   void didChangeDependencies() {
@@ -31,8 +31,8 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
       isEditMode = newArgs['isEdit'] == true;
       isFromGameInfo = newArgs['isFromGameInfo'] == true;
       isAwayGame = newArgs['isAway'] == true;
-      fromScheduleDetails = newArgs['fromScheduleDetails'] == true; // Set flag
-      scheduleId = newArgs['scheduleId'] as int?; // Set scheduleId
+      fromScheduleDetails = newArgs['fromScheduleDetails'] == true;
+      scheduleId = newArgs['scheduleId'] as int?;
       if (args['sport'] == null || args['sport'] == 'Unknown Sport') {
         args['sport'] = 'Football';
       }
@@ -109,9 +109,9 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
       ),
     );
 
-    print('PublishGame - shouldCreateTemplate: $shouldCreateTemplate'); // Debug
+    print('PublishGame - shouldCreateTemplate: $shouldCreateTemplate');
     if (shouldCreateTemplate == true) {
-      print('Navigating to /new_game_template'); // Debug
+      print('Navigating to /new_game_template with gameData: $gameData'); // Debug
       Navigator.pushNamed(
         context,
         '/new_game_template',
@@ -124,14 +124,14 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
           );
         }
         print(
-            'Returning from /new_game_template, calling _navigateBack'); // Debug
+            'Returning from /new_game_template, calling _navigateBack');
         _navigateBack();
       });
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Game published successfully!')),
       );
-      print('Calling _navigateBack after publishing'); // Debug
+      print('Calling _navigateBack after publishing');
       _navigateBack();
     }
   }
@@ -180,9 +180,9 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
     );
 
     print(
-        'PublishLater - shouldCreateTemplate: $shouldCreateTemplate'); // Debug
+        'PublishLater - shouldCreateTemplate: $shouldCreateTemplate');
     if (shouldCreateTemplate == true) {
-      print('Navigating to /new_game_template'); // Debug
+      print('Navigating to /new_game_template with gameData: $gameData'); // Debug
       Navigator.pushNamed(
         context,
         '/new_game_template',
@@ -195,24 +195,24 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
           );
         }
         print(
-            'Returning from /new_game_template, calling _navigateBack'); // Debug
+            'Returning from /new_game_template, calling _navigateBack');
         _navigateBack();
       });
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Game saved to Unpublished Games list!')),
       );
-      print('Calling _navigateBack after saving unpublished'); // Debug
+      print('Calling _navigateBack after saving unpublished');
       _navigateBack();
     }
   }
 
   void _navigateBack() {
     print(
-        'Navigating back - fromScheduleDetails: $fromScheduleDetails'); // Debug
+        'Navigating back - fromScheduleDetails: $fromScheduleDetails');
     if (fromScheduleDetails) {
       print(
-          'Returning to Schedule Details with scheduleName: ${args['scheduleName']}, scheduleId: $scheduleId'); // Debug
+          'Returning to Schedule Details with scheduleName: ${args['scheduleName']}, scheduleId: $scheduleId');
       Navigator.pushNamedAndRemoveUntil(
         context,
         '/schedule_details',
@@ -223,7 +223,7 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
         },
       );
     } else {
-      print('Returning to Home'); // Debug
+      print('Returning to Home');
       Navigator.pushNamedAndRemoveUntil(
         context,
         '/home',
@@ -391,9 +391,9 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
                               'isEdit': true,
                               'isFromGameInfo': isFromGameInfo,
                               'fromScheduleDetails':
-                                  fromScheduleDetails, // Pass flag forward
+                                  fromScheduleDetails,
                               'scheduleId':
-                                  scheduleId, // Pass scheduleId forward
+                                  scheduleId,
                             }).then((result) {
                           if (result != null &&
                               result is Map<String, dynamic>) {
@@ -401,9 +401,9 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
                               args = result;
                               fromScheduleDetails =
                                   result['fromScheduleDetails'] ==
-                                      true; // Update flag
+                                      true;
                               scheduleId = result['scheduleId']
-                                  as int?; // Update scheduleId
+                                  as int?;
                               print(
                                   'ReviewGameInfoScreen Edit callback - Updated Args: $args');
                             });

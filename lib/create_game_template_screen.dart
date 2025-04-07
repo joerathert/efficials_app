@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 import 'theme.dart';
 import 'game_template.dart';
 
@@ -11,23 +14,126 @@ class CreateGameTemplateScreen extends StatefulWidget {
 
 class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
   final _nameController = TextEditingController();
-  String? selectedSport;
+  final _gameFeeController = TextEditingController();
+  final _locationController = TextEditingController();
+  String? sport;
   TimeOfDay? selectedTime;
   String? scheduleName;
-  List<String> sports = ['Baseball', 'Basketball', 'Football', 'Soccer', 'Volleyball']; // Example sports
+  String? levelOfCompetition;
+  String? gender;
+  int? officialsRequired;
+  bool hireAutomatically = false;
+  String? selectedListName;
+  String? location;
+  bool isEditing = false;
+  GameTemplate? existingTemplate;
+
+  // Toggle states for including fields in the template
+  bool includeSport = true;
+  bool includeTime = true;
+  bool includeLevelOfCompetition = true;
+  bool includeGender = true;
+  bool includeOfficialsRequired = true;
+  bool includeGameFee = true;
+  bool includeHireAutomatically = true;
+  bool includeOfficialsList = true;
+  bool includeLocation = true;
+
+  // Options for dropdowns
+  final List<String> competitionLevels = [
+    'Grade School', 'Middle School', 'Underclass', 'JV', 'Varsity', 'College', 'Adult'
+  ];
+  final List<String> youthGenders = ['Boys', 'Girls', 'Co-ed'];
+  final List<String> adultGenders = ['Men', 'Women', 'Co-ed'];
+  final List<int> officialsOptions = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+  List<String> currentGenders = ['Boys', 'Girls', 'Co-ed'];
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>?;
-    if (args != null) {
-      scheduleName = args['scheduleName'] as String?;
-    }
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>?;
+      print('CreateGameTemplateScreen - Received arguments: $args');
+      if (args != null) {
+        setState(() {
+          scheduleName = args['scheduleName'] as String?;
+          sport = args['sport'] as String?;
+          existingTemplate = args['template'] as GameTemplate?;
+
+          // Handle locationData map if present (from review_game_info_screen.dart)
+          if (args['locationData'] != null) {
+            final locationData = args['locationData'] as Map<String, dynamic>;
+            // Use only the 'name' field for the location
+            location = locationData['name'] as String? ?? '';
+          } else {
+            location = args['location'] as String?;
+          }
+
+          print('CreateGameTemplateScreen - Existing template: ${existingTemplate?.toJson()}');
+          if (existingTemplate != null) {
+            isEditing = true;
+            _nameController.text = existingTemplate!.name ?? '';
+            sport = existingTemplate!.sport ?? sport;
+            selectedTime = existingTemplate!.time;
+            levelOfCompetition = existingTemplate!.levelOfCompetition;
+            gender = existingTemplate!.gender;
+            officialsRequired = existingTemplate!.officialsRequired;
+            _gameFeeController.text = existingTemplate!.gameFee ?? '';
+            hireAutomatically = existingTemplate!.hireAutomatically ?? false;
+            selectedListName = existingTemplate!.officialsListName;
+            location = existingTemplate!.location ?? location;
+            _locationController.text = location ?? '';
+            includeSport = existingTemplate!.includeSport;
+            includeTime = existingTemplate!.includeTime;
+            includeLevelOfCompetition = existingTemplate!.includeLevelOfCompetition;
+            includeGender = existingTemplate!.includeGender;
+            includeOfficialsRequired = existingTemplate!.includeOfficialsRequired;
+            includeGameFee = existingTemplate!.includeGameFee;
+            includeHireAutomatically = existingTemplate!.includeHireAutomatically;
+            includeOfficialsList = existingTemplate!.includeOfficialsList;
+            includeLocation = existingTemplate!.includeLocation;
+          } else {
+            // If creating a new template, pre-fill fields from gameData
+            _locationController.text = location ?? '';
+            levelOfCompetition = args['levelOfCompetition'] as String?;
+            gender = args['gender'] as String?;
+            officialsRequired = args['officialsRequired'] as int?;
+            _gameFeeController.text = args['gameFee']?.toString() ?? '';
+            hireAutomatically = args['hireAutomatically'] as bool? ?? false;
+            selectedListName = args['selectedListName'] as String?;
+            if (args['time'] != null) {
+              if (args['time'] is TimeOfDay) {
+                selectedTime = args['time'] as TimeOfDay;
+              } else if (args['time'] is String) {
+                final parts = (args['time'] as String).split(':');
+                if (parts.length == 2) {
+                  selectedTime = TimeOfDay(
+                    hour: int.parse(parts[0]),
+                    minute: int.parse(parts[1]),
+                  );
+                }
+              }
+            }
+          }
+
+          print('CreateGameTemplateScreen - Received sport: $sport');
+          print('CreateGameTemplateScreen - Location: $location');
+          print('CreateGameTemplateScreen - Include Location: $includeLocation');
+          if (sport == null) {
+            print('Warning: Sport is null. Check navigation arguments from ScheduleDetailsScreen.');
+            sport = 'Unknown';
+          }
+          _updateCurrentGenders();
+        });
+      }
+    });
   }
 
   @override
   void dispose() {
     _nameController.dispose();
+    _gameFeeController.dispose();
+    _locationController.dispose();
     super.dispose();
   }
 
@@ -43,36 +149,164 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
     }
   }
 
-  void _handleContinue() {
-    final name = _nameController.text.trim();
-    if (name.isEmpty) {
+  void _updateCurrentGenders() {
+    if (levelOfCompetition == null) {
+      currentGenders = youthGenders;
+    } else {
+      currentGenders = (levelOfCompetition == 'College' || levelOfCompetition == 'Adult')
+          ? adultGenders
+          : youthGenders;
+    }
+    if (gender != null && !currentGenders.contains(gender)) {
+      gender = null;
+    }
+  }
+
+  Future<void> _selectOfficialsList() async {
+    final result = await Navigator.pushNamed(
+      context,
+      '/lists_of_officials',
+      arguments: {
+        'sport': sport,
+        'fromGameCreation': true,
+      },
+    );
+    if (result != null && result is Map<String, dynamic>) {
+      setState(() {
+        selectedListName = result['selectedListName'] as String?;
+      });
+    }
+  }
+
+  Future<void> _saveTemplate() async {
+    if (_nameController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter a template name!')),
       );
       return;
     }
-    if (selectedSport == null) {
+    if (includeGameFee && (_gameFeeController.text.isEmpty || !RegExp(r'^\d+(\.\d+)?$').hasMatch(_gameFeeController.text))) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a sport!')),
+        const SnackBar(content: Text('Please enter a valid game fee (e.g., 50 or 50.00)')),
       );
       return;
     }
+    if (includeGameFee) {
+      final fee = double.parse(_gameFeeController.text.trim());
+      if (fee < 1 || fee > 99999) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Game fee must be between 1 and 99,999')),
+        );
+        return;
+      }
+    }
 
-    // Create a new template
     final newTemplate = GameTemplate(
-      id: DateTime.now().millisecondsSinceEpoch.toString(), // Added id
-      name: name,
-      sport: selectedSport,
+      id: isEditing ? existingTemplate!.id : DateTime.now().millisecondsSinceEpoch.toString(),
+      name: _nameController.text.trim(),
+      sport: sport,
       includeSport: true,
-      time: selectedTime, // Pass TimeOfDay directly
+      time: selectedTime,
+      includeTime: includeTime,
+      levelOfCompetition: levelOfCompetition,
+      includeLevelOfCompetition: includeLevelOfCompetition,
+      gender: gender,
+      includeGender: includeGender,
+      officialsRequired: officialsRequired,
+      includeOfficialsRequired: includeOfficialsRequired,
+      gameFee: includeGameFee ? _gameFeeController.text.trim() : null,
+      includeGameFee: includeGameFee,
+      hireAutomatically: hireAutomatically,
+      includeHireAutomatically: includeHireAutomatically,
+      officialsListName: selectedListName,
+      includeOfficialsList: includeOfficialsList,
+      method: selectedListName != null ? 'use_list' : null,
+      location: includeLocation ? _locationController.text.trim() : null,
+      includeLocation: includeLocation,
     );
 
-    // Return the new template to SelectGameTemplateScreen
+    if (!isEditing) {
+      final prefs = await SharedPreferences.getInstance();
+      final String? templatesJson = prefs.getString('game_templates');
+      List<GameTemplate> templates = [];
+      if (templatesJson != null && templatesJson.isNotEmpty) {
+        final List<dynamic> decoded = jsonDecode(templatesJson);
+        templates = decoded.map((json) => GameTemplate.fromJson(json)).toList();
+      }
+      templates.add(newTemplate);
+      await prefs.setString('game_templates', jsonEncode(templates.map((t) => t.toJson()).toList()));
+    }
+
     Navigator.pop(context, newTemplate);
+  }
+
+  Widget _buildFieldRow(String label, String value, Function(bool?)? onChanged, {bool isEditable = true, bool isCheckboxEnabled = true}) {
+    bool checkboxValue;
+    switch (label) {
+      case 'Sport':
+        checkboxValue = includeSport;
+        break;
+      case 'Time':
+        checkboxValue = includeTime;
+        break;
+      case 'Level of Competition':
+        checkboxValue = includeLevelOfCompetition;
+        break;
+      case 'Gender':
+        checkboxValue = includeGender;
+        break;
+      case 'Officials Required':
+        checkboxValue = includeOfficialsRequired;
+        break;
+      case 'Game Fee':
+        checkboxValue = includeGameFee;
+        break;
+      case 'Hire Automatically':
+        checkboxValue = includeHireAutomatically;
+        break;
+      case 'Selected Officials':
+        checkboxValue = includeOfficialsList;
+        break;
+      case 'Location':
+        checkboxValue = includeLocation;
+        break;
+      default:
+        checkboxValue = false;
+    }
+
+    return Row(
+      children: [
+        Checkbox(
+          value: checkboxValue,
+          onChanged: isCheckboxEnabled ? onChanged : null,
+          activeColor: efficialsBlue,
+          checkColor: Colors.white,
+          fillColor: MaterialStateProperty.resolveWith<Color?>((states) {
+            if (!isCheckboxEnabled) {
+              return Colors.grey;
+            }
+            return states.contains(MaterialState.selected) ? efficialsBlue : Colors.grey;
+          }),
+        ),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8.0),
+            child: Text(
+              '$label: $value',
+              style: TextStyle(
+                fontSize: 16,
+                color: isEditable ? Colors.black : Colors.grey,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    print('CreateGameTemplateScreen - Building UI with Location: $location, Include Location: $includeLocation');
     return Scaffold(
       appBar: AppBar(
         backgroundColor: efficialsBlue,
@@ -80,66 +314,234 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
           icon: const Icon(Icons.arrow_back, size: 36, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text('Create Game Template', style: appBarTextStyle),
+        title: Text(isEditing ? 'Edit Game Template' : 'Create Game Template', style: appBarTextStyle),
       ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 600),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text(
-                    'Create a new game template',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black),
-                    textAlign: TextAlign.center,
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: _nameController,
+              decoration: textFieldDecoration('Template Name'),
+              style: const TextStyle(fontSize: 18),
+            ),
+            const SizedBox(height: 20),
+            const Text('Select fields to include in the template:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 10),
+            _buildFieldRow('Sport', sport ?? 'Unknown', (value) {}, isEditable: false, isCheckboxEnabled: false),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Checkbox(
+                  value: includeTime,
+                  onChanged: (value) => setState(() => includeTime = value!),
+                  activeColor: efficialsBlue,
+                ),
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => _selectTime(context),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            selectedTime == null ? 'Time: Select Time' : 'Time: ${selectedTime!.format(context)}',
+                            style: const TextStyle(fontSize: 16),
+                          ),
+                          const Icon(Icons.access_time),
+                        ],
+                      ),
+                    ),
                   ),
-                  const SizedBox(height: 20),
-                  TextField(
-                    controller: _nameController,
-                    decoration: textFieldDecoration('Template Name'),
-                    style: const TextStyle(fontSize: 18),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Checkbox(
+                  value: includeLocation,
+                  onChanged: (value) => setState(() => includeLocation = value!),
+                  activeColor: efficialsBlue,
+                ),
+                Expanded(
+                  child: TextField(
+                    controller: _locationController,
+                    decoration: textFieldDecoration('Location').copyWith(
+                      hintText: 'Enter location (e.g., Stadium A)',
+                    ),
+                    style: const TextStyle(fontSize: 16),
                   ),
-                  const SizedBox(height: 20),
-                  DropdownButtonFormField<String>(
-                    decoration: textFieldDecoration('Sport'),
-                    value: selectedSport,
-                    hint: const Text('Select a sport'),
-                    onChanged: (newValue) {
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Checkbox(
+                  value: includeLevelOfCompetition,
+                  onChanged: (value) => setState(() => includeLevelOfCompetition = value!),
+                  activeColor: efficialsBlue,
+                ),
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    decoration: textFieldDecoration('Level of Competition'),
+                    value: levelOfCompetition,
+                    hint: const Text('Level of Competition', style: TextStyle(fontSize: 16)),
+                    onChanged: (value) {
                       setState(() {
-                        selectedSport = newValue;
+                        levelOfCompetition = value;
+                        _updateCurrentGenders();
                       });
                     },
-                    items: sports.map((sport) {
+                    items: competitionLevels.map((level) {
                       return DropdownMenuItem(
-                        value: sport,
-                        child: Text(sport),
+                        value: level,
+                        child: Text(level, style: const TextStyle(fontSize: 16)),
                       );
                     }).toList(),
+                    style: const TextStyle(fontSize: 16, color: Colors.black),
                   ),
-                  const SizedBox(height: 20),
-                  ListTile(
-                    title: Text(
-                      selectedTime == null
-                          ? 'Select Time (Optional)'
-                          : 'Time: ${selectedTime!.format(context)}',
-                      style: const TextStyle(fontSize: 18),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Checkbox(
+                  value: includeGender,
+                  onChanged: (value) => setState(() => includeGender = value!),
+                  activeColor: efficialsBlue,
+                ),
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    decoration: textFieldDecoration('Gender'),
+                    value: gender,
+                    hint: const Text('Gender', style: TextStyle(fontSize: 16)),
+                    onChanged: (value) => setState(() => gender = value),
+                    items: currentGenders.map((g) {
+                      return DropdownMenuItem(
+                        value: g,
+                        child: Text(g, style: const TextStyle(fontSize: 16)),
+                      );
+                    }).toList(),
+                    style: const TextStyle(fontSize: 16, color: Colors.black),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Checkbox(
+                  value: includeOfficialsRequired,
+                  onChanged: (value) => setState(() => includeOfficialsRequired = value!),
+                  activeColor: efficialsBlue,
+                ),
+                Expanded(
+                  child: DropdownButtonFormField<int>(
+                    decoration: textFieldDecoration('# of Officials Required'),
+                    value: officialsRequired,
+                    hint: const Text('# of Officials Required', style: TextStyle(fontSize: 16)),
+                    onChanged: (value) => setState(() => officialsRequired = value),
+                    items: officialsOptions.map((num) {
+                      return DropdownMenuItem(
+                        value: num,
+                        child: Text(num.toString(), style: const TextStyle(fontSize: 16)),
+                      );
+                    }).toList(),
+                    style: const TextStyle(fontSize: 16, color: Colors.black),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Checkbox(
+                  value: includeGameFee,
+                  onChanged: (value) => setState(() => includeGameFee = value!),
+                  activeColor: efficialsBlue,
+                ),
+                Expanded(
+                  child: TextField(
+                    controller: _gameFeeController,
+                    decoration: textFieldDecoration('Game Fee per Official').copyWith(
+                      prefixText: '\$',
+                      hintText: 'Enter fee (e.g., 50 or 50.00)',
                     ),
-                    trailing: const Icon(Icons.access_time),
-                    onTap: () => _selectTime(context),
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                      LengthLimitingTextInputFormatter(7),
+                    ],
+                    style: const TextStyle(fontSize: 16),
                   ),
-                  const SizedBox(height: 20),
-                  ElevatedButton(
-                    onPressed: _handleContinue,
-                    style: elevatedButtonStyle(),
-                    child: const Text('Continue', style: signInButtonTextStyle),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Checkbox(
+                  value: includeHireAutomatically,
+                  onChanged: (value) => setState(() => includeHireAutomatically = value!),
+                  activeColor: efficialsBlue,
+                ),
+                Expanded(
+                  child: Row(
+                    children: [
+                      const Text('Hire Automatically: ', style: TextStyle(fontSize: 16)),
+                      Switch(
+                        value: hireAutomatically,
+                        onChanged: (value) => setState(() => hireAutomatically = value),
+                        activeColor: efficialsBlue,
+                      ),
+                      Text(hireAutomatically ? 'Yes' : 'No', style: const TextStyle(fontSize: 16)),
+                    ],
                   ),
-                ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Checkbox(
+                  value: includeOfficialsList,
+                  onChanged: (value) => setState(() => includeOfficialsList = value!),
+                  activeColor: efficialsBlue,
+                ),
+                Expanded(
+                  child: GestureDetector(
+                    onTap: _selectOfficialsList,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            selectedListName == null ? 'Selected Officials: List Used' : 'Selected Officials: List Used ($selectedListName)',
+                            style: const TextStyle(fontSize: 16),
+                          ),
+                          const Icon(Icons.list),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            Center(
+              child: ElevatedButton(
+                onPressed: _saveTemplate,
+                style: elevatedButtonStyle(),
+                child: const Text('Save Template', style: signInButtonTextStyle),
               ),
             ),
-          ),
+          ],
         ),
       ),
     );

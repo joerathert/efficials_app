@@ -80,7 +80,7 @@ class _NewGameTemplateScreenState extends State<NewGameTemplateScreen> {
         final cleanedFeeStr = feeStr.replaceAll(r'$', '');
         // Parse to double to validate, then convert back to a clean string
         final feeDouble = double.tryParse(cleanedFeeStr);
-        gameFee = feeDouble != null ? feeDouble.toStringAsFixed(0) : null; // e.g., "100"
+        gameFee = feeDouble?.toStringAsFixed(0); // e.g., "100"
       } else if (widget.gameData['gameFee'] is double) {
         gameFee = (widget.gameData['gameFee'] as double).toStringAsFixed(0); // e.g., "100"
       } else {

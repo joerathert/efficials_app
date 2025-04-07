@@ -158,8 +158,8 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
                         });
                       },
                       style: elevatedButtonStyle().copyWith(
-                        minimumSize: const MaterialStatePropertyAll(Size(300, 60)),
-                        padding: const MaterialStatePropertyAll(EdgeInsets.symmetric(vertical: 10, horizontal: 20)),
+                        minimumSize: const WidgetStatePropertyAll(Size(300, 60)),
+                        padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 10, horizontal: 20)),
                       ),
                       child: const Text(
                         'Location',
@@ -196,8 +196,8 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
                         });
                       },
                       style: elevatedButtonStyle().copyWith(
-                        minimumSize: const MaterialStatePropertyAll(Size(300, 60)),
-                        padding: const MaterialStatePropertyAll(EdgeInsets.symmetric(vertical: 10, horizontal: 20)),
+                        minimumSize: const WidgetStatePropertyAll(Size(300, 60)),
+                        padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 10, horizontal: 20)),
                       ),
                       child: const Text(
                         'Date/Time',
@@ -234,8 +234,8 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
                         });
                       },
                       style: elevatedButtonStyle().copyWith(
-                        minimumSize: const MaterialStatePropertyAll(Size(300, 60)),
-                        padding: const MaterialStatePropertyAll(EdgeInsets.symmetric(vertical: 10, horizontal: 20)),
+                        minimumSize: const WidgetStatePropertyAll(Size(300, 60)),
+                        padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 10, horizontal: 20)),
                       ),
                       child: const Text(
                         'Additional Game Info',
@@ -274,8 +274,8 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
                               });
                             },
                       style: elevatedButtonStyle().copyWith(
-                        minimumSize: const MaterialStatePropertyAll(Size(300, 60)),
-                        padding: const MaterialStatePropertyAll(EdgeInsets.symmetric(vertical: 10, horizontal: 20)),
+                        minimumSize: const WidgetStatePropertyAll(Size(300, 60)),
+                        padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 10, horizontal: 20)),
                       ),
                       child: const Text(
                         'Selection Method',
@@ -292,8 +292,8 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
                           ? null // Disable for away games
                           : () => _handleEditOfficials(args),
                       style: elevatedButtonStyle().copyWith(
-                        minimumSize: const MaterialStatePropertyAll(Size(300, 60)),
-                        padding: const MaterialStatePropertyAll(EdgeInsets.symmetric(vertical: 10, horizontal: 20)),
+                        minimumSize: const WidgetStatePropertyAll(Size(300, 60)),
+                        padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 10, horizontal: 20)),
                       ),
                       child: const Text(
                         'Selected Officials',

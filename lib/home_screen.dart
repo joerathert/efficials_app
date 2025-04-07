@@ -276,7 +276,9 @@ class _HomeScreenState extends State<HomeScreen> {
     var filteredGames = games.where((game) {
       if (!showAwayGames && game.isAway) return false;
       if (!showFullyCoveredGames &&
-          game.officialsHired >= game.officialsRequired) return false;
+          game.officialsHired >= game.officialsRequired) {
+        return false;
+      }
       if (scheduleFilters.containsKey(game.sport) &&
           scheduleFilters[game.sport]!.containsKey(game.scheduleName)) {
         return scheduleFilters[game.sport]![game.scheduleName]!;

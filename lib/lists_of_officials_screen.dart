@@ -123,7 +123,7 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
 
     if (officialsRaw != null) {
       if (officialsRaw is List) {
-        selectedOfficials = (officialsRaw as List<dynamic>)
+        selectedOfficials = (officialsRaw)
             .map((official) => Map<String, dynamic>.from(official as Map))
             .toList();
       } else {

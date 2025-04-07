@@ -33,8 +33,8 @@ import 'schedule_details_screen.dart';
 import 'new_game_template_screen.dart';
 import 'game_templates_screen.dart';
 import 'sport_templates_screen.dart';
-import 'select_game_template_screen.dart'; // Added import for SelectGameTemplateScreen
-import 'create_game_template_screen.dart'; // Added import for CreateGameTemplateScreen
+import 'select_game_template_screen.dart';
+import 'create_game_template_screen.dart';
 
 void main() {
   runApp(const EfficialsApp());
@@ -102,13 +102,11 @@ class EfficialsApp extends StatelessWidget {
         '/select_schedule': (context) => const SelectScheduleScreen(),
         '/schedules': (context) => const SchedulesScreen(),
         '/schedule_details': (context) => const ScheduleDetailsScreen(),
-        '/new_game_template': (context) => NewGameTemplateScreen(
-              gameData: ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>,
-            ),
+        '/new_game_template': (context) => CreateGameTemplateScreen(), // Updated to use CreateGameTemplateScreen
         '/game_templates': (context) => const GameTemplatesScreen(),
         '/sport_templates': (context) => const SportTemplatesScreen(),
-        '/select_game_template': (context) => const SelectGameTemplateScreen(), // Added route
-        '/create_game_template': (context) => const CreateGameTemplateScreen(), // Added route
+        '/select_game_template': (context) => const SelectGameTemplateScreen(),
+        '/create_game_template': (context) => const CreateGameTemplateScreen(),
       },
     );
   }

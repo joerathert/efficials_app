@@ -67,7 +67,7 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
               surface: Colors.grey[200]!,
               onSurface: Colors.black,
             ),
-            dialogTheme: DialogThemeData(backgroundColor: Colors.white),
+            dialogTheme: const DialogThemeData(backgroundColor: Colors.white),
           ),
           child: child!,
         );
@@ -95,7 +95,7 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
               surface: Colors.grey[200]!,
               onSurface: Colors.black,
             ),
-            dialogTheme: DialogThemeData(backgroundColor: Colors.white),
+            dialogTheme: const DialogThemeData(backgroundColor: Colors.white),
           ),
           child: child!,
         );
@@ -110,11 +110,13 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
   }
 
   String _formatDateTime() {
-    if (_selectedDate == null && _selectedTime == null)
+    if (_selectedDate == null && _selectedTime == null) {
       return 'Date and time not set';
+    }
     if (_selectedDate == null) return 'Date not set';
-    if (_selectedTime == null)
+    if (_selectedTime == null) {
       return DateFormat('EEEE, MMMM d, y').format(_selectedDate!);
+    }
     return '${DateFormat('EEEE, MMMM d, y').format(_selectedDate!)} at ${_selectedTime!.format(context)}';
   }
 

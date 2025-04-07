@@ -232,11 +232,11 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                                                   ? 'Fri'
                                                   : 'Sat',
                         ),
-                        headerStyle: HeaderStyle(
+                        headerStyle: const HeaderStyle(
                           formatButtonVisible: false,
-                          titleTextStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                          leftChevronIcon: const Icon(Icons.chevron_left, color: efficialsBlue),
-                          rightChevronIcon: const Icon(Icons.chevron_right, color: efficialsBlue),
+                          titleTextStyle: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          leftChevronIcon: Icon(Icons.chevron_left, color: efficialsBlue),
+                          rightChevronIcon: Icon(Icons.chevron_right, color: efficialsBlue),
                           titleCentered: true,
                         ),
                         calendarBuilders: CalendarBuilders(
@@ -482,8 +482,8 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
               });
             },
             backgroundColor: efficialsBlue,
-            child: const Icon(Icons.link, color: Colors.white),
             tooltip: 'Set Template',
+            child: const Icon(Icons.link, color: Colors.white),
           ),
           const SizedBox(height: 10),
           FloatingActionButton(
@@ -516,8 +516,8 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                     });
                   },
             backgroundColor: _selectedDay == null ? Colors.grey : efficialsBlue,
-            child: const Icon(Icons.add, size: 30, color: Colors.white),
             tooltip: 'Add Game',
+            child: const Icon(Icons.add, size: 30, color: Colors.white),
           ),
         ],
       ),
