@@ -277,62 +277,57 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                   ],
                   const SizedBox(height: 60),
                   ElevatedButton(
-                    onPressed: (selectedLocation != null &&
-                            selectedLocation != '+ Create new location')
-                        ? () {
-                            final selected = locations.firstWhere(
-                                (l) => l['name'] == selectedLocation);
-                            final isAwayGame = selectedLocation == 'Away Game';
-                            final nextArgs = {
-                              ...args,
-                              'locationData': isAwayGame ? null : selected,
-                              'isAwayGame': isAwayGame,
-                              'template': template,
-                              'fromScheduleDetails':
-                                  args['fromScheduleDetails'] ??
-                                      false, // Add flag
-                              'scheduleId':
-                                  args['scheduleId'], // Add scheduleId
-                            };
+  onPressed: (selectedLocation != null &&
+          selectedLocation != '+ Create new location')
+      ? () {
+          final selected = locations.firstWhere(
+              (l) => l['name'] == selectedLocation);
+          final isAwayGame = selectedLocation == 'Away Game';
+          final nextArgs = {
+            ...args,
+            'locationData': isAwayGame ? null : selected,
+            'location': isAwayGame ? 'Away Game' : selected['name'],
+            'isAwayGame': isAwayGame,
+            'template': template,
+            'fromScheduleDetails': args['fromScheduleDetails'] ?? false,
+            'scheduleId': args['scheduleId'],
+          };
 
-                            if (isFromEdit && originalIsAway != isAwayGame) {
-                              if (isAwayGame) {
-                                nextArgs
-                                  ..remove('officialsRequired')
-                                  ..remove('gameFee')
-                                  ..remove('gender')
-                                  ..remove('levelOfCompetition')
-                                  ..remove('hireAutomatically')
-                                  ..remove('selectedOfficials')
-                                  ..remove('method');
-                                Navigator.pushNamed(
-                                  context,
-                                  '/review_game_info',
-                                  arguments: nextArgs,
-                                );
-                              } else {
-                                Navigator.pushNamed(
-                                  context,
-                                  '/additional_game_info',
-                                  arguments: nextArgs,
-                                );
-                              }
-                            } else {
-                              print(
-                                  'Continue - Args: $nextArgs, Edit: $isFromEdit');
-                              Navigator.pushNamed(
-                                context,
-                                isFromEdit
-                                    ? '/review_game_info'
-                                    : '/additional_game_info',
-                                arguments: nextArgs,
-                              );
-                            }
-                          }
-                        : null,
-                    style: elevatedButtonStyle(),
-                    child: const Text('Continue', style: signInButtonTextStyle),
-                  ),
+          if (isFromEdit && originalIsAway != isAwayGame) {
+            if (isAwayGame) {
+              nextArgs
+                ..remove('officialsRequired')
+                ..remove('gameFee')
+                ..remove('gender')
+                ..remove('levelOfCompetition')
+                ..remove('hireAutomatically')
+                ..remove('selectedOfficials')
+                ..remove('method');
+              Navigator.pushNamed(
+                context,
+                '/review_game_info',
+                arguments: nextArgs,
+              );
+            } else {
+              Navigator.pushNamed(
+                context,
+                '/additional_game_info',
+                arguments: nextArgs,
+              );
+            }
+          } else {
+            print('Continue - Args: $nextArgs, Edit: $isFromEdit');
+            Navigator.pushNamed(
+              context,
+              isFromEdit ? '/review_game_info' : '/additional_game_info',
+              arguments: nextArgs,
+            );
+          }
+        }
+      : null,
+  style: elevatedButtonStyle(),
+  child: const Text('Continue', style: signInButtonTextStyle),
+),
                 ],
               ),
             ),

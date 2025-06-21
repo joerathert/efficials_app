@@ -470,21 +470,25 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
           FloatingActionButton(
-            heroTag: 'setTemplate',
-            onPressed: () {
-              Navigator.pushNamed(
-                context,
-                '/select_game_template',
-                arguments: {'scheduleName': scheduleName},
-              ).then((_) {
-                // Reload the associated template when returning
-                _loadAssociatedTemplate();
-              });
-            },
-            backgroundColor: efficialsBlue,
-            tooltip: 'Set Template',
-            child: const Icon(Icons.link, color: Colors.white),
-          ),
+  heroTag: 'setTemplate',
+  onPressed: () {
+    // Determine the sport from the first game, if available
+    final sport = games.isNotEmpty ? games.first['sport'] as String? ?? 'Unknown' : 'Unknown';
+    Navigator.pushNamed(
+      context,
+      '/select_game_template',
+      arguments: {
+        'scheduleName': scheduleName,
+        'sport': sport,
+      },
+    ).then((_) {
+      _loadAssociatedTemplate();
+    });
+  },
+  backgroundColor: efficialsBlue,
+  tooltip: 'Set Template',
+  child: const Icon(Icons.link, color: Colors.white),
+),
           const SizedBox(height: 10),
           FloatingActionButton(
             heroTag: 'addGame',
