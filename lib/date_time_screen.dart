@@ -185,28 +185,22 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
                       onPressed:
                           (_selectedDate != null && _selectedTime != null)
                               ? () {
-                                  final args = ModalRoute.of(context)!
-                                      .settings
-                                      .arguments as Map<String, dynamic>;
+                                  final args =
+                                      ModalRoute.of(context)!.settings.arguments
+                                          as Map<String, dynamic>?;
                                   final nextArgs = {
-                                    ...args,
+                                    'teamName': args?['teamName'],
+                                    'sport': args?['sport'],
+                                    'grade': args?['grade'],
+                                    'gender': args?['gender'],
                                     'date': _selectedDate,
                                     'time': _selectedTime,
-                                    'sport': sport,
                                     'template': template,
-                                    'fromScheduleDetails':
-                                        args['fromScheduleDetails'] ??
-                                            false, // Add flag
-                                    'scheduleId':
-                                        args['scheduleId'], // Add scheduleId
                                   };
-                                  print(
-                                      'Continue - Args: $nextArgs, Edit: $_isFromEdit');
+                                  print('Continue - Args: $nextArgs');
                                   Navigator.pushNamed(
                                     context,
-                                    _isFromEdit
-                                        ? '/review_game_info'
-                                        : '/choose_location',
+                                    '/choose_location',
                                     arguments: nextArgs,
                                   );
                                 }

@@ -215,7 +215,7 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
           padding: EdgeInsets.zero,
           children: [
             Container(
-              height: totalBannerHeight, // Match AppBar height including status bar
+              height: totalBannerHeight,
               decoration: const BoxDecoration(color: efficialsBlue),
               child: Padding(
                 padding: EdgeInsets.only(
@@ -334,11 +334,17 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
                     child: Padding(
                       padding: const EdgeInsets.only(bottom: 16),
                       child: FloatingActionButton.extended(
-                        onPressed: () {
+                        onPressed: () async {
                           setState(() {
                             isFabExpanded = false;
                           });
-                          Navigator.pushNamed(context, '/select_schedule', arguments: {'teamName': teamName});
+                          final prefs = await SharedPreferences.getInstance();
+                          Navigator.pushNamed(context, '/date_time', arguments: {
+                            'teamName': teamName,
+                            'sport': prefs.getString('sport'),
+                            'grade': prefs.getString('grade'),
+                            'gender': prefs.getString('gender'),
+                          });
                         },
                         backgroundColor: Colors.white,
                         label: const Text('Start from Scratch', style: TextStyle(color: efficialsBlue)),

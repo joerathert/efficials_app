@@ -37,8 +37,7 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
         ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
     if (args != null) {
       isFromEdit = args['isEdit'] == true;
-      isFromGameInfo =
-          args['isFromGameInfo'] == true; // Added to match the error context
+      isFromGameInfo = args['isFromGameInfo'] == true; // Added to match the error context
       originalIsAway = args['isAwayGame'] == true;
 
       // Convert args['template'] from Map to GameTemplate if necessary
@@ -63,39 +62,13 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
             'location': template!.location,
             'isAwayGame': isAwayGame,
             'template': template,
-            'fromScheduleDetails':
-                args['fromScheduleDetails'] ?? false, // Add flag
-            'scheduleId': args['scheduleId'], // Add scheduleId
           };
-          if (isFromEdit && originalIsAway != isAwayGame) {
-            if (isAwayGame) {
-              nextArgs
-                ..remove('officialsRequired')
-                ..remove('gameFee')
-                ..remove('gender')
-                ..remove('levelOfCompetition')
-                ..remove('hireAutomatically')
-                ..remove('selectedOfficials')
-                ..remove('method');
-              Navigator.pushReplacementNamed(
-                context,
-                '/review_game_info',
-                arguments: nextArgs,
-              );
-            } else {
-              Navigator.pushReplacementNamed(
-                context,
-                '/additional_game_info',
-                arguments: nextArgs,
-              );
-            }
-          } else {
-            Navigator.pushReplacementNamed(
-              context,
-              isFromEdit ? '/review_game_info' : '/additional_game_info',
-              arguments: nextArgs,
-            );
-          }
+          final isCoach = args['teamName'] != null; // Detect Coach flow
+          Navigator.pushReplacementNamed(
+            context,
+            isCoach ? '/additional_game_info_condensed' : '/additional_game_info',
+            arguments: nextArgs,
+          );
         });
       }
     }
@@ -159,7 +132,6 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
   Widget build(BuildContext context) {
     final args =
         ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
-    final scheduleName = args['scheduleName'] as String? ?? 'Unnamed Schedule';
     final sport = args['sport'] as String? ?? 'Unknown Sport';
     final date = args['date'] as DateTime?;
     final time = args['time'] as TimeOfDay?;
@@ -277,57 +249,36 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                   ],
                   const SizedBox(height: 60),
                   ElevatedButton(
-  onPressed: (selectedLocation != null &&
-          selectedLocation != '+ Create new location')
-      ? () {
-          final selected = locations.firstWhere(
-              (l) => l['name'] == selectedLocation);
-          final isAwayGame = selectedLocation == 'Away Game';
-          final nextArgs = {
-            ...args,
-            'locationData': isAwayGame ? null : selected,
-            'location': isAwayGame ? 'Away Game' : selected['name'],
-            'isAwayGame': isAwayGame,
-            'template': template,
-            'fromScheduleDetails': args['fromScheduleDetails'] ?? false,
-            'scheduleId': args['scheduleId'],
-          };
-
-          if (isFromEdit && originalIsAway != isAwayGame) {
-            if (isAwayGame) {
-              nextArgs
-                ..remove('officialsRequired')
-                ..remove('gameFee')
-                ..remove('gender')
-                ..remove('levelOfCompetition')
-                ..remove('hireAutomatically')
-                ..remove('selectedOfficials')
-                ..remove('method');
-              Navigator.pushNamed(
-                context,
-                '/review_game_info',
-                arguments: nextArgs,
-              );
-            } else {
-              Navigator.pushNamed(
-                context,
-                '/additional_game_info',
-                arguments: nextArgs,
-              );
-            }
-          } else {
-            print('Continue - Args: $nextArgs, Edit: $isFromEdit');
-            Navigator.pushNamed(
-              context,
-              isFromEdit ? '/review_game_info' : '/additional_game_info',
-              arguments: nextArgs,
-            );
-          }
-        }
-      : null,
-  style: elevatedButtonStyle(),
-  child: const Text('Continue', style: signInButtonTextStyle),
-),
+                    onPressed: (selectedLocation != null &&
+                            selectedLocation != '+ Create new location')
+                        ? () {
+                            final selected = locations.firstWhere(
+                                (l) => l['name'] == selectedLocation);
+                            final isAwayGame = selectedLocation == 'Away Game';
+                            final nextArgs = {
+                              'teamName': args['teamName'],
+                              'sport': args['sport'],
+                              'grade': args['grade'],
+                              'gender': args['gender'],
+                              'date': args['date'],
+                              'time': args['time'],
+                              'location': isAwayGame ? 'Away Game' : selected['name'],
+                              'locationData': isAwayGame ? null : selected,
+                              'isAwayGame': isAwayGame,
+                              'template': template,
+                            };
+                            print('Continue - Args: $nextArgs');
+                            final isCoach = args['teamName'] != null; // Detect Coach flow
+                            Navigator.pushNamed(
+                              context,
+                              isCoach ? '/additional_game_info_condensed' : '/additional_game_info',
+                              arguments: nextArgs,
+                            );
+                          }
+                        : null,
+                    style: elevatedButtonStyle(),
+                    child: const Text('Continue', style: signInButtonTextStyle),
+                  ),
                 ],
               ),
             ),
