@@ -4,7 +4,7 @@ import 'role_selection_screen.dart';
 import 'scheduler_signup_step1.dart';
 import 'scheduler_signup_step2.dart';
 import 'add_photo_screen.dart';
-import 'home_screen.dart';
+import 'athletic_director_home_screen.dart';
 import 'lists_of_officials_screen.dart';
 import 'create_new_list_screen.dart';
 import 'name_list_screen.dart';
@@ -35,6 +35,8 @@ import 'game_templates_screen.dart';
 import 'sport_templates_screen.dart';
 import 'select_game_template_screen.dart';
 import 'create_game_template_screen.dart';
+import 'assigner_home_screen.dart';
+import 'coach_home_screen.dart';
 
 void main() {
   runApp(const EfficialsApp());
@@ -96,7 +98,9 @@ class EfficialsApp extends StatelessWidget {
         '/scheduler_signup_step1': (context) => const SchedulerSignUpStep1(),
         '/scheduler_signup_step2': (context) => const SchedulerSignUpStep2(),
         '/add_photo': (context) => const AddPhotoScreen(),
-        '/home': (context) => const HomeScreen(),
+        '/athletic_director_home': (context) => const AthleticDirectorHomeScreen(),
+        '/assigner_home': (context) => const AssignerHomeScreen(),
+        '/coach_home': (context) => const CoachHomeScreen(),
         '/lists_of_officials': (context) => const ListsOfOfficialsScreen(),
         '/create_new_list': (context) => const CreateNewListScreen(),
         '/name_list': (context) => const NameListScreen(),

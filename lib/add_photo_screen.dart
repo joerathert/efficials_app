@@ -51,7 +51,19 @@ class AddPhotoScreen extends StatelessWidget {
                   const SizedBox(height: 20),
                   ElevatedButton(
                     onPressed: () {
-                      Navigator.pushNamed(context, '/home', arguments: args);
+                      final role = args['role'] ?? 'Athletic Director';
+                      String route;
+                      switch (role) {
+                        case 'Assigner':
+                          route = '/assigner_home';
+                          break;
+                        case 'Coach':
+                          route = '/coach_home';
+                          break;
+                        default:
+                          route = '/athletic_director_home';
+                      }
+                      Navigator.pushReplacementNamed(context, route, arguments: args);
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: efficialsBlue,
