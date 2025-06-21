@@ -6,13 +6,13 @@ class AddPhotoScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Object? rawArgs = ModalRoute.of(context)?.settings.arguments;
-    final Map<String, String> args = rawArgs is Map<String, String> ? rawArgs : {};
+    final args = ModalRoute.of(context)!.settings.arguments as Map<String, String>? ?? {};
 
     return Scaffold(
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
-        title: const Text('Add Photo (Optional)'),
+        backgroundColor: efficialsBlue,
+        title: const Text('Add Photo (Optional)', style: appBarTextStyle),
       ),
       body: SafeArea(
         child: Center(
@@ -25,9 +25,9 @@ class AddPhotoScreen extends StatelessWidget {
                 children: [
                   const Icon(
                     Icons.account_circle,
-                    size: 200, // Increased from 100 to 200 for a larger avatar
+                    size: 200,
                     color: Colors.grey,
-                  ), // Centered faceless avatar
+                  ),
                   const SizedBox(height: 40),
                   ElevatedButton(
                     onPressed: () {
@@ -55,8 +55,8 @@ class AddPhotoScreen extends StatelessWidget {
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: efficialsBlue,
-                      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 30), // Smaller size
-                      minimumSize: const Size(150, 40), // Custom smaller minimum size
+                      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 30),
+                      minimumSize: const Size(150, 40),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
