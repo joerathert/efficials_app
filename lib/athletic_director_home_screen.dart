@@ -290,7 +290,7 @@ class _AthleticDirectorHomeScreenState extends State<AthleticDirectorHomeScreen>
     return filteredGames;
   }
 
-  @override
+   @override
   Widget build(BuildContext context) {
     final double statusBarHeight = MediaQuery.of(context).padding.top;
     const double appBarHeight = kToolbarHeight;
@@ -302,7 +302,7 @@ class _AthleticDirectorHomeScreenState extends State<AthleticDirectorHomeScreen>
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
         backgroundColor: efficialsBlue,
-        title: const Text('Athletic Director Home', style: appBarTextStyle),
+        title: const Text('', style: appBarTextStyle), // Removed title
         leading: Builder(
           builder: (context) => IconButton(
             icon: const Icon(Icons.menu, color: Colors.white),
@@ -407,7 +407,7 @@ class _AthleticDirectorHomeScreenState extends State<AthleticDirectorHomeScreen>
           ],
         ),
       ),
-      body: Stack(
+        body: Stack(
         children: [
           SafeArea(
             child: Padding(

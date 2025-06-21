@@ -67,6 +67,7 @@ ButtonStyle elevatedButtonStyle({
 InputDecoration textFieldDecoration(String hintText, {Widget? suffixIcon}) =>
     InputDecoration(
       hintText: hintText,
+      hintStyle: const TextStyle(color: Colors.grey), // Add this
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(5),
         borderSide: const BorderSide(color: efficialsBlue, width: 2),
