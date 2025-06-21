@@ -69,6 +69,25 @@ class EfficialsApp extends StatelessWidget {
           selectionColor: Colors.blueAccent,
           selectionHandleColor: efficialsBlue,
         ),
+        timePickerTheme: TimePickerThemeData(
+          backgroundColor: Colors.white,
+          hourMinuteColor: Colors.grey[200],
+          hourMinuteTextColor: Colors.black,
+          dialBackgroundColor: Colors.grey[300],
+          dialHandColor: efficialsBlue,
+          dialTextColor: Colors.black,
+          entryModeIconColor: efficialsBlue,
+          helpTextStyle: TextStyle(color: efficialsBlue, fontWeight: FontWeight.bold),
+          dayPeriodColor: Colors.grey[200],
+          dayPeriodTextColor: efficialsBlue,
+          dayPeriodBorderSide: BorderSide(color: efficialsBlue),
+          confirmButtonStyle: TextButton.styleFrom(
+            foregroundColor: efficialsBlue,
+          ),
+          cancelButtonStyle: TextButton.styleFrom(
+            foregroundColor: efficialsBlue,
+          ),
+        ),
       ),
       initialRoute: '/welcome',
       routes: {
@@ -102,7 +121,7 @@ class EfficialsApp extends StatelessWidget {
         '/select_schedule': (context) => const SelectScheduleScreen(),
         '/schedules': (context) => const SchedulesScreen(),
         '/schedule_details': (context) => const ScheduleDetailsScreen(),
-        '/new_game_template': (context) => CreateGameTemplateScreen(), // Updated to use CreateGameTemplateScreen
+        '/new_game_template': (context) => CreateGameTemplateScreen(),
         '/game_templates': (context) => const GameTemplatesScreen(),
         '/sport_templates': (context) => const SportTemplatesScreen(),
         '/select_game_template': (context) => const SelectGameTemplateScreen(),

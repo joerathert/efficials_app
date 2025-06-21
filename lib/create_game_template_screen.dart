@@ -15,7 +15,6 @@ class CreateGameTemplateScreen extends StatefulWidget {
 class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
   final _nameController = TextEditingController();
   final _gameFeeController = TextEditingController();
-  final _locationController = TextEditingController();
   String? sport;
   TimeOfDay? selectedTime;
   String? scheduleName;
@@ -24,9 +23,11 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
   int? officialsRequired;
   bool hireAutomatically = false;
   String? selectedListName;
-  String? location;
+  String? location; // Selected location name
   bool isEditing = false;
   GameTemplate? existingTemplate;
+  List<Map<String, dynamic>> locations = []; // List of saved locations
+  bool isLoadingLocations = true; // Track location loading
 
   // Toggle states for including fields in the template
   bool includeSport = true;
@@ -51,6 +52,7 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
   @override
   void initState() {
     super.initState();
+    _fetchLocations(); // Fetch locations at initialization
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>?;
       print('CreateGameTemplateScreen - Received arguments: $args');
@@ -60,10 +62,9 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
           sport = args['sport'] as String?;
           existingTemplate = args['template'] as GameTemplate?;
 
-          // Handle locationData map if present (from review_game_info_screen.dart)
+          // Handle location from args or template
           if (args['locationData'] != null) {
             final locationData = args['locationData'] as Map<String, dynamic>;
-            // Use only the 'name' field for the location
             location = locationData['name'] as String? ?? '';
           } else {
             location = args['location'] as String?;
@@ -82,7 +83,6 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
             hireAutomatically = existingTemplate!.hireAutomatically ?? false;
             selectedListName = existingTemplate!.officialsListName;
             location = existingTemplate!.location ?? location;
-            _locationController.text = location ?? '';
             includeSport = existingTemplate!.includeSport;
             includeTime = existingTemplate!.includeTime;
             includeLevelOfCompetition = existingTemplate!.includeLevelOfCompetition;
@@ -93,8 +93,7 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
             includeOfficialsList = existingTemplate!.includeOfficialsList;
             includeLocation = existingTemplate!.includeLocation;
           } else {
-            // If creating a new template, pre-fill fields from gameData
-            _locationController.text = location ?? '';
+            // Pre-fill fields from gameData
             levelOfCompetition = args['levelOfCompetition'] as String?;
             gender = args['gender'] as String?;
             officialsRequired = args['officialsRequired'] as int?;
@@ -133,8 +132,31 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
   void dispose() {
     _nameController.dispose();
     _gameFeeController.dispose();
-    _locationController.dispose();
     super.dispose();
+  }
+
+  Future<void> _fetchLocations() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String? locationsJson = prefs.getString('saved_locations');
+    setState(() {
+      locations = [];
+      try {
+        if (locationsJson != null && locationsJson.isNotEmpty) {
+          locations.addAll(List<Map<String, dynamic>>.from(jsonDecode(locationsJson)));
+        }
+      } catch (e) {
+        print('Error fetching locations: $e');
+      }
+      locations.add({'name': '+ Create new location', 'id': 0}); // Add create option
+      isLoadingLocations = false;
+      print('CreateGameTemplateScreen - Locations loaded: $locations');
+    });
+  }
+
+  Future<void> _saveLocations() async {
+    final prefs = await SharedPreferences.getInstance();
+    final locationsToSave = locations.where((loc) => loc['id'] != 0).toList();
+    await prefs.setString('saved_locations', jsonEncode(locationsToSave));
   }
 
   Future<void> _selectTime(BuildContext context) async {
@@ -221,7 +243,7 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
       officialsListName: selectedListName,
       includeOfficialsList: includeOfficialsList,
       method: selectedListName != null ? 'use_list' : null,
-      location: includeLocation ? _locationController.text.trim() : null,
+      location: includeLocation ? location : null, // Use dropdown-selected location
       includeLocation: includeLocation,
     );
 
@@ -367,13 +389,49 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                   activeColor: efficialsBlue,
                 ),
                 Expanded(
-                  child: TextField(
-                    controller: _locationController,
-                    decoration: textFieldDecoration('Location').copyWith(
-                      hintText: 'Enter location (e.g., Stadium A)',
-                    ),
-                    style: const TextStyle(fontSize: 16),
-                  ),
+                  child: isLoadingLocations
+                      ? const CircularProgressIndicator()
+                      : DropdownButtonFormField<String>(
+                          decoration: textFieldDecoration('Location'),
+                          value: location != null && locations.any((loc) => loc['name'] == location)
+                              ? location
+                              : null,
+                          hint: locations.isEmpty || locations.length == 1 // Only "+ Create new location"
+                              ? const Text('No locations available', style: TextStyle(color: Colors.grey))
+                              : const Text('Select location', style: TextStyle(color: Colors.grey)),
+                          onChanged: (newValue) {
+                            if (newValue == null) return;
+                            setState(() {
+                              if (newValue == '+ Create new location') {
+                                Navigator.pushNamed(context, '/add_new_location').then((result) {
+                                  if (result != null) {
+                                    final newLoc = result as Map<String, dynamic>;
+                                    setState(() {
+                                      locations.insert(locations.length - 1, {
+                                        'name': newLoc['name'],
+                                        'address': newLoc['address'],
+                                        'city': newLoc['city'],
+                                        'state': newLoc['state'],
+                                        'zip': newLoc['zip'],
+                                        'id': newLoc['id'] ?? DateTime.now().millisecondsSinceEpoch,
+                                      });
+                                      location = newLoc['name'];
+                                      _saveLocations();
+                                    });
+                                  }
+                                });
+                              } else {
+                                location = newValue;
+                              }
+                            });
+                          },
+                          items: locations.map((loc) {
+                            return DropdownMenuItem(
+                              value: loc['name'] as String,
+                              child: Text(loc['name'] as String),
+                            );
+                          }).toList(),
+                        ),
                 ),
               ],
             ),
