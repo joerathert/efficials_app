@@ -19,6 +19,7 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
   bool isAwayGame = false;
   bool fromScheduleDetails = false;
   int? scheduleId;
+  bool? isCoachScheduler;
 
   @override
   void didChangeDependencies() {
@@ -33,9 +34,6 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
       isAwayGame = newArgs['isAway'] == true;
       fromScheduleDetails = newArgs['fromScheduleDetails'] == true;
       scheduleId = newArgs['scheduleId'] as int?;
-      if (args['sport'] == null || args['sport'] == 'Unknown Sport') {
-        args['sport'] = 'Football';
-      }
       if (args['officialsRequired'] != null) {
         args['officialsRequired'] =
             int.tryParse(args['officialsRequired'].toString()) ?? 0;
@@ -44,6 +42,7 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
       print(
           'isEditMode: $isEditMode, isFromGameInfo: $isFromGameInfo, isAwayGame: $isAwayGame, fromScheduleDetails: $fromScheduleDetails');
     });
+    _loadSchedulerType();
   }
 
   @override
@@ -51,6 +50,14 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
     super.initState();
     args = {};
     originalArgs = {};
+  }
+
+  Future<void> _loadSchedulerType() async {
+    final prefs = await SharedPreferences.getInstance();
+    final schedulerType = prefs.getString('schedulerType');
+    setState(() {
+      isCoachScheduler = schedulerType == 'Coach';
+    });
   }
 
   Future<void> _publishGame() async {
@@ -109,9 +116,7 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
       ),
     );
 
-    print('PublishGame - shouldCreateTemplate: $shouldCreateTemplate');
     if (shouldCreateTemplate == true) {
-      print('Navigating to /new_game_template with gameData: $gameData'); // Debug
       Navigator.pushNamed(
         context,
         '/new_game_template',
@@ -123,15 +128,12 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
                 content: Text('Game Template created successfully!')),
           );
         }
-        print(
-            'Returning from /new_game_template, calling _navigateBack');
         _navigateBack();
       });
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Game published successfully!')),
       );
-      print('Calling _navigateBack after publishing');
       _navigateBack();
     }
   }
@@ -179,10 +181,7 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
       ),
     );
 
-    print(
-        'PublishLater - shouldCreateTemplate: $shouldCreateTemplate');
     if (shouldCreateTemplate == true) {
-      print('Navigating to /new_game_template with gameData: $gameData'); // Debug
       Navigator.pushNamed(
         context,
         '/new_game_template',
@@ -194,25 +193,18 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
                 content: Text('Game Template created successfully!')),
           );
         }
-        print(
-            'Returning from /new_game_template, calling _navigateBack');
         _navigateBack();
       });
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Game saved to Unpublished Games list!')),
       );
-      print('Calling _navigateBack after saving unpublished');
       _navigateBack();
     }
   }
 
   void _navigateBack() {
-    print(
-        'Navigating back - fromScheduleDetails: $fromScheduleDetails');
     if (fromScheduleDetails) {
-      print(
-          'Returning to Schedule Details with scheduleName: ${args['scheduleName']}, scheduleId: $scheduleId');
       Navigator.pushNamedAndRemoveUntil(
         context,
         '/schedule_details',
@@ -223,7 +215,6 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
         },
       );
     } else {
-      print('Returning to Home');
       Navigator.pushNamedAndRemoveUntil(
         context,
         '/home',
@@ -310,7 +301,7 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
   Widget build(BuildContext context) {
     final gameDetails = {
       'Sport': args['sport'] as String? ?? 'Unknown',
-      'Schedule Name': args['scheduleName'] as String? ?? 'Unnamed',
+      if (isCoachScheduler != true) 'Schedule Name': args['scheduleName'] as String? ?? 'Unnamed',
       'Date': args['date'] != null
           ? DateFormat('MMMM d, yyyy').format(args['date'] as DateTime)
           : 'Not set',
@@ -390,20 +381,16 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
                               ...args,
                               'isEdit': true,
                               'isFromGameInfo': isFromGameInfo,
-                              'fromScheduleDetails':
-                                  fromScheduleDetails,
-                              'scheduleId':
-                                  scheduleId,
+                              'fromScheduleDetails': fromScheduleDetails,
+                              'scheduleId': scheduleId,
                             }).then((result) {
                           if (result != null &&
                               result is Map<String, dynamic>) {
                             setState(() {
                               args = result;
                               fromScheduleDetails =
-                                  result['fromScheduleDetails'] ==
-                                      true;
-                              scheduleId = result['scheduleId']
-                                  as int?;
+                                  result['fromScheduleDetails'] == true;
+                              scheduleId = result['scheduleId'] as int?;
                               print(
                                   'ReviewGameInfoScreen Edit callback - Updated Args: $args');
                             });
