@@ -82,7 +82,8 @@ class _SportTemplatesScreenState extends State<SportTemplatesScreen> {
             padding: const EdgeInsets.all(16),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.start, // Align to top
-              crossAxisAlignment: CrossAxisAlignment.center, // Center horizontally
+              crossAxisAlignment:
+                  CrossAxisAlignment.center, // Center horizontally
               children: [
                 const SizedBox(height: 20), // Space below AppBar
                 isLoading
@@ -95,7 +96,8 @@ class _SportTemplatesScreenState extends State<SportTemplatesScreen> {
                             ),
                           )
                         : Column(
-                            crossAxisAlignment: CrossAxisAlignment.center, // Center horizontally
+                            crossAxisAlignment: CrossAxisAlignment
+                                .center, // Center horizontally
                             children: [
                               DropdownButtonFormField<String>(
                                 decoration: textFieldDecoration('Templates'),
@@ -162,7 +164,8 @@ class _SportTemplatesScreenState extends State<SportTemplatesScreen> {
                                         ),
                                       if (selectedTemplateDetails
                                               .includeGender &&
-                                          selectedTemplateDetails.gender != null)
+                                          selectedTemplateDetails.gender !=
+                                              null)
                                         _buildDetailRow(
                                           'Gender',
                                           selectedTemplateDetails.gender!,
@@ -239,6 +242,35 @@ class _SportTemplatesScreenState extends State<SportTemplatesScreen> {
                                 style: elevatedButtonStyle(),
                                 child: const Text(
                                   'Create Game',
+                                  style: signInButtonTextStyle,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              ElevatedButton(
+                                onPressed: (selectedTemplate == null ||
+                                        selectedTemplate ==
+                                            '+ Create new template')
+                                    ? null
+                                    : () {
+                                        final selected = templates.firstWhere(
+                                            (t) => t.name == selectedTemplate);
+                                        Navigator.pushNamed(
+                                          context,
+                                          '/create_game_template',
+                                          arguments: {
+                                            'template': selected,
+                                            'sport': sport,
+                                            'isEdit': true,
+                                          },
+                                        ).then((result) {
+                                          if (result != null) {
+                                            _fetchTemplates(); // Refresh templates after editing
+                                          }
+                                        });
+                                      },
+                                style: elevatedButtonStyle(),
+                                child: const Text(
+                                  'Edit Template',
                                   style: signInButtonTextStyle,
                                 ),
                               ),

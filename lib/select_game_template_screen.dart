@@ -8,7 +8,8 @@ class SelectGameTemplateScreen extends StatefulWidget {
   const SelectGameTemplateScreen({super.key});
 
   @override
-  State<SelectGameTemplateScreen> createState() => _SelectGameTemplateScreenState();
+  State<SelectGameTemplateScreen> createState() =>
+      _SelectGameTemplateScreenState();
 }
 
 class _SelectGameTemplateScreenState extends State<SelectGameTemplateScreen> {
@@ -27,10 +28,14 @@ class _SelectGameTemplateScreenState extends State<SelectGameTemplateScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>?;
+    final args =
+        ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>?;
     if (args != null) {
       scheduleName = args['scheduleName'] as String?;
       sport = args['sport'] as String?;
+      if (sport != null) {
+        _fetchTemplates(); // Refresh templates when sport changes
+      }
     }
   }
 
@@ -41,7 +46,14 @@ class _SelectGameTemplateScreenState extends State<SelectGameTemplateScreen> {
       templates.clear();
       if (templatesJson != null && templatesJson.isNotEmpty) {
         final List<dynamic> templatesList = jsonDecode(templatesJson);
-        templates = templatesList.map((json) => GameTemplate.fromJson(json)).toList();
+        templates =
+            templatesList.map((json) => GameTemplate.fromJson(json)).toList();
+        // Filter templates by sport
+        if (sport != null) {
+          templates = templates
+              .where((t) => t.includeSport && t.sport == sport)
+              .toList();
+        }
       }
       templates.add(GameTemplate(
         id: '0',
@@ -66,7 +78,8 @@ class _SelectGameTemplateScreenState extends State<SelectGameTemplateScreen> {
         },
       );
     } else {
-      final selectedTemplate = templates.firstWhere((t) => t.id == selectedTemplateId);
+      final selectedTemplate =
+          templates.firstWhere((t) => t.id == selectedTemplateId);
       await prefs.setString(
         'schedule_template_${scheduleName!.toLowerCase()}',
         jsonEncode(selectedTemplate.toJson()),
@@ -84,6 +97,7 @@ class _SelectGameTemplateScreenState extends State<SelectGameTemplateScreen> {
         'scheduleName': scheduleName,
         'sport': sport,
         'template': template,
+        'isEdit': true,
       },
     );
 
@@ -97,7 +111,10 @@ class _SelectGameTemplateScreenState extends State<SelectGameTemplateScreen> {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(
         'game_templates',
-        jsonEncode(templates.where((t) => t.id != '0').map((t) => t.toJson()).toList()),
+        jsonEncode(templates
+            .where((t) => t.id != '0')
+            .map((t) => t.toJson())
+            .toList()),
       );
     }
   }
@@ -112,23 +129,37 @@ class _SelectGameTemplateScreenState extends State<SelectGameTemplateScreen> {
         ),
         const SizedBox(height: 10),
         if (template.includeSport && template.sport != null)
-          Text('Sport: ${template.sport}', style: const TextStyle(fontSize: 16)),
+          Text('Sport: ${template.sport}',
+              style: const TextStyle(fontSize: 16)),
         if (template.includeTime && template.time != null)
-          Text('Time: ${template.time!.format(context)}', style: const TextStyle(fontSize: 16)),
-        if (template.includeLocation && template.location != null) // New: Display location
-          Text('Location: ${template.location}', style: const TextStyle(fontSize: 16)),
-        if (template.includeLevelOfCompetition && template.levelOfCompetition != null)
-          Text('Level of Competition: ${template.levelOfCompetition}', style: const TextStyle(fontSize: 16)),
+          Text('Time: ${template.time!.format(context)}',
+              style: const TextStyle(fontSize: 16)),
+        if (template.includeLocation && template.location != null)
+          Text('Location: ${template.location}',
+              style: const TextStyle(fontSize: 16)),
+        if (template.includeLevelOfCompetition &&
+            template.levelOfCompetition != null)
+          Text('Level of Competition: ${template.levelOfCompetition}',
+              style: const TextStyle(fontSize: 16)),
         if (template.includeGender && template.gender != null)
-          Text('Gender: ${template.gender}', style: const TextStyle(fontSize: 16)),
-        if (template.includeOfficialsRequired && template.officialsRequired != null)
-          Text('Officials Required: ${template.officialsRequired}', style: const TextStyle(fontSize: 16)),
+          Text('Gender: ${template.gender}',
+              style: const TextStyle(fontSize: 16)),
+        if (template.includeOfficialsRequired &&
+            template.officialsRequired != null)
+          Text('Officials Required: ${template.officialsRequired}',
+              style: const TextStyle(fontSize: 16)),
         if (template.includeGameFee && template.gameFee != null)
-          Text('Game Fee: \$${double.parse(template.gameFee!).toStringAsFixed(2)}', style: const TextStyle(fontSize: 16)),
-        if (template.includeHireAutomatically && template.hireAutomatically != null)
-          Text('Hire Automatically: ${template.hireAutomatically! ? 'Yes' : 'No'}', style: const TextStyle(fontSize: 16)),
+          Text(
+              'Game Fee: \$${double.parse(template.gameFee!).toStringAsFixed(2)}',
+              style: const TextStyle(fontSize: 16)),
+        if (template.includeHireAutomatically &&
+            template.hireAutomatically != null)
+          Text(
+              'Hire Automatically: ${template.hireAutomatically! ? 'Yes' : 'No'}',
+              style: const TextStyle(fontSize: 16)),
         if (template.includeOfficialsList && template.officialsListName != null)
-          Text('Selected Officials: List Used (${template.officialsListName})', style: const TextStyle(fontSize: 16)),
+          Text('Selected Officials: List Used (${template.officialsListName})',
+              style: const TextStyle(fontSize: 16)),
       ],
     );
   }
@@ -137,7 +168,8 @@ class _SelectGameTemplateScreenState extends State<SelectGameTemplateScreen> {
   Widget build(BuildContext context) {
     GameTemplate? selectedTemplate;
     if (selectedTemplateId != null && selectedTemplateId != '0') {
-      selectedTemplate = templates.firstWhere((t) => t.id == selectedTemplateId);
+      selectedTemplate =
+          templates.firstWhere((t) => t.id == selectedTemplateId);
     }
 
     return Scaffold(
@@ -160,7 +192,10 @@ class _SelectGameTemplateScreenState extends State<SelectGameTemplateScreen> {
                 children: [
                   const Text(
                     'Select a template for this schedule.',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black),
+                    style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 20),
@@ -194,7 +229,8 @@ class _SelectGameTemplateScreenState extends State<SelectGameTemplateScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       ElevatedButton(
-                        onPressed: selectedTemplateId != null && selectedTemplateId != '0'
+                        onPressed: selectedTemplateId != null &&
+                                selectedTemplateId != '0'
                             ? () => _editTemplate(selectedTemplate!)
                             : null,
                         style: elevatedButtonStyle(),
@@ -202,9 +238,13 @@ class _SelectGameTemplateScreenState extends State<SelectGameTemplateScreen> {
                       ),
                       const SizedBox(height: 16),
                       ElevatedButton(
-                        onPressed: selectedTemplateId != null && selectedTemplateId != '0' ? _associateTemplate : null,
+                        onPressed: selectedTemplateId != null &&
+                                selectedTemplateId != '0'
+                            ? _associateTemplate
+                            : null,
                         style: elevatedButtonStyle(),
-                        child: const Text('Continue', style: signInButtonTextStyle),
+                        child: const Text('Continue',
+                            style: signInButtonTextStyle),
                       ),
                     ],
                   ),

@@ -9,7 +9,8 @@ class CreateGameTemplateScreen extends StatefulWidget {
   const CreateGameTemplateScreen({super.key});
 
   @override
-  State<CreateGameTemplateScreen> createState() => _CreateGameTemplateScreenState();
+  State<CreateGameTemplateScreen> createState() =>
+      _CreateGameTemplateScreenState();
 }
 
 class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
@@ -42,7 +43,13 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
 
   // Options for dropdowns
   final List<String> competitionLevels = [
-    'Grade School', 'Middle School', 'Underclass', 'JV', 'Varsity', 'College', 'Adult'
+    'Grade School',
+    'Middle School',
+    'Underclass',
+    'JV',
+    'Varsity',
+    'College',
+    'Adult'
   ];
   final List<String> youthGenders = ['Boys', 'Girls', 'Co-ed'];
   final List<String> adultGenders = ['Men', 'Women', 'Co-ed'];
@@ -54,7 +61,8 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
     super.initState();
     _fetchLocations(); // Fetch locations at initialization
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>?;
+      final args =
+          ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>?;
       print('CreateGameTemplateScreen - Received arguments: $args');
       if (args != null) {
         setState(() {
@@ -70,7 +78,8 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
             location = args['location'] as String?;
           }
 
-          print('CreateGameTemplateScreen - Existing template: ${existingTemplate?.toJson()}');
+          print(
+              'CreateGameTemplateScreen - Existing template: ${existingTemplate?.toJson()}');
           if (existingTemplate != null) {
             isEditing = true;
             _nameController.text = existingTemplate!.name ?? '';
@@ -85,11 +94,14 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
             location = existingTemplate!.location ?? location;
             includeSport = existingTemplate!.includeSport;
             includeTime = existingTemplate!.includeTime;
-            includeLevelOfCompetition = existingTemplate!.includeLevelOfCompetition;
+            includeLevelOfCompetition =
+                existingTemplate!.includeLevelOfCompetition;
             includeGender = existingTemplate!.includeGender;
-            includeOfficialsRequired = existingTemplate!.includeOfficialsRequired;
+            includeOfficialsRequired =
+                existingTemplate!.includeOfficialsRequired;
             includeGameFee = existingTemplate!.includeGameFee;
-            includeHireAutomatically = existingTemplate!.includeHireAutomatically;
+            includeHireAutomatically =
+                existingTemplate!.includeHireAutomatically;
             includeOfficialsList = existingTemplate!.includeOfficialsList;
             includeLocation = existingTemplate!.includeLocation;
           } else {
@@ -117,9 +129,11 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
 
           print('CreateGameTemplateScreen - Received sport: $sport');
           print('CreateGameTemplateScreen - Location: $location');
-          print('CreateGameTemplateScreen - Include Location: $includeLocation');
+          print(
+              'CreateGameTemplateScreen - Include Location: $includeLocation');
           if (sport == null) {
-            print('Warning: Sport is null. Check navigation arguments from ScheduleDetailsScreen.');
+            print(
+                'Warning: Sport is null. Check navigation arguments from ScheduleDetailsScreen.');
             sport = 'Unknown';
           }
           _updateCurrentGenders();
@@ -142,12 +156,14 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
       locations = [];
       try {
         if (locationsJson != null && locationsJson.isNotEmpty) {
-          locations.addAll(List<Map<String, dynamic>>.from(jsonDecode(locationsJson)));
+          locations.addAll(
+              List<Map<String, dynamic>>.from(jsonDecode(locationsJson)));
         }
       } catch (e) {
         print('Error fetching locations: $e');
       }
-      locations.add({'name': '+ Create new location', 'id': 0}); // Add create option
+      locations
+          .add({'name': '+ Create new location', 'id': 0}); // Add create option
       isLoadingLocations = false;
       print('CreateGameTemplateScreen - Locations loaded: $locations');
     });
@@ -167,6 +183,7 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
     if (picked != null && picked != selectedTime) {
       setState(() {
         selectedTime = picked;
+        includeTime = true;
       });
     }
   }
@@ -175,9 +192,10 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
     if (levelOfCompetition == null) {
       currentGenders = youthGenders;
     } else {
-      currentGenders = (levelOfCompetition == 'College' || levelOfCompetition == 'Adult')
-          ? adultGenders
-          : youthGenders;
+      currentGenders =
+          (levelOfCompetition == 'College' || levelOfCompetition == 'Adult')
+              ? adultGenders
+              : youthGenders;
     }
     if (gender != null && !currentGenders.contains(gender)) {
       gender = null;
@@ -207,9 +225,12 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
       );
       return;
     }
-    if (includeGameFee && (_gameFeeController.text.isEmpty || !RegExp(r'^\d+(\.\d+)?$').hasMatch(_gameFeeController.text))) {
+    if (includeGameFee &&
+        (_gameFeeController.text.isEmpty ||
+            !RegExp(r'^\d+(\.\d+)?$').hasMatch(_gameFeeController.text))) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a valid game fee (e.g., 50 or 50.00)')),
+        const SnackBar(
+            content: Text('Please enter a valid game fee (e.g., 50 or 50.00)')),
       );
       return;
     }
@@ -217,14 +238,17 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
       final fee = double.parse(_gameFeeController.text.trim());
       if (fee < 1 || fee > 99999) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Game fee must be between 1 and 99,999')),
+          const SnackBar(
+              content: Text('Game fee must be between 1 and 99,999')),
         );
         return;
       }
     }
 
     final newTemplate = GameTemplate(
-      id: isEditing ? existingTemplate!.id : DateTime.now().millisecondsSinceEpoch.toString(),
+      id: isEditing
+          ? existingTemplate!.id
+          : DateTime.now().millisecondsSinceEpoch.toString(),
       name: _nameController.text.trim(),
       sport: sport,
       includeSport: true,
@@ -243,26 +267,38 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
       officialsListName: selectedListName,
       includeOfficialsList: includeOfficialsList,
       method: selectedListName != null ? 'use_list' : null,
-      location: includeLocation ? location : null, // Use dropdown-selected location
+      location:
+          includeLocation ? location : null, // Use dropdown-selected location
       includeLocation: includeLocation,
     );
 
-    if (!isEditing) {
-      final prefs = await SharedPreferences.getInstance();
-      final String? templatesJson = prefs.getString('game_templates');
-      List<GameTemplate> templates = [];
-      if (templatesJson != null && templatesJson.isNotEmpty) {
-        final List<dynamic> decoded = jsonDecode(templatesJson);
-        templates = decoded.map((json) => GameTemplate.fromJson(json)).toList();
-      }
-      templates.add(newTemplate);
-      await prefs.setString('game_templates', jsonEncode(templates.map((t) => t.toJson()).toList()));
+    final prefs = await SharedPreferences.getInstance();
+    final String? templatesJson = prefs.getString('game_templates');
+    List<GameTemplate> templates = [];
+    if (templatesJson != null && templatesJson.isNotEmpty) {
+      final List<dynamic> decoded = jsonDecode(templatesJson);
+      templates = decoded.map((json) => GameTemplate.fromJson(json)).toList();
     }
+    
+    if (isEditing) {
+      // Find and update the existing template
+      final index = templates.indexWhere((t) => t.id == existingTemplate!.id);
+      if (index != -1) {
+        templates[index] = newTemplate;
+      }
+    } else {
+      // Add new template
+      templates.add(newTemplate);
+    }
+    
+    await prefs.setString('game_templates',
+        jsonEncode(templates.map((t) => t.toJson()).toList()));
 
     Navigator.pop(context, newTemplate);
   }
 
-  Widget _buildFieldRow(String label, String value, Function(bool?)? onChanged, {bool isEditable = true, bool isCheckboxEnabled = true}) {
+  Widget _buildFieldRow(String label, String value, Function(bool?)? onChanged,
+      {bool isEditable = true, bool isCheckboxEnabled = true}) {
     bool checkboxValue;
     switch (label) {
       case 'Sport':
@@ -307,7 +343,9 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
             if (!isCheckboxEnabled) {
               return Colors.grey;
             }
-            return states.contains(MaterialState.selected) ? efficialsBlue : Colors.grey;
+            return states.contains(MaterialState.selected)
+                ? efficialsBlue
+                : Colors.grey;
           }),
         ),
         Expanded(
@@ -328,7 +366,8 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
 
   @override
   Widget build(BuildContext context) {
-    print('CreateGameTemplateScreen - Building UI with Location: $location, Include Location: $includeLocation');
+    print(
+        'CreateGameTemplateScreen - Building UI with Location: $location, Include Location: $includeLocation');
     return Scaffold(
       appBar: AppBar(
         backgroundColor: efficialsBlue,
@@ -336,7 +375,8 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
           icon: const Icon(Icons.arrow_back, size: 36, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Text(isEditing ? 'Edit Game Template' : 'Create Game Template', style: appBarTextStyle),
+        title: Text(isEditing ? 'Edit Game Template' : 'Create Game Template',
+            style: appBarTextStyle),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
@@ -349,9 +389,11 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
               style: const TextStyle(fontSize: 18),
             ),
             const SizedBox(height: 20),
-            const Text('Select fields to include in the template:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const Text('Select fields to include in the template:',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             const SizedBox(height: 10),
-            _buildFieldRow('Sport', sport ?? 'Unknown', (value) {}, isEditable: false, isCheckboxEnabled: false),
+            _buildFieldRow('Sport', sport ?? 'Unknown', (value) {},
+                isEditable: false, isCheckboxEnabled: false),
             const SizedBox(height: 10),
             Row(
               children: [
@@ -369,7 +411,9 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            selectedTime == null ? 'Time: Select Time' : 'Time: ${selectedTime!.format(context)}',
+                            selectedTime == null
+                                ? 'Time: Select Time'
+                                : 'Time: ${selectedTime!.format(context)}',
                             style: const TextStyle(fontSize: 16),
                           ),
                           const Icon(Icons.access_time),
@@ -385,7 +429,8 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
               children: [
                 Checkbox(
                   value: includeLocation,
-                  onChanged: (value) => setState(() => includeLocation = value!),
+                  onChanged: (value) =>
+                      setState(() => includeLocation = value!),
                   activeColor: efficialsBlue,
                 ),
                 Expanded(
@@ -393,19 +438,28 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                       ? const CircularProgressIndicator()
                       : DropdownButtonFormField<String>(
                           decoration: textFieldDecoration('Location'),
-                          value: location != null && locations.any((loc) => loc['name'] == location)
+                          value: location != null &&
+                                  locations
+                                      .any((loc) => loc['name'] == location)
                               ? location
                               : null,
-                          hint: locations.isEmpty || locations.length == 1 // Only "+ Create new location"
-                              ? const Text('No locations available', style: TextStyle(color: Colors.grey))
-                              : const Text('Select location', style: TextStyle(color: Colors.grey)),
+                          hint: locations.isEmpty ||
+                                  locations.length ==
+                                      1 // Only "+ Create new location"
+                              ? const Text('No locations available',
+                                  style: TextStyle(color: Colors.grey))
+                              : const Text('Select location',
+                                  style: TextStyle(color: Colors.grey)),
                           onChanged: (newValue) {
                             if (newValue == null) return;
                             setState(() {
                               if (newValue == '+ Create new location') {
-                                Navigator.pushNamed(context, '/add_new_location').then((result) {
+                                Navigator.pushNamed(
+                                        context, '/add_new_location')
+                                    .then((result) {
                                   if (result != null) {
-                                    final newLoc = result as Map<String, dynamic>;
+                                    final newLoc =
+                                        result as Map<String, dynamic>;
                                     setState(() {
                                       locations.insert(locations.length - 1, {
                                         'name': newLoc['name'],
@@ -413,7 +467,9 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                                         'city': newLoc['city'],
                                         'state': newLoc['state'],
                                         'zip': newLoc['zip'],
-                                        'id': newLoc['id'] ?? DateTime.now().millisecondsSinceEpoch,
+                                        'id': newLoc['id'] ??
+                                            DateTime.now()
+                                                .millisecondsSinceEpoch,
                                       });
                                       location = newLoc['name'];
                                       _saveLocations();
@@ -440,14 +496,16 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
               children: [
                 Checkbox(
                   value: includeLevelOfCompetition,
-                  onChanged: (value) => setState(() => includeLevelOfCompetition = value!),
+                  onChanged: (value) =>
+                      setState(() => includeLevelOfCompetition = value!),
                   activeColor: efficialsBlue,
                 ),
                 Expanded(
                   child: DropdownButtonFormField<String>(
                     decoration: textFieldDecoration('Level of Competition'),
                     value: levelOfCompetition,
-                    hint: const Text('Level of Competition', style: TextStyle(fontSize: 16)),
+                    hint: const Text('Level of Competition',
+                        style: TextStyle(fontSize: 16)),
                     onChanged: (value) {
                       setState(() {
                         levelOfCompetition = value;
@@ -457,7 +515,8 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                     items: competitionLevels.map((level) {
                       return DropdownMenuItem(
                         value: level,
-                        child: Text(level, style: const TextStyle(fontSize: 16)),
+                        child:
+                            Text(level, style: const TextStyle(fontSize: 16)),
                       );
                     }).toList(),
                     style: const TextStyle(fontSize: 16, color: Colors.black),
@@ -495,19 +554,23 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
               children: [
                 Checkbox(
                   value: includeOfficialsRequired,
-                  onChanged: (value) => setState(() => includeOfficialsRequired = value!),
+                  onChanged: (value) =>
+                      setState(() => includeOfficialsRequired = value!),
                   activeColor: efficialsBlue,
                 ),
                 Expanded(
                   child: DropdownButtonFormField<int>(
                     decoration: textFieldDecoration('# of Officials Required'),
                     value: officialsRequired,
-                    hint: const Text('# of Officials Required', style: TextStyle(fontSize: 16)),
-                    onChanged: (value) => setState(() => officialsRequired = value),
+                    hint: const Text('# of Officials Required',
+                        style: TextStyle(fontSize: 16)),
+                    onChanged: (value) =>
+                        setState(() => officialsRequired = value),
                     items: officialsOptions.map((num) {
                       return DropdownMenuItem(
                         value: num,
-                        child: Text(num.toString(), style: const TextStyle(fontSize: 16)),
+                        child: Text(num.toString(),
+                            style: const TextStyle(fontSize: 16)),
                       );
                     }).toList(),
                     style: const TextStyle(fontSize: 16, color: Colors.black),
@@ -526,7 +589,8 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                 Expanded(
                   child: TextField(
                     controller: _gameFeeController,
-                    decoration: textFieldDecoration('Game Fee per Official').copyWith(
+                    decoration:
+                        textFieldDecoration('Game Fee per Official').copyWith(
                       prefixText: '\$',
                       hintText: 'Enter fee (e.g., 50 or 50.00)',
                     ),
@@ -545,19 +609,23 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
               children: [
                 Checkbox(
                   value: includeHireAutomatically,
-                  onChanged: (value) => setState(() => includeHireAutomatically = value!),
+                  onChanged: (value) =>
+                      setState(() => includeHireAutomatically = value!),
                   activeColor: efficialsBlue,
                 ),
                 Expanded(
                   child: Row(
                     children: [
-                      const Text('Hire Automatically: ', style: TextStyle(fontSize: 16)),
+                      const Text('Hire Automatically: ',
+                          style: TextStyle(fontSize: 16)),
                       Switch(
                         value: hireAutomatically,
-                        onChanged: (value) => setState(() => hireAutomatically = value),
+                        onChanged: (value) =>
+                            setState(() => hireAutomatically = value),
                         activeColor: efficialsBlue,
                       ),
-                      Text(hireAutomatically ? 'Yes' : 'No', style: const TextStyle(fontSize: 16)),
+                      Text(hireAutomatically ? 'Yes' : 'No',
+                          style: const TextStyle(fontSize: 16)),
                     ],
                   ),
                 ),
@@ -568,7 +636,8 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
               children: [
                 Checkbox(
                   value: includeOfficialsList,
-                  onChanged: (value) => setState(() => includeOfficialsList = value!),
+                  onChanged: (value) =>
+                      setState(() => includeOfficialsList = value!),
                   activeColor: efficialsBlue,
                 ),
                 Expanded(
@@ -580,7 +649,9 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            selectedListName == null ? 'Selected Officials: List Used' : 'Selected Officials: List Used ($selectedListName)',
+                            selectedListName == null
+                                ? 'Selected Officials: List Used'
+                                : 'Selected Officials: List Used ($selectedListName)',
                             style: const TextStyle(fontSize: 16),
                           ),
                           const Icon(Icons.list),
@@ -596,7 +667,8 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
               child: ElevatedButton(
                 onPressed: _saveTemplate,
                 style: elevatedButtonStyle(),
-                child: const Text('Save Template', style: signInButtonTextStyle),
+                child:
+                    const Text('Save Template', style: signInButtonTextStyle),
               ),
             ),
           ],

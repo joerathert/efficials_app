@@ -316,12 +316,38 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
     await prefs.setString('published_games', jsonEncode(publishedGames));
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Game updated on Home screen!')),
+      const SnackBar(content: Text('Game updated successfully!')),
     );
+
     if (isFromGameInfo) {
+      final schedulerType = prefs.getString('schedulerType');
+      print('Current scheduler type: $schedulerType');
+
+      String homeRoute;
+      switch (schedulerType?.toLowerCase()) {
+        case 'athletic director':
+        case 'athleticdirector':
+        case 'ad':
+          print('Routing to Athletic Director home');
+          homeRoute = '/athletic_director_home';
+          break;
+        case 'coach':
+          print('Routing to Coach home');
+          homeRoute = '/coach_home';
+          break;
+        case 'assigner':
+          print('Routing to Assigner home');
+          homeRoute = '/assigner_home';
+          break;
+        default:
+          print(
+              'No matching scheduler type found, defaulting to welcome screen');
+          homeRoute = '/welcome';
+      }
+
       Navigator.pushNamedAndRemoveUntil(
         context,
-        '/home',
+        homeRoute,
         (route) => false,
         arguments: {'refresh': true, 'gameData': gameData},
       );

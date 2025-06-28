@@ -16,6 +16,7 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
   String? sport;
   String? scheduleName;
   bool _isFromEdit = false;
+  bool _isFromGameInfo = false;
   bool _isInitialized = false;
   GameTemplate? template; // Store the selected template
 
@@ -29,6 +30,7 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
         _selectedDate = args['date'] as DateTime?;
         _selectedTime = args['time'] as TimeOfDay?;
         _isFromEdit = args['isEdit'] == true;
+        _isFromGameInfo = args['isFromGameInfo'] == true;
         sport = args['sport'] as String?;
         scheduleName = args['scheduleName'] as String?;
 
@@ -190,22 +192,34 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
                                   final args = ModalRoute.of(context)!
                                       .settings
                                       .arguments as Map<String, dynamic>?;
-                                  final nextArgs = {
-                                    'teamName': args?['teamName'],
-                                    'sport': args?['sport'],
-                                    'grade': args?['grade'],
-                                    'gender': args?['gender'],
+                                  final updatedArgs = {
+                                    ...?args,
                                     'date': _selectedDate,
                                     'time': _selectedTime,
                                     'template': template,
                                     'scheduleName': scheduleName,
                                   };
-                                  print('Continue - Args: $nextArgs');
-                                  Navigator.pushNamed(
-                                    context,
-                                    '/choose_location',
-                                    arguments: nextArgs,
-                                  );
+                                  print('Continue - Args: $updatedArgs');
+
+                                  if (_isFromEdit) {
+                                    // If we're editing, return to review_game_info
+                                    Navigator.pushReplacementNamed(
+                                      context,
+                                      '/review_game_info',
+                                      arguments: {
+                                        ...updatedArgs,
+                                        'isEdit': true,
+                                        'isFromGameInfo': _isFromGameInfo,
+                                      },
+                                    );
+                                  } else {
+                                    // If we're creating a new game, continue to choose_location
+                                    Navigator.pushNamed(
+                                      context,
+                                      '/choose_location',
+                                      arguments: updatedArgs,
+                                    );
+                                  }
                                 }
                               : null,
                       style: elevatedButtonStyle(),
