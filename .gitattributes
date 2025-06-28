@@ -8,3 +8,6 @@
 *.h text eol=lf
 *.cmake text eol=lf
 *.swift text eol=lf
+# Exclude Claude and metadata files from line ending normalization
+.claude/* -text
+.metadata -text
