@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'theme.dart';
 
 class AddPhotoScreen extends StatelessWidget {
@@ -6,7 +7,9 @@ class AddPhotoScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final args = ModalRoute.of(context)!.settings.arguments as Map<String, String>? ?? {};
+    final args =
+        ModalRoute.of(context)!.settings.arguments as Map<String, String>? ??
+            {};
 
     return Scaffold(
       backgroundColor: Colors.grey[100],
@@ -32,7 +35,8 @@ class AddPhotoScreen extends StatelessWidget {
                   ElevatedButton(
                     onPressed: () {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Gallery not implemented yet')),
+                        const SnackBar(
+                            content: Text('Gallery not implemented yet')),
                       );
                     },
                     style: elevatedButtonStyle(),
@@ -42,7 +46,8 @@ class AddPhotoScreen extends StatelessWidget {
                   ElevatedButton(
                     onPressed: () {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Camera not implemented yet')),
+                        const SnackBar(
+                            content: Text('Camera not implemented yet')),
                       );
                     },
                     style: elevatedButtonStyle(),
@@ -50,8 +55,13 @@ class AddPhotoScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 20),
                   ElevatedButton(
-                    onPressed: () {
+                    onPressed: () async {
                       final role = args['role'] ?? 'Athletic Director';
+
+                      // Save the scheduler type to SharedPreferences
+                      final prefs = await SharedPreferences.getInstance();
+                      await prefs.setString('schedulerType', role);
+
                       String route;
                       switch (role) {
                         case 'Assigner':
@@ -63,17 +73,20 @@ class AddPhotoScreen extends StatelessWidget {
                         default:
                           route = '/athletic_director_home';
                       }
-                      Navigator.pushReplacementNamed(context, route, arguments: args);
+                      Navigator.pushReplacementNamed(context, route,
+                          arguments: args);
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: efficialsBlue,
-                      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 30),
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 10, horizontal: 30),
                       minimumSize: const Size(150, 40),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
                     ),
-                    child: const Text('Skip for Now', style: signInButtonTextStyle),
+                    child: const Text('Skip for Now',
+                        style: signInButtonTextStyle),
                   ),
                 ],
               ),

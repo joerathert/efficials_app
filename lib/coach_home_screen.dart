@@ -7,7 +7,7 @@ import 'utils.dart'; // For getSportIcon
 
 class Game {
   final int id;
-  final String scheduleName;
+  final String? scheduleName;
   final DateTime? date;
   final TimeOfDay? time;
   final String sport;
@@ -20,7 +20,7 @@ class Game {
 
   Game({
     required this.id,
-    required this.scheduleName,
+    this.scheduleName,
     this.date,
     this.time,
     required this.sport,
@@ -37,18 +37,21 @@ class Game {
     if (json['time'] != null) {
       if (json['time'] is String) {
         final parts = (json['time'] as String).split(':');
-        time = TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+        time =
+            TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
       } else if (json['time'] is TimeOfDay) {
         time = json['time'] as TimeOfDay;
       }
     }
     return Game(
       id: json['id'] as int,
-      scheduleName: json['scheduleName'] as String,
-      date: json['date'] != null ? DateTime.parse(json['date'] as String) : null,
+      scheduleName: json['scheduleName'] as String?,
+      date:
+          json['date'] != null ? DateTime.parse(json['date'] as String) : null,
       time: time,
       sport: json['sport'] as String? ?? 'Unknown Sport',
-      officialsRequired: int.parse(json['officialsRequired']?.toString() ?? '0'),
+      officialsRequired:
+          int.parse(json['officialsRequired']?.toString() ?? '0'),
       officialsHired: json['officialsHired'] as int? ?? 0,
       isAway: json['isAway'] as bool? ?? false,
       selectedOfficials: json['selectedOfficials'] != null
@@ -124,7 +127,9 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
           games = allGames
               .map(Game.fromJson)
               .where((game) =>
-                  game.opponent == teamName || game.scheduleName.contains(teamName!))
+                  game.opponent == teamName ||
+                  (game.scheduleName != null &&
+                      game.scheduleName!.contains(teamName!)))
               .toList();
           games.sort((a, b) {
             if (a.date == null && b.date == null) return 0;
@@ -133,12 +138,12 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
             DateTime aDateTime = a.date!;
             DateTime bDateTime = b.date!;
             if (a.time != null) {
-              aDateTime = DateTime(
-                  aDateTime.year, aDateTime.month, aDateTime.day, a.time!.hour, a.time!.minute);
+              aDateTime = DateTime(aDateTime.year, aDateTime.month,
+                  aDateTime.day, a.time!.hour, a.time!.minute);
             }
             if (b.time != null) {
-              bDateTime = DateTime(
-                  bDateTime.year, bDateTime.month, bDateTime.day, b.time!.hour, b.time!.minute);
+              bDateTime = DateTime(bDateTime.year, bDateTime.month,
+                  bDateTime.day, b.time!.hour, b.time!.minute);
             }
             return aDateTime.compareTo(bDateTime);
           });
@@ -160,7 +165,8 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
       try {
         final List<Map<String, dynamic>> games =
             List<Map<String, dynamic>>.from(jsonDecode(gamesJson));
-        final game = games.firstWhere((g) => g['id'] == gameId, orElse: () => {});
+        final game =
+            games.firstWhere((g) => g['id'] == gameId, orElse: () => {});
         if (game.isNotEmpty) {
           if (game['date'] != null) {
             game['date'] = DateTime.parse(game['date'] as String);
@@ -173,7 +179,8 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
             );
           }
           if (game['selectedOfficials'] != null) {
-            game['selectedOfficials'] = (game['selectedOfficials'] as List<dynamic>)
+            game['selectedOfficials'] = (game['selectedOfficials']
+                    as List<dynamic>)
                 .map((official) => Map<String, dynamic>.from(official as Map))
                 .toList();
           }
@@ -226,7 +233,10 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
                 ),
                 child: const Text(
                   'Menu',
-                  style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold),
                 ),
               ),
             ),
@@ -320,7 +330,8 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
                           Navigator.pushNamed(context, '/game_templates');
                         },
                         backgroundColor: Colors.blue[300],
-                        label: const Text('Use Game Template', style: TextStyle(color: Colors.white)),
+                        label: const Text('Use Game Template',
+                            style: TextStyle(color: Colors.white)),
                         icon: const Icon(Icons.copy, color: Colors.white),
                       ),
                     ),
@@ -339,15 +350,17 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
                             isFabExpanded = false;
                           });
                           final prefs = await SharedPreferences.getInstance();
-                          Navigator.pushNamed(context, '/date_time', arguments: {
-                            'teamName': teamName,
-                            'sport': prefs.getString('sport'),
-                            'grade': prefs.getString('grade'),
-                            'gender': prefs.getString('gender'),
-                          });
+                          Navigator.pushNamed(context, '/date_time',
+                              arguments: {
+                                'teamName': teamName,
+                                'sport': prefs.getString('sport'),
+                                'grade': prefs.getString('grade'),
+                                'gender': prefs.getString('gender'),
+                              });
                         },
                         backgroundColor: Colors.white,
-                        label: const Text('Start from Scratch', style: TextStyle(color: efficialsBlue)),
+                        label: const Text('Start from Scratch',
+                            style: TextStyle(color: efficialsBlue)),
                         icon: const Icon(Icons.add, color: efficialsBlue),
                       ),
                     ),
@@ -360,7 +373,8 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
                     });
                   },
                   backgroundColor: efficialsBlue,
-                  child: Icon(isFabExpanded ? Icons.close : Icons.add, size: 30, color: Colors.white),
+                  child: Icon(isFabExpanded ? Icons.close : Icons.add,
+                      size: 30, color: Colors.white),
                 ),
               ],
             ),
@@ -371,8 +385,10 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
   }
 
   Widget _buildGameTile(Game game) {
-    final gameTitle = game.scheduleName;
-    final gameDate = game.date != null ? DateFormat('EEEE, MMM d, yyyy').format(game.date!) : 'Not set';
+    final gameTitle = game.scheduleName ?? 'Not set';
+    final gameDate = game.date != null
+        ? DateFormat('EEEE, MMM d, yyyy').format(game.date!)
+        : 'Not set';
     final gameTime = game.time != null ? game.time!.format(context) : 'Not set';
     final requiredOfficials = game.officialsRequired;
     final hiredOfficials = game.officialsHired;
@@ -389,7 +405,8 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
           print('Error: Could not fetch game with ID $gameId');
           return;
         }
-        Navigator.pushNamed(context, '/game_information', arguments: latestGame).then((result) async {
+        Navigator.pushNamed(context, '/game_information', arguments: latestGame)
+            .then((result) async {
           if (result == true) {
             await _loadGames();
           } else if (result != null && result is Map<String, dynamic>) {
@@ -412,11 +429,13 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
                           ? '${(result['time'] as TimeOfDay).hour}:${(result['time'] as TimeOfDay).minute}'
                           : null,
                 };
-                await prefs.setString('published_games', jsonEncode(updatedGames));
+                await prefs.setString(
+                    'published_games', jsonEncode(updatedGames));
                 await _loadGames();
               }
             }
-          } else if (result != null && (result as Map<String, dynamic>)['refresh'] == true) {
+          } else if (result != null &&
+              (result as Map<String, dynamic>)['refresh'] == true) {
             await _loadGames();
           }
         });
@@ -432,28 +451,38 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
                 children: [
                   Text(
                     gameDate,
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black),
+                    style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black),
                   ),
                   const SizedBox(height: 4),
                   Row(
                     children: [
                       Text('$gameTime - $gameTitle',
-                          style: const TextStyle(fontSize: 16, color: Colors.black)),
+                          style: const TextStyle(
+                              fontSize: 16, color: Colors.black)),
                       const SizedBox(width: 8),
-                      Icon(sportIcon, color: efficialsBlue, size: 24),
+                      Icon(sportIcon,
+                          color: getSportIconColor(sport), size: 24),
                     ],
                   ),
                   const SizedBox(height: 4),
                   Row(
                     children: [
                       if (isAway)
-                        const Text('Away game', style: TextStyle(fontSize: 14, color: Colors.grey))
+                        const Text('Away game',
+                            style: TextStyle(fontSize: 14, color: Colors.grey))
                       else ...[
                         Text('$hiredOfficials/$requiredOfficials Official(s)',
-                            style: TextStyle(fontSize: 14, color: isFullyHired ? Colors.green : Colors.red)),
+                            style: TextStyle(
+                                fontSize: 14,
+                                color:
+                                    isFullyHired ? Colors.green : Colors.red)),
                         if (!isFullyHired) ...[
                           const SizedBox(width: 8),
-                          const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 16),
+                          const Icon(Icons.warning_amber_rounded,
+                              color: Colors.red, size: 16),
                         ],
                       ],
                     ],

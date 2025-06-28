@@ -14,6 +14,7 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
   DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
   String? sport;
+  String? scheduleName;
   bool _isFromEdit = false;
   bool _isInitialized = false;
   GameTemplate? template; // Store the selected template
@@ -29,6 +30,7 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
         _selectedTime = args['time'] as TimeOfDay?;
         _isFromEdit = args['isEdit'] == true;
         sport = args['sport'] as String?;
+        scheduleName = args['scheduleName'] as String?;
 
         // Convert args['template'] from Map to GameTemplate if necessary
         template = args['template'] != null
@@ -45,7 +47,7 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
           _selectedTime = template!.time;
         }
         print(
-            'didChangeDependencies - Initial Args: $args, Date: $_selectedDate, Time: $_selectedTime, Edit: $_isFromEdit, Sport: $sport, Template: $template');
+            'didChangeDependencies - Initial Args: $args, Date: $_selectedDate, Time: $_selectedTime, Edit: $_isFromEdit, Sport: $sport, Template: $template, ScheduleName: $scheduleName');
       }
       _isInitialized = true;
     }
@@ -185,9 +187,9 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
                       onPressed:
                           (_selectedDate != null && _selectedTime != null)
                               ? () {
-                                  final args =
-                                      ModalRoute.of(context)!.settings.arguments
-                                          as Map<String, dynamic>?;
+                                  final args = ModalRoute.of(context)!
+                                      .settings
+                                      .arguments as Map<String, dynamic>?;
                                   final nextArgs = {
                                     'teamName': args?['teamName'],
                                     'sport': args?['sport'],
@@ -196,6 +198,7 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
                                     'date': _selectedDate,
                                     'time': _selectedTime,
                                     'template': template,
+                                    'scheduleName': scheduleName,
                                   };
                                   print('Continue - Args: $nextArgs');
                                   Navigator.pushNamed(

@@ -6,13 +6,16 @@ import 'game_template.dart'; // Import the GameTemplate model
 class AdditionalGameInfoCondensedScreen extends StatefulWidget {
   final Map<String, dynamic>? args;
 
-  const AdditionalGameInfoCondensedScreen({Key? key, this.args}) : super(key: key);
+  const AdditionalGameInfoCondensedScreen({Key? key, this.args})
+      : super(key: key);
 
   @override
-  _AdditionalGameInfoCondensedScreenState createState() => _AdditionalGameInfoCondensedScreenState();
+  _AdditionalGameInfoCondensedScreenState createState() =>
+      _AdditionalGameInfoCondensedScreenState();
 }
 
-class _AdditionalGameInfoCondensedScreenState extends State<AdditionalGameInfoCondensedScreen> {
+class _AdditionalGameInfoCondensedScreenState
+    extends State<AdditionalGameInfoCondensedScreen> {
   int? _officialsRequired;
   final TextEditingController _gameFeeController = TextEditingController();
   final TextEditingController _opponentController = TextEditingController();
@@ -45,7 +48,8 @@ class _AdditionalGameInfoCondensedScreenState extends State<AdditionalGameInfoCo
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (!_isInitialized) {
-      final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+      final args =
+          ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
       if (args != null) {
         _isFromEdit = args['isEdit'] == true;
         _isAwayGame = args['isAwayGame'] == true;
@@ -53,13 +57,18 @@ class _AdditionalGameInfoCondensedScreenState extends State<AdditionalGameInfoCo
 
         // Pre-fill fields from the template if available, otherwise use args or Coach data
         if (template != null) {
-          _officialsRequired = template!.includeOfficialsRequired && template!.officialsRequired != null
+          _officialsRequired = template!.includeOfficialsRequired &&
+                  template!.officialsRequired != null
               ? template!.officialsRequired
-              : (args['officialsRequired'] != null ? int.tryParse(args['officialsRequired'].toString()) : null);
-          _gameFeeController.text = template!.includeGameFee && template!.gameFee != null
-              ? template!.gameFee!
-              : (args['gameFee']?.toString() ?? '');
-          _hireAutomatically = template!.includeHireAutomatically && template!.hireAutomatically != null
+              : (args['officialsRequired'] != null
+                  ? int.tryParse(args['officialsRequired'].toString())
+                  : null);
+          _gameFeeController.text =
+              template!.includeGameFee && template!.gameFee != null
+                  ? template!.gameFee!
+                  : (args['gameFee']?.toString() ?? '');
+          _hireAutomatically = template!.includeHireAutomatically &&
+                  template!.hireAutomatically != null
               ? template!.hireAutomatically!
               : (args['hireAutomatically'] as bool? ?? false);
         } else {
@@ -86,36 +95,45 @@ class _AdditionalGameInfoCondensedScreenState extends State<AdditionalGameInfoCo
       final feeText = _gameFeeController.text.trim();
       if (feeText.isEmpty || !RegExp(r'^\d+(\.\d+)?$').hasMatch(feeText)) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please enter a valid game fee (e.g., 50 or 50.00)')),
+          const SnackBar(
+              content:
+                  Text('Please enter a valid game fee (e.g., 50 or 50.00)')),
         );
         return;
       }
       final fee = double.parse(feeText);
       if (fee < 1 || fee > 99999) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Game fee must be between 1 and 99,999')),
+          const SnackBar(
+              content: Text('Game fee must be between 1 and 99,999')),
         );
         return;
       }
     }
 
-    final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+    final args =
+        ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
     final updatedArgs = {
       ...args,
       'id': args['id'] ?? DateTime.now().millisecondsSinceEpoch,
-      'levelOfCompetition': args['grade'], // Pre-filled from SelectTeamScreen
-      'gender': args['gender'], // Pre-filled from SelectTeamScreen
+      'levelOfCompetition': _isAwayGame ? null : args['grade'],
+      'gender': _isAwayGame ? null : args['gender'],
       'officialsRequired': _isAwayGame ? 0 : _officialsRequired,
       'gameFee': _isAwayGame ? '0' : _gameFeeController.text.trim(),
       'opponent': _opponentController.text.trim(),
       'hireAutomatically': _isAwayGame ? false : _hireAutomatically,
       'isAway': _isAwayGame,
       'officialsHired': args['officialsHired'] ?? 0,
-      'selectedOfficials': args['selectedOfficials'] ?? <Map<String, dynamic>>[],
+      'selectedOfficials':
+          args['selectedOfficials'] ?? <Map<String, dynamic>>[],
       'template': template,
+      'fromScheduleDetails': args['fromScheduleDetails'] ?? false,
+      'scheduleId': args['scheduleId'],
+      'scheduleName': args['scheduleName'],
     };
 
-    print('AdditionalGameInfoCondensedScreen _handleContinue - Navigating to: ${_isAwayGame ? '/review_game_info' : '/select_officials'}');
+    print(
+        'AdditionalGameInfoCondensedScreen _handleContinue - Navigating to: ${_isAwayGame ? '/review_game_info' : '/select_officials'}');
     Navigator.pushNamed(
       context,
       _isAwayGame ? '/review_game_info' : '/select_officials',
@@ -152,25 +170,30 @@ class _AdditionalGameInfoCondensedScreenState extends State<AdditionalGameInfoCo
                   if (!_isAwayGame) ...[
                     const SizedBox(height: 20),
                     DropdownButtonFormField<int>(
-                      decoration: textFieldDecoration('Required number of officials'),
+                      decoration:
+                          textFieldDecoration('Required number of officials'),
                       value: _officialsRequired,
                       hint: const Text('Required number of officials'),
-                      onChanged: (value) => setState(() => _officialsRequired = value),
+                      onChanged: (value) =>
+                          setState(() => _officialsRequired = value),
                       items: _officialsOptions
-                          .map((num) => DropdownMenuItem(value: num, child: Text(num.toString())))
+                          .map((num) => DropdownMenuItem(
+                              value: num, child: Text(num.toString())))
                           .toList(),
                     ),
                     const SizedBox(height: 20),
                     TextField(
                       controller: _gameFeeController,
-                      decoration: textFieldDecoration('Game Fee per Official').copyWith(
+                      decoration:
+                          textFieldDecoration('Game Fee per Official').copyWith(
                         prefixText: '\$',
                         hintText: 'Enter fee (e.g., 50 or 50.00)',
                       ),
                       keyboardType: TextInputType.number,
                       inputFormatters: [
                         FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-                        LengthLimitingTextInputFormatter(7), // Allow for "99999.99"
+                        LengthLimitingTextInputFormatter(
+                            7), // Allow for "99999.99"
                       ],
                     ),
                     const SizedBox(height: 20),
@@ -187,12 +210,14 @@ class _AdditionalGameInfoCondensedScreenState extends State<AdditionalGameInfoCo
                       children: [
                         Checkbox(
                           value: _hireAutomatically,
-                          onChanged: (value) => setState(() => _hireAutomatically = value ?? false),
+                          onChanged: (value) => setState(
+                              () => _hireAutomatically = value ?? false),
                           activeColor: efficialsBlue,
                         ),
                         const Text('Hire Automatically'),
                         IconButton(
-                          icon: const Icon(Icons.help_outline, color: efficialsBlue),
+                          icon: const Icon(Icons.help_outline,
+                              color: efficialsBlue),
                           onPressed: _showHireInfoDialog,
                         ),
                       ],
@@ -202,7 +227,8 @@ class _AdditionalGameInfoCondensedScreenState extends State<AdditionalGameInfoCo
                     child: ElevatedButton(
                       onPressed: _handleContinue,
                       style: elevatedButtonStyle(),
-                      child: const Text('Continue', style: signInButtonTextStyle),
+                      child:
+                          const Text('Continue', style: signInButtonTextStyle),
                     ),
                   ),
                 ],

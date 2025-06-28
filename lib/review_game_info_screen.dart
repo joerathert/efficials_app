@@ -20,6 +20,7 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
   bool fromScheduleDetails = false;
   int? scheduleId;
   bool? isCoachScheduler;
+  String? teamName;
 
   @override
   void didChangeDependencies() {
@@ -55,8 +56,17 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
   Future<void> _loadSchedulerType() async {
     final prefs = await SharedPreferences.getInstance();
     final schedulerType = prefs.getString('schedulerType');
+    final savedTeamName = prefs.getString('team_name');
     setState(() {
       isCoachScheduler = schedulerType == 'Coach';
+      teamName = savedTeamName;
+
+      // If this is a Coach user and no schedule name is set yet, set it to team name
+      if (isCoachScheduler == true &&
+          args['scheduleName'] == null &&
+          teamName != null) {
+        args['scheduleName'] = teamName;
+      }
     });
   }
 
@@ -78,6 +88,20 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
     gameData['createdAt'] = DateTime.now().toIso8601String();
     gameData['officialsHired'] = gameData['officialsHired'] ?? 0;
     gameData['status'] = 'Published';
+
+    // Ensure schedule name is set
+    if (gameData['scheduleName'] == null) {
+      if (isCoachScheduler == true) {
+        gameData['scheduleName'] = teamName ?? 'Team Schedule';
+      } else {
+        // For Athletic Director, require a schedule name
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Please set a schedule name before publishing.')),
+        );
+        return;
+      }
+    }
 
     if (gameData['date'] != null) {
       gameData['date'] = (gameData['date'] as DateTime).toIso8601String();
@@ -144,6 +168,20 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
     gameData['createdAt'] = DateTime.now().toIso8601String();
     gameData['status'] = 'Unpublished';
 
+    // Ensure schedule name is set
+    if (gameData['scheduleName'] == null) {
+      if (isCoachScheduler == true) {
+        gameData['scheduleName'] = teamName ?? 'Team Schedule';
+      } else {
+        // For Athletic Director, require a schedule name
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Please set a schedule name before saving.')),
+        );
+        return;
+      }
+    }
+
     if (gameData['date'] != null) {
       gameData['date'] = (gameData['date'] as DateTime).toIso8601String();
     }
@@ -203,7 +241,7 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
     }
   }
 
-  void _navigateBack() {
+  void _navigateBack() async {
     if (fromScheduleDetails) {
       Navigator.pushNamedAndRemoveUntil(
         context,
@@ -215,9 +253,35 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
         },
       );
     } else {
+      final prefs = await SharedPreferences.getInstance();
+      final schedulerType = prefs.getString('schedulerType');
+      print('Current scheduler type: $schedulerType');
+
+      String homeRoute;
+      switch (schedulerType?.toLowerCase()) {
+        case 'athletic director':
+        case 'athleticdirector':
+        case 'ad':
+          print('Routing to Athletic Director home');
+          homeRoute = '/athletic_director_home';
+          break;
+        case 'coach':
+          print('Routing to Coach home');
+          homeRoute = '/coach_home';
+          break;
+        case 'assigner':
+          print('Routing to Assigner home');
+          homeRoute = '/assigner_home';
+          break;
+        default:
+          print(
+              'No matching scheduler type found, defaulting to welcome screen');
+          homeRoute = '/welcome';
+      }
+
       Navigator.pushNamedAndRemoveUntil(
         context,
-        '/home',
+        homeRoute,
         (route) => false,
       );
     }
@@ -301,7 +365,9 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
   Widget build(BuildContext context) {
     final gameDetails = {
       'Sport': args['sport'] as String? ?? 'Unknown',
-      if (isCoachScheduler != true) 'Schedule Name': args['scheduleName'] as String? ?? 'Unnamed',
+      // For Coach users, don't show schedule name in UI but still store it
+      if (isCoachScheduler != true)
+        'Schedule Name': args['scheduleName'] as String? ?? 'Unnamed',
       'Date': args['date'] != null
           ? DateFormat('MMMM d, yyyy').format(args['date'] as DateTime)
           : 'Not set',

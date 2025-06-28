@@ -37,7 +37,8 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
         ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
     if (args != null) {
       isFromEdit = args['isEdit'] == true;
-      isFromGameInfo = args['isFromGameInfo'] == true; // Added to match the error context
+      isFromGameInfo =
+          args['isFromGameInfo'] == true; // Added to match the error context
       originalIsAway = args['isAwayGame'] == true;
 
       // Convert args['template'] from Map to GameTemplate if necessary
@@ -66,7 +67,9 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
           final isCoach = args['teamName'] != null; // Detect Coach flow
           Navigator.pushReplacementNamed(
             context,
-            isCoach ? '/additional_game_info_condensed' : '/additional_game_info',
+            isCoach
+                ? '/additional_game_info_condensed'
+                : '/additional_game_info',
             arguments: nextArgs,
           );
         });
@@ -262,16 +265,21 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                               'gender': args['gender'],
                               'date': args['date'],
                               'time': args['time'],
-                              'location': isAwayGame ? 'Away Game' : selected['name'],
+                              'location':
+                                  isAwayGame ? 'Away Game' : selected['name'],
                               'locationData': isAwayGame ? null : selected,
                               'isAwayGame': isAwayGame,
                               'template': template,
+                              'scheduleName': args['scheduleName'],
                             };
                             print('Continue - Args: $nextArgs');
-                            final isCoach = args['teamName'] != null; // Detect Coach flow
+                            final isCoach =
+                                args['teamName'] != null; // Detect Coach flow
                             Navigator.pushNamed(
                               context,
-                              isCoach ? '/additional_game_info_condensed' : '/additional_game_info',
+                              isCoach
+                                  ? '/additional_game_info_condensed'
+                                  : '/additional_game_info',
                               arguments: nextArgs,
                             );
                           }

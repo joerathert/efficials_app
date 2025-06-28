@@ -34,7 +34,8 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen> {
       }
       // Extract unique sports from templates, excluding null values
       sports = templates
-          .where((t) => t.includeSport && t.sport != null) // Ensure sport is not null
+          .where((t) =>
+              t.includeSport && t.sport != null) // Ensure sport is not null
           .map((t) => t.sport!) // Use ! since we filtered out nulls
           .toSet()
           .toList();
@@ -89,7 +90,7 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen> {
                             Icon(
                               getSportIcon(sport),
                               size: 48,
-                              color: efficialsBlue,
+                              color: getSportIconColor(sport),
                             ),
                             const SizedBox(height: 8),
                             Text(
