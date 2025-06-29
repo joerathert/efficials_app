@@ -593,6 +593,7 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                     decoration:
                         textFieldDecoration('Game Fee per Official').copyWith(
                       prefixText: '\$',
+                      prefixStyle: const TextStyle(color: Colors.black, fontSize: 16),
                       hintText: 'Enter fee (e.g., 50 or 50.00)',
                     ),
                     keyboardType: TextInputType.number,
@@ -649,11 +650,14 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
-                            selectedListName == null
-                                ? 'Selected Officials: List Used'
-                                : 'Selected Officials: List Used ($selectedListName)',
-                            style: const TextStyle(fontSize: 16),
+                          Expanded(
+                            child: Text(
+                              selectedListName == null
+                                  ? 'Selected Officials: List Used'
+                                  : 'Selected Officials: List Used ($selectedListName)',
+                              style: const TextStyle(fontSize: 16),
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
                           const Icon(Icons.list),
                         ],

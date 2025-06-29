@@ -124,6 +124,36 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
     }).toList();
   }
 
+  Future<void> _createTemplateFromGame(Map<String, dynamic> game) async {
+    // Navigate to the create game template screen with the game data pre-filled
+    final result = await Navigator.pushNamed(
+      context,
+      '/create_game_template',
+      arguments: {
+        'scheduleName': scheduleName,
+        'sport': game['sport'] as String? ?? 'Unknown',
+        'time': game['time'], // TimeOfDay object
+        'location': game['location'] as String?,
+        'locationData': game['locationData'], // Location details if available
+        'levelOfCompetition': game['levelOfCompetition'] as String?,
+        'gender': game['gender'] as String?,
+        'officialsRequired': game['officialsRequired'] is String 
+            ? int.tryParse(game['officialsRequired'] as String) 
+            : game['officialsRequired'] as int?,
+        'gameFee': game['gameFee']?.toString(),
+        'hireAutomatically': game['hireAutomatically'] as bool? ?? false,
+        'selectedListName': game['selectedListName'] as String?,
+        'isAway': game['isAway'] as bool? ?? false,
+      },
+    );
+
+    if (result != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Game template created successfully!')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -425,32 +455,43 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                                     elevation: 2,
                                     child: Padding(
                                       padding: const EdgeInsets.all(8.0),
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                      child: Row(
                                         children: [
-                                          Text(
-                                            'Time: $gameTime',
-                                            style: const TextStyle(fontSize: 16),
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            '$hiredOfficials/$requiredOfficials officials confirmed',
-                                            style: TextStyle(
-                                              fontSize: 16,
-                                              color: hiredOfficials >= requiredOfficials
-                                                  ? Colors.green
-                                                  : Colors.red,
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  'Time: $gameTime',
+                                                  style: const TextStyle(fontSize: 16),
+                                                ),
+                                                const SizedBox(height: 4),
+                                                Text(
+                                                  '$hiredOfficials/$requiredOfficials officials confirmed',
+                                                  style: TextStyle(
+                                                    fontSize: 16,
+                                                    color: hiredOfficials >= requiredOfficials
+                                                        ? Colors.green
+                                                        : Colors.red,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 4),
+                                                Text(
+                                                  'Location: $location',
+                                                  style: const TextStyle(fontSize: 16),
+                                                ),
+                                                const SizedBox(height: 4),
+                                                Text(
+                                                  'Opponent: $opponent',
+                                                  style: const TextStyle(fontSize: 16),
+                                                ),
+                                              ],
                                             ),
                                           ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            'Location: $location',
-                                            style: const TextStyle(fontSize: 16),
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            'Opponent: $opponent',
-                                            style: const TextStyle(fontSize: 16),
+                                          IconButton(
+                                            onPressed: () => _createTemplateFromGame(game),
+                                            icon: const Icon(Icons.link, color: efficialsBlue),
+                                            tooltip: 'Create Template from Game',
                                           ),
                                         ],
                                       ),
