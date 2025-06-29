@@ -50,12 +50,17 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
 
       if (isFromEdit && selectedLocation == null) {
         selectedLocation = args['location'] as String?;
+        // If no location in args but template has location, use template location
+        if (selectedLocation == null && template != null && template!.includeLocation && template!.location != null) {
+          selectedLocation = template!.location;
+        }
       }
 
-      // If the template includes a location, use it and skip this screen
+      // If the template includes a location, use it and skip this screen (but not when editing)
       if (template != null &&
           template!.includeLocation &&
-          template!.location != null) {
+          template!.location != null &&
+          !isFromEdit) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           final isAwayGame = template!.location == 'Away Game';
           final nextArgs = {

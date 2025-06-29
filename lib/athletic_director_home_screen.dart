@@ -608,6 +608,10 @@ class _AthleticDirectorHomeScreenState
     final sport = game.sport;
     final sportIcon = getSportIcon(sport);
     final isAway = game.isAway;
+    final opponent = game.opponent;
+    final opponentDisplay = opponent != null 
+        ? (isAway ? '@ $opponent' : 'vs $opponent')
+        : null;
 
     return GestureDetector(
       onTap: () async {
@@ -695,10 +699,22 @@ class _AthleticDirectorHomeScreenState
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '$gameTime - $gameTitle',
+                    opponentDisplay != null 
+                        ? '$gameTime $opponentDisplay'
+                        : '$gameTime - $gameTitle',
                     style: const TextStyle(
                         fontSize: 16, color: Colors.black),
                   ),
+                  if (opponentDisplay != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      gameTitle,
+                      style: TextStyle(
+                          fontSize: 14, 
+                          color: Colors.grey[700],
+                          fontWeight: FontWeight.w500),
+                    ),
+                  ],
                   const SizedBox(height: 8),
                   Row(
                     children: [
