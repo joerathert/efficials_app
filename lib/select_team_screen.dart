@@ -45,15 +45,18 @@ class _SelectTeamScreenState extends State<SelectTeamScreen> {
     });
   }
 
-  void _onContinue() {
+  void _onContinue() async {
     if (_teamNameController.text.isNotEmpty &&
         _selectedSport != null &&
         _selectedGrade != null &&
         _selectedGender != null) {
-      final prefs = SharedPreferences.getInstance();
-      prefs.then((prefs) {
-        prefs.setBool('team_setup_completed', true); // Mark team setup as done
-      });
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('team_setup_completed', true);
+      await prefs.setString('team_name', _teamNameController.text);
+      await prefs.setString('sport', _selectedSport!);
+      await prefs.setString('grade', _selectedGrade!);
+      await prefs.setString('gender', _selectedGender!);
+      
       Navigator.pushReplacementNamed(
         context,
         '/coach_home',
@@ -66,7 +69,7 @@ class _SelectTeamScreenState extends State<SelectTeamScreen> {
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Please complete all fields')),
+        const SnackBar(content: Text('Please complete all fields')),
       );
     }
   }

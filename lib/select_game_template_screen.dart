@@ -18,6 +18,7 @@ class _SelectGameTemplateScreenState extends State<SelectGameTemplateScreen> {
   bool isLoading = true;
   String? scheduleName;
   String? sport;
+  bool isAssignerFlow = false;
 
   @override
   void initState() {
@@ -33,6 +34,7 @@ class _SelectGameTemplateScreenState extends State<SelectGameTemplateScreen> {
     if (args != null) {
       scheduleName = args['scheduleName'] as String?;
       sport = args['sport'] as String?;
+      isAssignerFlow = args['isAssignerFlow'] as bool? ?? false;
       if (sport != null) {
         _fetchTemplates(); // Refresh templates when sport changes
       }
@@ -80,8 +82,17 @@ class _SelectGameTemplateScreenState extends State<SelectGameTemplateScreen> {
     } else {
       final selectedTemplate =
           templates.firstWhere((t) => t.id == selectedTemplateId);
+      
+      // Use different key for assigner flow
+      String templateKey;
+      if (isAssignerFlow) {
+        templateKey = 'assigner_team_template_${scheduleName!.toLowerCase().replaceAll(' ', '_')}';
+      } else {
+        templateKey = 'schedule_template_${scheduleName!.toLowerCase()}';
+      }
+      
       await prefs.setString(
-        'schedule_template_${scheduleName!.toLowerCase()}',
+        templateKey,
         jsonEncode(selectedTemplate.toJson()),
       );
       Navigator.pop(context);

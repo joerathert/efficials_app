@@ -65,10 +65,10 @@ class AddPhotoScreen extends StatelessWidget {
                       String route;
                       switch (role) {
                         case 'Assigner':
-                          route = '/assigner_home';
+                          route = '/assigner_sport_selection';
                           break;
                         case 'Coach':
-                          route = '/coach_home';
+                          route = '/select_team';
                           break;
                         default:
                           route = '/athletic_director_home';

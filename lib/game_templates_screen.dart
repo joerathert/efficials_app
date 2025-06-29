@@ -16,6 +16,8 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen> {
   List<GameTemplate> templates = [];
   bool isLoading = true;
   List<String> sports = [];
+  String? schedulerType;
+  String? userSport;
 
   @override
   void initState() {
@@ -26,6 +28,15 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen> {
   Future<void> _fetchTemplates() async {
     final prefs = await SharedPreferences.getInstance();
     final String? templatesJson = prefs.getString('game_templates');
+    
+    // Load scheduler information
+    schedulerType = prefs.getString('schedulerType');
+    if (schedulerType == 'Assigner') {
+      userSport = prefs.getString('assigner_sport');
+    } else if (schedulerType == 'Coach') {
+      userSport = prefs.getString('sport');
+    }
+    
     setState(() {
       templates.clear();
       if (templatesJson != null && templatesJson.isNotEmpty) {
@@ -33,12 +44,24 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen> {
         templates = decoded.map((json) => GameTemplate.fromJson(json)).toList();
       }
       // Extract unique sports from templates, excluding null values
-      sports = templates
+      Set<String> allSports = templates
           .where((t) =>
               t.includeSport && t.sport != null) // Ensure sport is not null
           .map((t) => t.sport!) // Use ! since we filtered out nulls
-          .toSet()
-          .toList();
+          .toSet();
+      
+      // Filter sports based on scheduler type
+      if (schedulerType == 'Assigner' && userSport != null) {
+        // Assigners only see their assigned sport
+        sports = allSports.where((sport) => sport == userSport).toList();
+      } else if (schedulerType == 'Coach' && userSport != null) {
+        // Coaches only see their team's sport
+        sports = allSports.where((sport) => sport == userSport).toList();
+      } else {
+        // Athletic Directors see all sports
+        sports = allSports.toList();
+      }
+      
       sports.sort(); // Sort alphabetically for consistency
       isLoading = false;
     });

@@ -259,18 +259,12 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                                 (l) => l['name'] == selectedLocation);
                             final isAwayGame = selectedLocation == 'Away Game';
                             final nextArgs = {
-                              'teamName': args['teamName'],
-                              'sport': args['sport'],
-                              'grade': args['grade'],
-                              'gender': args['gender'],
-                              'date': args['date'],
-                              'time': args['time'],
+                              ...args, // Spread all original args to preserve parameters like isAssignerFlow
                               'location':
                                   isAwayGame ? 'Away Game' : selected['name'],
                               'locationData': isAwayGame ? null : selected,
                               'isAwayGame': isAwayGame,
                               'template': template,
-                              'scheduleName': args['scheduleName'],
                             };
                             print('Continue - Args: $nextArgs');
                             final isCoach =

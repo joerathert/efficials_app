@@ -21,6 +21,8 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
   int? scheduleId;
   bool? isCoachScheduler;
   String? teamName;
+  bool isUsingTemplate = false;
+  bool isAssignerFlow = false;
 
   @override
   void didChangeDependencies() {
@@ -35,13 +37,15 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
       isAwayGame = newArgs['isAway'] == true;
       fromScheduleDetails = newArgs['fromScheduleDetails'] == true;
       scheduleId = newArgs['scheduleId'] as int?;
+      isUsingTemplate = newArgs['template'] != null;
+      isAssignerFlow = newArgs['isAssignerFlow'] == true;
       if (args['officialsRequired'] != null) {
         args['officialsRequired'] =
             int.tryParse(args['officialsRequired'].toString()) ?? 0;
       }
       print('ReviewGameInfoScreen didChangeDependencies - Args: $args');
       print(
-          'isEditMode: $isEditMode, isFromGameInfo: $isFromGameInfo, isAwayGame: $isAwayGame, fromScheduleDetails: $fromScheduleDetails');
+          'isEditMode: $isEditMode, isFromGameInfo: $isFromGameInfo, isAwayGame: $isAwayGame, fromScheduleDetails: $fromScheduleDetails, isUsingTemplate: $isUsingTemplate, isAssignerFlow: $isAssignerFlow');
     });
     _loadSchedulerType();
   }
@@ -51,6 +55,71 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
     super.initState();
     args = {};
     originalArgs = {};
+  }
+
+  Future<bool?> _showCreateTemplateDialog() async {
+    final prefs = await SharedPreferences.getInstance();
+    final dontAskAgain = prefs.getBool('dont_ask_create_template') ?? false;
+    
+    if (dontAskAgain) {
+      return false; // Don't create template if user opted out
+    }
+    
+    bool checkboxValue = false;
+    
+    return await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Create Game Template'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                  'Would you like to create a Game Template using the information from this game?'),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Checkbox(
+                    value: checkboxValue,
+                    onChanged: (value) {
+                      setDialogState(() {
+                        checkboxValue = value ?? false;
+                      });
+                    },
+                    activeColor: efficialsBlue,
+                  ),
+                  const Expanded(
+                    child: Text('Do not ask me again'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () async {
+                if (checkboxValue) {
+                  await prefs.setBool('dont_ask_create_template', true);
+                }
+                Navigator.pop(context, false);
+              },
+              child: const Text('No', style: TextStyle(color: efficialsBlue)),
+            ),
+            TextButton(
+              onPressed: () async {
+                if (checkboxValue) {
+                  await prefs.setBool('dont_ask_create_template', true);
+                }
+                Navigator.pop(context, true);
+              },
+              child: const Text('Yes', style: TextStyle(color: efficialsBlue)),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _loadSchedulerType() async {
@@ -121,24 +190,11 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
     publishedGames.add(gameData);
     await prefs.setString('published_games', jsonEncode(publishedGames));
 
-    final shouldCreateTemplate = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Create Game Template'),
-        content: const Text(
-            'Would you like to create a Game Template using the information from this game?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('No', style: TextStyle(color: efficialsBlue)),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Yes', style: TextStyle(color: efficialsBlue)),
-          ),
-        ],
-      ),
-    );
+    // Don't show template dialog if game was created using a template
+    bool? shouldCreateTemplate = false;
+    if (!isUsingTemplate) {
+      shouldCreateTemplate = await _showCreateTemplateDialog();
+    }
 
     if (shouldCreateTemplate == true) {
       Navigator.pushNamed(
@@ -200,24 +256,11 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
     unpublishedGames.add(gameData);
     await prefs.setString('unpublished_games', jsonEncode(unpublishedGames));
 
-    final shouldCreateTemplate = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Create Game Template'),
-        content: const Text(
-            'Would you like to create a Game Template using the information from this game?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('No', style: TextStyle(color: efficialsBlue)),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Yes', style: TextStyle(color: efficialsBlue)),
-          ),
-        ],
-      ),
-    );
+    // Don't show template dialog if game was created using a template
+    bool? shouldCreateTemplate = false;
+    if (!isUsingTemplate) {
+      shouldCreateTemplate = await _showCreateTemplateDialog();
+    }
 
     if (shouldCreateTemplate == true) {
       Navigator.pushNamed(
@@ -243,15 +286,38 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
 
   void _navigateBack() async {
     if (fromScheduleDetails) {
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        '/schedule_details',
-        (route) => false,
-        arguments: {
-          'scheduleName': args['scheduleName'],
-          'scheduleId': scheduleId,
-        },
-      );
+      if (isAssignerFlow) {
+        // For Assigners, navigate back to Manage Schedules screen with team selection
+        final teamName = args['scheduleName'] as String?;
+        print('ReviewGameInfo - Full args: $args');
+        print('ReviewGameInfo - Team from scheduleName: $teamName');
+        print('ReviewGameInfo - Team from opponent: ${args['opponent']}');
+        print('ReviewGameInfo - Navigating back to Manage Schedules with team: $teamName');
+        
+        final gameDate = args['date'] as DateTime?;
+        print('ReviewGameInfo - Game date: $gameDate');
+        
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          '/assigner_manage_schedules',
+          (route) => route.settings.name == '/assigner_home', // Keep assigner home in stack
+          arguments: {
+            'selectedTeam': teamName, // Pass the team name back
+            'focusDate': gameDate, // Pass the game date to focus calendar
+          },
+        );
+      } else {
+        // For Athletic Directors, navigate to Schedule Details screen
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          '/schedule_details',
+          (route) => false,
+          arguments: {
+            'scheduleName': args['scheduleName'],
+            'scheduleId': scheduleId,
+          },
+        );
+      }
     } else {
       final prefs = await SharedPreferences.getInstance();
       final schedulerType = prefs.getString('schedulerType');

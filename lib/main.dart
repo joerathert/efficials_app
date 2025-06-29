@@ -38,6 +38,8 @@ import 'create_game_template_screen.dart';
 import 'assigner_home_screen.dart';
 import 'coach_home_screen.dart';
 import 'select_team_screen.dart';
+import 'assigner_sport_selection_screen.dart';
+import 'assigner_manage_schedules_screen.dart';
 import 'additional_game_info_condensed_screen.dart'; // New import
 
 void main() {
@@ -104,6 +106,8 @@ class EfficialsApp extends StatelessWidget {
         '/assigner_home': (context) => const AssignerHomeScreen(),
         '/coach_home': (context) => const CoachHomeScreen(),
         '/select_team': (context) => const SelectTeamScreen(),
+        '/assigner_sport_selection': (context) => const AssignerSportSelectionScreen(),
+        '/assigner_manage_schedules': (context) => const AssignerManageSchedulesScreen(),
         '/lists_of_officials': (context) => const ListsOfOfficialsScreen(),
         '/create_new_list': (context) => const CreateNewListScreen(),
         '/name_list': (context) => const NameListScreen(),

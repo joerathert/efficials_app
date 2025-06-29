@@ -88,6 +88,9 @@ class CoachHomeScreen extends StatefulWidget {
 
 class _CoachHomeScreenState extends State<CoachHomeScreen> {
   String? teamName;
+  String? sport;
+  String? grade;
+  String? gender;
   List<Game> games = [];
   bool isLoading = true;
   bool isFabExpanded = false;
@@ -102,8 +105,15 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
     final prefs = await SharedPreferences.getInstance();
     final teamSetupCompleted = prefs.getBool('team_setup_completed') ?? false;
     final savedTeamName = prefs.getString('team_name');
+    final savedSport = prefs.getString('sport');
+    final savedGrade = prefs.getString('grade');
+    final savedGender = prefs.getString('gender');
+    
     setState(() {
       teamName = savedTeamName ?? 'Team';
+      sport = savedSport;
+      grade = savedGrade;
+      gender = savedGender;
       isLoading = false;
     });
 
@@ -269,8 +279,65 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
             child: Padding(
               padding: const EdgeInsets.all(20.0),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  SizedBox(height: 10),
+                  // Team Info Card
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.grey.withOpacity(0.1),
+                          spreadRadius: 1,
+                          blurRadius: 3,
+                          offset: const Offset(0, 1),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          getSportIcon(sport ?? ''),
+                          color: getSportIconColor(sport ?? ''),
+                          size: 32,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                teamName ?? 'Team',
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              Text(
+                                '${grade ?? ''} ${gender ?? ''} ${sport ?? ''}',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Upcoming Games',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
                   Expanded(
                     child: games.isEmpty
                         ? Center(
@@ -349,13 +416,12 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
                           setState(() {
                             isFabExpanded = false;
                           });
-                          final prefs = await SharedPreferences.getInstance();
                           Navigator.pushNamed(context, '/date_time',
                               arguments: {
                                 'teamName': teamName,
-                                'sport': prefs.getString('sport'),
-                                'grade': prefs.getString('grade'),
-                                'gender': prefs.getString('gender'),
+                                'sport': sport,
+                                'grade': grade,
+                                'gender': gender,
                               });
                         },
                         backgroundColor: Colors.white,

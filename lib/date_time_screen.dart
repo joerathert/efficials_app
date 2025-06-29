@@ -155,7 +155,13 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
                         color: Colors.black),
                     textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 60),
+                  const SizedBox(height: 20),
+                  Text(
+                    _formatDateTime(),
+                    style: const TextStyle(fontSize: 18, color: Colors.black),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 40),
                   Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -177,11 +183,6 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
                         ),
                       ),
                     ],
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    _formatDateTime(),
-                    style: const TextStyle(fontSize: 16, color: Colors.black),
                   ),
                   const SizedBox(height: 60),
                   Center(

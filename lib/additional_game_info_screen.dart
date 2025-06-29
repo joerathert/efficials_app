@@ -116,7 +116,9 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
           _gameFeeController.text = args['gameFee']?.toString() ?? '';
           _hireAutomatically = args['hireAutomatically'] as bool? ?? false;
         }
-        _opponentController.text = args['opponent'] as String? ?? '';
+        // Opponent field should never be populated from templates
+        // Only use args opponent if not coming from template flow
+        _opponentController.text = template == null ? (args['opponent'] as String? ?? '') : '';
       }
       _isInitialized = true;
     }
@@ -264,6 +266,7 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
                       decoration:
                           textFieldDecoration('Game Fee per Official').copyWith(
                         prefixText: '\$',
+                        prefixStyle: const TextStyle(color: Colors.black),
                         hintText: 'Enter fee (e.g., 50 or 50.00)',
                       ),
                       keyboardType: TextInputType.number,
