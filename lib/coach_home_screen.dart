@@ -394,7 +394,9 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
                           setState(() {
                             isFabExpanded = false;
                           });
-                          Navigator.pushNamed(context, '/game_templates');
+                          Navigator.pushNamed(context, '/select_game_template', arguments: {
+                            'sport': sport,
+                          });
                         },
                         backgroundColor: Colors.blue[300],
                         label: const Text('Use Game Template',

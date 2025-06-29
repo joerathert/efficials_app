@@ -15,82 +15,151 @@ class AddPhotoScreen extends StatelessWidget {
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
         backgroundColor: efficialsBlue,
-        title: const Text('Add Photo (Optional)', style: appBarTextStyle),
+        title: const Icon(
+          Icons.sports,
+          color: Colors.white,
+          size: 32,
+        ),
+        elevation: 0,
+        centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
       ),
       body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  const Icon(
-                    Icons.account_circle,
-                    size: 200,
-                    color: Colors.grey,
-                  ),
-                  const SizedBox(height: 40),
-                  ElevatedButton(
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                            content: Text('Gallery not implemented yet')),
-                      );
-                    },
-                    style: elevatedButtonStyle(),
-                    child: const Text('Gallery', style: signInButtonTextStyle),
-                  ),
-                  const SizedBox(height: 20),
-                  ElevatedButton(
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                            content: Text('Camera not implemented yet')),
-                      );
-                    },
-                    style: elevatedButtonStyle(),
-                    child: const Text('Camera', style: signInButtonTextStyle),
-                  ),
-                  const SizedBox(height: 20),
-                  ElevatedButton(
-                    onPressed: () async {
-                      final role = args['role'] ?? 'Athletic Director';
-
-                      // Save the scheduler type to SharedPreferences
-                      final prefs = await SharedPreferences.getInstance();
-                      await prefs.setString('schedulerType', role);
-
-                      String route;
-                      switch (role) {
-                        case 'Assigner':
-                          route = '/assigner_sport_selection';
-                          break;
-                        case 'Coach':
-                          route = '/select_team';
-                          break;
-                        default:
-                          route = '/athletic_director_home';
-                      }
-                      Navigator.pushReplacementNamed(context, route,
-                          arguments: args);
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: efficialsBlue,
-                      padding: const EdgeInsets.symmetric(
-                          vertical: 10, horizontal: 30),
-                      minimumSize: const Size(150, 40),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const SizedBox(height: 40),
+              const Text(
+                'Add Your Photo',
+                style: headlineStyle,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'This helps others recognize you (optional)',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey[600],
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 40),
+              Container(
+                padding: const EdgeInsets.all(32),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    Container(
+                      width: 150,
+                      height: 150,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[100],
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.grey[300]!, width: 2),
+                      ),
+                      child: const Icon(
+                        Icons.person,
+                        size: 80,
+                        color: Colors.grey,
                       ),
                     ),
-                    child: const Text('Skip for Now',
-                        style: signInButtonTextStyle),
-                  ),
-                ],
+                    const SizedBox(height: 32),
+                    const Text(
+                      'Choose a photo source',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                                content: Text('Gallery not implemented yet')),
+                          );
+                        },
+                        style: elevatedButtonStyle(
+                          padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 24),
+                        ),
+                        icon: const Icon(Icons.photo_library, color: Colors.white),
+                        label: const Text('Choose from Gallery', style: signInButtonTextStyle),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                                content: Text('Camera not implemented yet')),
+                          );
+                        },
+                        style: elevatedButtonStyle(
+                          padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 24),
+                        ),
+                        icon: const Icon(Icons.camera_alt, color: Colors.white),
+                        label: const Text('Take a Photo', style: signInButtonTextStyle),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
+              const SizedBox(height: 30),
+              TextButton(
+                onPressed: () async {
+                  final role = args['role'] ?? 'Athletic Director';
+
+                  // Save the scheduler type to SharedPreferences
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.setString('schedulerType', role);
+
+                  String route;
+                  switch (role) {
+                    case 'Assigner':
+                      route = '/assigner_sport_selection';
+                      break;
+                    case 'Coach':
+                      route = '/select_team';
+                      break;
+                    case 'Athletic Director':
+                      route = '/athletic_director_setup';
+                      break;
+                    default:
+                      route = '/athletic_director_home';
+                  }
+                  Navigator.pushReplacementNamed(context, route,
+                      arguments: args);
+                },
+                child: Text(
+                  'Skip for Now',
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.grey[600],
+                    decoration: TextDecoration.underline,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),

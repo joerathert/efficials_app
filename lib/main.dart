@@ -5,6 +5,7 @@ import 'scheduler_signup_step1.dart';
 import 'scheduler_signup_step2.dart';
 import 'add_photo_screen.dart';
 import 'athletic_director_home_screen.dart';
+import 'athletic_director_setup_screen.dart';
 import 'lists_of_officials_screen.dart';
 import 'create_new_list_screen.dart';
 import 'name_list_screen.dart';
@@ -102,6 +103,7 @@ class EfficialsApp extends StatelessWidget {
         '/scheduler_signup_step1': (context) => const SchedulerSignUpStep1(),
         '/scheduler_signup_step2': (context) => const SchedulerSignUpStep2(),
         '/add_photo': (context) => const AddPhotoScreen(),
+        '/athletic_director_setup': (context) => const AthleticDirectorSetupScreen(),
         '/athletic_director_home': (context) => const AthleticDirectorHomeScreen(),
         '/assigner_home': (context) => const AssignerHomeScreen(),
         '/coach_home': (context) => const CoachHomeScreen(),

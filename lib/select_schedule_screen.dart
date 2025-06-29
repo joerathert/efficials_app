@@ -223,117 +223,162 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.grey[100],
       appBar: AppBar(
         backgroundColor: efficialsBlue,
+        title: const Icon(
+          Icons.sports,
+          color: Colors.white,
+          size: 32,
+        ),
+        elevation: 0,
+        centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, size: 36, color: Colors.white),
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text('Select Schedule', style: appBarTextStyle),
       ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 600),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const SizedBox(height: 20),
-                isLoading
-                    ? const CircularProgressIndicator()
-                    : DropdownButtonFormField<String>(
-                        decoration: textFieldDecoration('Schedules'),
-                        value: selectedSchedule,
-                        hint: const Text('Select a schedule'),
-                        onChanged: (newValue) {
-                          setState(() {
-                            selectedSchedule = newValue;
-                            if (newValue == '+ Create new schedule') {
-                              // Reset selectedSchedule to ensure the dropdown updates correctly
-                              selectedSchedule = null;
-                              Navigator.pushNamed(context, '/select_sport', arguments: {
-                                'fromTemplate': true, // Indicate this navigation is from a template
-                                'sport': template?.sport, // Pass the template's sport
-                              }).then((result) async {
-                                print('Returned from SelectSportScreen with result: $result');
-                                if (result != null && result is String) {
-                                  await _fetchSchedules();
-                                  print('Schedules after fetch: $schedules');
-                                  setState(() {
-                                    if (schedules.any((s) => s['name'] == result)) {
-                                      selectedSchedule = result;
-                                      print('Set selectedSchedule to: $selectedSchedule');
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const SizedBox(height: 40),
+              const Text(
+                'Select Schedule',
+                style: headlineStyle,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Choose an existing schedule or create a new one',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey[600],
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 40),
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    isLoading
+                        ? const Center(child: CircularProgressIndicator())
+                        : DropdownButtonFormField<String>(
+                            decoration: textFieldDecoration('Select a schedule'),
+                            value: selectedSchedule,
+                            hint: const Text('Choose from existing schedules'),
+                            onChanged: (newValue) {
+                              setState(() {
+                                selectedSchedule = newValue;
+                                if (newValue == '+ Create new schedule') {
+                                  // Reset selectedSchedule to ensure the dropdown updates correctly
+                                  selectedSchedule = null;
+                                  Navigator.pushNamed(context, '/select_sport', arguments: {
+                                    'fromTemplate': true, // Indicate this navigation is from a template
+                                    'sport': template?.sport, // Pass the template's sport
+                                  }).then((result) async {
+                                    print('Returned from SelectSportScreen with result: $result');
+                                    if (result != null && result is String) {
+                                      await _fetchSchedules();
+                                      print('Schedules after fetch: $schedules');
+                                      setState(() {
+                                        if (schedules.any((s) => s['name'] == result)) {
+                                          selectedSchedule = result;
+                                          print('Set selectedSchedule to: $selectedSchedule');
+                                        } else {
+                                          print('Schedule $result not found in schedules');
+                                          // Fallback: Select the first schedule if the new one isn't found
+                                          if (schedules.isNotEmpty && schedules.first['name'] != 'No schedules available') {
+                                            selectedSchedule = schedules.first['name'] as String;
+                                          }
+                                        }
+                                      });
                                     } else {
-                                      print('Schedule $result not found in schedules');
-                                      // Fallback: Select the first schedule if the new one isn't found
-                                      if (schedules.isNotEmpty && schedules.first['name'] != 'No schedules available') {
-                                        selectedSchedule = schedules.first['name'] as String;
-                                      }
+                                      print('Result is null or not a String');
+                                      // Fallback: Refresh schedules in case the new schedule was created
+                                      await _fetchSchedules();
+                                      print('Schedules after fallback fetch: $schedules');
                                     }
                                   });
-                                } else {
-                                  print('Result is null or not a String');
-                                  // Fallback: Refresh schedules in case the new schedule was created
-                                  await _fetchSchedules();
-                                  print('Schedules after fallback fetch: $schedules');
                                 }
                               });
-                            }
-                          });
-                        },
-                        items: schedules.map((schedule) {
-                          return DropdownMenuItem(
-                            value: schedule['name'] as String,
-                            child: Text(
-                              schedule['name'] as String,
-                              style: schedule['name'] == 'No schedules available'
-                                  ? const TextStyle(color: Colors.red)
-                                  : null,
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                const SizedBox(height: 60),
-                ElevatedButton(
-                  onPressed: (selectedSchedule == null ||
-                          selectedSchedule == 'No schedules available' ||
-                          selectedSchedule == '+ Create new schedule')
-                      ? null
-                      : () {
-                          // Validate sport match if a template is used
-                          if (!_validateSportMatch()) {
-                            return;
-                          }
-                          final selected = schedules.firstWhere((s) => s['name'] == selectedSchedule);
-                          Navigator.pushNamed(
-                            context,
-                            '/date_time',
-                            arguments: {
-                              'scheduleName': selectedSchedule,
-                              'sport': selected['sport'],
-                              'template': template, // Pass the template to the next screen
                             },
-                          );
-                        },
-                  style: elevatedButtonStyle(),
-                  child: const Text('Continue', style: signInButtonTextStyle),
+                            items: schedules.map((schedule) {
+                              return DropdownMenuItem(
+                                value: schedule['name'] as String,
+                                child: Text(
+                                  schedule['name'] as String,
+                                  style: schedule['name'] == 'No schedules available'
+                                      ? const TextStyle(color: Colors.red)
+                                      : null,
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                  ],
                 ),
-                const SizedBox(height: 8),
-                ElevatedButton(
-                  onPressed: (selectedSchedule == null ||
-                          selectedSchedule == 'No schedules available' ||
-                          selectedSchedule == '+ Create new schedule')
-                      ? null
-                      : () {
-                          final selected = schedules.firstWhere((s) => s['name'] == selectedSchedule);
-                          _showFirstDeleteConfirmationDialog(selectedSchedule!, selected['id'] as int);
-                        },
-                  style: elevatedButtonStyle(backgroundColor: Colors.red),
-                  child: const Text('Delete', style: signInButtonTextStyle),
+              ),
+              const SizedBox(height: 40),
+              ElevatedButton(
+                onPressed: (selectedSchedule == null ||
+                        selectedSchedule == 'No schedules available' ||
+                        selectedSchedule == '+ Create new schedule')
+                    ? null
+                    : () {
+                        // Validate sport match if a template is used
+                        if (!_validateSportMatch()) {
+                          return;
+                        }
+                        final selected = schedules.firstWhere((s) => s['name'] == selectedSchedule);
+                        Navigator.pushNamed(
+                          context,
+                          '/date_time',
+                          arguments: {
+                            'scheduleName': selectedSchedule,
+                            'sport': selected['sport'],
+                            'template': template, // Pass the template to the next screen
+                          },
+                        );
+                      },
+                style: elevatedButtonStyle(
+                  padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 50),
                 ),
-              ],
-            ),
+                child: const Text('Continue', style: signInButtonTextStyle),
+              ),
+              const SizedBox(height: 16),
+              if (selectedSchedule != null &&
+                  selectedSchedule != 'No schedules available' &&
+                  selectedSchedule != '+ Create new schedule')
+                TextButton.icon(
+                  onPressed: () {
+                    final selected = schedules.firstWhere((s) => s['name'] == selectedSchedule);
+                    _showFirstDeleteConfirmationDialog(selectedSchedule!, selected['id'] as int);
+                  },
+                  icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
+                  label: const Text(
+                    'Delete Schedule',
+                    style: TextStyle(
+                      color: Colors.red,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
       ),

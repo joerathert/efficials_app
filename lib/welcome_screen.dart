@@ -37,66 +37,129 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     return Scaffold(
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
-        title: const Text('Welcome to Efficials!'),
+        backgroundColor: efficialsBlue,
+        title: const Icon(
+          Icons.sports,
+          color: Colors.white,
+          size: 32,
+        ),
+        elevation: 0,
+        centerTitle: true,
       ),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(20.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              const SizedBox(height: 40),
-              TextField(
-                controller: _emailController,
-                decoration: textFieldDecoration('Email'),
-                keyboardType: TextInputType.emailAddress,
-                textCapitalization: TextCapitalization.none,
-              ),
-              const SizedBox(height: 20),
-              TextField(
-                controller: _passwordController,
-                decoration: textFieldDecoration(
-                  'Password',
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _showPassword ? Icons.visibility_off : Icons.visibility,
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        _showPassword = !_showPassword;
-                      });
-                    },
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const SizedBox(height: 20),
+                const Text(
+                  'Welcome Back!',
+                  style: headlineStyle,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Sign in to your account to continue',
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.grey[600],
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 40),
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 10,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Email',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: _emailController,
+                        decoration: textFieldDecoration('Enter your email'),
+                        keyboardType: TextInputType.emailAddress,
+                        textCapitalization: TextCapitalization.none,
+                      ),
+                      const SizedBox(height: 24),
+                      const Text(
+                        'Password',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: _passwordController,
+                        decoration: textFieldDecoration(
+                          'Enter your password',
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _showPassword ? Icons.visibility_off : Icons.visibility,
+                              color: Colors.grey[600],
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                _showPassword = !_showPassword;
+                              });
+                            },
+                          ),
+                        ),
+                        obscureText: !_showPassword,
+                      ),
+                    ],
                   ),
                 ),
-                obscureText: !_showPassword,
-              ),
-              const SizedBox(height: 30),
-              ElevatedButton(
-                onPressed: _handleSignIn,
-                style: elevatedButtonStyle(),
-                child: const Text('Sign In', style: signInButtonTextStyle),
-              ),
-              const SizedBox(height: 20),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text(
-                    "Don't have an account? ",
-                    style: secondaryTextStyle,
+                const SizedBox(height: 30),
+                ElevatedButton(
+                  onPressed: _handleSignIn,
+                  style: elevatedButtonStyle(
+                    padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 50),
                   ),
-                  GestureDetector(
-                    onTap: _handleSignUp,
-                    child: const Text(
-                      'Sign up',
-                      style: linkTextStyle,
+                  child: const Text('Sign In', style: signInButtonTextStyle),
+                ),
+                const SizedBox(height: 30),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text(
+                      "Don't have an account? ",
+                      style: secondaryTextStyle,
                     ),
-                  ),
-                ],
-              ),
-              const Spacer(),
-              const Text('© 2025 Efficials', style: footerTextStyle),
-            ],
+                    GestureDetector(
+                      onTap: _handleSignUp,
+                      child: const Text(
+                        'Sign up',
+                        style: linkTextStyle,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 40),
+                const Text('© 2025 Efficials', style: footerTextStyle),
+              ],
+            ),
           ),
         ),
       ),

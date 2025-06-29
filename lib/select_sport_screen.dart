@@ -62,64 +62,122 @@ class _SelectSportScreenState extends State<SelectSportScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.grey[100],
       appBar: AppBar(
         backgroundColor: efficialsBlue,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, size: 36, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
+        title: const Icon(
+          Icons.sports,
+          color: Colors.white,
+          size: 32,
         ),
-        title: const Text(
-          'Select Sport',
-          style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+        elevation: 0,
+        centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
         ),
       ),
       body: isLoading
           ? const Center(child: CircularProgressIndicator(color: efficialsBlue))
-          : Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 600),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: SingleChildScrollView(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Text(
-                          'Select a sport for your schedule.',
-                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 20),
-                        DropdownButtonFormField<String>(
-                          decoration: textFieldDecoration('Sport'),
-                          value: selectedSport,
-                          onChanged: sports.length == 1 ? null : (newValue) => setState(() => selectedSport = newValue),
-                          items: sports.map((value) => DropdownMenuItem(value: value, child: Text(value))).toList(),
-                        ),
-                        const SizedBox(height: 60),
-                        ElevatedButton(
-                          onPressed: () {
-                            if (selectedSport != null) {
-                              Navigator.pushNamed(
-                                context,
-                                '/name_schedule',
-                                arguments: {'sport': selectedSport},
-                              ).then((result) {
-                                // Forward the schedule name (a String) back to SelectScheduleScreen
-                                Navigator.pop(context, result);
-                              });
-                            } else {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Please select a sport!')),
-                              );
-                            }
-                          },
-                          style: elevatedButtonStyle(),
-                          child: const Text('Continue', style: signInButtonTextStyle),
-                        ),
-                      ],
+          : SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    const SizedBox(height: 40),
+                    const Text(
+                      'Select Sport',
+                      style: headlineStyle,
+                      textAlign: TextAlign.center,
                     ),
-                  ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Choose the sport for your new schedule',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.grey[600],
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 40),
+                    Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 10,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          DropdownButtonFormField<String>(
+                            decoration: textFieldDecoration('Select a sport'),
+                            value: selectedSport,
+                            onChanged: sports.length == 1 ? null : (newValue) => setState(() => selectedSport = newValue),
+                            items: sports.map((value) => DropdownMenuItem(value: value, child: Text(value))).toList(),
+                          ),
+                          if (sports.length == 1 && selectedSport != null) ...[
+                            const SizedBox(height: 16),
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.blue.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.info_outline,
+                                    color: Colors.blue,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      'Sport is pre-selected based on your role',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        color: Colors.blue.shade700,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 40),
+                    ElevatedButton(
+                      onPressed: () {
+                        if (selectedSport != null) {
+                          Navigator.pushNamed(
+                            context,
+                            '/name_schedule',
+                            arguments: {'sport': selectedSport},
+                          ).then((result) {
+                            // Forward the schedule name (a String) back to SelectScheduleScreen
+                            Navigator.pop(context, result);
+                          });
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Please select a sport!')),
+                          );
+                        }
+                      },
+                      style: elevatedButtonStyle(
+                        padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 50),
+                      ),
+                      child: const Text('Continue', style: signInButtonTextStyle),
+                    ),
+                  ],
                 ),
               ),
             ),

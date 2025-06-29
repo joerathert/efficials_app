@@ -25,6 +25,7 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
   GameTemplate? template; // Store the selected template
 
   final List<String> _competitionLevels = [
+    '6U', '7U', '8U', '9U', '10U', '11U', '12U', '13U', '14U', '15U', '16U', '17U', '18U',
     'Grade School',
     'Middle School',
     'Underclass',

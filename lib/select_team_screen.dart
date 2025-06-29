@@ -86,86 +86,150 @@ class _SelectTeamScreenState extends State<SelectTeamScreen> {
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
         backgroundColor: efficialsBlue,
-        title: Text('Team Setup', style: appBarTextStyle), // Add "Team Setup" title
+        title: const Text('Team Setup', style: appBarTextStyle),
+        elevation: 0,
       ),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(20.0),
           child: SingleChildScrollView(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                SizedBox(height: 40), // Maintain initial spacing
-                TextField(
-                  controller: _teamNameController,
-                  decoration: textFieldDecoration('Team Name (Ex. Maryville Redwings)'), // Update hint text
+                const SizedBox(height: 40),
+                const Text(
+                  'Let\'s set up your team profile',
+                  style: headlineStyle,
+                  textAlign: TextAlign.center,
                 ),
-                SizedBox(height: 8),
+                const SizedBox(height: 8),
                 Text(
-                  'Your team name is how officials and other teams in your league will identify you.',
+                  'This information helps officials and other teams identify you',
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: 16,
                     color: Colors.grey[600],
                   ),
+                  textAlign: TextAlign.center,
                 ),
-                SizedBox(height: 20),
-                DropdownButtonFormField<String>(
-                  decoration: textFieldDecoration('Select Sport'),
-                  value: _selectedSport,
-                  items: sports.map((sport) {
-                    return DropdownMenuItem(
-                      value: sport,
-                      child: Text(sport),
-                    );
-                  }).toList(),
-                  onChanged: (value) {
-                    setState(() {
-                      _selectedSport = value;
-                    });
-                  },
+                const SizedBox(height: 40),
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 10,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Team Name',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: _teamNameController,
+                        decoration: textFieldDecoration('Ex. Maryville Redwings'),
+                        textCapitalization: TextCapitalization.words,
+                      ),
+                      const SizedBox(height: 24),
+                      const Text(
+                        'Sport',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      DropdownButtonFormField<String>(
+                        decoration: textFieldDecoration('Select Sport'),
+                        value: _selectedSport,
+                        items: sports.map((sport) {
+                          return DropdownMenuItem(
+                            value: sport,
+                            child: Text(sport),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          setState(() {
+                            _selectedSport = value;
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 24),
+                      const Text(
+                        'Grade Level',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      DropdownButtonFormField<String>(
+                        decoration: textFieldDecoration('Select Grade Level'),
+                        value: _selectedGrade,
+                        items: grades.map((grade) {
+                          return DropdownMenuItem(
+                            value: grade,
+                            child: Text(grade),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          setState(() {
+                            _selectedGrade = value;
+                            _updateGenderOptions(value);
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 24),
+                      const Text(
+                        'Gender',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      DropdownButtonFormField<String>(
+                        decoration: textFieldDecoration('Select Gender'),
+                        value: _selectedGender,
+                        items: genders.map((gender) {
+                          return DropdownMenuItem(
+                            value: gender,
+                            child: Text(gender),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          setState(() {
+                            _selectedGender = value;
+                          });
+                        },
+                      ),
+                    ],
+                  ),
                 ),
-                SizedBox(height: 20),
-                DropdownButtonFormField<String>(
-                  decoration: textFieldDecoration('Select Grade Level'),
-                  value: _selectedGrade,
-                  items: grades.map((grade) {
-                    return DropdownMenuItem(
-                      value: grade,
-                      child: Text(grade),
-                    );
-                  }).toList(),
-                  onChanged: (value) {
-                    setState(() {
-                      _selectedGrade = value;
-                      _updateGenderOptions(value);
-                    });
-                  },
-                ),
-                SizedBox(height: 20),
-                DropdownButtonFormField<String>(
-                  decoration: textFieldDecoration('Select Gender'),
-                  value: _selectedGender,
-                  items: genders.map((gender) {
-                    return DropdownMenuItem(
-                      value: gender,
-                      child: Text(gender),
-                    );
-                  }).toList(),
-                  onChanged: (value) {
-                    setState(() {
-                      _selectedGender = value;
-                    });
-                  },
-                ),
-                SizedBox(height: 30), // Spacing above Continue button
-                Center( // Center the Continue button
-                  child: ElevatedButton(
-                    onPressed: _onContinue,
-                    style: elevatedButtonStyle(),
-                    child: Text(
-                      'Continue',
-                      style: signInButtonTextStyle,
-                    ),
+                const SizedBox(height: 40),
+                ElevatedButton(
+                  onPressed: _onContinue,
+                  style: elevatedButtonStyle(
+                    padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 50),
+                  ),
+                  child: const Text(
+                    'Continue',
+                    style: signInButtonTextStyle,
                   ),
                 ),
               ],

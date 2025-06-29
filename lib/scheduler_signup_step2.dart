@@ -11,7 +11,6 @@ class SchedulerSignUpStep2 extends StatelessWidget {
       'password': args['password'] ?? '',
       'firstName': args['firstName'] ?? '',
       'lastName': args['lastName'] ?? '',
-      'organization': args['organization'] ?? '',
       'phone': args['phone'] ?? '',
       'role': role,
     });
@@ -23,43 +22,102 @@ class SchedulerSignUpStep2 extends StatelessWidget {
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
         backgroundColor: efficialsBlue,
-        title: const Text('Select Role', style: appBarTextStyle),
+        title: const Icon(
+          Icons.sports,
+          color: Colors.white,
+          size: 32,
+        ),
+        elevation: 0,
+        centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
       ),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(20.0),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              const SizedBox(height: 40),
               const Text(
-                'Which role best describes you?',
+                'Select Your Role',
                 style: headlineStyle,
                 textAlign: TextAlign.center,
               ),
+              const SizedBox(height: 8),
+              Text(
+                'Choose the role that best describes you',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey[600],
+                ),
+                textAlign: TextAlign.center,
+              ),
               const SizedBox(height: 40),
-              ElevatedButton(
-                onPressed: () => _selectRole(context, 'Athletic Director'),
-                style: elevatedButtonStyle(
-                  padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 40),
+              Center(
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 10,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                    const Text(
+                      'I am a...',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: 200,
+                      child: ElevatedButton(
+                        onPressed: () => _selectRole(context, 'Athletic Director'),
+                        style: elevatedButtonStyle(
+                          padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 32),
+                        ),
+                        child: const Text('Athletic Director', style: signInButtonTextStyle),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: 200,
+                      child: ElevatedButton(
+                        onPressed: () => _selectRole(context, 'Assigner'),
+                        style: elevatedButtonStyle(
+                          padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 32),
+                        ),
+                        child: const Text('Assigner', style: signInButtonTextStyle),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: 200,
+                      child: ElevatedButton(
+                        onPressed: () => _selectRole(context, 'Coach'),
+                        style: elevatedButtonStyle(
+                          padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 32),
+                        ),
+                        child: const Text('Coach', style: signInButtonTextStyle),
+                      ),
+                    ),
+                  ],
                 ),
-                child: const Text('Athletic Director', style: signInButtonTextStyle),
-              ),
-              const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: () => _selectRole(context, 'Assigner'),
-                style: elevatedButtonStyle(
-                  padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 40),
                 ),
-                child: const Text('Assigner', style: signInButtonTextStyle),
-              ),
-              const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: () => _selectRole(context, 'Coach'),
-                style: elevatedButtonStyle(
-                  padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 40),
-                ),
-                child: const Text('Coach', style: signInButtonTextStyle),
               ),
             ],
           ),

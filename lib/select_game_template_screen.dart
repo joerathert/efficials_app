@@ -67,7 +67,7 @@ class _SelectGameTemplateScreenState extends State<SelectGameTemplateScreen> {
   }
 
   Future<void> _associateTemplate() async {
-    if (selectedTemplateId == null || scheduleName == null) return;
+    if (selectedTemplateId == null) return;
     final prefs = await SharedPreferences.getInstance();
 
     if (selectedTemplateId == '0') {
@@ -83,19 +83,32 @@ class _SelectGameTemplateScreenState extends State<SelectGameTemplateScreen> {
       final selectedTemplate =
           templates.firstWhere((t) => t.id == selectedTemplateId);
       
-      // Use different key for assigner flow
-      String templateKey;
-      if (isAssignerFlow) {
-        templateKey = 'assigner_team_template_${scheduleName!.toLowerCase().replaceAll(' ', '_')}';
+      // Handle Coach flow - navigate to date_time with template data
+      if (scheduleName == null) {
+        // This is likely the Coach flow
+        Navigator.pushNamed(
+          context,
+          '/date_time',
+          arguments: {
+            'sport': sport,
+            'template': selectedTemplate,
+          },
+        );
       } else {
-        templateKey = 'schedule_template_${scheduleName!.toLowerCase()}';
+        // This is the Assigner/Athletic Director flow
+        String templateKey;
+        if (isAssignerFlow) {
+          templateKey = 'assigner_team_template_${scheduleName!.toLowerCase().replaceAll(' ', '_')}';
+        } else {
+          templateKey = 'schedule_template_${scheduleName!.toLowerCase()}';
+        }
+        
+        await prefs.setString(
+          templateKey,
+          jsonEncode(selectedTemplate.toJson()),
+        );
+        Navigator.pop(context);
       }
-      
-      await prefs.setString(
-        templateKey,
-        jsonEncode(selectedTemplate.toJson()),
-      );
-      Navigator.pop(context);
     }
   }
 
