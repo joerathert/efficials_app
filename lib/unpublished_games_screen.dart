@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'theme.dart';
+import 'utils.dart';
 
 class UnpublishedGamesScreen extends StatefulWidget {
   const UnpublishedGamesScreen({super.key});
@@ -120,71 +121,255 @@ class _UnpublishedGamesScreenState extends State<UnpublishedGamesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.grey[100],
       appBar: AppBar(
         backgroundColor: efficialsBlue,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, size: 36, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
+        title: const Icon(
+          Icons.sports,
+          color: Colors.white,
+          size: 32,
         ),
-        title: const Text(
-          'Unpublished Games',
-          style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+        elevation: 0,
+        centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context, true),
         ),
       ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 600),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: isLoading
-                ? const CircularProgressIndicator()
-                : unpublishedGames.isEmpty
-                    ? const Center(
-                        child: Text(
-                          'No unpublished games.',
-                          style: TextStyle(fontSize: 18, color: Colors.grey),
-                          textAlign: TextAlign.center,
-                        ),
-                      )
-                    : ListView.builder(
-                        itemCount: unpublishedGames.length,
-                        itemBuilder: (context, index) {
-                          final game = unpublishedGames[index];
-                          final gameTitle = '${game['sport']} - ${game['scheduleName']}';
-                          final gameDate = game['date'] != null
-                              ? DateFormat('MMMM d, yyyy').format(game['date'] as DateTime)
-                              : 'Not set';
-                          return Card(
-                            margin: const EdgeInsets.symmetric(vertical: 8),
-                            child: ListTile(
-                              title: Text(gameTitle),
-                              subtitle: Text('Date: $gameDate'),
-                              trailing: IconButton(
-                                icon: const Icon(Icons.delete, color: Colors.red),
-                                onPressed: () => _showDeleteConfirmationDialog(game['id'] as int, gameTitle),
-                              ),
-                              onTap: () {
-                                Navigator.pushNamed(
-                                  context,
-                                  '/review_game_info',
-                                  arguments: game,
-                                ).then((result) {
-                                  if (result != null && result is Map<String, dynamic>) {
-                                    // Update the game in unpublished_games if edited
-                                    setState(() {
-                                      final index = unpublishedGames.indexWhere((g) => g['id'] == game['id']);
-                                      if (index != -1) {
-                                        unpublishedGames[index] = result;
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Draft Games',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'Review and publish your draft games',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey[600],
+                ),
+              ),
+              const SizedBox(height: 20),
+              Expanded(
+                child: isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : unpublishedGames.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.edit_note,
+                                  size: 80,
+                                  color: Colors.grey[400],
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'No draft games',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'All your games have been published',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.grey[500],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        : ListView.builder(
+                            itemCount: unpublishedGames.length,
+                            itemBuilder: (context, index) {
+                              final game = unpublishedGames[index];
+                              final sport = game['sport'] as String? ?? 'Unknown';
+                              final scheduleName = game['scheduleName'] as String? ?? 'Unknown';
+                              final gameDate = game['date'] != null
+                                  ? DateFormat('EEEE, MMM d, yyyy').format(game['date'] as DateTime)
+                                  : 'Date not set';
+                              final gameTime = game['time'] != null 
+                                  ? (game['time'] as TimeOfDay).format(context) 
+                                  : 'Time not set';
+                              final location = game['location'] as String? ?? 'Location not set';
+                              final opponent = game['opponent'] as String?;
+                              final isAway = game['isAway'] as bool? ?? false;
+                              final sportIcon = getSportIcon(sport);
+                              final opponentDisplay = opponent != null 
+                                  ? (isAway ? '@ $opponent' : 'vs $opponent') 
+                                  : null;
+
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 12.0),
+                                child: GestureDetector(
+                                  onTap: () {
+                                    Navigator.pushNamed(
+                                      context,
+                                      '/review_game_info',
+                                      arguments: game,
+                                    ).then((result) {
+                                      if (result != null && result is Map<String, dynamic>) {
+                                        // Update the game in unpublished_games if edited
+                                        setState(() {
+                                          final index = unpublishedGames.indexWhere((g) => g['id'] == game['id']);
+                                          if (index != -1) {
+                                            unpublishedGames[index] = result;
+                                          }
+                                        });
+                                        _saveUnpublishedGames();
                                       }
                                     });
-                                    _saveUnpublishedGames();
-                                  }
-                                });
-                              },
-                            ),
-                          );
-                        },
-                      ),
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.all(16),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(12),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.grey.withOpacity(0.1),
+                                          spreadRadius: 1,
+                                          blurRadius: 3,
+                                          offset: const Offset(0, 1),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Row(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.all(8),
+                                          decoration: BoxDecoration(
+                                            color: getSportIconColor(sport).withOpacity(0.1),
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          child: Icon(
+                                            sportIcon,
+                                            color: getSportIconColor(sport),
+                                            size: 24,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                gameDate,
+                                                style: const TextStyle(
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.black,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                opponentDisplay != null
+                                                    ? '$gameTime $opponentDisplay'
+                                                    : '$gameTime - $scheduleName',
+                                                style: const TextStyle(fontSize: 16, color: Colors.black),
+                                              ),
+                                              if (opponentDisplay != null) ...[
+                                                const SizedBox(height: 4),
+                                                Text(
+                                                  scheduleName,
+                                                  style: TextStyle(
+                                                    fontSize: 14,
+                                                    color: Colors.grey[700],
+                                                    fontWeight: FontWeight.w500,
+                                                  ),
+                                                ),
+                                              ],
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                location,
+                                                style: TextStyle(
+                                                  fontSize: 14,
+                                                  color: Colors.grey[600],
+                                                ),
+                                              ),
+                                              const SizedBox(height: 8),
+                                              Row(
+                                                children: [
+                                                  Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                    decoration: BoxDecoration(
+                                                      color: Colors.orange.withOpacity(0.1),
+                                                      borderRadius: BorderRadius.circular(12),
+                                                    ),
+                                                    child: Row(
+                                                      mainAxisSize: MainAxisSize.min,
+                                                      children: [
+                                                        Icon(
+                                                          Icons.edit,
+                                                          size: 12,
+                                                          color: Colors.orange.shade700,
+                                                        ),
+                                                        const SizedBox(width: 4),
+                                                        Text(
+                                                          'Draft',
+                                                          style: TextStyle(
+                                                            fontSize: 12,
+                                                            color: Colors.orange.shade700,
+                                                            fontWeight: FontWeight.w600,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                  const Spacer(),
+                                                  GestureDetector(
+                                                    onTap: () => _showDeleteConfirmationDialog(
+                                                      game['id'] as int, 
+                                                      '$sport - $scheduleName'
+                                                    ),
+                                                    child: Container(
+                                                      padding: const EdgeInsets.all(8),
+                                                      decoration: BoxDecoration(
+                                                        color: Colors.red.withOpacity(0.1),
+                                                        borderRadius: BorderRadius.circular(8),
+                                                      ),
+                                                      child: Icon(
+                                                        Icons.delete_outline,
+                                                        size: 20,
+                                                        color: Colors.red.shade600,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        const Icon(
+                                          Icons.arrow_forward_ios,
+                                          color: Colors.grey,
+                                          size: 16,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+              ),
+            ],
           ),
         ),
       ),

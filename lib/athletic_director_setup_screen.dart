@@ -14,17 +14,18 @@ class _AthleticDirectorSetupScreenState extends State<AthleticDirectorSetupScree
   final TextEditingController _mascotController = TextEditingController();
 
   void _handleContinue() async {
-    if (_schoolNameController.text.trim().isEmpty || _mascotController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please complete all fields')),
-      );
-      return;
-    }
+    // Use default values if fields are empty to allow quick testing
+    final schoolName = _schoolNameController.text.trim().isEmpty 
+        ? 'Test School' 
+        : _schoolNameController.text.trim();
+    final mascot = _mascotController.text.trim().isEmpty 
+        ? 'Eagles' 
+        : _mascotController.text.trim();
 
     // Save the Athletic Director information
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('ad_school_name', _schoolNameController.text.trim());
-    await prefs.setString('ad_mascot', _mascotController.text.trim());
+    await prefs.setString('ad_school_name', schoolName);
+    await prefs.setString('ad_mascot', mascot);
     await prefs.setBool('ad_setup_completed', true);
 
     // Navigate to Athletic Director Home

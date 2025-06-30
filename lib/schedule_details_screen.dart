@@ -108,6 +108,138 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
     );
   }
 
+  void _showEditScheduleNameDialog() {
+    final TextEditingController controller = TextEditingController(text: scheduleName);
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.edit, color: efficialsBlue, size: 24),
+            SizedBox(width: 12),
+            Text(
+              'Edit Schedule Name',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
+            ),
+          ],
+        ),
+        content: TextField(
+          controller: controller,
+          decoration: InputDecoration(
+            labelText: 'Schedule Name',
+            labelStyle: const TextStyle(color: Colors.grey),
+            hintText: 'Enter new schedule name',
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+            focusedBorder: const OutlineInputBorder(
+              borderSide: BorderSide(color: efficialsBlue, width: 2),
+            ),
+            floatingLabelStyle: const TextStyle(color: efficialsBlue),
+          ),
+          textCapitalization: TextCapitalization.words,
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: Colors.grey, fontSize: 16),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final newName = controller.text.trim();
+              if (newName.isNotEmpty && newName != scheduleName) {
+                Navigator.pop(context);
+                _updateScheduleName(newName);
+              } else if (newName.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Schedule name cannot be empty')),
+                );
+              } else {
+                Navigator.pop(context);
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: efficialsBlue,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text(
+              'Save',
+              style: TextStyle(color: Colors.white, fontSize: 16),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _updateScheduleName(String newName) async {
+    if (scheduleName == null) return;
+    
+    final oldName = scheduleName!;
+    final prefs = await SharedPreferences.getInstance();
+    
+    // Update published games
+    final String? publishedGamesJson = prefs.getString('published_games');
+    if (publishedGamesJson != null && publishedGamesJson.isNotEmpty) {
+      try {
+        List<Map<String, dynamic>> publishedGames = List<Map<String, dynamic>>.from(jsonDecode(publishedGamesJson));
+        for (var game in publishedGames) {
+          if (game['scheduleName'] == oldName) {
+            game['scheduleName'] = newName;
+          }
+        }
+        await prefs.setString('published_games', jsonEncode(publishedGames));
+      } catch (e) {
+        print('Error updating published games: $e');
+      }
+    }
+    
+    // Update unpublished games
+    final String? unpublishedGamesJson = prefs.getString('unpublished_games');
+    if (unpublishedGamesJson != null && unpublishedGamesJson.isNotEmpty) {
+      try {
+        List<Map<String, dynamic>> unpublishedGames = List<Map<String, dynamic>>.from(jsonDecode(unpublishedGamesJson));
+        for (var game in unpublishedGames) {
+          if (game['scheduleName'] == oldName) {
+            game['scheduleName'] = newName;
+          }
+        }
+        await prefs.setString('unpublished_games', jsonEncode(unpublishedGames));
+      } catch (e) {
+        print('Error updating unpublished games: $e');
+      }
+    }
+    
+    // Update associated template if it exists
+    final String? templateJson = prefs.getString('schedule_template_${oldName.toLowerCase()}');
+    if (templateJson != null) {
+      await prefs.remove('schedule_template_${oldName.toLowerCase()}');
+      await prefs.setString('schedule_template_${newName.toLowerCase()}', templateJson);
+    }
+    
+    // Update the current state
+    setState(() {
+      scheduleName = newName;
+    });
+    
+    // Show success message
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Schedule renamed to "$newName"')),
+    );
+    
+    // Refresh the games to reflect the new name
+    _fetchGames();
+  }
+
   List<Map<String, dynamic>> _getGamesForDay(DateTime day) {
     return games.where((game) {
       final gameDate = game['date'] as DateTime?;
@@ -174,9 +306,22 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                     padding: const EdgeInsets.all(16.0),
                     child: Column(
                       children: [
-                        Text(
-                          scheduleName ?? 'Unnamed Schedule',
-                          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                scheduleName ?? 'Unnamed Schedule',
+                                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.edit, color: efficialsBlue, size: 20),
+                              onPressed: _showEditScheduleNameDialog,
+                              tooltip: 'Edit schedule name',
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 8),
                         // Display the associated template (if any)
@@ -184,14 +329,49 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Chip(
-                                label: Text('Template: $associatedTemplateName'),
-                                backgroundColor: Colors.grey[200],
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: efficialsBlue.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(color: efficialsBlue.withOpacity(0.3), width: 1),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.link,
+                                      size: 16,
+                                      color: efficialsBlue,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      'Associated Template: $associatedTemplateName',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                        color: efficialsBlue,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                               const SizedBox(width: 8),
-                              IconButton(
-                                icon: const Icon(Icons.clear, color: Colors.red, size: 20),
-                                onPressed: _removeAssociatedTemplate,
+                              GestureDetector(
+                                onTap: _removeAssociatedTemplate,
+                                child: Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red.withOpacity(0.1),
+                                    shape: BoxShape.circle,
+                                    border: Border.all(color: Colors.red.withOpacity(0.3), width: 1),
+                                  ),
+                                  child: Icon(
+                                    Icons.close,
+                                    size: 16,
+                                    color: Colors.red.shade600,
+                                  ),
+                                ),
                               ),
                             ],
                           ),
@@ -444,8 +624,15 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                                     '/game_information',
                                     arguments: game,
                                   ).then((result) {
-                                    if (result == true || (result is Map<String, dynamic> && result.isNotEmpty)) {
-                                      _fetchGames();
+                                    if (result != null) {
+                                      if (result is Map<String, dynamic> && result['deleted'] == true) {
+                                        // Game was deleted, refresh and notify parent
+                                        _fetchGames();
+                                        Navigator.pop(context, true);
+                                      } else if (result == true || (result is Map<String, dynamic> && result.isNotEmpty)) {
+                                        // Game was modified, just refresh
+                                        _fetchGames();
+                                      }
                                     }
                                   });
                                 },

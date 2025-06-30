@@ -84,94 +84,40 @@ class _SchedulerSignUpStep1State extends State<SchedulerSignUpStep1> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Email',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
                       TextField(
                         controller: _emailController,
-                        decoration: textFieldDecoration('Enter your email'),
+                        decoration: textFieldDecoration('Email address'),
                         keyboardType: TextInputType.emailAddress,
                         textCapitalization: TextCapitalization.none,
                       ),
                       const SizedBox(height: 20),
-                      const Text(
-                        'Password',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
                       TextField(
                         controller: _passwordController,
-                        decoration: textFieldDecoration('Create a password'),
+                        decoration: textFieldDecoration('Password'),
                         obscureText: true,
                       ),
                       const SizedBox(height: 20),
-                      const Text(
-                        'Confirm Password',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
                       TextField(
                         controller: _confirmPasswordController,
-                        decoration: textFieldDecoration('Confirm your password'),
+                        decoration: textFieldDecoration('Confirm password'),
                         obscureText: true,
                       ),
                       const SizedBox(height: 20),
-                      const Text(
-                        'First Name',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
                       TextField(
                         controller: _firstNameController,
-                        decoration: textFieldDecoration('Enter your first name'),
+                        decoration: textFieldDecoration('First name'),
                         textCapitalization: TextCapitalization.words,
                       ),
                       const SizedBox(height: 20),
-                      const Text(
-                        'Last Name',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
                       TextField(
                         controller: _lastNameController,
-                        decoration: textFieldDecoration('Enter your last name'),
+                        decoration: textFieldDecoration('Last name'),
                         textCapitalization: TextCapitalization.words,
                       ),
                       const SizedBox(height: 20),
-                      const Text(
-                        'Phone Number',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
                       TextField(
                         controller: _phoneController,
-                        decoration: textFieldDecoration('Enter your phone number'),
+                        decoration: textFieldDecoration('Phone number'),
                         keyboardType: TextInputType.phone,
                       ),
                     ],

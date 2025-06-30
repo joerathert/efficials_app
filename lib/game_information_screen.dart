@@ -145,7 +145,7 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
         publishedGames.removeWhere((game) => game['id'] == gameId);
         await prefs.setString('published_games', jsonEncode(publishedGames));
         print('Game deleted - ID: $gameId');
-        Navigator.pop(context, true);
+        Navigator.pop(context, {'deleted': true});
       } catch (e) {
         print('Error deleting game: $e');
         ScaffoldMessenger.of(context).showSnackBar(

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'theme.dart';
 import 'edit_list_screen.dart';
+import 'utils.dart';
 
 class ListsOfOfficialsScreen extends StatefulWidget {
   const ListsOfOfficialsScreen({super.key});
@@ -30,7 +31,8 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    final args =
+        ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
     if (args != null) {
       setState(() {
         isFromGameCreation = args['fromGameCreation'] == true;
@@ -75,7 +77,8 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
 
   Future<void> _saveLists() async {
     final prefs = await SharedPreferences.getInstance();
-    final listsToSave = lists.where((list) => list['id'] != 0 && list['id'] != -1).toList();
+    final listsToSave =
+        lists.where((list) => list['id'] != 0 && list['id'] != -1).toList();
     await prefs.setString('saved_lists', jsonEncode(listsToSave));
   }
 
@@ -95,7 +98,8 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
               Navigator.pop(context);
               setState(() {
                 lists.removeWhere((list) => list['id'] == listId);
-                if (lists.isEmpty || (lists.length == 1 && lists[0]['id'] == 0)) {
+                if (lists.isEmpty ||
+                    (lists.length == 1 && lists[0]['id'] == 0)) {
                   lists.insert(0, {'name': 'No saved lists', 'id': -1});
                 }
                 selectedList = null; // Reset to show hint after deletion
@@ -110,7 +114,8 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
   }
 
   void _handleContinue() {
-    final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>?;
+    final args =
+        ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>?;
     if (args == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Error: Game data not found')),
@@ -128,7 +133,8 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
             .toList();
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Invalid officials data in the selected list')),
+          const SnackBar(
+              content: Text('Invalid officials data in the selected list')),
         );
         return;
       }
@@ -144,189 +150,365 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>?;
-    final sport = args?['sport'] as String? ?? 'Unknown Sport'; // Updated to handle null args
+    final args =
+        ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>?;
+    final sport = args?['sport'] as String? ?? 'Unknown Sport';
 
-    final dropdownItems = lists.isNotEmpty
-        ? lists.map((list) {
-            return DropdownMenuItem(
-              value: list['name'] as String,
-              child: Text(
-                list['name'] as String,
-                style: list['name'] == 'No saved lists' ? const TextStyle(color: Colors.red) : null,
-              ),
-            );
-          }).toList()
-        : [
-            const DropdownMenuItem(
-              value: 'No saved lists',
-              child: Text('No saved lists', style: TextStyle(color: Colors.red)),
-            ),
-          ];
+    // Filter out special items for the main list display
+    final actualLists =
+        lists.where((list) => list['id'] != 0 && list['id'] != -1).toList();
 
     return Scaffold(
+      backgroundColor: Colors.grey[100],
       appBar: AppBar(
         backgroundColor: efficialsBlue,
+        title: const Icon(
+          Icons.sports,
+          color: Colors.white,
+          size: 32,
+        ),
+        elevation: 0,
+        centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, size: 36, color: Colors.white),
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
-          'Lists of Officials',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
       ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 600),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text(
-                    'Select a list to edit, or create a new list.',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 60),
-                  isLoading
-                      ? const CircularProgressIndicator()
-                      : DropdownButtonFormField<String>(
-                          decoration: textFieldDecoration('Lists'),
-                          value: selectedList,
-                          hint: const Text(
-                            'Select a list',
-                            style: TextStyle(color: Colors.grey),
-                          ),
-                          onChanged: (newValue) {
-                            if (newValue == null) return;
-                            print('Dropdown onChanged: newValue = $newValue, previous selectedList = $selectedList');
-                            setState(() {
-                              if (newValue == '+ Create new list') {
-                                final existingListNames = lists
-                                    .where((list) => list['id'] != 0 && list['id'] != -1)
-                                    .map((list) => list['name'] as String)
-                                    .toList();
-                                Navigator.pushNamed(
-                                  context,
-                                  '/create_new_list',
-                                  arguments: {
-                                    'existingLists': existingListNames,
-                                    'fromGameCreation': isFromGameCreation,
-                                    'sport': sport,
-                                  },
-                                ).then((result) async {
-                                  if (result != null) {
-                                    setState(() {
-                                      if (lists.any((l) => l['name'] == 'No saved lists')) {
-                                        lists.removeWhere((l) => l['name'] == 'No saved lists');
-                                      }
-                                      final newList = result as Map<String, dynamic>;
-                                      if (!lists.any((list) => list['name'] == newList['listName'])) {
-                                        lists.insert(0, {
-                                          'name': newList['listName'],
-                                          'sport': newList['sport'] ?? sport,
-                                          'officials': newList['officials'],
-                                          'id': lists.length + 1,
-                                        });
-                                        selectedList = newList['listName'] as String;
-                                      } else {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(content: Text('A list with this name already exists!')),
-                                        );
-                                        selectedList = null; // Reset to show hint
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Lists of Officials',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'Manage your saved lists of officials',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey[600],
+                ),
+              ),
+              const SizedBox(height: 20),
+              Expanded(
+                child: isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : actualLists.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.people,
+                                  size: 80,
+                                  color: Colors.grey[400],
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'No official lists found',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Create your first list to get started',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.grey[500],
+                                  ),
+                                ),
+                                const SizedBox(height: 24),
+                                ElevatedButton.icon(
+                                  onPressed: () {
+                                    final existingListNames = actualLists
+                                        .map((list) => list['name'] as String)
+                                        .toList();
+                                    Navigator.pushNamed(
+                                      context,
+                                      '/create_new_list',
+                                      arguments: {
+                                        'existingLists': existingListNames,
+                                        'fromGameCreation': isFromGameCreation,
+                                        'sport': sport,
+                                      },
+                                    ).then((result) async {
+                                      if (result != null) {
+                                        await _handleNewListResult(
+                                            result, sport);
                                       }
                                     });
-                                    await _saveLists();
-                                    await _fetchLists();
-                                  } else {
-                                    selectedList = null; // Reset to show hint
-                                  }
-                                  print('After create new list navigation: selectedList = $selectedList');
-                                });
-                              } else {
-                                selectedList = newValue;
-                              }
-                            });
-                            print('After setState: selectedList = $selectedList');
-                          },
-                          items: dropdownItems,
-                        ),
-                  const SizedBox(height: 60),
-                  if (selectedList != null &&
-                      selectedList != '+ Create new list' &&
-                      selectedList != 'No saved lists') ...[
-                    ElevatedButton(
-                      onPressed: () {
-                        final selected = lists.firstWhere((l) => l['name'] == selectedList);
-                        Navigator.pushNamed(
-                          context,
-                          '/edit_list',
-                          arguments: {
-                            'listName': selected['name'] as String? ?? 'Unnamed List',
-                            'listId': selected['id'] as int? ?? -1,
-                            'officials': (selected['officials'] as List<dynamic>)
-                                .map((official) => Map<String, dynamic>.from(official as Map))
-                                .toList(),
-                          },
-                        ).then((result) async {
-                          if (result != null) {
-                            setState(() {
-                              final updatedList = result as Map<String, dynamic>;
-                              final index = lists.indexWhere((l) => l['name'] == selected['name']);
-                              if (index != -1) {
-                                if (!lists.any((list) => list['name'] == updatedList['name'] && list['id'] != selected['id'])) {
-                                  lists[index] = updatedList;
-                                  selectedList = updatedList['name'] as String;
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('List updated!')),
-                                  );
-                                } else {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('A list with this name already exists!')),
-                                  );
-                                  selectedList = null; // Reset to show hint
-                                }
-                              }
-                            });
-                            await _saveLists();
-                            await _fetchLists();
-                          }
-                        });
-                      },
-                      style: elevatedButtonStyle(),
-                      child: const Text('Edit List', style: signInButtonTextStyle),
-                    ),
-                    const SizedBox(height: 8),
-                    ElevatedButton(
-                      onPressed: () {
-                        final selected = lists.firstWhere((l) => l['name'] == selectedList);
-                        _showDeleteConfirmationDialog(selectedList!, selected['id'] as int);
-                      },
-                      style: elevatedButtonStyle(backgroundColor: Colors.red),
-                      child: const Text('Delete List', style: signInButtonTextStyle),
-                    ),
-                    if (isFromGameCreation) ...[
-                      const SizedBox(height: 8),
-                      ElevatedButton(
-                        onPressed: _handleContinue,
-                        style: elevatedButtonStyle(),
-                        child: const Text('Continue', style: signInButtonTextStyle),
-                      ),
-                    ],
-                  ],
-                ],
+                                  },
+                                  style: elevatedButtonStyle(),
+                                  icon: const Icon(Icons.add,
+                                      color: Colors.white),
+                                  label: const Text('Create New List',
+                                      style: signInButtonTextStyle),
+                                ),
+                              ],
+                            ),
+                          )
+                        : Column(
+                            children: [
+                              Expanded(
+                                child: ListView.builder(
+                                  itemCount: actualLists.length,
+                                  itemBuilder: (context, index) {
+                                    final list = actualLists[index];
+                                    final listName = list['name'] as String;
+                                    final officials =
+                                        list['officials'] as List<dynamic>? ??
+                                            [];
+                                    final officialCount = officials.length;
+
+                                    return Padding(
+                                      padding:
+                                          const EdgeInsets.only(bottom: 12.0),
+                                      child: Container(
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color:
+                                                  Colors.grey.withOpacity(0.1),
+                                              spreadRadius: 1,
+                                              blurRadius: 3,
+                                              offset: const Offset(0, 1),
+                                            ),
+                                          ],
+                                        ),
+                                        child: Padding(
+                                          padding: const EdgeInsets.all(16),
+                                          child: Row(
+                                            children: [
+                                              Container(
+                                                padding:
+                                                    const EdgeInsets.all(12),
+                                                decoration: BoxDecoration(
+                                                  color: getSportIconColor(
+                                                          list['sport']
+                                                                  as String? ??
+                                                              sport)
+                                                      .withOpacity(0.1),
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
+                                                ),
+                                                child: Icon(
+                                                  getSportIcon(list['sport']
+                                                          as String? ??
+                                                      sport),
+                                                  color: getSportIconColor(
+                                                      list['sport']
+                                                              as String? ??
+                                                          sport),
+                                                  size: 24,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 16),
+                                              Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    Text(
+                                                      listName,
+                                                      style: const TextStyle(
+                                                        fontSize: 18,
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                        color: Colors.black,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 4),
+                                                    Text(
+                                                      '$officialCount official${officialCount == 1 ? '' : 's'}',
+                                                      style: TextStyle(
+                                                        fontSize: 14,
+                                                        color: Colors.grey[600],
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                              Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  IconButton(
+                                                    onPressed: () {
+                                                      Navigator.pushNamed(
+                                                        context,
+                                                        '/edit_list',
+                                                        arguments: {
+                                                          'listName': listName,
+                                                          'listId':
+                                                              list['id'] as int,
+                                                          'officials': officials
+                                                              .map((official) => Map<
+                                                                      String,
+                                                                      dynamic>.from(
+                                                                  official
+                                                                      as Map))
+                                                              .toList(),
+                                                        },
+                                                      ).then((result) async {
+                                                        if (result != null) {
+                                                          await _handleEditListResult(
+                                                              result, list);
+                                                        }
+                                                      });
+                                                    },
+                                                    icon: Icon(
+                                                      Icons.edit,
+                                                      color: efficialsBlue,
+                                                      size: 20,
+                                                    ),
+                                                    tooltip: 'Edit List',
+                                                  ),
+                                                  IconButton(
+                                                    onPressed: () {
+                                                      _showDeleteConfirmationDialog(
+                                                          listName,
+                                                          list['id'] as int);
+                                                    },
+                                                    icon: Icon(
+                                                      Icons.delete_outline,
+                                                      color:
+                                                          Colors.red.shade600,
+                                                      size: 20,
+                                                    ),
+                                                    tooltip: 'Delete List',
+                                                  ),
+                                                  if (isFromGameCreation)
+                                                    IconButton(
+                                                      onPressed: () {
+                                                        setState(() {
+                                                          selectedList =
+                                                              listName;
+                                                        });
+                                                        _handleContinue();
+                                                      },
+                                                      icon: const Icon(
+                                                        Icons.arrow_forward,
+                                                        color: Colors.green,
+                                                        size: 20,
+                                                      ),
+                                                      tooltip: 'Use This List',
+                                                    ),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton.icon(
+                                  onPressed: () {
+                                    final existingListNames = actualLists
+                                        .map((list) => list['name'] as String)
+                                        .toList();
+                                    Navigator.pushNamed(
+                                      context,
+                                      '/create_new_list',
+                                      arguments: {
+                                        'existingLists': existingListNames,
+                                        'fromGameCreation': isFromGameCreation,
+                                        'sport': sport,
+                                      },
+                                    ).then((result) async {
+                                      if (result != null) {
+                                        await _handleNewListResult(
+                                            result, sport);
+                                      }
+                                    });
+                                  },
+                                  style: elevatedButtonStyle(
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 15),
+                                  ),
+                                  icon: const Icon(Icons.add,
+                                      color: Colors.white),
+                                  label: const Text('Create New List',
+                                      style: signInButtonTextStyle),
+                                ),
+                              ),
+                            ],
+                          ),
               ),
-            ),
+            ],
           ),
         ),
       ),
     );
+  }
+
+  Future<void> _handleNewListResult(dynamic result, String sport) async {
+    setState(() {
+      if (lists.any((l) => l['name'] == 'No saved lists')) {
+        lists.removeWhere((l) => l['name'] == 'No saved lists');
+      }
+      final newList = result as Map<String, dynamic>;
+      if (!lists.any((list) => list['name'] == newList['listName'])) {
+        lists.insert(0, {
+          'name': newList['listName'],
+          'sport': newList['sport'] ?? sport,
+          'officials': newList['officials'],
+          'id': lists.length + 1,
+        });
+        selectedList = newList['listName'] as String;
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('A list with this name already exists!')),
+        );
+        selectedList = null;
+      }
+    });
+    await _saveLists();
+    await _fetchLists();
+  }
+
+  Future<void> _handleEditListResult(
+      dynamic result, Map<String, dynamic> originalList) async {
+    setState(() {
+      final updatedList = result as Map<String, dynamic>;
+      final index = lists.indexWhere((l) => l['name'] == originalList['name']);
+      if (index != -1) {
+        if (!lists.any((list) =>
+            list['name'] == updatedList['name'] &&
+            list['id'] != originalList['id'])) {
+          lists[index] = updatedList;
+          selectedList = updatedList['name'] as String;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('List updated!')),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content: Text('A list with this name already exists!')),
+          );
+          selectedList = null;
+        }
+      }
+    });
+    await _saveLists();
+    await _fetchLists();
   }
 }

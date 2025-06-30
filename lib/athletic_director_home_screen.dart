@@ -6,6 +6,7 @@ import 'theme.dart';
 import 'schedule_filter_screen.dart';
 import 'game_template.dart';
 import 'utils.dart';
+import 'dart:developer' as developer;
 
 class Game {
   final int id;
@@ -98,12 +99,23 @@ class _AthleticDirectorHomeScreenState
   bool showFullyCoveredGames = true;
   Map<String, Map<String, bool>> scheduleFilters = {};
   bool isFabExpanded = false;
+  bool showPastGames = false;
+  bool isPullingDown = false;
+  double pullDistance = 0.0;
+  static const double pullThreshold = 80.0;
+  ScrollController scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
     _fetchGames();
     _loadFilters();
+  }
+
+  @override
+  void dispose() {
+    scrollController.dispose();
+    super.dispose();
   }
 
   @override
@@ -114,6 +126,35 @@ class _AthleticDirectorHomeScreenState
         args is Map<String, dynamic> &&
         args['refresh'] == true) {
       _fetchGames();
+    }
+    // Reset pull state when navigating to home screen
+    _resetPullState();
+  }
+
+  void _resetPullState() {
+    setState(() {
+      showPastGames = false;
+      isPullingDown = false;
+      pullDistance = 0.0;
+    });
+    // Reset scroll position
+    if (scrollController.hasClients) {
+      scrollController.jumpTo(0);
+    }
+  }
+
+  void _scrollToFirstUpcomingGame() {
+    if (scrollController.hasClients) {
+      try {
+        final upcomingGames = _filterGamesByTime(publishedGames, false);
+        final pastGames = _filterGamesByTime(publishedGames, true);
+        final estimatedOffset =
+            pastGames.length * 150.0; // Conservative height estimate
+        scrollController.jumpTo(estimatedOffset.clamp(
+            0.0, scrollController.position.maxScrollExtent));
+      } catch (e) {
+        print('Error scrolling to first upcoming game: $e');
+      }
     }
   }
 
@@ -281,7 +322,11 @@ class _AthleticDirectorHomeScreenState
     return null;
   }
 
-  List<Game> _filterGames(List<Game> games) {
+  List<Game> _filterGamesByTime(List<Game> games, bool getPastGames) {
+    final now = DateTime.now();
+    // Create a DateTime at the start of today (midnight) for date comparison
+    final today = DateTime(now.year, now.month, now.day);
+
     var filteredGames = games.where((game) {
       if (!showAwayGames && game.isAway) return false;
       if (!showFullyCoveredGames &&
@@ -289,6 +334,15 @@ class _AthleticDirectorHomeScreenState
         return false;
       }
       if (game.scheduleName == null) return false;
+
+      // Filter by past/upcoming
+      if (game.date != null) {
+        final gameDate =
+            DateTime(game.date!.year, game.date!.month, game.date!.day);
+        final isPastGame = gameDate.isBefore(today);
+        if (getPastGames && !isPastGame) return false;
+        if (!getPastGames && isPastGame) return false;
+      }
 
       if (scheduleFilters.containsKey(game.sport) &&
           scheduleFilters[game.sport]!.containsKey(game.scheduleName!)) {
@@ -325,13 +379,70 @@ class _AthleticDirectorHomeScreenState
     return filteredGames;
   }
 
+  Widget _buildGamesList(List<Game> pastGames, List<Game> upcomingGames) {
+    if (upcomingGames.isEmpty && pastGames.isEmpty) {
+      return const Center(
+        child: Text(
+          'No games found.',
+          style: homeTextStyle,
+          textAlign: TextAlign.center,
+        ),
+      );
+    }
+
+    if (!showPastGames) {
+      if (upcomingGames.isEmpty) {
+        return const Center(
+          child: Text(
+            'Click the "+" icon to get started.',
+            style: homeTextStyle,
+            textAlign: TextAlign.center,
+          ),
+        );
+      }
+      return ListView.builder(
+        controller: scrollController,
+        itemCount: upcomingGames.length,
+        itemBuilder: (context, index) {
+          final game = upcomingGames[index];
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12.0),
+            child: _buildGameTile(game),
+          );
+        },
+      );
+    } else {
+      return ListView.builder(
+        controller: scrollController,
+        itemCount: pastGames.length + upcomingGames.length,
+        itemBuilder: (context, index) {
+          if (index >= pastGames.length) {
+            final upcomingIndex = index - pastGames.length;
+            final game = upcomingGames[upcomingIndex];
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12.0),
+              child: _buildGameTile(game),
+            );
+          } else {
+            final game = pastGames[pastGames.length - 1 - index];
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12.0),
+              child: _buildGameTile(game),
+            );
+          }
+        },
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final double statusBarHeight = MediaQuery.of(context).padding.top;
     const double appBarHeight = kToolbarHeight;
     final double totalBannerHeight = statusBarHeight + appBarHeight;
 
-    final filteredPublishedGames = _filterGames(publishedGames);
+    final upcomingGames = _filterGamesByTime(publishedGames, false);
+    final pastGames = _filterGamesByTime(publishedGames, true);
 
     return Scaffold(
       backgroundColor: Colors.grey[100],
@@ -458,53 +569,87 @@ class _AthleticDirectorHomeScreenState
       body: Stack(
         children: [
           SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(20.0),
+            child: GestureDetector(
+              onPanUpdate: (details) {
+                // Only track downward gestures and when not scrolling
+                if (details.delta.dy > 0) {
+                  setState(() {
+                    pullDistance = (pullDistance + details.delta.dy)
+                        .clamp(0.0, pullThreshold * 1.5);
+                    isPullingDown = pullDistance > 10;
+                  });
+                }
+              },
+              onPanEnd: (details) {
+                if (pullDistance >= pullThreshold && !showPastGames) {
+                  // Trigger showing past games
+                  _onShowPastGames();
+                } else {
+                  // Reset pull state
+                  setState(() {
+                    pullDistance = 0.0;
+                    isPullingDown = false;
+                  });
+                }
+              },
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Upcoming Games',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Expanded(
-                    child: isLoading
-                        ? const Center(child: CircularProgressIndicator())
-                        : filteredPublishedGames.isEmpty
-                            ? const Center(
-                                child: Text(
-                                  'Click the "+" icon to get started.',
-                                  style: homeTextStyle,
-                                  textAlign: TextAlign.center,
+                  // Pull-to-reveal header
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    height: pullDistance > 0
+                        ? pullDistance.clamp(0.0, pullThreshold)
+                        : 0,
+                    child: pullDistance > 0
+                        ? Container(
+                            width: double.infinity,
+                            color: Colors.grey[100],
+                            child: Center(
+                              child: Text(
+                                pullDistance >= pullThreshold
+                                    ? 'Release to view past games'
+                                    : 'View past games',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: pullDistance >= pullThreshold
+                                      ? efficialsBlue
+                                      : Colors.grey[600],
+                                  fontWeight: FontWeight.w600,
                                 ),
-                              )
-                            : CustomScrollView(
-                                slivers: [
-                                  SliverList(
-                                    delegate: SliverChildBuilderDelegate(
-                                      (context, index) {
-                                        final game =
-                                            filteredPublishedGames[index];
-                                        return Padding(
-                                          padding:
-                                              const EdgeInsets.only(bottom: 12.0),
-                                          child: _buildGameTile(game),
-                                        );
-                                      },
-                                      childCount: filteredPublishedGames.length,
-                                    ),
-                                  ),
-                                  // Add some bottom padding to account for FAB
-                                  const SliverPadding(
-                                    padding: EdgeInsets.only(bottom: 80.0),
-                                  ),
-                                ],
                               ),
+                            ),
+                          )
+                        : null,
+                  ),
+                  // Main content
+                  Flexible(
+                    fit: FlexFit.loose,
+                    child: Padding(
+                      padding: const EdgeInsets.all(20.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Title - only show if past games aren't revealed
+                          if (!showPastGames) ...[
+                            const Text(
+                              'Upcoming Games',
+                              style: TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                          ],
+                          // Games list
+                          Expanded(
+                            child: isLoading
+                                ? const Center(child: CircularProgressIndicator())
+                                : _buildGamesList(pastGames, upcomingGames),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -596,6 +741,54 @@ class _AthleticDirectorHomeScreenState
     );
   }
 
+  void _onShowPastGames() {
+    setState(() {
+      showPastGames = true;
+      pullDistance = 0.0;
+      isPullingDown = false;
+    });
+
+    // Ensure layout is complete and adjust scroll position
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (scrollController.hasClients) {
+        final pastGames = _filterGamesByTime(publishedGames, true);
+        final upcomingGames = _filterGamesByTime(publishedGames, false);
+        if (upcomingGames.isNotEmpty) {
+          // Calculate the index where upcoming games start
+          final firstUpcomingIndex = pastGames.length;
+          // Estimate the height of each game tile (adjust based on actual measurement)
+          const double estimatedTileHeight = 160.0; // Current estimate
+          // Initial target offset
+          double targetOffset = firstUpcomingIndex * estimatedTileHeight;
+          // Get initial max scroll extent
+          final initialMaxScrollExtent =
+              scrollController.position.maxScrollExtent;
+          developer.log(
+              'Initial Target Offset: $targetOffset, Initial Max Scroll Extent: $initialMaxScrollExtent, Total Items: ${pastGames.length + upcomingGames.length}');
+
+          // If maxScrollExtent is too small, delay and retry with a longer wait
+          if (targetOffset > initialMaxScrollExtent) {
+            Future.delayed(const Duration(milliseconds: 300), () {
+              if (scrollController.hasClients) {
+                final updatedMaxScrollExtent =
+                    scrollController.position.maxScrollExtent;
+                targetOffset = firstUpcomingIndex *
+                    estimatedTileHeight.clamp(0.0, updatedMaxScrollExtent);
+                developer.log(
+                    'Adjusted Target Offset: $targetOffset, Updated Max Scroll Extent: $updatedMaxScrollExtent, Total Items: ${pastGames.length + upcomingGames.length}');
+                scrollController
+                    .jumpTo(targetOffset.clamp(0.0, updatedMaxScrollExtent));
+              }
+            });
+          } else {
+            scrollController
+                .jumpTo(targetOffset.clamp(0.0, initialMaxScrollExtent));
+          }
+        }
+      }
+    });
+  }
+
   Widget _buildGameTile(Game game) {
     final gameTitle = game.scheduleName ?? 'Not set';
     final gameDate = game.date != null
@@ -609,9 +802,8 @@ class _AthleticDirectorHomeScreenState
     final sportIcon = getSportIcon(sport);
     final isAway = game.isAway;
     final opponent = game.opponent;
-    final opponentDisplay = opponent != null 
-        ? (isAway ? '@ $opponent' : 'vs $opponent')
-        : null;
+    final opponentDisplay =
+        opponent != null ? (isAway ? '@ $opponent' : 'vs $opponent') : null;
 
     return GestureDetector(
       onTap: () async {
@@ -699,18 +891,17 @@ class _AthleticDirectorHomeScreenState
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    opponentDisplay != null 
+                    opponentDisplay != null
                         ? '$gameTime $opponentDisplay'
                         : '$gameTime - $gameTitle',
-                    style: const TextStyle(
-                        fontSize: 16, color: Colors.black),
+                    style: const TextStyle(fontSize: 16, color: Colors.black),
                   ),
                   if (opponentDisplay != null) ...[
                     const SizedBox(height: 4),
                     Text(
                       gameTitle,
                       style: TextStyle(
-                          fontSize: 14, 
+                          fontSize: 14,
                           color: Colors.grey[700],
                           fontWeight: FontWeight.w500),
                     ),
@@ -720,7 +911,8 @@ class _AthleticDirectorHomeScreenState
                     children: [
                       if (isAway)
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
                             color: Colors.blue.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(12),
@@ -732,9 +924,10 @@ class _AthleticDirectorHomeScreenState
                         )
                       else ...[
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
-                            color: isFullyHired 
+                            color: isFullyHired
                                 ? Colors.green.withOpacity(0.1)
                                 : Colors.red.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(12),
