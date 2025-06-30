@@ -91,7 +91,8 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel', style: TextStyle(color: efficialsBlue)),
+            child:
+                const Text('Cancel', style: TextStyle(color: efficialsYellow)),
           ),
           TextButton(
             onPressed: () {
@@ -106,7 +107,8 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                 _saveLists();
               });
             },
-            child: const Text('Delete', style: TextStyle(color: efficialsBlue)),
+            child:
+                const Text('Delete', style: TextStyle(color: efficialsYellow)),
           ),
         ],
       ),
@@ -159,18 +161,18 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
         lists.where((list) => list['id'] != 0 && list['id'] != -1).toList();
 
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      backgroundColor: darkBackground,
       appBar: AppBar(
-        backgroundColor: efficialsBlue,
+        backgroundColor: efficialsBlack,
         title: const Icon(
           Icons.sports,
-          color: Colors.white,
+          color: efficialsYellow,
           size: 32,
         ),
         elevation: 0,
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: const Icon(Icons.arrow_back, color: efficialsWhite),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -185,15 +187,15 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                 style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
-                  color: Colors.black,
+                  color: primaryTextColor,
                 ),
               ),
               const SizedBox(height: 10),
-              Text(
+              const Text(
                 'Manage your saved lists of officials',
                 style: TextStyle(
                   fontSize: 16,
-                  color: Colors.grey[600],
+                  color: secondaryTextColor,
                 ),
               ),
               const SizedBox(height: 20),
@@ -205,27 +207,27 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(
+                                const Icon(
                                   Icons.people,
                                   size: 80,
-                                  color: Colors.grey[400],
+                                  color: secondaryTextColor,
                                 ),
                                 const SizedBox(height: 16),
-                                Text(
+                                const Text(
                                   'No official lists found',
                                   style: TextStyle(
                                     fontSize: 18,
                                     fontWeight: FontWeight.w600,
-                                    color: Colors.grey[600],
+                                    color: primaryTextColor,
                                   ),
                                 ),
                                 const SizedBox(height: 8),
-                                Text(
+                                const Text(
                                   'Create your first list to get started',
                                   textAlign: TextAlign.center,
                                   style: TextStyle(
                                     fontSize: 16,
-                                    color: Colors.grey[500],
+                                    color: secondaryTextColor,
                                   ),
                                 ),
                                 const SizedBox(height: 24),
@@ -251,7 +253,7 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                                   },
                                   style: elevatedButtonStyle(),
                                   icon: const Icon(Icons.add,
-                                      color: Colors.white),
+                                      color: efficialsBlack),
                                   label: const Text('Create New List',
                                       style: signInButtonTextStyle),
                                 ),
@@ -276,13 +278,13 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                                           const EdgeInsets.only(bottom: 12.0),
                                       child: Container(
                                         decoration: BoxDecoration(
-                                          color: Colors.white,
+                                          color: darkSurface,
                                           borderRadius:
                                               BorderRadius.circular(12),
                                           boxShadow: [
                                             BoxShadow(
                                               color:
-                                                  Colors.grey.withOpacity(0.1),
+                                                  Colors.black.withOpacity(0.3),
                                               spreadRadius: 1,
                                               blurRadius: 3,
                                               offset: const Offset(0, 1),
@@ -328,15 +330,16 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                                                         fontSize: 18,
                                                         fontWeight:
                                                             FontWeight.bold,
-                                                        color: Colors.black,
+                                                        color: primaryTextColor,
                                                       ),
                                                     ),
                                                     const SizedBox(height: 4),
                                                     Text(
                                                       '$officialCount official${officialCount == 1 ? '' : 's'}',
-                                                      style: TextStyle(
+                                                      style: const TextStyle(
                                                         fontSize: 14,
-                                                        color: Colors.grey[600],
+                                                        color:
+                                                            secondaryTextColor,
                                                       ),
                                                     ),
                                                   ],
@@ -369,9 +372,9 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                                                         }
                                                       });
                                                     },
-                                                    icon: Icon(
+                                                    icon: const Icon(
                                                       Icons.edit,
-                                                      color: efficialsBlue,
+                                                      color: efficialsYellow,
                                                       size: 20,
                                                     ),
                                                     tooltip: 'Edit List',
@@ -444,7 +447,7 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                                         vertical: 15),
                                   ),
                                   icon: const Icon(Icons.add,
-                                      color: Colors.white),
+                                      color: efficialsBlack),
                                   label: const Text('Create New List',
                                       style: signInButtonTextStyle),
                                 ),

@@ -252,7 +252,7 @@ class _AssignerManageSchedulesScreenState
     // Update UI only if widget is still mounted
     if (mounted) {
       setState(() {
-        this.games = games; // Update the instance variable
+        games = games; // Update the instance variable
       });
     }
 
@@ -323,7 +323,7 @@ class _AssignerManageSchedulesScreenState
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: efficialsBlue,
+        backgroundColor: efficialsBlack,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, size: 36, color: Colors.white),
           onPressed: () => Navigator.pop(context),
@@ -377,7 +377,7 @@ class _AssignerManageSchedulesScreenState
                                   style: TextStyle(fontSize: 18),
                                 ),
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: efficialsBlue,
+                                  backgroundColor: efficialsBlack,
                                   foregroundColor: Colors.white,
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 24,
@@ -401,7 +401,7 @@ class _AssignerManageSchedulesScreenState
                       Container(
                         padding: const EdgeInsets.all(16.0),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: darkSurface,
                           boxShadow: [
                             BoxShadow(
                               color: Colors.grey.withOpacity(0.1),
@@ -536,7 +536,7 @@ class _AssignerManageSchedulesScreenState
                             Container(
                               margin: const EdgeInsets.symmetric(vertical: 16),
                               decoration: BoxDecoration(
-                                color: Colors.white,
+                                color: darkSurface,
                                 borderRadius: BorderRadius.circular(12),
                                 boxShadow: [
                                   BoxShadow(
@@ -587,9 +587,9 @@ class _AssignerManageSchedulesScreenState
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   defaultTextStyle: const TextStyle(
-                                      fontSize: 16, color: Colors.black87),
+                                      fontSize: 16, color: primaryTextColor),
                                   weekendTextStyle: const TextStyle(
-                                      fontSize: 16, color: Colors.black87),
+                                      fontSize: 16, color: primaryTextColor),
                                   outsideTextStyle: TextStyle(
                                       fontSize: 16, color: Colors.grey[400]),
                                   markersMaxCount: 0,
@@ -598,11 +598,11 @@ class _AssignerManageSchedulesScreenState
                                   weekdayStyle: TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.w600,
-                                      color: Colors.black87),
+                                      color: primaryTextColor),
                                   weekendStyle: TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.w600,
-                                      color: Colors.black87),
+                                      color: primaryTextColor),
                                 ),
                                 headerStyle: const HeaderStyle(
                                   formatButtonVisible: false,
@@ -654,10 +654,12 @@ class _AssignerManageSchedulesScreenState
                                             hiredOfficials >= requiredOfficials;
 
                                         if (!isEventAway) allAway = false;
-                                        if (!isFullyHired)
+                                        if (!isFullyHired) {
                                           allFullyHired = false;
-                                        if (!isEventAway && !isFullyHired)
+                                        }
+                                        if (!isEventAway && !isFullyHired) {
                                           needsOfficials = true;
+                                        }
                                       }
 
                                       if (allAway) {
@@ -721,7 +723,7 @@ class _AssignerManageSchedulesScreenState
                                   horizontal: 16.0, vertical: 8.0),
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: Colors.white,
+                                color: darkSurface,
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(color: Colors.grey[200]!),
                               ),
@@ -777,7 +779,7 @@ class _AssignerManageSchedulesScreenState
                                     'Show only games needing officials',
                                     style: TextStyle(
                                       fontSize: 16,
-                                      color: Colors.black87,
+                                      color: primaryTextColor,
                                     ),
                                   ),
                                 ],
@@ -788,7 +790,7 @@ class _AssignerManageSchedulesScreenState
                               Container(
                                 margin: const EdgeInsets.all(16),
                                 decoration: BoxDecoration(
-                                  color: Colors.white,
+                                  color: darkSurface,
                                   borderRadius: BorderRadius.circular(12),
                                   boxShadow: [
                                     BoxShadow(
@@ -847,7 +849,7 @@ class _AssignerManageSchedulesScreenState
                                       child: Container(
                                         padding: const EdgeInsets.all(16),
                                         decoration: BoxDecoration(
-                                          color: Colors.white,
+                                          color: darkSurface,
                                           borderRadius:
                                               BorderRadius.circular(8),
                                           border: Border.all(
@@ -869,10 +871,10 @@ class _AssignerManageSchedulesScreenState
                                               children: [
                                                 Row(
                                                   children: [
-                                                    Icon(
+                                                    const Icon(
                                                       Icons.access_time,
                                                       size: 18,
-                                                      color: Colors.grey[600],
+                                                      color: secondaryTextColor,
                                                     ),
                                                     const SizedBox(width: 8),
                                                     Text(
@@ -903,7 +905,7 @@ class _AssignerManageSchedulesScreenState
                                                   child: Text(
                                                     '$hiredOfficials/$requiredOfficials officials',
                                                     style: const TextStyle(
-                                                      color: Colors.white,
+                                                      color: darkSurface,
                                                       fontSize: 14,
                                                       fontWeight:
                                                           FontWeight.w500,
@@ -920,7 +922,7 @@ class _AssignerManageSchedulesScreenState
                                                       ? Icons.directions_bus
                                                       : Icons.location_on,
                                                   size: 18,
-                                                  color: Colors.grey[600],
+                                                  color: secondaryTextColor,
                                                 ),
                                                 const SizedBox(width: 8),
                                                 Expanded(
@@ -935,10 +937,10 @@ class _AssignerManageSchedulesScreenState
                                             const SizedBox(height: 8),
                                             Row(
                                               children: [
-                                                Icon(
+                                                const Icon(
                                                   Icons.people,
                                                   size: 18,
-                                                  color: Colors.grey[600],
+                                                  color: secondaryTextColor,
                                                 ),
                                                 const SizedBox(width: 8),
                                                 Expanded(
@@ -977,9 +979,9 @@ class _AssignerManageSchedulesScreenState
                                     const SizedBox(height: 16),
                                     Text(
                                       'No games scheduled for ${_selectedDay!.month}/${_selectedDay!.day}/${_selectedDay!.year}',
-                                      style: TextStyle(
+                                      style: const TextStyle(
                                         fontSize: 16,
-                                        color: Colors.grey[600],
+                                        color: secondaryTextColor,
                                       ),
                                       textAlign: TextAlign.center,
                                     ),
@@ -1011,7 +1013,7 @@ class _AssignerManageSchedulesScreenState
                       _loadAssociatedTemplate();
                     });
                   },
-                  backgroundColor: efficialsBlue,
+                  backgroundColor: efficialsBlack,
                   tooltip: 'Set Template',
                   child: const Icon(Icons.link, color: Colors.white),
                 ),

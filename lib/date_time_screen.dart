@@ -89,18 +89,24 @@ class _DateTimeScreenState extends State<DateTimeScreen>
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            primaryColor: efficialsBlue,
-            colorScheme: ColorScheme.light(
-              primary: efficialsBlue,
-              onPrimary: Colors.white,
-              surface: Colors.white,
-              onSurface: Colors.black,
+            primaryColor: efficialsYellow,
+            colorScheme: const ColorScheme.dark(
+              primary: efficialsYellow,
+              onPrimary: efficialsBlack,
+              surface: darkSurface,
+              onSurface: primaryTextColor,
+              background: darkBackground,
+              onBackground: primaryTextColor,
+              secondary: efficialsYellow,
+              onSecondary: efficialsBlack,
             ),
-            dialogTheme: const DialogThemeData(
-              backgroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.all(Radius.circular(16)),
-              ),
+            datePickerTheme: const DatePickerThemeData(
+              backgroundColor: darkSurface,
+              headerBackgroundColor: efficialsYellow,
+              headerForegroundColor: efficialsBlack,
+              weekdayStyle: TextStyle(color: primaryTextColor),
+              dayStyle: TextStyle(color: primaryTextColor),
+              yearStyle: TextStyle(color: primaryTextColor),
             ),
           ),
           child: child!,
@@ -125,18 +131,28 @@ class _DateTimeScreenState extends State<DateTimeScreen>
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            primaryColor: efficialsBlue,
-            colorScheme: ColorScheme.light(
-              primary: efficialsBlue,
-              onPrimary: Colors.white,
-              surface: Colors.white,
-              onSurface: Colors.black,
+            primaryColor: efficialsYellow,
+            colorScheme: const ColorScheme.dark(
+              primary: efficialsYellow,
+              onPrimary: efficialsBlack,
+              surface: darkSurface,
+              onSurface: primaryTextColor,
+              background: darkBackground,
+              onBackground: primaryTextColor,
+              secondary: efficialsYellow,
+              onSecondary: efficialsBlack,
             ),
-            dialogTheme: const DialogThemeData(
-              backgroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.all(Radius.circular(16)),
-              ),
+            timePickerTheme: const TimePickerThemeData(
+              backgroundColor: darkSurface,
+              hourMinuteColor: darkBackground,
+              hourMinuteTextColor: primaryTextColor,
+              dayPeriodColor: efficialsYellow,
+              dayPeriodTextColor: efficialsBlack,
+              dialBackgroundColor: darkBackground,
+              dialHandColor: efficialsYellow,
+              dialTextColor: primaryTextColor,
+              entryModeIconColor: efficialsYellow,
+              helpTextStyle: TextStyle(color: primaryTextColor),
             ),
           ),
           child: child!,
@@ -171,24 +187,18 @@ class _DateTimeScreenState extends State<DateTimeScreen>
         'build - Date: $_selectedDate, Time: $_selectedTime, Sport: $sport, Template: $template');
 
     return Scaffold(
+      backgroundColor: darkBackground,
       appBar: AppBar(
-        backgroundColor: efficialsBlue,
+        backgroundColor: efficialsBlack,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, size: 36, color: Colors.white),
+          icon: const Icon(Icons.arrow_back, size: 36, color: efficialsWhite),
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text('Game Schedule', style: appBarTextStyle),
       ),
       body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Colors.grey[50]!,
-              Colors.white,
-            ],
-          ),
+        decoration: const BoxDecoration(
+          color: darkBackground,
         ),
         child: Center(
           child: ConstrainedBox(
@@ -204,7 +214,7 @@ class _DateTimeScreenState extends State<DateTimeScreen>
                     style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
-                      color: efficialsBlue,
+                      color: efficialsYellow,
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -212,11 +222,11 @@ class _DateTimeScreenState extends State<DateTimeScreen>
                   Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: darkSurface,
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.grey.withOpacity(0.1),
+                          color: Colors.black.withOpacity(0.3),
                           spreadRadius: 1,
                           blurRadius: 10,
                           offset: const Offset(0, 2),
@@ -233,8 +243,8 @@ class _DateTimeScreenState extends State<DateTimeScreen>
                               fontSize: 20,
                               color:
                                   _selectedDate != null && _selectedTime != null
-                                      ? Colors.black87
-                                      : Colors.grey[600],
+                                      ? primaryTextColor
+                                      : secondaryTextColor,
                               height: 1.5,
                             ),
                             textAlign: TextAlign.center,
@@ -308,14 +318,8 @@ class _DateTimeScreenState extends State<DateTimeScreen>
                                   }
                                 }
                               : null,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: efficialsBlue,
-                        foregroundColor: Colors.white,
+                      style: elevatedButtonStyle(
                         padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        elevation: 0,
                       ),
                       child: Text(
                         'Continue',
@@ -324,8 +328,8 @@ class _DateTimeScreenState extends State<DateTimeScreen>
                           fontWeight: FontWeight.w600,
                           color:
                               (_selectedDate != null && _selectedTime != null)
-                                  ? Colors.white
-                                  : Colors.white.withOpacity(0.5),
+                                  ? efficialsBlack
+                                  : efficialsBlack.withOpacity(0.5),
                         ),
                       ),
                     ),
@@ -355,12 +359,12 @@ class _DateTimeScreenState extends State<DateTimeScreen>
           padding: const EdgeInsets.symmetric(vertical: 16),
           decoration: BoxDecoration(
             border: Border.all(
-              color: isSelected ? efficialsBlue : Colors.grey[300]!,
+              color: isSelected ? efficialsYellow : secondaryTextColor,
               width: 2,
             ),
             borderRadius: BorderRadius.circular(12),
             color: isSelected
-                ? efficialsBlue.withOpacity(0.05)
+                ? efficialsYellow.withOpacity(0.1)
                 : Colors.transparent,
           ),
           child: Column(
@@ -368,14 +372,14 @@ class _DateTimeScreenState extends State<DateTimeScreen>
             children: [
               Icon(
                 icon,
-                color: isSelected ? efficialsBlue : Colors.grey[600],
+                color: isSelected ? efficialsYellow : secondaryTextColor,
                 size: 28,
               ),
               const SizedBox(height: 8),
               Text(
                 label,
                 style: TextStyle(
-                  color: isSelected ? efficialsBlue : Colors.grey[600],
+                  color: isSelected ? efficialsYellow : secondaryTextColor,
                   fontSize: 16,
                   fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                 ),

@@ -43,7 +43,19 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
 
   // Options for dropdowns
   final List<String> competitionLevels = [
-    '6U', '7U', '8U', '9U', '10U', '11U', '12U', '13U', '14U', '15U', '16U', '17U', '18U',
+    '6U',
+    '7U',
+    '8U',
+    '9U',
+    '10U',
+    '11U',
+    '12U',
+    '13U',
+    '14U',
+    '15U',
+    '16U',
+    '17U',
+    '18U',
     'Grade School',
     'Middle School',
     'Underclass',
@@ -280,7 +292,7 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
       final List<dynamic> decoded = jsonDecode(templatesJson);
       templates = decoded.map((json) => GameTemplate.fromJson(json)).toList();
     }
-    
+
     if (isEditing) {
       // Find and update the existing template
       final index = templates.indexWhere((t) => t.id == existingTemplate!.id);
@@ -291,7 +303,7 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
       // Add new template
       templates.add(newTemplate);
     }
-    
+
     await prefs.setString('game_templates',
         jsonEncode(templates.map((t) => t.toJson()).toList()));
 
@@ -340,11 +352,11 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
           onChanged: isCheckboxEnabled ? onChanged : null,
           activeColor: efficialsBlue,
           checkColor: Colors.white,
-          fillColor: MaterialStateProperty.resolveWith<Color?>((states) {
+          fillColor: WidgetStateProperty.resolveWith<Color?>((states) {
             if (!isCheckboxEnabled) {
               return Colors.grey;
             }
-            return states.contains(MaterialState.selected)
+            return states.contains(WidgetState.selected)
                 ? efficialsBlue
                 : Colors.grey;
           }),
@@ -371,7 +383,7 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
         'CreateGameTemplateScreen - Building UI with Location: $location, Include Location: $includeLocation');
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: efficialsBlue,
+        backgroundColor: efficialsBlack,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, size: 36, color: Colors.white),
           onPressed: () => Navigator.pop(context),
@@ -593,7 +605,8 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                     decoration:
                         textFieldDecoration('Game Fee per Official').copyWith(
                       prefixText: '\$',
-                      prefixStyle: const TextStyle(color: Colors.black, fontSize: 16),
+                      prefixStyle: const TextStyle(
+                          color: primaryTextColor, fontSize: 16),
                       hintText: 'Enter fee (e.g., 50 or 50.00)',
                     ),
                     keyboardType: TextInputType.number,

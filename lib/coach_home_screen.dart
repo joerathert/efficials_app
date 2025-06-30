@@ -206,7 +206,7 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
   @override
   Widget build(BuildContext context) {
     if (isLoading) {
-      return Scaffold(
+      return const Scaffold(
         body: Center(child: CircularProgressIndicator(color: efficialsBlue)),
       );
     }
@@ -216,18 +216,19 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
     final double totalBannerHeight = statusBarHeight + appBarHeight;
 
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      backgroundColor: darkBackground,
       appBar: AppBar(
-        backgroundColor: efficialsBlue,
-        title: Text('', style: appBarTextStyle),
+        backgroundColor: efficialsBlack,
+        title: const Text('', style: appBarTextStyle),
         leading: Builder(
           builder: (context) => IconButton(
-            icon: const Icon(Icons.menu, color: Colors.white),
+            icon: const Icon(Icons.menu, color: efficialsYellow),
             onPressed: () => Scaffold.of(context).openDrawer(),
           ),
         ),
       ),
       drawer: Drawer(
+        backgroundColor: Colors.grey[800],
         child: ListView(
           padding: EdgeInsets.zero,
           children: [
@@ -244,25 +245,26 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
                 child: const Text(
                   'Menu',
                   style: TextStyle(
-                      color: Colors.white,
+                      color: darkSurface,
                       fontSize: 20,
                       fontWeight: FontWeight.bold),
                 ),
               ),
             ),
             ListTile(
-              leading: Icon(Icons.schedule),
-              title: Text('Team Schedule'),
+              leading: const Icon(Icons.schedule, color: efficialsYellow),
+              title: const Text('Team Schedule', style: TextStyle(color: Colors.white)),
               onTap: () {
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Team Schedule not implemented yet')),
+                  const SnackBar(
+                      content: Text('Team Schedule not implemented yet')),
                 );
               },
             ),
             ListTile(
-              leading: Icon(Icons.settings),
-              title: Text('Settings'),
+              leading: const Icon(Icons.settings, color: efficialsYellow),
+              title: const Text('Settings', style: TextStyle(color: Colors.white)),
               onTap: () {
                 Navigator.pop(context);
                 Navigator.pushNamed(context, '/settings');
@@ -284,7 +286,7 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
                     width: double.infinity,
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: darkSurface,
                       borderRadius: BorderRadius.circular(12),
                       boxShadow: [
                         BoxShadow(
@@ -316,9 +318,9 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
                               ),
                               Text(
                                 '${grade ?? ''} ${gender ?? ''} ${sport ?? ''}',
-                                style: TextStyle(
+                                style: const TextStyle(
                                   fontSize: 14,
-                                  color: Colors.grey[600],
+                                  color: secondaryTextColor,
                                 ),
                               ),
                             ],
@@ -338,7 +340,7 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
                   const SizedBox(height: 10),
                   Expanded(
                     child: games.isEmpty
-                        ? Center(
+                        ? const Center(
                             child: Text(
                               'Click the "+" icon to get started.',
                               style: homeTextStyle,
@@ -439,9 +441,9 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
                       isFabExpanded = !isFabExpanded;
                     });
                   },
-                  backgroundColor: efficialsBlue,
+                  backgroundColor: Colors.grey[800],
                   child: Icon(isFabExpanded ? Icons.close : Icons.add,
-                      size: 30, color: Colors.white),
+                      size: 30, color: efficialsYellow),
                 ),
               ],
             ),

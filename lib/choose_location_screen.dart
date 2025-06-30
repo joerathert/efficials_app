@@ -145,8 +145,9 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
     final time = args['time'] as TimeOfDay?;
 
     return Scaffold(
+      backgroundColor: darkBackground,
       appBar: AppBar(
-        backgroundColor: efficialsBlue,
+        backgroundColor: efficialsBlack,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, size: 36, color: Colors.white),
           onPressed: () => Navigator.pop(context),
@@ -167,7 +168,7 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                     style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
-                        color: Colors.black),
+                        color: efficialsYellow),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 20),
@@ -177,7 +178,8 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                           decoration: textFieldDecoration('Locations'),
                           value: selectedLocation,
                           hint: const Text('Choose location',
-                              style: TextStyle(color: Colors.grey)),
+                              style: TextStyle(color: efficialsGray)),
+                          dropdownColor: darkSurface,
                           onChanged: (newValue) {
                             if (newValue == null) return;
                             setState(() {
@@ -210,7 +212,8 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                           items: locations
                               .map((loc) => DropdownMenuItem(
                                     value: loc['name'] as String,
-                                    child: Text(loc['name'] as String),
+                                    child: Text(loc['name'] as String,
+                                        style: const TextStyle(color: primaryTextColor)),
                                   ))
                               .toList(),
                         ),
@@ -283,8 +286,19 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                             );
                           }
                         : null,
-                    style: elevatedButtonStyle(),
-                    child: const Text('Continue', style: signInButtonTextStyle),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: efficialsYellow,
+                      foregroundColor: efficialsBlack,
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text('Continue', style: TextStyle(
+                      color: efficialsBlack,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    )),
                   ),
                 ],
               ),

@@ -532,7 +532,7 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
       onWillPop: _onWillPop,
       child: Scaffold(
         appBar: AppBar(
-          backgroundColor: efficialsBlue,
+          backgroundColor: efficialsBlack,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back, size: 36, color: Colors.white),
             onPressed: () async {
@@ -549,7 +549,7 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
               pinned: true,
               delegate: _SliverHeaderDelegate(
                 child: Container(
-                  color: Colors.white,
+                  color: darkSurface,
                   padding: const EdgeInsets.all(16),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,

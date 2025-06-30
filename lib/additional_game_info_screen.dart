@@ -25,7 +25,19 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
   GameTemplate? template; // Store the selected template
 
   final List<String> _competitionLevels = [
-    '6U', '7U', '8U', '9U', '10U', '11U', '12U', '13U', '14U', '15U', '16U', '17U', '18U',
+    '6U',
+    '7U',
+    '8U',
+    '9U',
+    '10U',
+    '11U',
+    '12U',
+    '13U',
+    '14U',
+    '15U',
+    '16U',
+    '17U',
+    '18U',
     'Grade School',
     'Middle School',
     'Underclass',
@@ -53,9 +65,12 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Hire Automatically'),
+        backgroundColor: efficialsWhite,
+        title: const Text('Hire Automatically', style: headlineStyle),
         content: const Text(
-            'When checked, the system will automatically assign officials based on your preferences and availability. Uncheck to manually select officials.'),
+          'When checked, the system will automatically assign officials based on your preferences and availability. Uncheck to manually select officials.',
+          style: TextStyle(color: primaryTextColor),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -119,7 +134,8 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
         }
         // Opponent field should never be populated from templates
         // Only use args opponent if not coming from template flow
-        _opponentController.text = template == null ? (args['opponent'] as String? ?? '') : '';
+        _opponentController.text =
+            template == null ? (args['opponent'] as String? ?? '') : '';
       }
       _isInitialized = true;
     }
@@ -200,10 +216,11 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
     }
 
     return Scaffold(
+      backgroundColor: efficialsWhite,
       appBar: AppBar(
-        backgroundColor: efficialsBlue,
+        backgroundColor: efficialsBlack,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, size: 36, color: Colors.white),
+          icon: const Icon(Icons.arrow_back, size: 36, color: efficialsWhite),
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text('Additional Game Info', style: appBarTextStyle),
@@ -221,7 +238,9 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
                     DropdownButtonFormField<String>(
                       decoration: textFieldDecoration('Level of competition'),
                       value: _levelOfCompetition,
-                      hint: const Text('Level of competition'),
+                      hint: const Text('Level of competition',
+                          style: TextStyle(color: secondaryTextColor)),
+                      style: const TextStyle(color: primaryTextColor),
                       onChanged: (value) {
                         setState(() {
                           _levelOfCompetition = value;
@@ -234,18 +253,26 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
                       },
                       items: _competitionLevels
                           .map((level) => DropdownMenuItem(
-                              value: level, child: Text(level)))
+                              value: level,
+                              child: Text(level,
+                                  style: const TextStyle(
+                                      color: primaryTextColor))))
                           .toList(),
                     ),
                     const SizedBox(height: 20),
                     DropdownButtonFormField<String>(
                       decoration: textFieldDecoration('Gender'),
                       value: _gender,
-                      hint: const Text('Select gender'),
+                      hint: const Text('Select gender',
+                          style: TextStyle(color: secondaryTextColor)),
+                      style: const TextStyle(color: primaryTextColor),
                       onChanged: (value) => setState(() => _gender = value),
                       items: _currentGenders
                           .map((gender) => DropdownMenuItem(
-                              value: gender, child: Text(gender)))
+                              value: gender,
+                              child: Text(gender,
+                                  style: const TextStyle(
+                                      color: primaryTextColor))))
                           .toList(),
                     ),
                     const SizedBox(height: 20),
@@ -253,12 +280,17 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
                       decoration:
                           textFieldDecoration('Required number of officials'),
                       value: _officialsRequired,
-                      hint: const Text('Required number of officials'),
+                      hint: const Text('Required number of officials',
+                          style: TextStyle(color: secondaryTextColor)),
+                      style: const TextStyle(color: primaryTextColor),
                       onChanged: (value) =>
                           setState(() => _officialsRequired = value),
                       items: _officialsOptions
                           .map((num) => DropdownMenuItem(
-                              value: num, child: Text(num.toString())))
+                              value: num,
+                              child: Text(num.toString(),
+                                  style: const TextStyle(
+                                      color: primaryTextColor))))
                           .toList(),
                     ),
                     const SizedBox(height: 20),
@@ -267,9 +299,11 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
                       decoration:
                           textFieldDecoration('Game Fee per Official').copyWith(
                         prefixText: '\$',
-                        prefixStyle: const TextStyle(color: Colors.black),
+                        prefixStyle: const TextStyle(color: primaryTextColor),
                         hintText: 'Enter fee (e.g., 50 or 50.00)',
+                        hintStyle: const TextStyle(color: secondaryTextColor),
                       ),
+                      style: const TextStyle(color: primaryTextColor),
                       keyboardType: TextInputType.number,
                       inputFormatters: [
                         FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
@@ -282,6 +316,7 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
                   TextField(
                     controller: _opponentController,
                     decoration: textFieldDecoration('Opponent'),
+                    style: const TextStyle(color: primaryTextColor),
                     keyboardType: TextInputType.text,
                   ),
                   const SizedBox(height: 20),
@@ -295,7 +330,8 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
                               () => _hireAutomatically = value ?? false),
                           activeColor: efficialsBlue,
                         ),
-                        const Text('Hire Automatically'),
+                        const Text('Hire Automatically',
+                            style: TextStyle(color: primaryTextColor)),
                         IconButton(
                           icon: const Icon(Icons.help_outline,
                               color: efficialsBlue),
@@ -307,9 +343,8 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
                   Center(
                     child: ElevatedButton(
                       onPressed: _handleContinue,
-                      style: elevatedButtonStyle(),
-                      child:
-                          const Text('Continue', style: signInButtonTextStyle),
+                      style: primaryButtonStyle,
+                      child: const Text('Continue', style: buttonTextStyle),
                     ),
                   ),
                 ],

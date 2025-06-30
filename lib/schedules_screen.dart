@@ -25,21 +25,25 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
 
   Future<void> _loadSchedules() async {
     final prefs = await SharedPreferences.getInstance();
-    final String? unpublishedGamesJson = prefs.getString('unpublished_games');
-    final String? publishedGamesJson = prefs.getString('published_games');
+    final String? unpublishedGamesJson =
+        prefs.getString('ad_unpublished_games');
+    final String? publishedGamesJson = prefs.getString('ad_published_games');
 
     Set<String> scheduleNameSet = {};
     List<Map<String, dynamic>> allGames = [];
     Map<String, Set<String>> sportGenders = {}; // Track genders per sport
-    Map<String, Map<String, dynamic>> scheduleDetails = {}; // Store schedule details
+    Map<String, Map<String, dynamic>> scheduleDetails =
+        {}; // Store schedule details
 
     try {
       if (unpublishedGamesJson != null && unpublishedGamesJson.isNotEmpty) {
-        final unpublished = List<Map<String, dynamic>>.from(jsonDecode(unpublishedGamesJson));
+        final unpublished =
+            List<Map<String, dynamic>>.from(jsonDecode(unpublishedGamesJson));
         allGames.addAll(unpublished);
       }
       if (publishedGamesJson != null && publishedGamesJson.isNotEmpty) {
-        final published = List<Map<String, dynamic>>.from(jsonDecode(publishedGamesJson));
+        final published =
+            List<Map<String, dynamic>>.from(jsonDecode(publishedGamesJson));
         allGames.addAll(published);
       }
 
@@ -48,10 +52,10 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
         if (game['scheduleName'] != null) {
           final scheduleName = game['scheduleName'] as String;
           scheduleNameSet.add(scheduleName);
-          
+
           final sport = game['sport'] as String? ?? 'Unknown';
           final gender = game['gender'] as String? ?? 'Unknown';
-          
+
           // Track genders per sport (exclude "Unknown" genders from consideration)
           if (!sportGenders.containsKey(sport)) {
             sportGenders[sport] = <String>{};
@@ -59,7 +63,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
           if (gender.toLowerCase() != 'unknown') {
             sportGenders[sport]!.add(gender);
           }
-          
+
           // Store schedule details
           scheduleDetails[scheduleName] = {
             'sport': sport,
@@ -74,38 +78,43 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
 
     // Group schedules by sport and create display names
     Map<String, List<Map<String, dynamic>>> grouped = {};
-    
+
     for (var scheduleName in scheduleNameSet) {
       if (scheduleDetails.containsKey(scheduleName)) {
         final details = scheduleDetails[scheduleName]!;
         final sport = details['sport'] as String;
         final gender = details['gender'] as String;
-        
+
         // Determine if we need to show gender - only if multiple genders exist for this sport
         // (excluding "Unknown" genders from the count)
         final gendersForSport = sportGenders[sport] ?? <String>{};
         final showGender = gendersForSport.length > 1;
-        
-        
+
         // Create display name
         String displayName;
         if (showGender) {
           // Only show gender prefix when multiple genders exist for the same sport
-          final genderDisplay = gender.toLowerCase() == 'boys' ? 'Boys' :
-                               gender.toLowerCase() == 'girls' ? 'Girls' :
-                               gender.toLowerCase() == 'men' ? 'Men' :
-                               gender.toLowerCase() == 'women' ? 'Women' :
-                               gender.toLowerCase() == 'co-ed' ? 'Co-ed' : gender;
+          final genderDisplay = gender.toLowerCase() == 'boys'
+              ? 'Boys'
+              : gender.toLowerCase() == 'girls'
+                  ? 'Girls'
+                  : gender.toLowerCase() == 'men'
+                      ? 'Men'
+                      : gender.toLowerCase() == 'women'
+                          ? 'Women'
+                          : gender.toLowerCase() == 'co-ed'
+                              ? 'Co-ed'
+                              : gender;
           displayName = '$genderDisplay $sport';
         } else {
           // When only one gender exists for this sport, just use the sport name
           displayName = sport;
         }
-        
+
         if (!grouped.containsKey(displayName)) {
           grouped[displayName] = [];
         }
-        
+
         grouped[displayName]!.add({
           'scheduleName': scheduleName,
           'sport': sport,
@@ -124,20 +133,27 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
 
   Future<Map<String, int>> _getGameCounts(String scheduleName) async {
     final prefs = await SharedPreferences.getInstance();
-    final String? unpublishedGamesJson = prefs.getString('unpublished_games');
-    final String? publishedGamesJson = prefs.getString('published_games');
+    final String? unpublishedGamesJson =
+        prefs.getString('ad_unpublished_games');
+    final String? publishedGamesJson = prefs.getString('ad_published_games');
 
     int published = 0;
     int unpublished = 0;
 
     try {
       if (unpublishedGamesJson != null && unpublishedGamesJson.isNotEmpty) {
-        final unpublishedGames = List<Map<String, dynamic>>.from(jsonDecode(unpublishedGamesJson));
-        unpublished = unpublishedGames.where((game) => game['scheduleName'] == scheduleName).length;
+        final unpublishedGames =
+            List<Map<String, dynamic>>.from(jsonDecode(unpublishedGamesJson));
+        unpublished = unpublishedGames
+            .where((game) => game['scheduleName'] == scheduleName)
+            .length;
       }
       if (publishedGamesJson != null && publishedGamesJson.isNotEmpty) {
-        final publishedGames = List<Map<String, dynamic>>.from(jsonDecode(publishedGamesJson));
-        published = publishedGames.where((game) => game['scheduleName'] == scheduleName).length;
+        final publishedGames =
+            List<Map<String, dynamic>>.from(jsonDecode(publishedGamesJson));
+        published = publishedGames
+            .where((game) => game['scheduleName'] == scheduleName)
+            .length;
       }
     } catch (e) {
       print('Error getting game counts: $e');
@@ -146,7 +162,8 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
     return {'published': published, 'unpublished': unpublished};
   }
 
-  Future<Map<String, int>> _getGroupGameCounts(List<Map<String, dynamic>> schedules) async {
+  Future<Map<String, int>> _getGroupGameCounts(
+      List<Map<String, dynamic>> schedules) async {
     int totalPublished = 0;
     int totalUnpublished = 0;
 
@@ -161,22 +178,28 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
 
   Future<void> _deleteSchedule(String scheduleName, int scheduleId) async {
     final prefs = await SharedPreferences.getInstance();
-    final String? unpublishedGamesJson = prefs.getString('unpublished_games');
-    final String? publishedGamesJson = prefs.getString('published_games');
+    final String? unpublishedGamesJson =
+        prefs.getString('ad_unpublished_games');
+    final String? publishedGamesJson = prefs.getString('ad_published_games');
 
     List<Map<String, dynamic>> unpublishedGames = [];
     List<Map<String, dynamic>> publishedGames = [];
 
     if (unpublishedGamesJson != null && unpublishedGamesJson.isNotEmpty) {
-      unpublishedGames = List<Map<String, dynamic>>.from(jsonDecode(unpublishedGamesJson));
-      unpublishedGames.removeWhere((game) => game['scheduleName'] == scheduleName);
-      await prefs.setString('unpublished_games', jsonEncode(unpublishedGames));
+      unpublishedGames =
+          List<Map<String, dynamic>>.from(jsonDecode(unpublishedGamesJson));
+      unpublishedGames
+          .removeWhere((game) => game['scheduleName'] == scheduleName);
+      await prefs.setString(
+          'ad_unpublished_games', jsonEncode(unpublishedGames));
     }
 
     if (publishedGamesJson != null && publishedGamesJson.isNotEmpty) {
-      publishedGames = List<Map<String, dynamic>>.from(jsonDecode(publishedGamesJson));
-      publishedGames.removeWhere((game) => game['scheduleName'] == scheduleName);
-      await prefs.setString('published_games', jsonEncode(publishedGames));
+      publishedGames =
+          List<Map<String, dynamic>>.from(jsonDecode(publishedGamesJson));
+      publishedGames
+          .removeWhere((game) => game['scheduleName'] == scheduleName);
+      await prefs.setString('ad_published_games', jsonEncode(publishedGames));
     }
 
     // Refresh the schedule list
@@ -206,7 +229,8 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
     );
   }
 
-  void _showSecondDeleteConfirmationDialog(String scheduleName, int scheduleId) {
+  void _showSecondDeleteConfirmationDialog(
+      String scheduleName, int scheduleId) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -224,7 +248,8 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
               Navigator.pop(context);
               await _deleteSchedule(scheduleName, scheduleId);
               setState(() {
-                selectedSchedule = scheduleNames.isNotEmpty ? scheduleNames[0] : null;
+                selectedSchedule =
+                    scheduleNames.isNotEmpty ? scheduleNames[0] : null;
               });
             },
             child: const Text('Delete', style: TextStyle(color: efficialsBlue)),
@@ -234,7 +259,8 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
     );
   }
 
-  void _showScheduleSelectionDialog(String groupName, List<Map<String, dynamic>> schedules) {
+  void _showScheduleSelectionDialog(
+      String groupName, List<Map<String, dynamic>> schedules) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -260,7 +286,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: Colors.black87,
+                  color: primaryTextColor,
                 ),
               ),
             ),
@@ -298,7 +324,8 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                       child: Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey.withOpacity(0.2)),
+                          border:
+                              Border.all(color: Colors.grey.withOpacity(0.2)),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Row(
@@ -322,7 +349,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                                 style: const TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w600,
-                                  color: Colors.black87,
+                                  color: primaryTextColor,
                                 ),
                               ),
                             ),
@@ -347,7 +374,8 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
             onPressed: () => Navigator.pop(context),
             style: TextButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
             ),
             child: const Text(
               'Cancel',
@@ -366,12 +394,12 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      backgroundColor: darkBackground,
       appBar: AppBar(
-        backgroundColor: efficialsBlue,
+        backgroundColor: efficialsBlack,
         title: const Icon(
           Icons.sports,
-          color: Colors.white,
+          color: darkSurface,
           size: 32,
         ),
         elevation: 0,
@@ -392,15 +420,15 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                 style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
-                  color: Colors.black,
+                  color: primaryTextColor,
                 ),
               ),
               const SizedBox(height: 10),
-              Text(
+              const Text(
                 'Manage your game schedules',
                 style: TextStyle(
                   fontSize: 16,
-                  color: Colors.grey[600],
+                  color: secondaryTextColor,
                 ),
               ),
               const SizedBox(height: 20),
@@ -418,12 +446,12 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                                   color: Colors.grey[400],
                                 ),
                                 const SizedBox(height: 16),
-                                Text(
+                                const Text(
                                   'No schedules found',
                                   style: TextStyle(
                                     fontSize: 18,
                                     fontWeight: FontWeight.w600,
-                                    color: Colors.grey[600],
+                                    color: secondaryTextColor,
                                   ),
                                 ),
                                 const SizedBox(height: 8),
@@ -438,14 +466,17 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                                 const SizedBox(height: 24),
                                 ElevatedButton(
                                   onPressed: () {
-                                    Navigator.pushNamed(context, '/select_sport').then((result) {
+                                    Navigator.pushNamed(
+                                            context, '/select_sport')
+                                        .then((result) {
                                       if (result == true) {
                                         _loadSchedules();
                                       }
                                     });
                                   },
                                   style: elevatedButtonStyle(),
-                                  child: const Text('Create New Schedule', style: signInButtonTextStyle),
+                                  child: const Text('Create New Schedule',
+                                      style: signInButtonTextStyle),
                                 ),
                               ],
                             ),
@@ -456,23 +487,28 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                                 child: ListView.builder(
                                   itemCount: groupedSchedules.keys.length,
                                   itemBuilder: (context, index) {
-                                    final groupName = groupedSchedules.keys.elementAt(index);
-                                    final schedules = groupedSchedules[groupName]!;
-                                    
+                                    final groupName =
+                                        groupedSchedules.keys.elementAt(index);
+                                    final schedules =
+                                        groupedSchedules[groupName]!;
+
                                     return FutureBuilder<Map<String, int>>(
                                       future: _getGroupGameCounts(schedules),
                                       builder: (context, snapshot) {
                                         if (!snapshot.hasData) {
                                           return Padding(
-                                            padding: const EdgeInsets.only(bottom: 12.0),
+                                            padding: const EdgeInsets.only(
+                                                bottom: 12.0),
                                             child: Container(
                                               padding: const EdgeInsets.all(16),
                                               decoration: BoxDecoration(
-                                                color: Colors.white,
-                                                borderRadius: BorderRadius.circular(12),
+                                                color: darkSurface,
+                                                borderRadius:
+                                                    BorderRadius.circular(12),
                                                 boxShadow: [
                                                   BoxShadow(
-                                                    color: Colors.grey.withOpacity(0.1),
+                                                    color: Colors.grey
+                                                        .withOpacity(0.1),
                                                     spreadRadius: 1,
                                                     blurRadius: 3,
                                                     offset: const Offset(0, 1),
@@ -482,10 +518,15 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                                               child: Row(
                                                 children: [
                                                   Container(
-                                                    padding: const EdgeInsets.all(12),
+                                                    padding:
+                                                        const EdgeInsets.all(
+                                                            12),
                                                     decoration: BoxDecoration(
-                                                      color: efficialsBlue.withOpacity(0.1),
-                                                      borderRadius: BorderRadius.circular(8),
+                                                      color: efficialsBlue
+                                                          .withOpacity(0.1),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              8),
                                                     ),
                                                     child: const Icon(
                                                       Icons.sports,
@@ -499,15 +540,18 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                                                       groupName,
                                                       style: const TextStyle(
                                                         fontSize: 18,
-                                                        fontWeight: FontWeight.bold,
-                                                        color: Colors.black,
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                        color: primaryTextColor,
                                                       ),
                                                     ),
                                                   ),
                                                   const SizedBox(
                                                     width: 20,
                                                     height: 20,
-                                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                                    child:
+                                                        CircularProgressIndicator(
+                                                            strokeWidth: 2),
                                                   ),
                                                 ],
                                               ),
@@ -516,23 +560,31 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                                         }
 
                                         final counts = snapshot.data!;
-                                        final publishedGames = counts['published']!;
-                                        final unpublishedGames = counts['unpublished']!;
-                                        final totalGames = publishedGames + unpublishedGames;
+                                        final publishedGames =
+                                            counts['published']!;
+                                        final unpublishedGames =
+                                            counts['unpublished']!;
+                                        final totalGames =
+                                            publishedGames + unpublishedGames;
 
                                         return Padding(
-                                          padding: const EdgeInsets.only(bottom: 12.0),
+                                          padding: const EdgeInsets.only(
+                                              bottom: 12.0),
                                           child: GestureDetector(
                                             onTap: () {
                                               // If there's only one schedule in the group, navigate directly to it
                                               if (schedules.length == 1) {
-                                                final scheduleName = schedules.first['scheduleName'] as String;
+                                                final scheduleName = schedules
+                                                        .first['scheduleName']
+                                                    as String;
                                                 Navigator.pushNamed(
                                                   context,
                                                   '/schedule_details',
                                                   arguments: {
-                                                    'scheduleName': scheduleName,
-                                                    'scheduleId': scheduleName.hashCode,
+                                                    'scheduleName':
+                                                        scheduleName,
+                                                    'scheduleId':
+                                                        scheduleName.hashCode,
                                                   },
                                                 ).then((result) {
                                                   if (result == true) {
@@ -541,17 +593,20 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                                                 });
                                               } else {
                                                 // Show selection dialog for multiple schedules
-                                                _showScheduleSelectionDialog(groupName, schedules);
+                                                _showScheduleSelectionDialog(
+                                                    groupName, schedules);
                                               }
                                             },
                                             child: Container(
                                               padding: const EdgeInsets.all(16),
                                               decoration: BoxDecoration(
-                                                color: Colors.white,
-                                                borderRadius: BorderRadius.circular(12),
+                                                color: darkSurface,
+                                                borderRadius:
+                                                    BorderRadius.circular(12),
                                                 boxShadow: [
                                                   BoxShadow(
-                                                    color: Colors.grey.withOpacity(0.1),
+                                                    color: Colors.grey
+                                                        .withOpacity(0.1),
                                                     spreadRadius: 1,
                                                     blurRadius: 3,
                                                     offset: const Offset(0, 1),
@@ -561,10 +616,15 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                                               child: Row(
                                                 children: [
                                                   Container(
-                                                    padding: const EdgeInsets.all(12),
+                                                    padding:
+                                                        const EdgeInsets.all(
+                                                            12),
                                                     decoration: BoxDecoration(
-                                                      color: efficialsBlue.withOpacity(0.1),
-                                                      borderRadius: BorderRadius.circular(8),
+                                                      color: efficialsBlue
+                                                          .withOpacity(0.1),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              8),
                                                     ),
                                                     child: const Icon(
                                                       Icons.sports,
@@ -575,98 +635,183 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                                                   const SizedBox(width: 16),
                                                   Expanded(
                                                     child: Column(
-                                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment
+                                                              .start,
                                                       children: [
                                                         Row(
                                                           children: [
                                                             Text(
                                                               groupName,
-                                                              style: const TextStyle(
+                                                              style:
+                                                                  const TextStyle(
                                                                 fontSize: 18,
-                                                                fontWeight: FontWeight.bold,
-                                                                color: Colors.black,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .bold,
+                                                                color:
+                                                                    primaryTextColor,
                                                               ),
                                                             ),
-                                                            if (schedules.length > 1) ...[
-                                                              const SizedBox(width: 8),
+                                                            if (schedules
+                                                                    .length >
+                                                                1) ...[
+                                                              const SizedBox(
+                                                                  width: 8),
                                                               Container(
-                                                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                                                decoration: BoxDecoration(
-                                                                  color: Colors.grey.withOpacity(0.2),
-                                                                  borderRadius: BorderRadius.circular(8),
+                                                                padding: const EdgeInsets
+                                                                    .symmetric(
+                                                                    horizontal:
+                                                                        6,
+                                                                    vertical:
+                                                                        2),
+                                                                decoration:
+                                                                    BoxDecoration(
+                                                                  color: Colors
+                                                                      .grey
+                                                                      .withOpacity(
+                                                                          0.2),
+                                                                  borderRadius:
+                                                                      BorderRadius
+                                                                          .circular(
+                                                                              8),
                                                                 ),
                                                                 child: Text(
                                                                   '${schedules.length}',
-                                                                  style: const TextStyle(
-                                                                    fontSize: 12,
-                                                                    fontWeight: FontWeight.w600,
+                                                                  style:
+                                                                      const TextStyle(
+                                                                    fontSize:
+                                                                        12,
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .w600,
                                                                   ),
                                                                 ),
                                                               ),
                                                             ],
                                                           ],
                                                         ),
-                                                        const SizedBox(height: 4),
+                                                        const SizedBox(
+                                                            height: 4),
                                                         Text(
                                                           '$totalGames total games',
-                                                          style: TextStyle(
+                                                          style:
+                                                              const TextStyle(
                                                             fontSize: 14,
-                                                            color: Colors.grey[600],
+                                                            color:
+                                                                secondaryTextColor,
                                                           ),
                                                         ),
-                                                        if (publishedGames > 0 || unpublishedGames > 0) ...[ 
-                                                          const SizedBox(height: 8),
+                                                        if (publishedGames >
+                                                                0 ||
+                                                            unpublishedGames >
+                                                                0) ...[
+                                                          const SizedBox(
+                                                              height: 8),
                                                           Row(
                                                             children: [
-                                                              if (publishedGames > 0) ...[ 
+                                                              if (publishedGames >
+                                                                  0) ...[
                                                                 Container(
-                                                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                                                  decoration: BoxDecoration(
-                                                                    color: Colors.green.withOpacity(0.1),
-                                                                    borderRadius: BorderRadius.circular(12),
+                                                                  padding: const EdgeInsets
+                                                                      .symmetric(
+                                                                      horizontal:
+                                                                          8,
+                                                                      vertical:
+                                                                          4),
+                                                                  decoration:
+                                                                      BoxDecoration(
+                                                                    color: Colors
+                                                                        .green
+                                                                        .withOpacity(
+                                                                            0.1),
+                                                                    borderRadius:
+                                                                        BorderRadius.circular(
+                                                                            12),
                                                                   ),
                                                                   child: Text(
                                                                     '$publishedGames published',
-                                                                    style: TextStyle(
-                                                                      fontSize: 12,
-                                                                      color: Colors.green.shade700,
+                                                                    style:
+                                                                        TextStyle(
+                                                                      fontSize:
+                                                                          12,
+                                                                      color: Colors
+                                                                          .green
+                                                                          .shade700,
                                                                     ),
                                                                   ),
                                                                 ),
-                                                                if (unpublishedGames > 0) const SizedBox(width: 8),
+                                                                if (unpublishedGames >
+                                                                    0)
+                                                                  const SizedBox(
+                                                                      width: 8),
                                                               ],
-                                                              if (unpublishedGames > 0)
+                                                              if (unpublishedGames >
+                                                                  0)
                                                                 GestureDetector(
                                                                   onTap: () {
-                                                                    Navigator.pushNamed(context, '/unpublished_games').then((result) {
-                                                                      if (result == true) {
+                                                                    Navigator.pushNamed(
+                                                                            context,
+                                                                            '/unpublished_games')
+                                                                        .then(
+                                                                            (result) {
+                                                                      if (result ==
+                                                                          true) {
                                                                         _loadSchedules();
                                                                       }
                                                                     });
                                                                   },
-                                                                  child: Container(
-                                                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                                                    decoration: BoxDecoration(
-                                                                      color: Colors.orange.withOpacity(0.1),
-                                                                      borderRadius: BorderRadius.circular(12),
-                                                                      border: Border.all(color: Colors.orange.withOpacity(0.3), width: 1),
+                                                                  child:
+                                                                      Container(
+                                                                    padding: const EdgeInsets
+                                                                        .symmetric(
+                                                                        horizontal:
+                                                                            8,
+                                                                        vertical:
+                                                                            4),
+                                                                    decoration:
+                                                                        BoxDecoration(
+                                                                      color: Colors
+                                                                          .orange
+                                                                          .withOpacity(
+                                                                              0.1),
+                                                                      borderRadius:
+                                                                          BorderRadius.circular(
+                                                                              12),
+                                                                      border: Border.all(
+                                                                          color: Colors.orange.withOpacity(
+                                                                              0.3),
+                                                                          width:
+                                                                              1),
                                                                     ),
                                                                     child: Row(
-                                                                      mainAxisSize: MainAxisSize.min,
+                                                                      mainAxisSize:
+                                                                          MainAxisSize
+                                                                              .min,
                                                                       children: [
                                                                         Text(
                                                                           '$unpublishedGames draft',
-                                                                          style: TextStyle(
-                                                                            fontSize: 12,
-                                                                            color: Colors.orange.shade700,
-                                                                            fontWeight: FontWeight.w600,
+                                                                          style:
+                                                                              TextStyle(
+                                                                            fontSize:
+                                                                                12,
+                                                                            color:
+                                                                                Colors.orange.shade700,
+                                                                            fontWeight:
+                                                                                FontWeight.w600,
                                                                           ),
                                                                         ),
-                                                                        const SizedBox(width: 4),
+                                                                        const SizedBox(
+                                                                            width:
+                                                                                4),
                                                                         Icon(
-                                                                          Icons.arrow_forward,
-                                                                          size: 12,
-                                                                          color: Colors.orange.shade700,
+                                                                          Icons
+                                                                              .arrow_forward,
+                                                                          size:
+                                                                              12,
+                                                                          color: Colors
+                                                                              .orange
+                                                                              .shade700,
                                                                         ),
                                                                       ],
                                                                     ),
@@ -698,16 +843,20 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                                 width: double.infinity,
                                 child: ElevatedButton(
                                   onPressed: () {
-                                    Navigator.pushNamed(context, '/select_sport').then((result) {
+                                    Navigator.pushNamed(
+                                            context, '/select_sport')
+                                        .then((result) {
                                       if (result == true) {
                                         _loadSchedules();
                                       }
                                     });
                                   },
                                   style: elevatedButtonStyle(
-                                    padding: const EdgeInsets.symmetric(vertical: 15),
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 15),
                                   ),
-                                  child: const Text('Create New Schedule', style: signInButtonTextStyle),
+                                  child: const Text('Create New Schedule',
+                                      style: signInButtonTextStyle),
                                 ),
                               ),
                             ],

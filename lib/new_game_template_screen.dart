@@ -173,7 +173,7 @@ class _NewGameTemplateScreenState extends State<NewGameTemplateScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: efficialsBlue,
+        backgroundColor: efficialsBlack,
         title: const Text('New Game Template', style: appBarTextStyle),
       ),
       body: SingleChildScrollView(

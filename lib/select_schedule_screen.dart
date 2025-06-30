@@ -44,7 +44,8 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
 
     // One-time migration: Update existing games to set a default sport
     if (unpublishedGamesJson != null && unpublishedGamesJson.isNotEmpty) {
-      final unpublished = List<Map<String, dynamic>>.from(jsonDecode(unpublishedGamesJson));
+      final unpublished =
+          List<Map<String, dynamic>>.from(jsonDecode(unpublishedGamesJson));
       bool updated = false;
       for (var game in unpublished) {
         if (!game.containsKey('sport') || game['sport'] == 'Unknown Sport') {
@@ -58,7 +59,8 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
       }
     }
     if (publishedGamesJson != null && publishedGamesJson.isNotEmpty) {
-      final published = List<Map<String, dynamic>>.from(jsonDecode(publishedGamesJson));
+      final published =
+          List<Map<String, dynamic>>.from(jsonDecode(publishedGamesJson));
       bool updated = false;
       for (var game in published) {
         if (!game.containsKey('sport') || game['sport'] == 'Unknown Sport') {
@@ -76,7 +78,8 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
       schedules.clear();
       try {
         if (unpublishedGamesJson != null && unpublishedGamesJson.isNotEmpty) {
-          final unpublished = List<Map<String, dynamic>>.from(jsonDecode(unpublishedGamesJson));
+          final unpublished =
+              List<Map<String, dynamic>>.from(jsonDecode(unpublishedGamesJson));
           print('Unpublished games: $unpublished');
           for (var game in unpublished) {
             if (!schedules.any((s) => s['name'] == game['scheduleName'])) {
@@ -89,7 +92,8 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
           }
         }
         if (publishedGamesJson != null && publishedGamesJson.isNotEmpty) {
-          final published = List<Map<String, dynamic>>.from(jsonDecode(publishedGamesJson));
+          final published =
+              List<Map<String, dynamic>>.from(jsonDecode(publishedGamesJson));
           print('Published games: $published');
           for (var game in published) {
             if (!schedules.any((s) => s['name'] == game['scheduleName'])) {
@@ -106,17 +110,22 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
       }
 
       // Filter schedules by the template's sport if a template is provided
-      if (template != null && template!.includeSport && template!.sport != null) {
+      if (template != null &&
+          template!.includeSport &&
+          template!.sport != null) {
         schedules = schedules
             .where((schedule) =>
-                schedule['sport'] == template!.sport || schedule['name'] == '+ Create new schedule')
+                schedule['sport'] == template!.sport ||
+                schedule['name'] == '+ Create new schedule')
             .toList();
       }
 
       if (schedules.isEmpty) {
-        schedules.add({'name': 'No schedules available', 'id': -1, 'sport': 'None'});
+        schedules
+            .add({'name': 'No schedules available', 'id': -1, 'sport': 'None'});
       }
-      schedules.add({'name': '+ Create new schedule', 'id': 0, 'sport': 'None'});
+      schedules
+          .add({'name': '+ Create new schedule', 'id': 0, 'sport': 'None'});
       print('Schedules after fetching: $schedules');
       isLoading = false;
     });
@@ -131,14 +140,18 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
     List<Map<String, dynamic>> publishedGames = [];
 
     if (unpublishedGamesJson != null && unpublishedGamesJson.isNotEmpty) {
-      unpublishedGames = List<Map<String, dynamic>>.from(jsonDecode(unpublishedGamesJson));
-      unpublishedGames.removeWhere((game) => game['scheduleName'] == scheduleName);
+      unpublishedGames =
+          List<Map<String, dynamic>>.from(jsonDecode(unpublishedGamesJson));
+      unpublishedGames
+          .removeWhere((game) => game['scheduleName'] == scheduleName);
       await prefs.setString('unpublished_games', jsonEncode(unpublishedGames));
     }
 
     if (publishedGamesJson != null && publishedGamesJson.isNotEmpty) {
-      publishedGames = List<Map<String, dynamic>>.from(jsonDecode(publishedGamesJson));
-      publishedGames.removeWhere((game) => game['scheduleName'] == scheduleName);
+      publishedGames =
+          List<Map<String, dynamic>>.from(jsonDecode(publishedGamesJson));
+      publishedGames
+          .removeWhere((game) => game['scheduleName'] == scheduleName);
       await prefs.setString('published_games', jsonEncode(publishedGames));
     }
 
@@ -169,7 +182,8 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
     );
   }
 
-  void _showSecondDeleteConfirmationDialog(String scheduleName, int scheduleId) {
+  void _showSecondDeleteConfirmationDialog(
+      String scheduleName, int scheduleId) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -187,7 +201,9 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
               Navigator.pop(context);
               await _deleteSchedule(scheduleName, scheduleId);
               setState(() {
-                selectedSchedule = schedules.isNotEmpty ? schedules[0]['name'] as String : null;
+                selectedSchedule = schedules.isNotEmpty
+                    ? schedules[0]['name'] as String
+                    : null;
               });
             },
             child: const Text('Delete', style: TextStyle(color: efficialsBlue)),
@@ -202,17 +218,22 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
       return true; // No template or sport not included, so no validation needed
     }
 
-    final selected = schedules.firstWhere((s) => s['name'] == selectedSchedule, orElse: () => {});
-    if (selected.isEmpty || selected['sport'] == null || selected['sport'] == 'None') {
+    final selected = schedules.firstWhere((s) => s['name'] == selectedSchedule,
+        orElse: () => {});
+    if (selected.isEmpty ||
+        selected['sport'] == null ||
+        selected['sport'] == 'None') {
       return true; // No sport associated with the schedule (e.g., "No schedules available" or "+ Create new schedule")
     }
 
     final scheduleSport = selected['sport'] as String;
-    final templateSport = template!.sport?.toLowerCase() ?? ''; // Handle null sport
+    final templateSport =
+        template!.sport?.toLowerCase() ?? ''; // Handle null sport
     if (scheduleSport.toLowerCase() != templateSport) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('The selected schedule\'s sport ($scheduleSport) does not match the template\'s sport (${template!.sport ?? "Not set"}). Please select a different schedule.'),
+          content: Text(
+              'The selected schedule\'s sport ($scheduleSport) does not match the template\'s sport (${template!.sport ?? "Not set"}). Please select a different schedule.'),
         ),
       );
       return false;
@@ -223,12 +244,12 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      backgroundColor: darkBackground,
       appBar: AppBar(
-        backgroundColor: efficialsBlue,
+        backgroundColor: efficialsBlack,
         title: const Icon(
           Icons.sports,
-          color: Colors.white,
+          color: efficialsYellow,
           size: 32,
         ),
         elevation: 0,
@@ -247,15 +268,19 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
               const SizedBox(height: 40),
               const Text(
                 'Select Schedule',
-                style: headlineStyle,
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: efficialsYellow,
+                ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 8),
-              Text(
+              const Text(
                 'Choose an existing schedule or create a new one',
                 style: TextStyle(
                   fontSize: 16,
-                  color: Colors.grey[600],
+                  color: secondaryTextColor,
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -263,7 +288,7 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
               Container(
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: darkSurface,
                   borderRadius: BorderRadius.circular(12),
                   boxShadow: [
                     BoxShadow(
@@ -279,32 +304,46 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
                     isLoading
                         ? const Center(child: CircularProgressIndicator())
                         : DropdownButtonFormField<String>(
-                            decoration: textFieldDecoration('Select a schedule'),
+                            decoration:
+                                textFieldDecoration('Select a schedule'),
                             value: selectedSchedule,
-                            hint: const Text('Choose from existing schedules'),
+                            hint: const Text('Choose from existing schedules',
+                                style: TextStyle(color: efficialsGray)),
+                            dropdownColor: darkSurface,
                             onChanged: (newValue) {
                               setState(() {
                                 selectedSchedule = newValue;
                                 if (newValue == '+ Create new schedule') {
                                   // Reset selectedSchedule to ensure the dropdown updates correctly
                                   selectedSchedule = null;
-                                  Navigator.pushNamed(context, '/select_sport', arguments: {
-                                    'fromTemplate': true, // Indicate this navigation is from a template
-                                    'sport': template?.sport, // Pass the template's sport
-                                  }).then((result) async {
-                                    print('Returned from SelectSportScreen with result: $result');
+                                  Navigator.pushNamed(context, '/select_sport',
+                                      arguments: {
+                                        'fromTemplate':
+                                            true, // Indicate this navigation is from a template
+                                        'sport': template
+                                            ?.sport, // Pass the template's sport
+                                      }).then((result) async {
+                                    print(
+                                        'Returned from SelectSportScreen with result: $result');
                                     if (result != null && result is String) {
                                       await _fetchSchedules();
-                                      print('Schedules after fetch: $schedules');
+                                      print(
+                                          'Schedules after fetch: $schedules');
                                       setState(() {
-                                        if (schedules.any((s) => s['name'] == result)) {
+                                        if (schedules
+                                            .any((s) => s['name'] == result)) {
                                           selectedSchedule = result;
-                                          print('Set selectedSchedule to: $selectedSchedule');
+                                          print(
+                                              'Set selectedSchedule to: $selectedSchedule');
                                         } else {
-                                          print('Schedule $result not found in schedules');
+                                          print(
+                                              'Schedule $result not found in schedules');
                                           // Fallback: Select the first schedule if the new one isn't found
-                                          if (schedules.isNotEmpty && schedules.first['name'] != 'No schedules available') {
-                                            selectedSchedule = schedules.first['name'] as String;
+                                          if (schedules.isNotEmpty &&
+                                              schedules.first['name'] !=
+                                                  'No schedules available') {
+                                            selectedSchedule = schedules
+                                                .first['name'] as String;
                                           }
                                         }
                                       });
@@ -312,7 +351,8 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
                                       print('Result is null or not a String');
                                       // Fallback: Refresh schedules in case the new schedule was created
                                       await _fetchSchedules();
-                                      print('Schedules after fallback fetch: $schedules');
+                                      print(
+                                          'Schedules after fallback fetch: $schedules');
                                     }
                                   });
                                 }
@@ -323,9 +363,10 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
                                 value: schedule['name'] as String,
                                 child: Text(
                                   schedule['name'] as String,
-                                  style: schedule['name'] == 'No schedules available'
+                                  style: schedule['name'] ==
+                                          'No schedules available'
                                       ? const TextStyle(color: Colors.red)
-                                      : null,
+                                      : const TextStyle(color: primaryTextColor),
                                 ),
                               );
                             }).toList(),
@@ -344,21 +385,32 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
                         if (!_validateSportMatch()) {
                           return;
                         }
-                        final selected = schedules.firstWhere((s) => s['name'] == selectedSchedule);
+                        final selected = schedules
+                            .firstWhere((s) => s['name'] == selectedSchedule);
                         Navigator.pushNamed(
                           context,
                           '/date_time',
                           arguments: {
                             'scheduleName': selectedSchedule,
                             'sport': selected['sport'],
-                            'template': template, // Pass the template to the next screen
+                            'template':
+                                template, // Pass the template to the next screen
                           },
                         );
                       },
-                style: elevatedButtonStyle(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: efficialsYellow,
+                  foregroundColor: efficialsBlack,
                   padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 50),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
-                child: const Text('Continue', style: signInButtonTextStyle),
+                child: const Text('Continue', style: TextStyle(
+                  color: efficialsBlack,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                )),
               ),
               const SizedBox(height: 16),
               if (selectedSchedule != null &&
@@ -366,10 +418,13 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
                   selectedSchedule != '+ Create new schedule')
                 TextButton.icon(
                   onPressed: () {
-                    final selected = schedules.firstWhere((s) => s['name'] == selectedSchedule);
-                    _showFirstDeleteConfirmationDialog(selectedSchedule!, selected['id'] as int);
+                    final selected = schedules
+                        .firstWhere((s) => s['name'] == selectedSchedule);
+                    _showFirstDeleteConfirmationDialog(
+                        selectedSchedule!, selected['id'] as int);
                   },
-                  icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
+                  icon: const Icon(Icons.delete_outline,
+                      color: Colors.red, size: 20),
                   label: const Text(
                     'Delete Schedule',
                     style: TextStyle(

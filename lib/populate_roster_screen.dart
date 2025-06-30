@@ -365,7 +365,7 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: efficialsBlue,
+        backgroundColor: efficialsBlack,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, size: 36, color: Colors.white),
           onPressed: () => Navigator.pop(context),
@@ -524,7 +524,7 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
                   _applyFiltersWithSettings(result as Map<String, dynamic>));
             }
           }),
-          backgroundColor: efficialsBlue,
+          backgroundColor: efficialsBlack,
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           child: const Icon(Icons.filter_list, size: 30, color: Colors.white),

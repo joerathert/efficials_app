@@ -72,7 +72,7 @@ class _SportTemplatesScreenState extends State<SportTemplatesScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: efficialsBlue,
+        backgroundColor: efficialsBlack,
         title: Text('$sport Templates', style: appBarTextStyle),
       ),
       body: Center(
@@ -128,7 +128,7 @@ class _SportTemplatesScreenState extends State<SportTemplatesScreen> {
                                 Container(
                                   padding: const EdgeInsets.all(16),
                                   decoration: BoxDecoration(
-                                    color: Colors.white,
+                                    color: darkSurface,
                                     borderRadius: BorderRadius.circular(8),
                                     border:
                                         Border.all(color: Colors.grey[300]!),

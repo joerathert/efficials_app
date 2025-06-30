@@ -342,7 +342,7 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: efficialsBlue,
+        backgroundColor: efficialsBlack,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, size: 36, color: Colors.white),
           onPressed: () {
@@ -366,7 +366,7 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
             pinned: true,
             delegate: _SliverHeaderDelegate(
               child: Container(
-                color: Colors.white,
+                color: darkSurface,
                 padding: const EdgeInsets.all(16),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,

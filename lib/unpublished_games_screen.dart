@@ -143,12 +143,12 @@ class _UnpublishedGamesScreenState extends State<UnpublishedGamesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      backgroundColor: darkBackground,
       appBar: AppBar(
-        backgroundColor: efficialsBlue,
+        backgroundColor: efficialsBlack,
         title: const Icon(
           Icons.sports,
-          color: Colors.white,
+          color: darkSurface,
           size: 32,
         ),
         elevation: 0,
@@ -169,15 +169,15 @@ class _UnpublishedGamesScreenState extends State<UnpublishedGamesScreen> {
                 style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
-                  color: Colors.black,
+                  color: primaryTextColor,
                 ),
               ),
               const SizedBox(height: 10),
-              Text(
+              const Text(
                 'Review and publish your draft games',
                 style: TextStyle(
                   fontSize: 16,
-                  color: Colors.grey[600],
+                  color: secondaryTextColor,
                 ),
               ),
               const SizedBox(height: 20),
@@ -195,12 +195,12 @@ class _UnpublishedGamesScreenState extends State<UnpublishedGamesScreen> {
                                   color: Colors.grey[400],
                                 ),
                                 const SizedBox(height: 16),
-                                Text(
+                                const Text(
                                   'No draft games',
                                   style: TextStyle(
                                     fontSize: 18,
                                     fontWeight: FontWeight.w600,
-                                    color: Colors.grey[600],
+                                    color: secondaryTextColor,
                                   ),
                                 ),
                                 const SizedBox(height: 8),
@@ -266,7 +266,7 @@ class _UnpublishedGamesScreenState extends State<UnpublishedGamesScreen> {
                                   child: Container(
                                     padding: const EdgeInsets.all(16),
                                     decoration: BoxDecoration(
-                                      color: Colors.white,
+                                      color: darkSurface,
                                       borderRadius: BorderRadius.circular(12),
                                       boxShadow: [
                                         BoxShadow(
@@ -306,7 +306,7 @@ class _UnpublishedGamesScreenState extends State<UnpublishedGamesScreen> {
                                                 style: const TextStyle(
                                                   fontSize: 16,
                                                   fontWeight: FontWeight.bold,
-                                                  color: Colors.black,
+                                                  color: primaryTextColor,
                                                 ),
                                               ),
                                               const SizedBox(height: 4),
@@ -332,9 +332,9 @@ class _UnpublishedGamesScreenState extends State<UnpublishedGamesScreen> {
                                               const SizedBox(height: 4),
                                               Text(
                                                 location,
-                                                style: TextStyle(
+                                                style: const TextStyle(
                                                   fontSize: 14,
-                                                  color: Colors.grey[600],
+                                                  color: secondaryTextColor,
                                                 ),
                                               ),
                                               const SizedBox(height: 8),

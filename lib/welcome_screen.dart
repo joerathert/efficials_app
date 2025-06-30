@@ -35,12 +35,12 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      backgroundColor: darkBackground,
       appBar: AppBar(
-        backgroundColor: efficialsBlue,
+        backgroundColor: efficialsBlack,
         title: const Icon(
           Icons.sports,
-          color: Colors.white,
+          color: efficialsYellow,
           size: 32,
         ),
         elevation: 0,
@@ -56,15 +56,19 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                 const SizedBox(height: 20),
                 const Text(
                   'Welcome Back!',
-                  style: headlineStyle,
+                  style: TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                    color: efficialsYellow,
+                  ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
-                Text(
+                const Text(
                   'Sign in to your account to continue',
                   style: TextStyle(
                     fontSize: 16,
-                    color: Colors.grey[600],
+                    color: secondaryTextColor,
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -72,11 +76,11 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                 Container(
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: darkSurface,
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
+                        color: Colors.black.withOpacity(0.3),
                         blurRadius: 10,
                         offset: const Offset(0, 2),
                       ),
@@ -90,7 +94,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
-                          color: Colors.black87,
+                          color: primaryTextColor,
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -106,7 +110,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
-                          color: Colors.black87,
+                          color: primaryTextColor,
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -117,7 +121,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                           suffixIcon: IconButton(
                             icon: Icon(
                               _showPassword ? Icons.visibility_off : Icons.visibility,
-                              color: Colors.grey[600],
+                              color: secondaryTextColor,
                             ),
                             onPressed: () {
                               setState(() {

@@ -25,14 +25,14 @@ class _NameListScreenState extends State<NameListScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: efficialsBlue,
+        backgroundColor: efficialsBlack,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, size: 36, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
           'Name List',
-          style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+          style: TextStyle(color: darkSurface, fontSize: 20, fontWeight: FontWeight.bold),
         ),
       ),
       body: Center(

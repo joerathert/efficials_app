@@ -65,14 +65,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
             style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w600,
-              color: Colors.black87,
+              color: primaryTextColor,
             ),
           ),
         ),
         Container(
           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: darkSurface,
             borderRadius: BorderRadius.circular(12),
             boxShadow: [
               BoxShadow(
@@ -100,9 +100,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
       subtitle: Text(
         subtitle,
-        style: TextStyle(
+        style: const TextStyle(
           fontSize: 14,
-          color: Colors.grey[600],
+          color: secondaryTextColor,
         ),
       ),
       value: value,
@@ -125,9 +125,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
 
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      backgroundColor: darkBackground,
       appBar: AppBar(
-        backgroundColor: efficialsBlue,
+        backgroundColor: efficialsBlack,
         title: const Text(
           'Settings',
           style: TextStyle(color: Colors.white),
@@ -215,11 +215,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           fontWeight: FontWeight.w500,
                         ),
                       ),
-                      subtitle: Text(
+                      subtitle: const Text(
                         'Choose your preferred method for selecting officials',
                         style: TextStyle(
                           fontSize: 14,
-                          color: Colors.grey[600],
+                          color: secondaryTextColor,
                         ),
                       ),
                       trailing: DropdownButton<String>(

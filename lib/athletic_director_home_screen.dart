@@ -253,8 +253,9 @@ class _AthleticDirectorHomeScreenState
 
     final Map<String, Map<String, bool>> newScheduleFilters = {};
     for (var game in allGames) {
-      if (game.scheduleName == null)
+      if (game.scheduleName == null) {
         continue; // Skip games without a schedule name
+      }
       if (!newScheduleFilters.containsKey(game.sport)) {
         newScheduleFilters[game.sport] = {};
       }
@@ -393,18 +394,18 @@ class _AthleticDirectorHomeScreenState
                 offset: const Offset(0, -80),
                 child: Column(
                   children: [
-                    Icon(
+                    const Icon(
                       Icons.sports,
                       size: 80,
-                      color: efficialsBlue.withOpacity(0.6),
+                      color: efficialsYellow,
                     ),
                     const SizedBox(height: 24),
                     const Text(
                       'Welcome to Efficials!',
                       style: TextStyle(
-                        fontSize: 24,
+                        fontSize: 32,
                         fontWeight: FontWeight.bold,
-                        color: efficialsBlue,
+                        color: efficialsYellow,
                       ),
                       textAlign: TextAlign.center,
                     ),
@@ -430,8 +431,8 @@ class _AthleticDirectorHomeScreenState
                         style: TextStyle(fontSize: 18),
                       ),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: efficialsBlue,
-                        foregroundColor: Colors.white,
+                        backgroundColor: efficialsYellow,
+                        foregroundColor: efficialsBlack,
                         padding: const EdgeInsets.symmetric(
                           horizontal: 24,
                           vertical: 16,
@@ -462,10 +463,10 @@ class _AthleticDirectorHomeScreenState
                   offset: const Offset(0, -80),
                   child: Column(
                     children: [
-                      Icon(
+                      const Icon(
                         Icons.event_available,
                         size: 80,
-                        color: efficialsBlue.withOpacity(0.6),
+                        color: efficialsYellow,
                       ),
                       const SizedBox(height: 24),
                       const Text(
@@ -473,7 +474,7 @@ class _AthleticDirectorHomeScreenState
                         style: TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
-                          color: efficialsBlue,
+                          color: efficialsYellow,
                         ),
                         textAlign: TextAlign.center,
                       ),
@@ -499,8 +500,8 @@ class _AthleticDirectorHomeScreenState
                           style: TextStyle(fontSize: 18),
                         ),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: efficialsBlue,
-                          foregroundColor: Colors.white,
+                          backgroundColor: efficialsYellow,
+                          foregroundColor: efficialsBlack,
                           padding: const EdgeInsets.symmetric(
                             horizontal: 24,
                             vertical: 16,
@@ -563,30 +564,33 @@ class _AthleticDirectorHomeScreenState
     final pastGames = _filterGamesByTime(publishedGames, true);
 
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      backgroundColor: darkBackground,
       appBar: AppBar(
-        backgroundColor: efficialsBlue,
-        title: const Icon(
-          Icons.sports,
-          color: Colors.white,
-          size: 32,
-        ),
+        backgroundColor: efficialsBlack,
+        title: (upcomingGames.isNotEmpty || pastGames.isNotEmpty) 
+          ? const Icon(
+              Icons.sports,
+              color: efficialsYellow,
+              size: 32,
+            )
+          : null,
         elevation: 0,
         centerTitle: true,
         leading: Builder(
           builder: (context) => IconButton(
-            icon: const Icon(Icons.menu, color: Colors.white),
+            icon: const Icon(Icons.menu, color: efficialsYellow),
             onPressed: () => Scaffold.of(context).openDrawer(),
           ),
         ),
       ),
       drawer: Drawer(
+        backgroundColor: Colors.grey[800],
         child: ListView(
           padding: EdgeInsets.zero,
           children: [
             Container(
               height: totalBannerHeight,
-              decoration: const BoxDecoration(color: efficialsBlue),
+              decoration: const BoxDecoration(color: efficialsBlack),
               child: Padding(
                 padding: EdgeInsets.only(
                     top: statusBarHeight + 8.0,
@@ -596,15 +600,16 @@ class _AthleticDirectorHomeScreenState
                 child: const Text(
                   'Menu',
                   style: TextStyle(
-                      color: Colors.white,
+                      color: efficialsWhite,
                       fontSize: 20,
                       fontWeight: FontWeight.bold),
                 ),
               ),
             ),
             ListTile(
-              leading: const Icon(Icons.schedule),
-              title: const Text('Schedules'),
+              leading: const Icon(Icons.schedule, color: efficialsYellow),
+              title: const Text('Schedules',
+                  style: TextStyle(color: Colors.white)),
               onTap: () {
                 Navigator.pop(context);
                 Navigator.pushNamed(context, '/schedules').then((result) {
@@ -615,8 +620,9 @@ class _AthleticDirectorHomeScreenState
               },
             ),
             ListTile(
-              leading: const Icon(Icons.filter_list),
-              title: const Text('Filter Schedules'),
+              leading: const Icon(Icons.filter_list, color: efficialsYellow),
+              title: const Text('Filter Schedules',
+                  style: TextStyle(color: Colors.white)),
               onTap: () {
                 Navigator.pop(context);
                 Navigator.push(
@@ -640,40 +646,45 @@ class _AthleticDirectorHomeScreenState
               },
             ),
             ListTile(
-              leading: const Icon(Icons.location_on),
-              title: const Text('Locations'),
+              leading: const Icon(Icons.location_on, color: efficialsYellow),
+              title: const Text('Locations',
+                  style: TextStyle(color: Colors.white)),
               onTap: () {
                 Navigator.pop(context);
                 Navigator.pushNamed(context, '/locations');
               },
             ),
             ListTile(
-              leading: const Icon(Icons.people),
-              title: const Text('Lists of Officials'),
+              leading: const Icon(Icons.people, color: efficialsYellow),
+              title: const Text('Lists of Officials',
+                  style: TextStyle(color: Colors.white)),
               onTap: () {
                 Navigator.pop(context);
                 Navigator.pushNamed(context, '/lists_of_officials');
               },
             ),
             ListTile(
-              leading: const Icon(Icons.games),
-              title: const Text('Unpublished Games'),
+              leading: const Icon(Icons.games, color: efficialsYellow),
+              title: const Text('Unpublished Games',
+                  style: TextStyle(color: Colors.white)),
               onTap: () {
                 Navigator.pop(context);
                 Navigator.pushNamed(context, '/unpublished_games');
               },
             ),
             ListTile(
-              leading: const Icon(Icons.copy),
-              title: const Text('Game Templates'),
+              leading: const Icon(Icons.copy, color: efficialsYellow),
+              title: const Text('Game Templates',
+                  style: TextStyle(color: Colors.white)),
               onTap: () {
                 Navigator.pop(context);
                 Navigator.pushNamed(context, '/game_templates');
               },
             ),
             ListTile(
-              leading: const Icon(Icons.settings),
-              title: const Text('Settings'),
+              leading: const Icon(Icons.settings, color: efficialsYellow),
+              title: const Text('Settings',
+                  style: TextStyle(color: Colors.white)),
               onTap: () {
                 Navigator.pop(context);
                 Navigator.pushNamed(context, '/settings');
@@ -715,7 +726,7 @@ class _AthleticDirectorHomeScreenState
                     child: pullDistance > 0
                         ? Container(
                             width: double.infinity,
-                            color: Colors.grey[100],
+                            color: darkBackground,
                             child: Center(
                               child: Text(
                                 pullDistance >= pullThreshold
@@ -725,7 +736,7 @@ class _AthleticDirectorHomeScreenState
                                   fontSize: 16,
                                   color: pullDistance >= pullThreshold
                                       ? efficialsBlue
-                                      : Colors.grey[600],
+                                      : secondaryTextColor,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
@@ -746,7 +757,7 @@ class _AthleticDirectorHomeScreenState
                               style: TextStyle(
                                 fontSize: 24,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.black,
+                                color: primaryTextColor,
                               ),
                             ),
                             const SizedBox(height: 10),
@@ -754,7 +765,10 @@ class _AthleticDirectorHomeScreenState
                           Expanded(
                             child: isLoading
                                 ? const Center(
-                                    child: CircularProgressIndicator())
+                                    child: CircularProgressIndicator(
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                        efficialsBlue),
+                                  ))
                                 : _buildGamesList(pastGames, upcomingGames),
                           ),
                         ],
@@ -776,7 +790,7 @@ class _AthleticDirectorHomeScreenState
                 opacity: isFabExpanded ? 1.0 : 0.0,
                 duration: const Duration(milliseconds: 300),
                 child: Container(
-                  color: Colors.black.withOpacity(0.3),
+                  color: efficialsBlack.withOpacity(0.3),
                   width: double.infinity,
                   height: double.infinity,
                 ),
@@ -802,10 +816,10 @@ class _AthleticDirectorHomeScreenState
                           });
                           Navigator.pushNamed(context, '/game_templates');
                         },
-                        backgroundColor: Colors.blue[300],
+                        backgroundColor: efficialsYellow,
                         label: const Text('Use Game Template',
-                            style: TextStyle(color: Colors.white)),
-                        icon: const Icon(Icons.copy, color: Colors.white),
+                            style: TextStyle(color: efficialsBlack)),
+                        icon: const Icon(Icons.copy, color: efficialsBlack),
                       ),
                     ),
                   ),
@@ -825,10 +839,10 @@ class _AthleticDirectorHomeScreenState
                           Navigator.pushNamed(context, '/select_schedule',
                               arguments: {'template': null});
                         },
-                        backgroundColor: Colors.white,
+                        backgroundColor: efficialsYellow,
                         label: const Text('Start from Scratch',
-                            style: TextStyle(color: efficialsBlue)),
-                        icon: const Icon(Icons.add, color: efficialsBlue),
+                            style: TextStyle(color: efficialsBlack)),
+                        icon: const Icon(Icons.add, color: efficialsBlack),
                       ),
                     ),
                   ),
@@ -839,9 +853,9 @@ class _AthleticDirectorHomeScreenState
                       isFabExpanded = !isFabExpanded;
                     });
                   },
-                  backgroundColor: efficialsBlue,
+                  backgroundColor: Colors.grey[800],
                   child: Icon(isFabExpanded ? Icons.close : Icons.add,
-                      size: 30, color: Colors.white),
+                      size: 30, color: efficialsYellow),
                 ),
               ],
             ),
@@ -961,11 +975,11 @@ class _AthleticDirectorHomeScreenState
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: darkSurface,
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
-              color: Colors.grey.withOpacity(0.1),
+              color: efficialsGray.withOpacity(0.2),
               spreadRadius: 1,
               blurRadius: 3,
               offset: const Offset(0, 1),
@@ -978,12 +992,12 @@ class _AthleticDirectorHomeScreenState
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: getSportIconColor(sport).withOpacity(0.1),
+                color: efficialsYellow.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(
                 sportIcon,
-                color: getSportIconColor(sport),
+                color: efficialsYellow,
                 size: 24,
               ),
             ),
@@ -997,22 +1011,23 @@ class _AthleticDirectorHomeScreenState
                     style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
-                        color: Colors.black),
+                        color: primaryTextColor),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     opponentDisplay != null
                         ? '$gameTime $opponentDisplay'
                         : '$gameTime - $gameTitle',
-                    style: const TextStyle(fontSize: 16, color: Colors.black),
+                    style:
+                        const TextStyle(fontSize: 16, color: primaryTextColor),
                   ),
                   if (opponentDisplay != null) ...[
                     const SizedBox(height: 4),
                     Text(
                       gameTitle,
-                      style: TextStyle(
+                      style: const TextStyle(
                           fontSize: 14,
-                          color: Colors.grey[700],
+                          color: secondaryTextColor,
                           fontWeight: FontWeight.w500),
                     ),
                   ],
@@ -1024,12 +1039,13 @@ class _AthleticDirectorHomeScreenState
                           padding: const EdgeInsets.symmetric(
                               horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
-                            color: Colors.blue.withOpacity(0.1),
+                            color: efficialsYellow.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: const Text(
                             'Away game',
-                            style: TextStyle(fontSize: 12, color: Colors.blue),
+                            style:
+                                TextStyle(fontSize: 12, color: efficialsYellow),
                           ),
                         )
                       else ...[
@@ -1038,8 +1054,8 @@ class _AthleticDirectorHomeScreenState
                               horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
                             color: isFullyHired
-                                ? Colors.green.withOpacity(0.1)
-                                : Colors.red.withOpacity(0.1),
+                                ? efficialsYellow.withOpacity(0.2)
+                                : efficialsBlue.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Row(
@@ -1050,14 +1066,14 @@ class _AthleticDirectorHomeScreenState
                                 style: TextStyle(
                                     fontSize: 12,
                                     color: isFullyHired
-                                        ? Colors.green.shade700
-                                        : Colors.red.shade700),
+                                        ? efficialsBlack
+                                        : efficialsBlue),
                               ),
                               if (!isFullyHired) ...[
                                 const SizedBox(width: 4),
-                                Icon(
+                                const Icon(
                                   Icons.warning_amber_rounded,
-                                  color: Colors.red.shade700,
+                                  color: efficialsYellow,
                                   size: 14,
                                 ),
                               ],

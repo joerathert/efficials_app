@@ -115,7 +115,7 @@ class _LocationsScreenState extends State<LocationsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: efficialsBlue,
+        backgroundColor: efficialsBlack,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, size: 36, color: Colors.white),
           onPressed: () => Navigator.pop(context),
@@ -123,7 +123,7 @@ class _LocationsScreenState extends State<LocationsScreen> {
         title: const Text(
           'Locations',
           style: TextStyle(
-            color: Colors.white,
+            color: darkSurface,
             fontSize: 20,
             fontWeight: FontWeight.bold,
           ),

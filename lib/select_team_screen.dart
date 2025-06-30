@@ -16,10 +16,28 @@ class _SelectTeamScreenState extends State<SelectTeamScreen> {
   final TextEditingController _teamNameController = TextEditingController();
 
   final List<String> sports = [
-    'Baseball', 'Basketball', 'Football', 'Soccer', 'Softball', 'Volleyball'
+    'Baseball',
+    'Basketball',
+    'Football',
+    'Soccer',
+    'Softball',
+    'Volleyball'
   ]; // From select_sport_screen.dart
   final List<String> grades = [
-    '6U', '7U', '8U', '9U', '10U', '11U', '12U', '13U', '14U', '15U', '16U', '17U', '18U', 'Adult'
+    '6U',
+    '7U',
+    '8U',
+    '9U',
+    '10U',
+    '11U',
+    '12U',
+    '13U',
+    '14U',
+    '15U',
+    '16U',
+    '17U',
+    '18U',
+    'Adult'
   ];
   List<String> genders = ['Boys', 'Girls', 'Co-ed'];
 
@@ -56,7 +74,7 @@ class _SelectTeamScreenState extends State<SelectTeamScreen> {
       await prefs.setString('sport', _selectedSport!);
       await prefs.setString('grade', _selectedGrade!);
       await prefs.setString('gender', _selectedGender!);
-      
+
       Navigator.pushReplacementNamed(
         context,
         '/coach_home',
@@ -83,9 +101,9 @@ class _SelectTeamScreenState extends State<SelectTeamScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      backgroundColor: darkBackground,
       appBar: AppBar(
-        backgroundColor: efficialsBlue,
+        backgroundColor: efficialsBlack,
         title: const Text('Team Setup', style: appBarTextStyle),
         elevation: 0,
       ),
@@ -103,11 +121,11 @@ class _SelectTeamScreenState extends State<SelectTeamScreen> {
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
-                Text(
+                const Text(
                   'This information helps officials and other teams identify you',
                   style: TextStyle(
                     fontSize: 16,
-                    color: Colors.grey[600],
+                    color: secondaryTextColor,
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -115,7 +133,7 @@ class _SelectTeamScreenState extends State<SelectTeamScreen> {
                 Container(
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: darkSurface,
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
@@ -133,13 +151,14 @@ class _SelectTeamScreenState extends State<SelectTeamScreen> {
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
-                          color: Colors.black87,
+                          color: primaryTextColor,
                         ),
                       ),
                       const SizedBox(height: 8),
                       TextField(
                         controller: _teamNameController,
-                        decoration: textFieldDecoration('Ex. Maryville Redwings'),
+                        decoration:
+                            textFieldDecoration('Ex. Maryville Redwings'),
                         textCapitalization: TextCapitalization.words,
                       ),
                       const SizedBox(height: 24),
@@ -148,7 +167,7 @@ class _SelectTeamScreenState extends State<SelectTeamScreen> {
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
-                          color: Colors.black87,
+                          color: primaryTextColor,
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -173,7 +192,7 @@ class _SelectTeamScreenState extends State<SelectTeamScreen> {
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
-                          color: Colors.black87,
+                          color: primaryTextColor,
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -199,7 +218,7 @@ class _SelectTeamScreenState extends State<SelectTeamScreen> {
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
-                          color: Colors.black87,
+                          color: primaryTextColor,
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -225,7 +244,8 @@ class _SelectTeamScreenState extends State<SelectTeamScreen> {
                 ElevatedButton(
                   onPressed: _onContinue,
                   style: elevatedButtonStyle(
-                    padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 50),
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 15, horizontal: 50),
                   ),
                   child: const Text(
                     'Continue',

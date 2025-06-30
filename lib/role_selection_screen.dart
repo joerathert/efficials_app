@@ -7,18 +7,18 @@ class RoleSelectionScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      backgroundColor: darkBackground,
       appBar: AppBar(
-        backgroundColor: efficialsBlue,
+        backgroundColor: efficialsBlack,
         title: const Icon(
           Icons.sports,
-          color: Colors.white,
+          color: efficialsYellow,
           size: 32,
         ),
         elevation: 0,
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: const Icon(Icons.arrow_back, color: efficialsWhite),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -31,15 +31,19 @@ class RoleSelectionScreen extends StatelessWidget {
               const SizedBox(height: 40),
               const Text(
                 'Get Started',
-                style: headlineStyle,
+                style: TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                  color: efficialsYellow,
+                ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 8),
-              Text(
+              const Text(
                 'Choose your role to create your account',
                 style: TextStyle(
                   fontSize: 16,
-                  color: Colors.grey[600],
+                  color: secondaryTextColor,
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -49,11 +53,11 @@ class RoleSelectionScreen extends StatelessWidget {
                   width: double.infinity,
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: darkSurface,
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
+                        color: Colors.black.withOpacity(0.3),
                         blurRadius: 10,
                         offset: const Offset(0, 2),
                       ),
@@ -67,30 +71,36 @@ class RoleSelectionScreen extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w600,
-                        color: Colors.black87,
+                        color: primaryTextColor,
                       ),
                     ),
                     const SizedBox(height: 24),
-                    ElevatedButton(
-                      onPressed: () {
-                        Navigator.pushNamed(context, '/scheduler_signup_step1');
-                      },
-                      style: elevatedButtonStyle(
-                        padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 50),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.pushNamed(context, '/scheduler_signup_step1');
+                        },
+                        style: elevatedButtonStyle(
+                          padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 50),
+                        ),
+                        child: const Text('Scheduler', style: signInButtonTextStyle),
                       ),
-                      child: const Text('Scheduler', style: signInButtonTextStyle),
                     ),
                     const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Official sign-up not implemented yet')),
-                        );
-                      },
-                      style: elevatedButtonStyle(
-                        padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 50),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Official sign-up not implemented yet')),
+                          );
+                        },
+                        style: elevatedButtonStyle(
+                          padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 50),
+                        ),
+                        child: const Text('Official', style: signInButtonTextStyle),
                       ),
-                      child: const Text('Official', style: signInButtonTextStyle),
                     ),
                   ],
                 ),

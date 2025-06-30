@@ -12,18 +12,18 @@ class AddPhotoScreen extends StatelessWidget {
             {};
 
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      backgroundColor: darkBackground,
       appBar: AppBar(
-        backgroundColor: efficialsBlue,
+        backgroundColor: efficialsBlack,
         title: const Icon(
           Icons.sports,
-          color: Colors.white,
+          color: efficialsYellow,
           size: 32,
         ),
         elevation: 0,
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: const Icon(Icons.arrow_back, color: efficialsWhite),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -36,27 +36,28 @@ class AddPhotoScreen extends StatelessWidget {
               const SizedBox(height: 40),
               const Text(
                 'Add Your Photo',
-                style: headlineStyle,
+                style: TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                  color: efficialsYellow,
+                ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 8),
-              Text(
+              const Text(
                 'This helps others recognize you (optional)',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.grey[600],
-                ),
+                style: secondaryTextStyle,
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 40),
               Container(
                 padding: const EdgeInsets.all(32),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: darkSurface,
                   borderRadius: BorderRadius.circular(12),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
+                      color: efficialsBlack.withOpacity(0.3),
                       blurRadius: 10,
                       offset: const Offset(0, 2),
                     ),
@@ -68,9 +69,9 @@ class AddPhotoScreen extends StatelessWidget {
                       width: 150,
                       height: 150,
                       decoration: BoxDecoration(
-                        color: Colors.grey[100],
+                        color: Colors.white,
                         shape: BoxShape.circle,
-                        border: Border.all(color: Colors.grey[300]!, width: 2),
+                        border: Border.all(color: Colors.white, width: 2),
                       ),
                       child: const Icon(
                         Icons.person,
@@ -81,11 +82,7 @@ class AddPhotoScreen extends StatelessWidget {
                     const SizedBox(height: 32),
                     const Text(
                       'Choose a photo source',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black87,
-                      ),
+                      style: homeTextStyle,
                     ),
                     const SizedBox(height: 24),
                     SizedBox(
@@ -97,11 +94,16 @@ class AddPhotoScreen extends StatelessWidget {
                                 content: Text('Gallery not implemented yet')),
                           );
                         },
-                        style: elevatedButtonStyle(
-                          padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 24),
+                        style: primaryButtonStyle.copyWith(
+                          padding: MaterialStateProperty.all(
+                            const EdgeInsets.symmetric(
+                                vertical: 16, horizontal: 24),
+                          ),
                         ),
-                        icon: const Icon(Icons.photo_library, color: Colors.white),
-                        label: const Text('Choose from Gallery', style: signInButtonTextStyle),
+                        icon: const Icon(Icons.photo_library,
+                            color: efficialsBlack),
+                        label: const Text('Choose from Gallery',
+                            style: buttonTextStyle),
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -114,11 +116,11 @@ class AddPhotoScreen extends StatelessWidget {
                                 content: Text('Camera not implemented yet')),
                           );
                         },
-                        style: elevatedButtonStyle(
-                          padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 24),
-                        ),
-                        icon: const Icon(Icons.camera_alt, color: Colors.white),
-                        label: const Text('Take a Photo', style: signInButtonTextStyle),
+                        style: primaryButtonStyle,
+                        icon:
+                            const Icon(Icons.camera_alt, color: efficialsBlack),
+                        label:
+                            const Text('Take a Photo', style: buttonTextStyle),
                       ),
                     ),
                   ],
@@ -150,13 +152,9 @@ class AddPhotoScreen extends StatelessWidget {
                   Navigator.pushReplacementNamed(context, route,
                       arguments: args);
                 },
-                child: Text(
+                child: const Text(
                   'Skip for Now',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.grey[600],
-                    decoration: TextDecoration.underline,
-                  ),
+                  style: linkTextStyle,
                 ),
               ),
             ],

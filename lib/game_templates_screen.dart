@@ -71,7 +71,7 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: efficialsBlue,
+        backgroundColor: efficialsBlack,
         title: const Text('Game Templates', style: appBarTextStyle),
       ),
       body: isLoading

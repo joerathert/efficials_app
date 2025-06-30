@@ -30,18 +30,18 @@ class _SchedulerSignUpStep1State extends State<SchedulerSignUpStep1> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      backgroundColor: darkBackground,
       appBar: AppBar(
-        backgroundColor: efficialsBlue,
+        backgroundColor: efficialsBlack,
         title: const Icon(
           Icons.sports,
-          color: Colors.white,
+          color: efficialsYellow,
           size: 32,
         ),
         elevation: 0,
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: const Icon(Icons.arrow_back, color: efficialsWhite),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -55,15 +55,19 @@ class _SchedulerSignUpStep1State extends State<SchedulerSignUpStep1> {
                 const SizedBox(height: 20),
                 const Text(
                   'Create Your Account',
-                  style: headlineStyle,
+                  style: TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                    color: efficialsYellow,
+                  ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
-                Text(
+                const Text(
                   'Enter your information to get started',
                   style: TextStyle(
                     fontSize: 16,
-                    color: Colors.grey[600],
+                    color: secondaryTextColor,
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -71,11 +75,11 @@ class _SchedulerSignUpStep1State extends State<SchedulerSignUpStep1> {
                 Container(
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: darkSurface,
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
+                        color: Colors.black.withOpacity(0.3),
                         blurRadius: 10,
                         offset: const Offset(0, 2),
                       ),

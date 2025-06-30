@@ -7,16 +7,18 @@ class AssignerSportSelectionScreen extends StatefulWidget {
   const AssignerSportSelectionScreen({super.key});
 
   @override
-  State<AssignerSportSelectionScreen> createState() => _AssignerSportSelectionScreenState();
+  State<AssignerSportSelectionScreen> createState() =>
+      _AssignerSportSelectionScreenState();
 }
 
-class _AssignerSportSelectionScreenState extends State<AssignerSportSelectionScreen> {
+class _AssignerSportSelectionScreenState
+    extends State<AssignerSportSelectionScreen> {
   String? selectedSport;
   final TextEditingController _leagueNameController = TextEditingController();
 
   final List<String> sports = [
     'Baseball',
-    'Basketball', 
+    'Basketball',
     'Football',
     'Soccer',
     'Softball',
@@ -48,7 +50,7 @@ class _AssignerSportSelectionScreenState extends State<AssignerSportSelectionScr
       await prefs.setString('assigner_sport', selectedSport!);
       await prefs.setString('league_name', _leagueNameController.text);
       await prefs.setBool('assigner_setup_completed', true);
-      
+
       Navigator.pushReplacementNamed(
         context,
         '/assigner_home',
@@ -73,9 +75,9 @@ class _AssignerSportSelectionScreenState extends State<AssignerSportSelectionScr
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      backgroundColor: darkBackground,
       appBar: AppBar(
-        backgroundColor: efficialsBlue,
+        backgroundColor: efficialsBlack,
         title: const Text('Assigner Setup', style: appBarTextStyle),
       ),
       body: SafeArea(
@@ -88,14 +90,15 @@ class _AssignerSportSelectionScreenState extends State<AssignerSportSelectionScr
                 const SizedBox(height: 40),
                 TextField(
                   controller: _leagueNameController,
-                  decoration: textFieldDecoration('League Name (Ex. Metro Basketball League)'),
+                  decoration: textFieldDecoration(
+                      'League Name (Ex. Metro Basketball League)'),
                 ),
                 const SizedBox(height: 8),
-                Text(
+                const Text(
                   'The league or organization you assign officials for.',
                   style: TextStyle(
                     fontSize: 12,
-                    color: Colors.grey[600],
+                    color: secondaryTextColor,
                   ),
                 ),
                 const SizedBox(height: 20),
@@ -120,7 +123,7 @@ class _AssignerSportSelectionScreenState extends State<AssignerSportSelectionScr
                   itemBuilder: (context, index) {
                     final sport = sports[index];
                     final isSelected = selectedSport == sport;
-                    
+
                     return GestureDetector(
                       onTap: () {
                         setState(() {
@@ -131,7 +134,8 @@ class _AssignerSportSelectionScreenState extends State<AssignerSportSelectionScr
                         decoration: BoxDecoration(
                           color: isSelected ? efficialsBlue : Colors.white,
                           border: Border.all(
-                            color: isSelected ? efficialsBlue : Colors.grey[300]!,
+                            color:
+                                isSelected ? efficialsBlue : Colors.grey[300]!,
                             width: 2,
                           ),
                           borderRadius: BorderRadius.circular(8),
@@ -141,7 +145,9 @@ class _AssignerSportSelectionScreenState extends State<AssignerSportSelectionScr
                           children: [
                             Icon(
                               getSportIcon(sport),
-                              color: isSelected ? Colors.white : getSportIconColor(sport),
+                              color: isSelected
+                                  ? Colors.white
+                                  : getSportIconColor(sport),
                               size: 20,
                             ),
                             const SizedBox(width: 8),
@@ -149,7 +155,8 @@ class _AssignerSportSelectionScreenState extends State<AssignerSportSelectionScr
                               child: Text(
                                 sport,
                                 style: TextStyle(
-                                  color: isSelected ? Colors.white : Colors.black,
+                                  color:
+                                      isSelected ? Colors.white : Colors.black,
                                   fontSize: 14,
                                   fontWeight: FontWeight.w500,
                                 ),

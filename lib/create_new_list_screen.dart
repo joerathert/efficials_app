@@ -32,7 +32,7 @@ class _CreateNewListScreenState extends State<CreateNewListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: efficialsBlue,
+        backgroundColor: efficialsBlack,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, size: 36, color: Colors.white),
           onPressed: () => Navigator.pop(context),
@@ -40,7 +40,7 @@ class _CreateNewListScreenState extends State<CreateNewListScreen> {
         title: const Text(
           'Create New List',
           style: TextStyle(
-              color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+              color: darkSurface, fontSize: 20, fontWeight: FontWeight.bold),
         ),
       ),
       body: Center(

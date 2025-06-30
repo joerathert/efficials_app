@@ -97,12 +97,12 @@ class _ScheduleFilterScreenState extends State<ScheduleFilterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      backgroundColor: darkBackground,
       appBar: AppBar(
-        backgroundColor: efficialsBlue,
+        backgroundColor: efficialsBlack,
         title: const Icon(
           Icons.sports,
-          color: Colors.white,
+          color: darkSurface,
           size: 32,
         ),
         elevation: 0,
@@ -123,15 +123,15 @@ class _ScheduleFilterScreenState extends State<ScheduleFilterScreen> {
                 style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
-                  color: Colors.black,
+                  color: primaryTextColor,
                 ),
               ),
               const SizedBox(height: 10),
-              Text(
+              const Text(
                 'Customize which games appear on your home screen',
                 style: TextStyle(
                   fontSize: 15,
-                  color: Colors.grey[600],
+                  color: secondaryTextColor,
                 ),
               ),
               const SizedBox(height: 20),
@@ -139,7 +139,7 @@ class _ScheduleFilterScreenState extends State<ScheduleFilterScreen> {
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: darkSurface,
                   borderRadius: BorderRadius.circular(12),
                   boxShadow: [
                     BoxShadow(
@@ -157,7 +157,7 @@ class _ScheduleFilterScreenState extends State<ScheduleFilterScreen> {
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w600,
-                        color: Colors.black87,
+                        color: primaryTextColor,
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -190,24 +190,24 @@ class _ScheduleFilterScreenState extends State<ScheduleFilterScreen> {
                           ),
                         ),
                         const SizedBox(width: 12),
-                        Expanded(
+                        const Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
+                              Text(
                                 'Show Fully Covered Games',
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w600,
-                                  color: Colors.black87,
+                                  color: primaryTextColor,
                                 ),
                               ),
-                              const SizedBox(height: 2),
+                              SizedBox(height: 2),
                               Text(
                                 'Include games that have all officials assigned',
                                 style: TextStyle(
                                   fontSize: 14,
-                                  color: Colors.grey[600],
+                                  color: secondaryTextColor,
                                 ),
                               ),
                             ],
@@ -237,7 +237,7 @@ class _ScheduleFilterScreenState extends State<ScheduleFilterScreen> {
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
-                    color: Colors.black87,
+                    color: primaryTextColor,
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -253,7 +253,7 @@ class _ScheduleFilterScreenState extends State<ScheduleFilterScreen> {
                         padding: const EdgeInsets.only(bottom: 12.0),
                         child: Container(
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: darkSurface,
                             borderRadius: BorderRadius.circular(12),
                             boxShadow: [
                               BoxShadow(
@@ -288,7 +288,7 @@ class _ScheduleFilterScreenState extends State<ScheduleFilterScreen> {
                                     style: const TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.w600,
-                                      color: Colors.black87,
+                                      color: primaryTextColor,
                                     ),
                                   ),
                                 ),
@@ -331,7 +331,7 @@ class _ScheduleFilterScreenState extends State<ScheduleFilterScreen> {
                                         schedule,
                                         style: const TextStyle(
                                           fontSize: 15,
-                                          color: Colors.black87,
+                                          color: primaryTextColor,
                                         ),
                                       ),
                                     ),
@@ -357,12 +357,12 @@ class _ScheduleFilterScreenState extends State<ScheduleFilterScreen> {
                           color: Colors.grey[400],
                         ),
                         const SizedBox(height: 16),
-                        Text(
+                        const Text(
                           'No schedules to filter',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w600,
-                            color: Colors.grey[600],
+                            color: secondaryTextColor,
                           ),
                         ),
                         const SizedBox(height: 8),
@@ -412,15 +412,15 @@ class _ScheduleFilterScreenState extends State<ScheduleFilterScreen> {
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
-                  color: Colors.black87,
+                  color: primaryTextColor,
                 ),
               ),
               const SizedBox(height: 2),
               Text(
                 subtitle,
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 14,
-                  color: Colors.grey[600],
+                  color: secondaryTextColor,
                 ),
               ),
             ],

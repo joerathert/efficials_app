@@ -103,14 +103,14 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: efficialsBlue,
+        backgroundColor: efficialsBlack,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, size: 36, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
           'Review List',
-          style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+          style: TextStyle(color: darkSurface, fontSize: 20, fontWeight: FontWeight.bold),
         ),
       ),
       body: Column(
@@ -212,7 +212,7 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
           children: [
             Text(
               '($selectedCount) Selected',
-              style: const TextStyle(fontSize: 16, color: Colors.black, fontWeight: FontWeight.bold),
+              style: const TextStyle(fontSize: 16, color: primaryTextColor, fontWeight: FontWeight.bold),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),

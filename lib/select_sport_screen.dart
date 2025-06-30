@@ -11,7 +11,14 @@ class SelectSportScreen extends StatefulWidget {
 
 class _SelectSportScreenState extends State<SelectSportScreen> {
   String? selectedSport;
-  List<String> sports = ['Football', 'Basketball', 'Baseball', 'Soccer', 'Volleyball', 'Other'];
+  List<String> sports = [
+    'Football',
+    'Basketball',
+    'Baseball',
+    'Soccer',
+    'Volleyball',
+    'Other'
+  ];
   bool _isInitialized = false; // Flag to ensure initialization happens once
   bool isLoading = true;
 
@@ -29,13 +36,13 @@ class _SelectSportScreenState extends State<SelectSportScreen> {
     final prefs = await SharedPreferences.getInstance();
     final schedulerType = prefs.getString('schedulerType');
     String? userSport;
-    
+
     if (schedulerType == 'Assigner') {
       userSport = prefs.getString('assigner_sport');
     } else if (schedulerType == 'Coach') {
       userSport = prefs.getString('sport');
     }
-    
+
     setState(() {
       // Filter sports based on scheduler type
       if (schedulerType == 'Assigner' && userSport != null) {
@@ -48,13 +55,16 @@ class _SelectSportScreenState extends State<SelectSportScreen> {
         selectedSport = userSport;
       }
       // Athletic Directors keep all sports
-      
+
       // Check if coming from a template flow and pre-fill the sport
-      final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
-      if (args != null && args['fromTemplate'] == true && args['sport'] != null) {
+      final args =
+          ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+      if (args != null &&
+          args['fromTemplate'] == true &&
+          args['sport'] != null) {
         selectedSport = args['sport'] as String;
       }
-      
+
       isLoading = false;
     });
   }
@@ -62,12 +72,12 @@ class _SelectSportScreenState extends State<SelectSportScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      backgroundColor: darkBackground,
       appBar: AppBar(
-        backgroundColor: efficialsBlue,
+        backgroundColor: efficialsBlack,
         title: const Icon(
           Icons.sports,
-          color: Colors.white,
+          color: darkSurface,
           size: 32,
         ),
         elevation: 0,
@@ -92,11 +102,11 @@ class _SelectSportScreenState extends State<SelectSportScreen> {
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 8),
-                    Text(
+                    const Text(
                       'Choose the sport for your new schedule',
                       style: TextStyle(
                         fontSize: 16,
-                        color: Colors.grey[600],
+                        color: secondaryTextColor,
                       ),
                       textAlign: TextAlign.center,
                     ),
@@ -104,7 +114,7 @@ class _SelectSportScreenState extends State<SelectSportScreen> {
                     Container(
                       padding: const EdgeInsets.all(24),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: darkSurface,
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: [
                           BoxShadow(
@@ -119,8 +129,14 @@ class _SelectSportScreenState extends State<SelectSportScreen> {
                           DropdownButtonFormField<String>(
                             decoration: textFieldDecoration('Select a sport'),
                             value: selectedSport,
-                            onChanged: sports.length == 1 ? null : (newValue) => setState(() => selectedSport = newValue),
-                            items: sports.map((value) => DropdownMenuItem(value: value, child: Text(value))).toList(),
+                            onChanged: sports.length == 1
+                                ? null
+                                : (newValue) =>
+                                    setState(() => selectedSport = newValue),
+                            items: sports
+                                .map((value) => DropdownMenuItem(
+                                    value: value, child: Text(value)))
+                                .toList(),
                           ),
                           if (sports.length == 1 && selectedSport != null) ...[
                             const SizedBox(height: 16),
@@ -168,14 +184,17 @@ class _SelectSportScreenState extends State<SelectSportScreen> {
                           });
                         } else {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Please select a sport!')),
+                            const SnackBar(
+                                content: Text('Please select a sport!')),
                           );
                         }
                       },
                       style: elevatedButtonStyle(
-                        padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 50),
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 15, horizontal: 50),
                       ),
-                      child: const Text('Continue', style: signInButtonTextStyle),
+                      child:
+                          const Text('Continue', style: signInButtonTextStyle),
                     ),
                   ],
                 ),

@@ -130,7 +130,7 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: Colors.black87,
+                color: primaryTextColor,
               ),
             ),
           ],
@@ -176,13 +176,13 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
               }
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: efficialsBlue,
+              backgroundColor: efficialsBlack,
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8)),
             ),
             child: const Text(
               'Save',
-              style: TextStyle(color: Colors.white, fontSize: 16),
+              style: TextStyle(color: darkSurface, fontSize: 16),
             ),
           ),
         ],
@@ -306,7 +306,7 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: efficialsBlue,
+        backgroundColor: efficialsBlack,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, size: 36, color: Colors.white),
           onPressed: () => Navigator.pop(context),
@@ -360,7 +360,7 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Icon(
+                                    const Icon(
                                       Icons.link,
                                       size: 16,
                                       color: efficialsBlue,
@@ -368,7 +368,7 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                                     const SizedBox(width: 6),
                                     Text(
                                       'Associated Template: $associatedTemplateName',
-                                      style: TextStyle(
+                                      style: const TextStyle(
                                         fontSize: 14,
                                         fontWeight: FontWeight.w600,
                                         color: efficialsBlue,
@@ -514,8 +514,9 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
 
                                 if (!isEventAway) allAway = false;
                                 if (!isFullyHired) allFullyHired = false;
-                                if (!isEventAway && !isFullyHired)
+                                if (!isEventAway && !isFullyHired) {
                                   needsOfficials = true;
+                                }
                               }
 
                               if (allAway) {
@@ -775,7 +776,7 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                 _loadAssociatedTemplate();
               });
             },
-            backgroundColor: efficialsBlue,
+            backgroundColor: efficialsBlack,
             tooltip: 'Set Template',
             child: const Icon(Icons.link, color: Colors.white),
           ),

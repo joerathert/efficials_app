@@ -6,20 +6,22 @@ class AthleticDirectorSetupScreen extends StatefulWidget {
   const AthleticDirectorSetupScreen({super.key});
 
   @override
-  State<AthleticDirectorSetupScreen> createState() => _AthleticDirectorSetupScreenState();
+  State<AthleticDirectorSetupScreen> createState() =>
+      _AthleticDirectorSetupScreenState();
 }
 
-class _AthleticDirectorSetupScreenState extends State<AthleticDirectorSetupScreen> {
+class _AthleticDirectorSetupScreenState
+    extends State<AthleticDirectorSetupScreen> {
   final TextEditingController _schoolNameController = TextEditingController();
   final TextEditingController _mascotController = TextEditingController();
 
   void _handleContinue() async {
     // Use default values if fields are empty to allow quick testing
-    final schoolName = _schoolNameController.text.trim().isEmpty 
-        ? 'Test School' 
+    final schoolName = _schoolNameController.text.trim().isEmpty
+        ? 'Test School'
         : _schoolNameController.text.trim();
-    final mascot = _mascotController.text.trim().isEmpty 
-        ? 'Eagles' 
+    final mascot = _mascotController.text.trim().isEmpty
+        ? 'Eagles'
         : _mascotController.text.trim();
 
     // Save the Athletic Director information
@@ -35,17 +37,18 @@ class _AthleticDirectorSetupScreenState extends State<AthleticDirectorSetupScree
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      backgroundColor: darkBackground,
       appBar: AppBar(
-        backgroundColor: efficialsBlue,
+        backgroundColor: efficialsBlack,
         title: const Icon(
           Icons.sports,
-          color: Colors.white,
+          color: darkSurface,
           size: 32,
         ),
         elevation: 0,
         centerTitle: true,
-        automaticallyImplyLeading: false, // Remove back button since this is required setup
+        automaticallyImplyLeading:
+            false, // Remove back button since this is required setup
       ),
       body: SafeArea(
         child: Padding(
@@ -57,15 +60,19 @@ class _AthleticDirectorSetupScreenState extends State<AthleticDirectorSetupScree
                 const SizedBox(height: 40),
                 const Text(
                   'School Information',
-                  style: headlineStyle,
+                  style: TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                    color: efficialsYellow,
+                  ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
-                Text(
+                const Text(
                   'Enter your school details to complete setup',
                   style: TextStyle(
                     fontSize: 16,
-                    color: Colors.grey[600],
+                    color: secondaryTextColor,
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -73,7 +80,7 @@ class _AthleticDirectorSetupScreenState extends State<AthleticDirectorSetupScree
                 Container(
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: darkSurface,
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
@@ -91,13 +98,14 @@ class _AthleticDirectorSetupScreenState extends State<AthleticDirectorSetupScree
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
-                          color: Colors.black87,
+                          color: primaryTextColor,
                         ),
                       ),
                       const SizedBox(height: 8),
                       TextField(
                         controller: _schoolNameController,
-                        decoration: textFieldDecoration('Enter your school name'),
+                        decoration:
+                            textFieldDecoration('Enter your school name'),
                         textCapitalization: TextCapitalization.words,
                       ),
                       const SizedBox(height: 24),
@@ -106,13 +114,14 @@ class _AthleticDirectorSetupScreenState extends State<AthleticDirectorSetupScree
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
-                          color: Colors.black87,
+                          color: primaryTextColor,
                         ),
                       ),
                       const SizedBox(height: 8),
                       TextField(
                         controller: _mascotController,
-                        decoration: textFieldDecoration('Enter your school mascot'),
+                        decoration:
+                            textFieldDecoration('Enter your school mascot'),
                         textCapitalization: TextCapitalization.words,
                       ),
                     ],
@@ -122,7 +131,8 @@ class _AthleticDirectorSetupScreenState extends State<AthleticDirectorSetupScree
                 ElevatedButton(
                   onPressed: _handleContinue,
                   style: elevatedButtonStyle(
-                    padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 50),
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 15, horizontal: 50),
                   ),
                   child: const Text('Continue', style: signInButtonTextStyle),
                 ),

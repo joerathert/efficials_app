@@ -43,9 +43,9 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen> {
   @override
   Widget build(BuildContext context) {
     if (isLoading) {
-      return Scaffold(
-        body: const Center(
-            child: CircularProgressIndicator(color: efficialsBlue)),
+      return const Scaffold(
+        backgroundColor: darkBackground,
+        body: Center(child: CircularProgressIndicator(color: efficialsYellow)),
       );
     }
 
@@ -54,18 +54,19 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen> {
     final double totalBannerHeight = statusBarHeight + appBarHeight;
 
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      backgroundColor: darkBackground,
       appBar: AppBar(
-        backgroundColor: efficialsBlue,
+        backgroundColor: efficialsBlack,
         title: const Text('', style: appBarTextStyle),
         leading: Builder(
           builder: (context) => IconButton(
-            icon: const Icon(Icons.menu, color: Colors.white),
+            icon: const Icon(Icons.menu, color: efficialsYellow),
             onPressed: () => Scaffold.of(context).openDrawer(),
           ),
         ),
       ),
       drawer: Drawer(
+        backgroundColor: Colors.grey[800],
         child: ListView(
           padding: EdgeInsets.zero,
           children: [
@@ -82,15 +83,15 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen> {
                 child: const Text(
                   'Menu',
                   style: TextStyle(
-                      color: Colors.white,
+                      color: darkSurface,
                       fontSize: 20,
                       fontWeight: FontWeight.bold),
                 ),
               ),
             ),
             ListTile(
-              leading: const Icon(Icons.sports),
-              title: const Text('Officials Assignment'),
+              leading: const Icon(Icons.sports, color: efficialsYellow),
+              title: const Text('Officials Assignment', style: TextStyle(color: Colors.white)),
               onTap: () {
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -101,24 +102,24 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.people),
-              title: const Text('Officials Lists'),
+              leading: const Icon(Icons.people, color: efficialsYellow),
+              title: const Text('Officials Lists', style: TextStyle(color: Colors.white)),
               onTap: () {
                 Navigator.pop(context);
                 Navigator.pushNamed(context, '/lists_of_officials');
               },
             ),
             ListTile(
-              leading: const Icon(Icons.copy),
-              title: const Text('Game Templates'),
+              leading: const Icon(Icons.copy, color: efficialsYellow),
+              title: const Text('Game Templates', style: TextStyle(color: Colors.white)),
               onTap: () {
                 Navigator.pop(context);
                 Navigator.pushNamed(context, '/game_templates');
               },
             ),
             ListTile(
-              leading: const Icon(Icons.settings),
-              title: const Text('Settings'),
+              leading: const Icon(Icons.settings, color: efficialsYellow),
+              title: const Text('Settings', style: TextStyle(color: Colors.white)),
               onTap: () {
                 Navigator.pop(context);
                 Navigator.pushNamed(context, '/settings');
@@ -138,11 +139,11 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: darkSurface,
                   borderRadius: BorderRadius.circular(12),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.grey.withOpacity(0.1),
+                      color: Colors.black.withOpacity(0.3),
                       spreadRadius: 1,
                       blurRadius: 3,
                       offset: const Offset(0, 1),
@@ -169,13 +170,14 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen> {
                                 style: const TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.bold,
+                                  color: primaryTextColor,
                                 ),
                               ),
                               Text(
                                 '${sport ?? 'Unknown'} Assigner',
-                                style: TextStyle(
+                                style: const TextStyle(
                                   fontSize: 14,
-                                  color: Colors.grey[600],
+                                  color: secondaryTextColor,
                                 ),
                               ),
                             ],
@@ -265,11 +267,11 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen> {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: darkSurface,
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
-              color: Colors.grey.withOpacity(0.1),
+              color: Colors.black.withOpacity(0.3),
               spreadRadius: 1,
               blurRadius: 3,
               offset: const Offset(0, 1),
@@ -281,7 +283,7 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen> {
           children: [
             Icon(
               icon,
-              color: efficialsBlue,
+              color: efficialsYellow,
               size: 28,
             ),
             const SizedBox(height: 8),
@@ -290,15 +292,16 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen> {
               style: const TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.bold,
+                color: primaryTextColor,
               ),
             ),
             if (subtitle != null) ...[
               const SizedBox(height: 4),
               Text(
                 subtitle,
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 12,
-                  color: Colors.grey[600],
+                  color: secondaryTextColor,
                 ),
               ),
             ],
