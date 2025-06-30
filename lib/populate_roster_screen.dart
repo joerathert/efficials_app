@@ -286,15 +286,18 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Name Your List'),
+        backgroundColor: darkSurface,
+        title: const Text('Name Your List', 
+            style: TextStyle(color: efficialsYellow, fontSize: 20, fontWeight: FontWeight.bold)),
         content: TextField(
           controller: _listNameController,
           decoration: textFieldDecoration('List Name'),
+          style: const TextStyle(color: Colors.white),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel', style: TextStyle(color: efficialsBlue)),
+            child: const Text('Cancel', style: TextStyle(color: efficialsYellow)),
           ),
           TextButton(
             onPressed: () {
@@ -304,7 +307,7 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
                 _saveList(name);
               }
             },
-            child: const Text('Save', style: TextStyle(color: efficialsBlue)),
+            child: const Text('Save', style: TextStyle(color: efficialsYellow)),
           ),
         ],
       ),
@@ -364,19 +367,19 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
         selectedOfficials.values.where((selected) => selected).length;
 
     return Scaffold(
+      backgroundColor: darkBackground,
       appBar: AppBar(
         backgroundColor: efficialsBlack,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, size: 36, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
+        title: const Icon(
+          Icons.sports,
+          color: efficialsYellow,
+          size: 32,
         ),
-        title: Text(
-          isEdit
-              ? 'Edit Selected Officials'
-              : (isFromGameCreation
-                  ? 'Select Officials for Game'
-                  : 'Find Officials'),
-          style: appBarTextStyle,
+        elevation: 0,
+        centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: efficialsWhite),
+          onPressed: () => Navigator.pop(context),
         ),
       ),
       body: Column(
@@ -450,7 +453,8 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
                                         }
                                       });
                                     },
-                                    activeColor: efficialsBlue,
+                                    activeColor: Colors.green,
+                                    checkColor: Colors.black,
                                   ),
                                   const Text('Select all',
                                       style: TextStyle(fontSize: 18)),
@@ -494,9 +498,11 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
                                         },
                                       ),
                                       title: Text(
-                                          '${official['name']} (${official['cityState'] ?? 'Unknown'})'),
+                                          '${official['name']} (${official['cityState'] ?? 'Unknown'})',
+                                          style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500)),
                                       subtitle: Text(
                                         'Distance: ${official['distance']?.toStringAsFixed(1) ?? '0.0'} mi, Experience: ${official['yearsExperience'] ?? 0} yrs',
+                                        style: const TextStyle(color: Colors.grey, fontSize: 14),
                                       ),
                                     );
                                   },
@@ -524,10 +530,10 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
                   _applyFiltersWithSettings(result as Map<String, dynamic>));
             }
           }),
-          backgroundColor: efficialsBlack,
+          backgroundColor: Colors.grey[600],
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          child: const Icon(Icons.filter_list, size: 30, color: Colors.white),
+          child: const Icon(Icons.filter_list, size: 30, color: efficialsYellow),
         ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
@@ -541,47 +547,53 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
                       style: const TextStyle(
                           fontSize: 16, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
-                  ElevatedButton(
-                    onPressed: selectedCount > 0
-                        ? () {
-                            final selected = officials.where((o) {
-                              final officialId = o['id'];
-                              return officialId is int &&
-                                  (selectedOfficials[officialId] ?? false);
-                            }).toList();
-                            final updatedArgs = {
-                              ...args,
-                              'selectedOfficials': selected,
-                              'isEdit': isEdit, // Preserve the isEdit flag
-                              'isFromGameInfo':
-                                  isFromGameCreation, // Preserve the game creation context
-                              'listId': args['listId'], // Preserve the listId
-                              'listName':
-                                  args['listName'], // Preserve the listName
-                            };
-                            Navigator.pushNamed(
-                              context,
-                              isFromGameCreation
-                                  ? '/review_game_info'
-                                  : '/review_list',
-                              arguments: updatedArgs,
-                            ).then((result) {
-                              if (result != null) {
-                                Navigator.pop(context, result);
-                              }
-                            });
-                          }
-                        : null,
-                    style: elevatedButtonStyle(),
-                    child: const Text('Continue', style: signInButtonTextStyle),
+                  SizedBox(
+                    width: 250,
+                    child: ElevatedButton(
+                      onPressed: selectedCount > 0
+                          ? () {
+                              final selected = officials.where((o) {
+                                final officialId = o['id'];
+                                return officialId is int &&
+                                    (selectedOfficials[officialId] ?? false);
+                              }).toList();
+                              final updatedArgs = {
+                                ...args,
+                                'selectedOfficials': selected,
+                                'isEdit': isEdit, // Preserve the isEdit flag
+                                'isFromGameInfo':
+                                    isFromGameCreation, // Preserve the game creation context
+                                'listId': args['listId'], // Preserve the listId
+                                'listName':
+                                    args['listName'], // Preserve the listName
+                              };
+                              Navigator.pushNamed(
+                                context,
+                                isFromGameCreation
+                                    ? '/review_game_info'
+                                    : '/review_list',
+                                arguments: updatedArgs,
+                              ).then((result) {
+                                if (result != null) {
+                                  Navigator.pop(context, result);
+                                }
+                              });
+                            }
+                          : null,
+                      style: elevatedButtonStyle(),
+                      child: const Text('Continue', style: signInButtonTextStyle),
+                    ),
                   ),
                   if (isFromGameCreation && showSaveListButton) ...[
                     const SizedBox(height: 8),
-                    ElevatedButton(
-                      onPressed: selectedCount > 0 ? _promptSaveList : null,
-                      style: elevatedButtonStyle(),
-                      child:
-                          const Text('Save List', style: signInButtonTextStyle),
+                    SizedBox(
+                      width: 250,
+                      child: ElevatedButton(
+                        onPressed: selectedCount > 0 ? _promptSaveList : null,
+                        style: elevatedButtonStyle(),
+                        child:
+                            const Text('Save List', style: signInButtonTextStyle),
+                      ),
                     ),
                   ],
                 ],

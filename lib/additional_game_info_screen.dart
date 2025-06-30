@@ -65,16 +65,17 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: efficialsWhite,
-        title: const Text('Hire Automatically', style: headlineStyle),
+        backgroundColor: darkSurface,
+        title: const Text('Hire Automatically', 
+            style: TextStyle(color: efficialsYellow, fontSize: 20, fontWeight: FontWeight.bold)),
         content: const Text(
           'When checked, the system will automatically assign officials based on your preferences and availability. Uncheck to manually select officials.',
-          style: TextStyle(color: primaryTextColor),
+          style: TextStyle(color: Colors.white),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Close', style: TextStyle(color: efficialsBlue)),
+            child: const Text('Close', style: TextStyle(color: efficialsYellow)),
           ),
         ],
       ),
@@ -216,139 +217,176 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
     }
 
     return Scaffold(
-      backgroundColor: efficialsWhite,
+      backgroundColor: darkBackground,
       appBar: AppBar(
         backgroundColor: efficialsBlack,
+        title: const Icon(
+          Icons.sports,
+          color: efficialsYellow,
+          size: 32,
+        ),
+        elevation: 0,
+        centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, size: 36, color: efficialsWhite),
+          icon: const Icon(Icons.arrow_back, color: efficialsWhite),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text('Additional Game Info', style: appBarTextStyle),
       ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 600),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  if (!_isAwayGame) ...[
-                    DropdownButtonFormField<String>(
-                      decoration: textFieldDecoration('Level of competition'),
-                      value: _levelOfCompetition,
-                      hint: const Text('Level of competition',
-                          style: TextStyle(color: secondaryTextColor)),
-                      style: const TextStyle(color: primaryTextColor),
-                      onChanged: (value) {
-                        setState(() {
-                          _levelOfCompetition = value;
-                          _updateCurrentGenders();
-                          if (_gender != null &&
-                              !_currentGenders.contains(_gender)) {
-                            _gender = null;
-                          }
-                        });
-                      },
-                      items: _competitionLevels
-                          .map((level) => DropdownMenuItem(
-                              value: level,
-                              child: Text(level,
-                                  style: const TextStyle(
-                                      color: primaryTextColor))))
-                          .toList(),
-                    ),
-                    const SizedBox(height: 20),
-                    DropdownButtonFormField<String>(
-                      decoration: textFieldDecoration('Gender'),
-                      value: _gender,
-                      hint: const Text('Select gender',
-                          style: TextStyle(color: secondaryTextColor)),
-                      style: const TextStyle(color: primaryTextColor),
-                      onChanged: (value) => setState(() => _gender = value),
-                      items: _currentGenders
-                          .map((gender) => DropdownMenuItem(
-                              value: gender,
-                              child: Text(gender,
-                                  style: const TextStyle(
-                                      color: primaryTextColor))))
-                          .toList(),
-                    ),
-                    const SizedBox(height: 20),
-                    DropdownButtonFormField<int>(
-                      decoration:
-                          textFieldDecoration('Required number of officials'),
-                      value: _officialsRequired,
-                      hint: const Text('Required number of officials',
-                          style: TextStyle(color: secondaryTextColor)),
-                      style: const TextStyle(color: primaryTextColor),
-                      onChanged: (value) =>
-                          setState(() => _officialsRequired = value),
-                      items: _officialsOptions
-                          .map((num) => DropdownMenuItem(
-                              value: num,
-                              child: Text(num.toString(),
-                                  style: const TextStyle(
-                                      color: primaryTextColor))))
-                          .toList(),
-                    ),
-                    const SizedBox(height: 20),
-                    TextField(
-                      controller: _gameFeeController,
-                      decoration:
-                          textFieldDecoration('Game Fee per Official').copyWith(
-                        prefixText: '\$',
-                        prefixStyle: const TextStyle(color: primaryTextColor),
-                        hintText: 'Enter fee (e.g., 50 or 50.00)',
-                        hintStyle: const TextStyle(color: secondaryTextColor),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const SizedBox(height: 40),
+                const Text(
+                  'Additional Game Info',
+                  style: TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                    color: efficialsYellow,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 40),
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: darkSurface,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.3),
+                        blurRadius: 10,
+                        offset: const Offset(0, 2),
                       ),
-                      style: const TextStyle(color: primaryTextColor),
-                      keyboardType: TextInputType.number,
-                      inputFormatters: [
-                        FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-                        LengthLimitingTextInputFormatter(
-                            7), // Allow for "99999.99"
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-                  ],
-                  TextField(
-                    controller: _opponentController,
-                    decoration: textFieldDecoration('Opponent'),
-                    style: const TextStyle(color: primaryTextColor),
-                    keyboardType: TextInputType.text,
+                    ],
                   ),
-                  const SizedBox(height: 20),
-                  if (!_isAwayGame)
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Checkbox(
-                          value: _hireAutomatically,
-                          onChanged: (value) => setState(
-                              () => _hireAutomatically = value ?? false),
-                          activeColor: efficialsBlue,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (!_isAwayGame) ...[
+                        DropdownButtonFormField<String>(
+                          decoration: textFieldDecoration('Level of competition'),
+                          value: _levelOfCompetition,
+                          hint: const Text('Level of competition',
+                              style: TextStyle(color: efficialsGray)),
+                          style: const TextStyle(color: Colors.white, fontSize: 16),
+                          dropdownColor: darkSurface,
+                          onChanged: (value) {
+                            setState(() {
+                              _levelOfCompetition = value;
+                              _updateCurrentGenders();
+                              if (_gender != null &&
+                                  !_currentGenders.contains(_gender)) {
+                                _gender = null;
+                              }
+                            });
+                          },
+                          items: _competitionLevels
+                              .map((level) => DropdownMenuItem(
+                                  value: level,
+                                  child: Text(level,
+                                      style: const TextStyle(
+                                          color: Colors.white))))
+                              .toList(),
                         ),
-                        const Text('Hire Automatically',
-                            style: TextStyle(color: primaryTextColor)),
-                        IconButton(
-                          icon: const Icon(Icons.help_outline,
-                              color: efficialsBlue),
-                          onPressed: _showHireInfoDialog,
+                        const SizedBox(height: 20),
+                        DropdownButtonFormField<String>(
+                          decoration: textFieldDecoration('Gender'),
+                          value: _gender,
+                          hint: const Text('Select gender',
+                              style: TextStyle(color: efficialsGray)),
+                          style: const TextStyle(color: Colors.white, fontSize: 16),
+                          dropdownColor: darkSurface,
+                          onChanged: (value) => setState(() => _gender = value),
+                          items: _currentGenders
+                              .map((gender) => DropdownMenuItem(
+                                  value: gender,
+                                  child: Text(gender,
+                                      style: const TextStyle(
+                                          color: Colors.white))))
+                              .toList(),
                         ),
+                        const SizedBox(height: 20),
+                        DropdownButtonFormField<int>(
+                          decoration:
+                              textFieldDecoration('Required number of officials'),
+                          value: _officialsRequired,
+                          hint: const Text('Required number of officials',
+                              style: TextStyle(color: efficialsGray)),
+                          style: const TextStyle(color: Colors.white, fontSize: 16),
+                          dropdownColor: darkSurface,
+                          onChanged: (value) =>
+                              setState(() => _officialsRequired = value),
+                          items: _officialsOptions
+                              .map((num) => DropdownMenuItem(
+                                  value: num,
+                                  child: Text(num.toString(),
+                                      style: const TextStyle(
+                                          color: Colors.white))))
+                              .toList(),
+                        ),
+                        const SizedBox(height: 20),
+                        TextField(
+                          controller: _gameFeeController,
+                          decoration:
+                              textFieldDecoration('Game Fee per Official').copyWith(
+                            prefixText: '\$',
+                            prefixStyle: const TextStyle(color: Colors.white),
+                            hintText: 'Enter fee (e.g., 50 or 50.00)',
+                            hintStyle: const TextStyle(color: efficialsGray),
+                          ),
+                          style: const TextStyle(color: Colors.white, fontSize: 16),
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                            LengthLimitingTextInputFormatter(
+                                7), // Allow for "99999.99"
+                          ],
+                        ),
+                        const SizedBox(height: 20),
                       ],
-                    ),
-                  const SizedBox(height: 60),
-                  Center(
-                    child: ElevatedButton(
-                      onPressed: _handleContinue,
-                      style: primaryButtonStyle,
-                      child: const Text('Continue', style: buttonTextStyle),
-                    ),
+                      TextField(
+                        controller: _opponentController,
+                        decoration: textFieldDecoration('Opponent'),
+                        style: const TextStyle(color: Colors.white, fontSize: 16),
+                        keyboardType: TextInputType.text,
+                      ),
+                      const SizedBox(height: 20),
+                      if (!_isAwayGame)
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Checkbox(
+                              value: _hireAutomatically,
+                              onChanged: (value) => setState(
+                                  () => _hireAutomatically = value ?? false),
+                              activeColor: efficialsYellow,
+                              checkColor: efficialsBlack,
+                            ),
+                            const Text('Hire Automatically',
+                                style: TextStyle(color: Colors.white)),
+                            IconButton(
+                              icon: const Icon(Icons.help_outline,
+                                  color: efficialsYellow),
+                              onPressed: _showHireInfoDialog,
+                            ),
+                          ],
+                        ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 30),
+                ElevatedButton(
+                  onPressed: _handleContinue,
+                  style: elevatedButtonStyle(
+                    padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 50),
+                  ),
+                  child: const Text('Continue', style: signInButtonTextStyle),
+                ),
+              ],
             ),
           ),
         ),

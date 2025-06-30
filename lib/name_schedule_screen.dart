@@ -27,7 +27,8 @@ class _NameScheduleScreenState extends State<NameScheduleScreen> {
       );
       return;
     }
-    final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+    final args =
+        ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
     final sport = args['sport'] as String;
 
     // Save the schedule to SharedPreferences
@@ -35,7 +36,8 @@ class _NameScheduleScreenState extends State<NameScheduleScreen> {
     final String? unpublishedGamesJson = prefs.getString('unpublished_games');
     List<Map<String, dynamic>> unpublishedGames = [];
     if (unpublishedGamesJson != null && unpublishedGamesJson.isNotEmpty) {
-      unpublishedGames = List<Map<String, dynamic>>.from(jsonDecode(unpublishedGamesJson));
+      unpublishedGames =
+          List<Map<String, dynamic>>.from(jsonDecode(unpublishedGamesJson));
     }
 
     final scheduleEntry = {
@@ -57,58 +59,96 @@ class _NameScheduleScreenState extends State<NameScheduleScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+    final args =
+        ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
     final sport = args['sport'] as String;
 
     return Scaffold(
+      backgroundColor: darkBackground,
       appBar: AppBar(
         backgroundColor: efficialsBlack,
+        title: const Icon(
+          Icons.sports,
+          color: efficialsYellow,
+          size: 32,
+        ),
+        elevation: 0,
+        centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, size: 36, color: Colors.white),
+          icon: const Icon(Icons.arrow_back, color: efficialsWhite),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
-          'Name Schedule',
-          style: TextStyle(color: darkSurface, fontSize: 20, fontWeight: FontWeight.bold),
-        ),
       ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 600),
+      body: SafeArea(
+        child: SingleChildScrollView(
           child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Text(
-                    'Provide a name for your new ${sport.toUpperCase()} schedule. The name you choose should identify the level of competition.',
-                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black),
-                    textAlign: TextAlign.center,
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const SizedBox(height: 40),
+                const Text(
+                  'Name Your Schedule',
+                  style: TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                    color: efficialsYellow,
                   ),
-                  const SizedBox(height: 20),
-                  TextField(
-                    controller: _nameController,
-                    decoration: textFieldDecoration('Ex. - Varsity Football'),
-                    style: const TextStyle(fontSize: 18),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 40),
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: darkSurface,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.3),
+                        blurRadius: 10,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 20),
-                  const Text(
-                    'Note: There is no need to specify a time period for your schedule. For example, use "Varsity Football" rather than "2025 Varsity Football".',
-                    style: TextStyle(fontSize: 14, color: Colors.grey),
-                    textAlign: TextAlign.left,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Provide a name for your new ${sport.toUpperCase()} schedule. The name you choose should identify the level of competition.',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          color: primaryTextColor,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 24),
+                      TextField(
+                        controller: _nameController,
+                        decoration:
+                            textFieldDecoration('Ex. - Varsity Football'),
+                        style:
+                            const TextStyle(fontSize: 16, color: Colors.white),
+                      ),
+                      const SizedBox(height: 20),
+                      const Text(
+                        'Note: There is no need to specify a time period for your schedule. For example, use "Varsity Football" rather than "2025 Varsity Football".',
+                        style:
+                            TextStyle(fontSize: 14, color: secondaryTextColor),
+                        textAlign: TextAlign.left,
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 60),
-                  Center(
-                    child: ElevatedButton(
-                      onPressed: _handleContinue,
-                      style: elevatedButtonStyle(),
-                      child: const Text('Continue', style: signInButtonTextStyle),
-                    ),
+                ),
+                const SizedBox(height: 30),
+                ElevatedButton(
+                  onPressed: _handleContinue,
+                  style: elevatedButtonStyle(
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 15, horizontal: 50),
                   ),
-                ],
-              ),
+                  child: const Text('Continue', style: signInButtonTextStyle),
+                ),
+              ],
             ),
           ),
         ),

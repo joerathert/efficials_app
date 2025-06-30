@@ -38,15 +38,6 @@ class RoleSelectionScreen extends StatelessWidget {
                 ),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 8),
-              const Text(
-                'Choose your role to create your account',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: secondaryTextColor,
-                ),
-                textAlign: TextAlign.center,
-              ),
               const SizedBox(height: 40),
               Center(
                 child: Container(
@@ -66,44 +57,47 @@ class RoleSelectionScreen extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                    const Text(
-                      'I am a...',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: primaryTextColor,
+                      const Text(
+                        'Choose your role to get started',
+                        style: homeTextStyle,
                       ),
-                    ),
-                    const SizedBox(height: 24),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          Navigator.pushNamed(context, '/scheduler_signup_step1');
-                        },
-                        style: elevatedButtonStyle(
-                          padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 50),
+                      const SizedBox(height: 24),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            Navigator.pushNamed(
+                                context, '/scheduler_signup_step1');
+                          },
+                          style: elevatedButtonStyle(
+                            padding: const EdgeInsets.symmetric(
+                                vertical: 15, horizontal: 50),
+                          ),
+                          child: const Text('Scheduler',
+                              style: signInButtonTextStyle),
                         ),
-                        child: const Text('Scheduler', style: signInButtonTextStyle),
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Official sign-up not implemented yet')),
-                          );
-                        },
-                        style: elevatedButtonStyle(
-                          padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 50),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                  content: Text(
+                                      'Official sign-up not implemented yet')),
+                            );
+                          },
+                          style: elevatedButtonStyle(
+                            padding: const EdgeInsets.symmetric(
+                                vertical: 15, horizontal: 50),
+                          ),
+                          child: const Text('Official',
+                              style: signInButtonTextStyle),
                         ),
-                        child: const Text('Official', style: signInButtonTextStyle),
                       ),
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
                 ),
               ),
             ],

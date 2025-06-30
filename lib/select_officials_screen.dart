@@ -119,13 +119,16 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Standard vs. Advanced'),
+        backgroundColor: darkSurface,
+        title: const Text('Standard vs. Advanced',
+            style: TextStyle(color: efficialsYellow, fontSize: 20, fontWeight: FontWeight.bold)),
         content: const Text(
-            'Standard method uses basic filters to find officials. Advanced method allows detailed customization of filters for more specific selections.'),
+            'Standard method uses basic filters to find officials. Advanced method allows detailed customization of filters for more specific selections.',
+            style: TextStyle(color: Colors.white)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Close', style: TextStyle(color: efficialsBlue)),
+            child: const Text('Close', style: TextStyle(color: efficialsYellow)),
           ),
         ],
       ),
@@ -136,13 +139,16 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Insufficient Lists'),
+        backgroundColor: darkSurface,
+        title: const Text('Insufficient Lists',
+            style: TextStyle(color: efficialsYellow, fontSize: 20, fontWeight: FontWeight.bold)),
         content: const Text(
-            'The Advanced method requires at least two lists of officials. Would you like to create a new list?'),
+            'The Advanced method requires at least two lists of officials. Would you like to create a new list?',
+            style: TextStyle(color: Colors.white)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel', style: TextStyle(color: efficialsBlue)),
+            child: const Text('Cancel', style: TextStyle(color: efficialsYellow)),
           ),
           TextButton(
             onPressed: () {
@@ -152,7 +158,7 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
               });
             },
             child: const Text('Create List',
-                style: TextStyle(color: efficialsBlue)),
+                style: TextStyle(color: efficialsYellow)),
           ),
         ],
       ),
@@ -245,151 +251,199 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
     }
 
     return Scaffold(
+      backgroundColor: darkBackground,
       appBar: AppBar(
         backgroundColor: efficialsBlack,
+        title: const Icon(
+          Icons.sports,
+          color: efficialsYellow,
+          size: 32,
+        ),
+        elevation: 0,
+        centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, size: 36, color: Colors.white),
+          icon: const Icon(Icons.arrow_back, color: efficialsWhite),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text('Select Officials', style: appBarTextStyle),
       ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 600),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text(
-                    'Choose a method for finding your officials.',
-                    style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 60),
-                  ElevatedButton(
-                    onPressed: () {
-                      _saveDefaultChoice('standard');
-                      Navigator.pushNamed(
-                        context,
-                        '/populate_roster',
-                        arguments: <String, dynamic>{
-                          ...args,
-                          'sport': sport,
-                          'listName': listName,
-                          'listId': listId,
-                          'method': 'standard',
-                          'requiredCount': 2,
-                          'locationData': args['locationData'],
-                          'isAwayGame': args['isAwayGame'] ?? false,
-                          'template': template,
-                          'fromScheduleDetails':
-                              args['fromScheduleDetails'] ?? false, // Add flag
-                          'scheduleId': args['scheduleId'], // Add scheduleId
-                        },
-                      );
-                    },
-                    style: elevatedButtonStyle(),
-                    child: const Text('Standard', style: signInButtonTextStyle),
-                  ),
-                  const SizedBox(height: 20),
-                  ElevatedButton(
-                    onPressed: () async {
-                      final listCount = await _getAvailableListsCount();
-                      if (listCount < 2) {
-                        _showInsufficientListsDialog();
-                      } else {
-                        _saveDefaultChoice('advanced');
-                        Navigator.pushNamed(
-                          context,
-                          '/advanced_officials_selection',
-                          arguments: <String, dynamic>{
-                            ...args,
-                            'sport': sport,
-                            'listName': listName,
-                            'listId': listId,
-                            'locationData': args['locationData'],
-                            'isAwayGame': args['isAwayGame'] ?? false,
-                            'template': template,
-                            'fromScheduleDetails':
-                                args['fromScheduleDetails'] ??
-                                    false, // Add flag
-                            'scheduleId': args['scheduleId'], // Add scheduleId
-                          },
-                        );
-                      }
-                    },
-                    style: elevatedButtonStyle(),
-                    child: const Text('Advanced', style: signInButtonTextStyle),
-                  ),
-                  const SizedBox(height: 20),
-                  ElevatedButton(
-                    onPressed: () {
-                      _saveDefaultChoice('use_list');
-                      Navigator.pushNamed(
-                        context,
-                        '/lists_of_officials',
-                        arguments: <String, dynamic>{
-                          ...args,
-                          'fromGameCreation': true,
-                          'locationData': args['locationData'],
-                          'isAwayGame': args['isAwayGame'] ?? false,
-                          'template': template,
-                          'fromScheduleDetails':
-                              args['fromScheduleDetails'] ?? false, // Add flag
-                          'scheduleId': args['scheduleId'], // Add scheduleId
-                        },
-                      ).then((result) {
-                        if (result != null) {
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const SizedBox(height: 40),
+              const Text(
+                'Select Officials',
+                style: TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                  color: efficialsYellow,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 40),
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: darkSurface,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.3),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    const Text(
+                      'Choose a method for finding your officials.',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: primaryTextColor,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 30),
+                    SizedBox(
+                      width: 200,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          _saveDefaultChoice('standard');
                           Navigator.pushNamed(
                             context,
-                            '/review_game_info',
+                            '/populate_roster',
                             arguments: <String, dynamic>{
-                              ...result as Map<String, dynamic>,
+                              ...args,
+                              'sport': sport,
+                              'listName': listName,
+                              'listId': listId,
+                              'method': 'standard',
+                              'requiredCount': 2,
+                              'locationData': args['locationData'],
+                              'isAwayGame': args['isAwayGame'] ?? false,
                               'template': template,
                               'fromScheduleDetails':
-                                  args['fromScheduleDetails'] ??
-                                      false, // Add flag
-                              'scheduleId':
-                                  args['scheduleId'], // Add scheduleId
+                                  args['fromScheduleDetails'] ?? false, // Add flag
+                              'scheduleId': args['scheduleId'], // Add scheduleId
                             },
                           );
-                        }
-                      });
-                    },
-                    style: elevatedButtonStyle(),
-                    child: const Text('Use List', style: signInButtonTextStyle),
-                  ),
-                  const SizedBox(height: 20),
-                  GestureDetector(
-                    onTap: _showDifferenceDialog,
-                    child: const Text(
-                      'What\'s the difference?',
-                      style: TextStyle(
-                          color: efficialsBlue,
-                          decoration: TextDecoration.underline),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Checkbox(
-                        value: _defaultChoice,
-                        onChanged: (value) =>
-                            setState(() => _defaultChoice = value ?? false),
-                        activeColor: efficialsBlue,
+                        },
+                        style: elevatedButtonStyle(
+                          padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 32),
+                        ),
+                        child: const Text('Standard', style: signInButtonTextStyle),
                       ),
-                      const Text('Make this my default choice'),
-                    ],
-                  ),
-                ],
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: 200,
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          final listCount = await _getAvailableListsCount();
+                          if (listCount < 2) {
+                            _showInsufficientListsDialog();
+                          } else {
+                            _saveDefaultChoice('advanced');
+                            Navigator.pushNamed(
+                              context,
+                              '/advanced_officials_selection',
+                              arguments: <String, dynamic>{
+                                ...args,
+                                'sport': sport,
+                                'listName': listName,
+                                'listId': listId,
+                                'locationData': args['locationData'],
+                                'isAwayGame': args['isAwayGame'] ?? false,
+                                'template': template,
+                                'fromScheduleDetails':
+                                    args['fromScheduleDetails'] ??
+                                        false, // Add flag
+                                'scheduleId': args['scheduleId'], // Add scheduleId
+                              },
+                            );
+                          }
+                        },
+                        style: elevatedButtonStyle(
+                          padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 32),
+                        ),
+                        child: const Text('Advanced', style: signInButtonTextStyle),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: 200,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          _saveDefaultChoice('use_list');
+                          Navigator.pushNamed(
+                            context,
+                            '/lists_of_officials',
+                            arguments: <String, dynamic>{
+                              ...args,
+                              'fromGameCreation': true,
+                              'locationData': args['locationData'],
+                              'isAwayGame': args['isAwayGame'] ?? false,
+                              'template': template,
+                              'fromScheduleDetails':
+                                  args['fromScheduleDetails'] ?? false, // Add flag
+                              'scheduleId': args['scheduleId'], // Add scheduleId
+                            },
+                          ).then((result) {
+                            if (result != null) {
+                              Navigator.pushNamed(
+                                context,
+                                '/review_game_info',
+                                arguments: <String, dynamic>{
+                                  ...result as Map<String, dynamic>,
+                                  'template': template,
+                                  'fromScheduleDetails':
+                                      args['fromScheduleDetails'] ??
+                                          false, // Add flag
+                                  'scheduleId':
+                                      args['scheduleId'], // Add scheduleId
+                                },
+                              );
+                            }
+                          });
+                        },
+                        style: elevatedButtonStyle(
+                          padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 32),
+                        ),
+                        child: const Text('Use List', style: signInButtonTextStyle),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    GestureDetector(
+                      onTap: _showDifferenceDialog,
+                      child: const Text(
+                        'What\'s the difference?',
+                        style: TextStyle(
+                            color: efficialsYellow,
+                            decoration: TextDecoration.underline),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Checkbox(
+                          value: _defaultChoice,
+                          onChanged: (value) =>
+                              setState(() => _defaultChoice = value ?? false),
+                          activeColor: efficialsYellow,
+                          checkColor: efficialsBlack,
+                        ),
+                        const Text('Make this my default choice',
+                            style: TextStyle(color: Colors.white)),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-            ),
+            ],
           ),
         ),
       ),

@@ -34,159 +34,259 @@ class _FilterSettingsScreenState extends State<FilterSettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+    final args =
+        ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
     final sport = args['sport'] as String;
     final locationData = args['locationData'] as Map<String, dynamic>?;
     final isAwayGame = args['isAwayGame'] as bool? ?? false;
 
     return Scaffold(
+      backgroundColor: darkBackground,
       appBar: AppBar(
         backgroundColor: efficialsBlack,
+        title: const Icon(
+          Icons.sports,
+          color: efficialsYellow,
+          size: 32,
+        ),
+        elevation: 0,
+        centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, size: 36, color: Colors.white),
+          icon: const Icon(Icons.arrow_back, color: efficialsWhite),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text('Filter Settings', style: appBarTextStyle),
       ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 600),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('IHSA Certifications', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 8),
-                  CheckboxListTile(
-                    title: const Text('IHSA - Registered', style: TextStyle(fontSize: 18)),
-                    value: ihsaRegistered,
-                    onChanged: (value) => setState(() => ihsaRegistered = value ?? false),
-                    controlAffinity: ListTileControlAffinity.leading,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-                    dense: true,
-                    activeColor: efficialsBlue,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const SizedBox(height: 10),
+                const Text(
+                  'Filter Settings',
+                  style: TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                    color: efficialsYellow,
                   ),
-                  CheckboxListTile(
-                    title: const Text('IHSA - Recognized', style: TextStyle(fontSize: 18)),
-                    value: ihsaRecognized,
-                    onChanged: (value) => setState(() => ihsaRecognized = value ?? false),
-                    controlAffinity: ListTileControlAffinity.leading,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-                    dense: true,
-                    activeColor: efficialsBlue,
-                  ),
-                  CheckboxListTile(
-                    title: const Text('IHSA - Certified', style: TextStyle(fontSize: 18)),
-                    value: ihsaCertified,
-                    onChanged: (value) => setState(() => ihsaCertified = value ?? false),
-                    controlAffinity: ListTileControlAffinity.leading,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-                    dense: true,
-                    activeColor: efficialsBlue,
-                  ),
-                  const SizedBox(height: 16),
-                  const Text('Experience', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: _yearsController,
-                    decoration: textFieldDecoration('Minimum years of experience'),
-                    textAlign: TextAlign.left,
-                    style: const TextStyle(fontSize: 18),
-                    keyboardType: TextInputType.number,
-                    textInputAction: TextInputAction.next,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    maxLength: 2,
-                    buildCounter: (context, {required currentLength, required maxLength, required isFocused}) => null,
-                  ),
-                  const SizedBox(height: 16),
-                  const Text('Competition Levels', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 8),
-                  Column(
-                    children: competitionLevels.keys.map((level) {
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4),
-                        child: CheckboxListTile(
-                          title: Text(level, style: const TextStyle(fontSize: 18)),
-                          value: competitionLevels[level],
-                          onChanged: (value) => setState(() => competitionLevels[level] = value ?? false),
-                          controlAffinity: ListTileControlAffinity.leading,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-                          dense: true,
-                          activeColor: efficialsBlue,
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(height: 16),
-                  const Text('Location', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 8),
-                  if (isAwayGame) ...[
-                    const Text(
-                      'Radius filtering unavailable for Away Games.',
-                      style: TextStyle(fontSize: 16, color: Colors.grey),
-                    ),
-                  ] else ...[
-                    Text(
-                      'Game Location: ${locationData?['name'] ?? 'Not set'}',
-                      style: const TextStyle(fontSize: 16),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: _radiusController,
-                      decoration: textFieldDecoration('Search Radius (miles)').copyWith(
-                        hintText: 'Enter search radius (miles)',
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: darkSurface,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.3),
+                        blurRadius: 10,
+                        offset: const Offset(0, 2),
                       ),
-                      textAlign: TextAlign.left,
-                      style: const TextStyle(fontSize: 18),
-                      keyboardType: TextInputType.number,
-                      textInputAction: TextInputAction.done,
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                      maxLength: 3,
-                      buildCounter: (context, {required currentLength, required maxLength, required isFocused}) => null,
-                    ),
-                  ],
-                  const SizedBox(height: 30),
-                  Center(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        if (!competitionLevels.values.any((selected) => selected)) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Please select at least one competition level!')),
-                          );
-                          return;
-                        }
-                        if (!isAwayGame && _radiusController.text.isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Please specify a search radius!')),
-                          );
-                          return;
-                        }
-                        final selectedLevels = competitionLevels.entries
-                            .where((entry) => entry.value)
-                            .map((entry) => entry.key)
-                            .toList();
-                        Navigator.pop(
-                          context,
-                          {
-                            'sport': sport,
-                            'ihsaRegistered': ihsaRegistered,
-                            'ihsaRecognized': ihsaRecognized,
-                            'ihsaCertified': ihsaCertified,
-                            'minYears': _yearsController.text.isNotEmpty ? int.parse(_yearsController.text) : 0,
-                            'levels': selectedLevels,
-                            'locationData': locationData,
-                            'radius': isAwayGame ? null : int.parse(_radiusController.text),
-                          },
-                        );
-                      },
-                      style: elevatedButtonStyle(),
-                      child: const Text('Apply Filters', style: signInButtonTextStyle),
-                    ),
+                    ],
                   ),
-                ],
-              ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('IHSA Certifications',
+                          style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: efficialsYellow)),
+                      const SizedBox(height: 12),
+                      CheckboxListTile(
+                        title: const Text('IHSA - Registered',
+                            style:
+                                TextStyle(fontSize: 16, color: Colors.white)),
+                        value: ihsaRegistered,
+                        onChanged: (value) =>
+                            setState(() => ihsaRegistered = value ?? false),
+                        controlAffinity: ListTileControlAffinity.leading,
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 0, vertical: 0),
+                        dense: true,
+                        activeColor: efficialsYellow,
+                        checkColor: efficialsBlack,
+                      ),
+                      CheckboxListTile(
+                        title: const Text('IHSA - Recognized',
+                            style:
+                                TextStyle(fontSize: 16, color: Colors.white)),
+                        value: ihsaRecognized,
+                        onChanged: (value) =>
+                            setState(() => ihsaRecognized = value ?? false),
+                        controlAffinity: ListTileControlAffinity.leading,
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 0, vertical: 0),
+                        dense: true,
+                        activeColor: efficialsYellow,
+                        checkColor: efficialsBlack,
+                      ),
+                      CheckboxListTile(
+                        title: const Text('IHSA - Certified',
+                            style:
+                                TextStyle(fontSize: 16, color: Colors.white)),
+                        value: ihsaCertified,
+                        onChanged: (value) =>
+                            setState(() => ihsaCertified = value ?? false),
+                        controlAffinity: ListTileControlAffinity.leading,
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 0, vertical: 0),
+                        dense: true,
+                        activeColor: efficialsYellow,
+                        checkColor: efficialsBlack,
+                      ),
+                      const SizedBox(height: 20),
+                      const Text('Experience',
+                          style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: efficialsYellow)),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: _yearsController,
+                        decoration:
+                            textFieldDecoration('Minimum years of experience'),
+                        textAlign: TextAlign.left,
+                        style:
+                            const TextStyle(fontSize: 16, color: Colors.white),
+                        keyboardType: TextInputType.number,
+                        textInputAction: TextInputAction.next,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly
+                        ],
+                        maxLength: 2,
+                        buildCounter: (context,
+                                {required currentLength,
+                                required maxLength,
+                                required isFocused}) =>
+                            null,
+                      ),
+                      const SizedBox(height: 20),
+                      const Text('Competition Levels',
+                          style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: efficialsYellow)),
+                      const SizedBox(height: 12),
+                      Column(
+                        children: competitionLevels.keys.map((level) {
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 2),
+                            child: CheckboxListTile(
+                              title: Text(level,
+                                  style: const TextStyle(
+                                      fontSize: 16, color: Colors.white)),
+                              value: competitionLevels[level],
+                              onChanged: (value) => setState(() =>
+                                  competitionLevels[level] = value ?? false),
+                              controlAffinity: ListTileControlAffinity.leading,
+                              contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 0, vertical: 0),
+                              dense: true,
+                              activeColor: efficialsYellow,
+                              checkColor: efficialsBlack,
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                      const SizedBox(height: 20),
+                      const Text('Location',
+                          style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: efficialsYellow)),
+                      const SizedBox(height: 12),
+                      if (isAwayGame) ...[
+                        const Text(
+                          'Radius filtering unavailable for Away Games.',
+                          style: TextStyle(
+                              fontSize: 16, color: secondaryTextColor),
+                        ),
+                      ] else ...[
+                        Text(
+                          'Game Location: ${locationData?['name'] ?? 'Not set'}',
+                          style: const TextStyle(
+                              fontSize: 16, color: Colors.white),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: _radiusController,
+                          decoration:
+                              textFieldDecoration('Search Radius (miles)')
+                                  .copyWith(
+                            hintText: 'Enter search radius (miles)',
+                            hintStyle: const TextStyle(color: efficialsGray),
+                          ),
+                          textAlign: TextAlign.left,
+                          style: const TextStyle(
+                              fontSize: 16, color: Colors.white),
+                          keyboardType: TextInputType.number,
+                          textInputAction: TextInputAction.done,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly
+                          ],
+                          maxLength: 3,
+                          buildCounter: (context,
+                                  {required currentLength,
+                                  required maxLength,
+                                  required isFocused}) =>
+                              null,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 30),
+                ElevatedButton(
+                  onPressed: () {
+                    if (!competitionLevels.values.any((selected) => selected)) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                            content: Text(
+                                'Please select at least one competition level!')),
+                      );
+                      return;
+                    }
+                    if (!isAwayGame && _radiusController.text.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                            content: Text('Please specify a search radius!')),
+                      );
+                      return;
+                    }
+                    final selectedLevels = competitionLevels.entries
+                        .where((entry) => entry.value)
+                        .map((entry) => entry.key)
+                        .toList();
+                    Navigator.pop(
+                      context,
+                      {
+                        'sport': sport,
+                        'ihsaRegistered': ihsaRegistered,
+                        'ihsaRecognized': ihsaRecognized,
+                        'ihsaCertified': ihsaCertified,
+                        'minYears': _yearsController.text.isNotEmpty
+                            ? int.parse(_yearsController.text)
+                            : 0,
+                        'levels': selectedLevels,
+                        'locationData': locationData,
+                        'radius': isAwayGame
+                            ? null
+                            : int.parse(_radiusController.text),
+                      },
+                    );
+                  },
+                  style: elevatedButtonStyle(
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 15, horizontal: 50),
+                  ),
+                  child:
+                      const Text('Apply Filters', style: signInButtonTextStyle),
+                ),
+              ],
             ),
           ),
         ),

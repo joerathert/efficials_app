@@ -51,7 +51,10 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
       if (isFromEdit && selectedLocation == null) {
         selectedLocation = args['location'] as String?;
         // If no location in args but template has location, use template location
-        if (selectedLocation == null && template != null && template!.includeLocation && template!.location != null) {
+        if (selectedLocation == null &&
+            template != null &&
+            template!.includeLocation &&
+            template!.location != null) {
           selectedLocation = template!.location;
         }
       }
@@ -148,161 +151,214 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
       backgroundColor: darkBackground,
       appBar: AppBar(
         backgroundColor: efficialsBlack,
+        title: const Icon(
+          Icons.sports,
+          color: efficialsYellow,
+          size: 32,
+        ),
+        elevation: 0,
+        centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, size: 36, color: Colors.white),
+          icon: const Icon(Icons.arrow_back, color: efficialsWhite),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text('Choose Location', style: appBarTextStyle),
       ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 600),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text(
-                    'Where will the game be played?',
-                    style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: efficialsYellow),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 20),
-                  isLoading
-                      ? const CircularProgressIndicator()
-                      : DropdownButtonFormField<String>(
-                          decoration: textFieldDecoration('Locations'),
-                          value: selectedLocation,
-                          hint: const Text('Choose location',
-                              style: TextStyle(color: efficialsGray)),
-                          dropdownColor: darkSurface,
-                          onChanged: (newValue) {
-                            if (newValue == null) return;
-                            setState(() {
-                              selectedLocation = newValue;
-                              if (newValue == '+ Create new location') {
-                                Navigator.pushNamed(
-                                        context, '/add_new_location')
-                                    .then((result) {
-                                  if (result != null) {
-                                    final newLoc =
-                                        result as Map<String, dynamic>;
-                                    setState(() {
-                                      locations.insert(locations.length - 1, {
-                                        'name': newLoc['name'],
-                                        'address': newLoc['address'],
-                                        'city': newLoc['city'],
-                                        'state': newLoc['state'],
-                                        'zip': newLoc['zip'],
-                                        'id': DateTime.now()
-                                            .millisecondsSinceEpoch,
-                                      });
-                                      selectedLocation = newLoc['name'];
-                                      _saveLocations();
-                                    });
-                                  }
-                                });
-                              }
-                            });
-                          },
-                          items: locations
-                              .map((loc) => DropdownMenuItem(
-                                    value: loc['name'] as String,
-                                    child: Text(loc['name'] as String,
-                                        style: const TextStyle(color: primaryTextColor)),
-                                  ))
-                              .toList(),
-                        ),
-                  const SizedBox(height: 20),
-                  if (selectedLocation != null &&
-                      selectedLocation != 'Away Game' &&
-                      selectedLocation != '+ Create new location') ...[
-                    ElevatedButton(
-                      onPressed: () {
-                        final selected = locations
-                            .firstWhere((l) => l['name'] == selectedLocation);
-                        Navigator.pushNamed(context, '/edit_location',
-                            arguments: {'location': selected}).then((result) {
-                          if (result != null) {
-                            final updatedLoc = result as Map<String, dynamic>;
-                            setState(() {
-                              final index = locations
-                                  .indexWhere((l) => l['id'] == selected['id']);
-                              if (index != -1) {
-                                locations[index] = updatedLoc;
-                                selectedLocation = updatedLoc['name'];
-                                _saveLocations();
-                              }
-                            });
-                          }
-                        });
-                      },
-                      style: elevatedButtonStyle(),
-                      child: const Text('Edit Location',
-                          style: signInButtonTextStyle),
-                    ),
-                    const SizedBox(height: 8),
-                    ElevatedButton(
-                      onPressed: () {
-                        final selected = locations
-                            .firstWhere((l) => l['name'] == selectedLocation);
-                        _showDeleteConfirmationDialog(
-                            selectedLocation!, selected['id'] as int);
-                      },
-                      style: elevatedButtonStyle(backgroundColor: Colors.red),
-                      child: const Text('Delete Location',
-                          style: signInButtonTextStyle),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const SizedBox(height: 40),
+              const Text(
+                'Choose Location',
+                style: TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                  color: efficialsYellow,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 40),
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: darkSurface,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.3),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
                     ),
                   ],
-                  const SizedBox(height: 60),
-                  ElevatedButton(
-                    onPressed: (selectedLocation != null &&
-                            selectedLocation != '+ Create new location')
-                        ? () {
-                            final selected = locations.firstWhere(
-                                (l) => l['name'] == selectedLocation);
-                            final isAwayGame = selectedLocation == 'Away Game';
-                            final nextArgs = {
-                              ...args, // Spread all original args to preserve parameters like isAssignerFlow
-                              'location':
-                                  isAwayGame ? 'Away Game' : selected['name'],
-                              'locationData': isAwayGame ? null : selected,
-                              'isAwayGame': isAwayGame,
-                              'template': template,
-                            };
-                            print('Continue - Args: $nextArgs');
-                            final isCoach =
-                                args['teamName'] != null; // Detect Coach flow
-                            Navigator.pushNamed(
-                              context,
-                              isCoach
-                                  ? '/additional_game_info_condensed'
-                                  : '/additional_game_info',
-                              arguments: nextArgs,
-                            );
-                          }
-                        : null,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Where will the game be played?',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: primaryTextColor,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 24),
+                    isLoading
+                        ? const Center(child: CircularProgressIndicator())
+                        : DropdownButtonFormField<String>(
+                            decoration: textFieldDecoration('Choose location'),
+                            value: selectedLocation,
+                            hint: const Text('Select a location',
+                                style: TextStyle(color: efficialsGray)),
+                            dropdownColor: darkSurface,
+                            style: const TextStyle(color: Colors.white, fontSize: 16),
+                            onChanged: (newValue) {
+                              if (newValue == null) return;
+                              setState(() {
+                                selectedLocation = newValue;
+                                if (newValue == '+ Create new location') {
+                                  Navigator.pushNamed(
+                                          context, '/add_new_location')
+                                      .then((result) {
+                                    if (result != null) {
+                                      final newLoc =
+                                          result as Map<String, dynamic>;
+                                      setState(() {
+                                        locations.insert(locations.length - 1, {
+                                          'name': newLoc['name'],
+                                          'address': newLoc['address'],
+                                          'city': newLoc['city'],
+                                          'state': newLoc['state'],
+                                          'zip': newLoc['zip'],
+                                          'id': DateTime.now()
+                                              .millisecondsSinceEpoch,
+                                        });
+                                        selectedLocation = newLoc['name'];
+                                        _saveLocations();
+                                      });
+                                    }
+                                  });
+                                }
+                              });
+                            },
+                            items: locations
+                                .map((loc) => DropdownMenuItem(
+                                      value: loc['name'] as String,
+                                      child: Text(loc['name'] as String,
+                                          style: const TextStyle(
+                                              color: Colors.white)),
+                                    ))
+                                .toList(),
+                          ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 30),
+              if (selectedLocation != null &&
+                  selectedLocation != 'Away Game' &&
+                  selectedLocation != '+ Create new location') ...[
+                SizedBox(
+                  width: 200,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      final selected = locations
+                          .firstWhere((l) => l['name'] == selectedLocation);
+                      Navigator.pushNamed(context, '/edit_location',
+                          arguments: {'location': selected}).then((result) {
+                        if (result != null) {
+                          final updatedLoc = result as Map<String, dynamic>;
+                          setState(() {
+                            final index = locations
+                                .indexWhere((l) => l['id'] == selected['id']);
+                            if (index != -1) {
+                              locations[index] = updatedLoc;
+                              selectedLocation = updatedLoc['name'];
+                              _saveLocations();
+                            }
+                          });
+                        }
+                      });
+                    },
+                    style: elevatedButtonStyle(
+                      padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 32),
+                    ),
+                    child: const Text('Edit Location', style: signInButtonTextStyle),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: 200,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      final selected = locations
+                          .firstWhere((l) => l['name'] == selectedLocation);
+                      _showDeleteConfirmationDialog(
+                          selectedLocation!, selected['id'] as int);
+                    },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: efficialsYellow,
-                      foregroundColor: efficialsBlack,
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                      backgroundColor: Colors.red,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 32),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    child: const Text('Continue', style: TextStyle(
+                    child: const Text('Delete Location', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600)),
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
+              SizedBox(
+                width: 200,
+                child: ElevatedButton(
+                onPressed: (selectedLocation != null &&
+                        selectedLocation != '+ Create new location')
+                    ? () {
+                        final selected = locations.firstWhere(
+                            (l) => l['name'] == selectedLocation);
+                        final isAwayGame = selectedLocation == 'Away Game';
+                        final nextArgs = {
+                          ...args, // Spread all original args to preserve parameters like isAssignerFlow
+                          'location':
+                              isAwayGame ? 'Away Game' : selected['name'],
+                          'locationData': isAwayGame ? null : selected,
+                          'isAwayGame': isAwayGame,
+                          'template': template,
+                        };
+                        print('Continue - Args: $nextArgs');
+                        final isCoach =
+                            args['teamName'] != null; // Detect Coach flow
+                        Navigator.pushNamed(
+                          context,
+                          isCoach
+                              ? '/additional_game_info_condensed'
+                              : '/additional_game_info',
+                          arguments: nextArgs,
+                        );
+                      }
+                    : null,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: efficialsYellow,
+                  foregroundColor: efficialsBlack,
+                  disabledBackgroundColor: Colors.grey[600],
+                  disabledForegroundColor: Colors.grey[300],
+                  padding: const EdgeInsets.symmetric(
+                      vertical: 15, horizontal: 50),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text('Continue',
+                    style: TextStyle(
                       color: efficialsBlack,
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
                     )),
-                  ),
-                ],
+                ),
               ),
-            ),
+            ],
           ),
         ),
       ),

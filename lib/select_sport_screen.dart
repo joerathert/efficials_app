@@ -129,13 +129,18 @@ class _SelectSportScreenState extends State<SelectSportScreen> {
                           DropdownButtonFormField<String>(
                             decoration: textFieldDecoration('Select a sport'),
                             value: selectedSport,
+                            dropdownColor: darkSurface,
+                            style: const TextStyle(
+                                color: Colors.white, fontSize: 16),
                             onChanged: sports.length == 1
                                 ? null
                                 : (newValue) =>
                                     setState(() => selectedSport = newValue),
                             items: sports
                                 .map((value) => DropdownMenuItem(
-                                    value: value, child: Text(value)))
+                                    value: value,
+                                    child: Text(value,
+                                        style: const TextStyle(color: Colors.white))))
                                 .toList(),
                           ),
                           if (sports.length == 1 && selectedSport != null) ...[

@@ -142,98 +142,132 @@ class _AddNewLocationScreenState extends State<AddNewLocationScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: darkBackground,
       appBar: AppBar(
         backgroundColor: efficialsBlack,
+        title: const Icon(
+          Icons.sports,
+          color: efficialsYellow,
+          size: 32,
+        ),
+        elevation: 0,
+        centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, size: 36, color: efficialsWhite),
+          icon: const Icon(Icons.arrow_back, color: efficialsWhite),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text('Add New Location', style: appBarTextStyle),
       ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 600),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  TextField(
-                    controller: _nameController,
-                    decoration: textFieldDecoration('Location Name'),
-                    style:
-                        const TextStyle(fontSize: 18, color: primaryTextColor),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const SizedBox(height: 40),
+                const Text(
+                  'Add New Location',
+                  style: TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                    color: efficialsYellow,
                   ),
-                  const SizedBox(height: 20),
-                  TextField(
-                    controller: _addressController,
-                    decoration: textFieldDecoration('Address'),
-                    style:
-                        const TextStyle(fontSize: 18, color: primaryTextColor),
-                  ),
-                  const SizedBox(height: 20),
-                  TextField(
-                    controller: _cityController,
-                    decoration: textFieldDecoration('City'),
-                    style:
-                        const TextStyle(fontSize: 18, color: primaryTextColor),
-                  ),
-                  const SizedBox(height: 20),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SizedBox(
-                        width: 100,
-                        child: TextField(
-                          controller: _stateController,
-                          decoration: textFieldDecoration('State'),
-                          style: const TextStyle(
-                              fontSize: 18, color: primaryTextColor),
-                          textCapitalization: TextCapitalization.characters,
-                          maxLength: 2,
-                          inputFormatters: [
-                            FilteringTextInputFormatter.allow(
-                                RegExp(r'[a-zA-Z]'))
-                          ],
-                          buildCounter: (context,
-                                  {required currentLength,
-                                  required maxLength,
-                                  required isFocused}) =>
-                              null,
-                        ),
-                      ),
-                      const SizedBox(width: 20),
-                      Expanded(
-                        child: TextField(
-                          controller: _zipCodeController,
-                          decoration: textFieldDecoration('Zip Code'),
-                          style: const TextStyle(
-                              fontSize: 18, color: primaryTextColor),
-                          keyboardType: TextInputType.number,
-                          maxLength: 5,
-                          inputFormatters: [
-                            FilteringTextInputFormatter.digitsOnly
-                          ],
-                          buildCounter: (context,
-                                  {required currentLength,
-                                  required maxLength,
-                                  required isFocused}) =>
-                              null,
-                        ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 40),
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: darkSurface,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.3),
+                        blurRadius: 10,
+                        offset: const Offset(0, 2),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 60),
-                  Center(
-                    child: ElevatedButton(
-                      onPressed: _handleContinue,
-                      style: elevatedButtonStyle(),
-                      child: const Text('Continue', style: buttonTextStyle),
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      TextField(
+                        controller: _nameController,
+                        decoration: textFieldDecoration('Location Name'),
+                        style:
+                            const TextStyle(fontSize: 16, color: Colors.white),
+                      ),
+                      const SizedBox(height: 20),
+                      TextField(
+                        controller: _addressController,
+                        decoration: textFieldDecoration('Address'),
+                        style:
+                            const TextStyle(fontSize: 16, color: Colors.white),
+                      ),
+                      const SizedBox(height: 20),
+                      TextField(
+                        controller: _cityController,
+                        decoration: textFieldDecoration('City'),
+                        style:
+                            const TextStyle(fontSize: 16, color: Colors.white),
+                      ),
+                      const SizedBox(height: 20),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SizedBox(
+                            width: 100,
+                            child: TextField(
+                              controller: _stateController,
+                              decoration: textFieldDecoration('State'),
+                              style: const TextStyle(
+                                  fontSize: 16, color: Colors.white),
+                              textCapitalization: TextCapitalization.characters,
+                              maxLength: 2,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.allow(
+                                    RegExp(r'[a-zA-Z]'))
+                              ],
+                              buildCounter: (context,
+                                      {required currentLength,
+                                      required maxLength,
+                                      required isFocused}) =>
+                                  null,
+                            ),
+                          ),
+                          const SizedBox(width: 20),
+                          Expanded(
+                            child: TextField(
+                              controller: _zipCodeController,
+                              decoration: textFieldDecoration('Zip Code'),
+                              style: const TextStyle(
+                                  fontSize: 16, color: Colors.white),
+                              keyboardType: TextInputType.number,
+                              maxLength: 5,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.digitsOnly
+                              ],
+                              buildCounter: (context,
+                                      {required currentLength,
+                                      required maxLength,
+                                      required isFocused}) =>
+                                  null,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 30),
+                ElevatedButton(
+                  onPressed: _handleContinue,
+                  style: elevatedButtonStyle(
+                    padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 50),
+                  ),
+                  child: const Text('Continue', style: signInButtonTextStyle),
+                ),
+              ],
             ),
           ),
         ),

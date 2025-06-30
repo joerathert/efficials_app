@@ -269,7 +269,7 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
               const Text(
                 'Select Schedule',
                 style: TextStyle(
-                  fontSize: 24,
+                  fontSize: 32,
                   fontWeight: FontWeight.bold,
                   color: efficialsYellow,
                 ),
@@ -310,6 +310,8 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
                             hint: const Text('Choose from existing schedules',
                                 style: TextStyle(color: efficialsGray)),
                             dropdownColor: darkSurface,
+                            style: const TextStyle(
+                                color: Colors.white, fontSize: 16),
                             onChanged: (newValue) {
                               setState(() {
                                 selectedSchedule = newValue;
@@ -366,7 +368,7 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
                                   style: schedule['name'] ==
                                           'No schedules available'
                                       ? const TextStyle(color: Colors.red)
-                                      : const TextStyle(color: primaryTextColor),
+                                      : const TextStyle(color: Colors.white),
                                 ),
                               );
                             }).toList(),
@@ -401,16 +403,20 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: efficialsYellow,
                   foregroundColor: efficialsBlack,
-                  padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 50),
+                  disabledBackgroundColor: Colors.grey[600],
+                  disabledForegroundColor: Colors.grey[300],
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 15, horizontal: 50),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: const Text('Continue', style: TextStyle(
-                  color: efficialsBlack,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                )),
+                child: const Text('Continue',
+                    style: TextStyle(
+                      color: efficialsBlack,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    )),
               ),
               const SizedBox(height: 16),
               if (selectedSchedule != null &&

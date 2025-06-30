@@ -71,13 +71,16 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Create Game Template'),
+          backgroundColor: darkSurface,
+          title: const Text('Create Game Template', 
+              style: TextStyle(color: efficialsYellow, fontSize: 20, fontWeight: FontWeight.bold)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                  'Would you like to create a Game Template using the information from this game?'),
+                  'Would you like to create a Game Template using the information from this game?',
+                  style: TextStyle(color: Colors.white)),
               const SizedBox(height: 16),
               Row(
                 children: [
@@ -88,10 +91,11 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
                         checkboxValue = value ?? false;
                       });
                     },
-                    activeColor: efficialsBlue,
+                    activeColor: efficialsYellow,
+                    checkColor: efficialsBlack,
                   ),
                   const Expanded(
-                    child: Text('Do not ask me again'),
+                    child: Text('Do not ask me again', style: TextStyle(color: Colors.white)),
                   ),
                 ],
               ),
@@ -105,7 +109,7 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
                 }
                 Navigator.pop(context, false);
               },
-              child: const Text('No', style: TextStyle(color: efficialsBlue)),
+              child: const Text('No', style: TextStyle(color: efficialsYellow)),
             ),
             TextButton(
               onPressed: () async {
@@ -114,7 +118,7 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
                 }
                 Navigator.pop(context, true);
               },
-              child: const Text('Yes', style: TextStyle(color: efficialsBlue)),
+              child: const Text('Yes', style: TextStyle(color: efficialsYellow)),
             ),
           ],
         ),
@@ -459,17 +463,20 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
     final shouldDiscard = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Unsaved Changes'),
+        backgroundColor: darkSurface,
+        title: const Text('Unsaved Changes', 
+            style: TextStyle(color: efficialsYellow, fontSize: 20, fontWeight: FontWeight.bold)),
         content: const Text(
-            'You have unsaved changes. Are you sure you want to discard them?'),
+            'You have unsaved changes. Are you sure you want to discard them?',
+            style: TextStyle(color: Colors.white)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel', style: TextStyle(color: efficialsBlue)),
+            child: const Text('Cancel', style: TextStyle(color: efficialsYellow)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('OK', style: TextStyle(color: efficialsBlue)),
+            child: const Text('OK', style: TextStyle(color: efficialsYellow)),
           ),
         ],
       ),
@@ -531,17 +538,24 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
     return WillPopScope(
       onWillPop: _onWillPop,
       child: Scaffold(
+        backgroundColor: darkBackground,
         appBar: AppBar(
           backgroundColor: efficialsBlack,
+          title: const Icon(
+            Icons.sports,
+            color: efficialsYellow,
+            size: 32,
+          ),
+          elevation: 0,
+          centerTitle: true,
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back, size: 36, color: Colors.white),
+            icon: const Icon(Icons.arrow_back, color: efficialsWhite),
             onPressed: () async {
               if (await _onWillPop()) {
                 Navigator.pop(context);
               }
             },
           ),
-          title: const Text('Review Game Info', style: appBarTextStyle),
         ),
         body: CustomScrollView(
           slivers: [
@@ -556,7 +570,7 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
                     children: [
                       const Text('Game Details',
                           style: TextStyle(
-                              fontSize: 20, fontWeight: FontWeight.bold)),
+                              fontSize: 20, fontWeight: FontWeight.bold, color: efficialsYellow)),
                       TextButton(
                         onPressed: () => Navigator.pushNamed(
                             context, '/edit_game_info',
@@ -581,7 +595,7 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
                         }),
                         child: const Text('Edit',
                             style:
-                                TextStyle(color: efficialsBlue, fontSize: 18)),
+                                TextStyle(color: efficialsYellow, fontSize: 18)),
                       ),
                     ],
                   ),
@@ -608,11 +622,12 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
                                 child: Text('${e.key}:',
                                     style: const TextStyle(
                                         fontSize: 16,
-                                        fontWeight: FontWeight.w500)),
+                                        fontWeight: FontWeight.w500,
+                                        color: Colors.white)),
                               ),
                               Expanded(
                                   child: Text(e.value,
-                                      style: const TextStyle(fontSize: 16))),
+                                      style: const TextStyle(fontSize: 16, color: Colors.white))),
                             ],
                           ),
                         ),
@@ -620,7 +635,7 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
                       const SizedBox(height: 20),
                       const Text('Selected Officials',
                           style: TextStyle(
-                              fontSize: 18, fontWeight: FontWeight.bold)),
+                              fontSize: 18, fontWeight: FontWeight.bold, color: efficialsYellow)),
                       const SizedBox(height: 10),
                       if (isAwayGame)
                         const Text('No officials needed for away games.',
@@ -631,7 +646,7 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
                           padding: const EdgeInsets.symmetric(vertical: 4),
                           child: Text(
                             'List Used: ${args['selectedListName']}',
-                            style: const TextStyle(fontSize: 16),
+                            style: const TextStyle(fontSize: 16, color: Colors.white),
                           ),
                         )
                       else if (args['selectedOfficials'] == null ||
@@ -647,7 +662,7 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
                             padding: const EdgeInsets.symmetric(vertical: 4),
                             child: Text(
                               '${list['name']}: Min ${list['minOfficials']}, Max ${list['maxOfficials']}',
-                              style: const TextStyle(fontSize: 16),
+                              style: const TextStyle(fontSize: 16, color: Colors.white),
                             ),
                           ),
                         )),
@@ -656,9 +671,11 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
                                 as List<Map<String, dynamic>>)
                             .map(
                           (official) => ListTile(
-                            title: Text(official['name'] as String),
+                            title: Text(official['name'] as String,
+                                style: const TextStyle(color: Colors.white)),
                             subtitle: Text(
-                                'Distance: ${(official['distance'] as num?)?.toStringAsFixed(1) ?? '0.0'} mi'),
+                                'Distance: ${(official['distance'] as num?)?.toStringAsFixed(1) ?? '0.0'} mi',
+                                style: const TextStyle(color: Colors.grey)),
                           ),
                         )),
                       ],

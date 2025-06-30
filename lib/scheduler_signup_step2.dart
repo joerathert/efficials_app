@@ -72,12 +72,8 @@ class SchedulerSignUpStep2 extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       const Text(
-                        'Choose the role that best describes you',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: primaryTextColor,
-                        ),
+                        'Which role best describes you?',
+                        style: homeTextStyle,
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 24),

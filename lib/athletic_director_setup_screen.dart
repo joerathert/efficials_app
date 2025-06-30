@@ -42,7 +42,7 @@ class _AthleticDirectorSetupScreenState
         backgroundColor: efficialsBlack,
         title: const Icon(
           Icons.sports,
-          color: darkSurface,
+          color: efficialsYellow,
           size: 32,
         ),
         elevation: 0,
