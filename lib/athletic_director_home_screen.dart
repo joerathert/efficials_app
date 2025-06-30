@@ -160,8 +160,9 @@ class _AthleticDirectorHomeScreenState
 
   Future<void> _fetchGames() async {
     final prefs = await SharedPreferences.getInstance();
-    final String? gamesJson = prefs.getString('published_games');
-    final String? unpublishedGamesJson = prefs.getString('unpublished_games');
+    final String? gamesJson = prefs.getString('ad_published_games');
+    final String? unpublishedGamesJson =
+        prefs.getString('ad_unpublished_games');
 
     Set<String> scheduleNames = {};
     if (unpublishedGamesJson != null && unpublishedGamesJson.isNotEmpty) {
@@ -226,8 +227,9 @@ class _AthleticDirectorHomeScreenState
 
   Future<void> _initializeScheduleFilters() async {
     final prefs = await SharedPreferences.getInstance();
-    final String? gamesJson = prefs.getString('published_games');
-    final String? unpublishedGamesJson = prefs.getString('unpublished_games');
+    final String? gamesJson = prefs.getString('ad_published_games');
+    final String? unpublishedGamesJson =
+        prefs.getString('ad_unpublished_games');
 
     List<Game> allGames = [];
     if (gamesJson != null && gamesJson.isNotEmpty) {
@@ -289,7 +291,7 @@ class _AthleticDirectorHomeScreenState
 
   Future<Map<String, dynamic>?> _fetchGameById(int gameId) async {
     final prefs = await SharedPreferences.getInstance();
-    final String? gamesJson = prefs.getString('published_games');
+    final String? gamesJson = prefs.getString('ad_published_games');
     if (gamesJson != null && gamesJson.isNotEmpty) {
       try {
         final List<Map<String, dynamic>> games =
@@ -381,22 +383,138 @@ class _AthleticDirectorHomeScreenState
 
   Widget _buildGamesList(List<Game> pastGames, List<Game> upcomingGames) {
     if (upcomingGames.isEmpty && pastGames.isEmpty) {
-      return const Center(
-        child: Text(
-          'No games found.',
-          style: homeTextStyle,
-          textAlign: TextAlign.center,
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Transform.translate(
+                offset: const Offset(0, -80),
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.sports,
+                      size: 80,
+                      color: efficialsBlue.withOpacity(0.6),
+                    ),
+                    const SizedBox(height: 24),
+                    const Text(
+                      'Welcome to Efficials!',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: efficialsBlue,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Get started by adding your first game to manage schedules and officials.',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.grey,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 32),
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        setState(() {
+                          isFabExpanded = true;
+                        });
+                      },
+                      icon: const Icon(Icons.add_circle_outline, size: 24),
+                      label: const Text(
+                        'Add Your First Game',
+                        style: TextStyle(fontSize: 18),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: efficialsBlue,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 16,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       );
     }
 
     if (!showPastGames) {
       if (upcomingGames.isEmpty) {
-        return const Center(
-          child: Text(
-            'Click the "+" icon to get started.',
-            style: homeTextStyle,
-            textAlign: TextAlign.center,
+        return Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Transform.translate(
+                  offset: const Offset(0, -80),
+                  child: Column(
+                    children: [
+                      Icon(
+                        Icons.event_available,
+                        size: 80,
+                        color: efficialsBlue.withOpacity(0.6),
+                      ),
+                      const SizedBox(height: 24),
+                      const Text(
+                        'No Upcoming Games',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: efficialsBlue,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Add a new game to start managing your schedule.',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.grey,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 32),
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          setState(() {
+                            isFabExpanded = true;
+                          });
+                        },
+                        icon: const Icon(Icons.add_circle_outline, size: 24),
+                        label: const Text(
+                          'Add New Game',
+                          style: TextStyle(fontSize: 18),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: efficialsBlue,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 24,
+                            vertical: 16,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       }
@@ -558,9 +676,7 @@ class _AthleticDirectorHomeScreenState
               title: const Text('Settings'),
               onTap: () {
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Settings not implemented yet')),
-                );
+                Navigator.pushNamed(context, '/settings');
               },
             ),
           ],
@@ -571,7 +687,6 @@ class _AthleticDirectorHomeScreenState
           SafeArea(
             child: GestureDetector(
               onPanUpdate: (details) {
-                // Only track downward gestures and when not scrolling
                 if (details.delta.dy > 0) {
                   setState(() {
                     pullDistance = (pullDistance + details.delta.dy)
@@ -582,10 +697,8 @@ class _AthleticDirectorHomeScreenState
               },
               onPanEnd: (details) {
                 if (pullDistance >= pullThreshold && !showPastGames) {
-                  // Trigger showing past games
                   _onShowPastGames();
                 } else {
-                  // Reset pull state
                   setState(() {
                     pullDistance = 0.0;
                     isPullingDown = false;
@@ -594,7 +707,6 @@ class _AthleticDirectorHomeScreenState
               },
               child: Column(
                 children: [
-                  // Pull-to-reveal header
                   AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
                     height: pullDistance > 0
@@ -621,7 +733,6 @@ class _AthleticDirectorHomeScreenState
                           )
                         : null,
                   ),
-                  // Main content
                   Flexible(
                     fit: FlexFit.loose,
                     child: Padding(
@@ -629,8 +740,7 @@ class _AthleticDirectorHomeScreenState
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Title - only show if past games aren't revealed
-                          if (!showPastGames) ...[
+                          if (!showPastGames && upcomingGames.isNotEmpty) ...[
                             const Text(
                               'Upcoming Games',
                               style: TextStyle(
@@ -641,10 +751,10 @@ class _AthleticDirectorHomeScreenState
                             ),
                             const SizedBox(height: 10),
                           ],
-                          // Games list
                           Expanded(
                             child: isLoading
-                                ? const Center(child: CircularProgressIndicator())
+                                ? const Center(
+                                    child: CircularProgressIndicator())
                                 : _buildGamesList(pastGames, upcomingGames),
                           ),
                         ],
@@ -819,7 +929,7 @@ class _AthleticDirectorHomeScreenState
             await _fetchGames();
           } else if (result != null && result is Map<String, dynamic>) {
             final prefs = await SharedPreferences.getInstance();
-            final String? gamesJson = prefs.getString('published_games');
+            final String? gamesJson = prefs.getString('ad_published_games');
             if (gamesJson != null && gamesJson.isNotEmpty) {
               List<Map<String, dynamic>> updatedGames =
                   List<Map<String, dynamic>>.from(jsonDecode(gamesJson));
@@ -838,7 +948,7 @@ class _AthleticDirectorHomeScreenState
                           : null,
                 };
                 await prefs.setString(
-                    'published_games', jsonEncode(updatedGames));
+                    'ad_published_games', jsonEncode(updatedGames));
                 await _fetchGames();
               }
             }

@@ -108,7 +108,7 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
     final savedSport = prefs.getString('sport');
     final savedGrade = prefs.getString('grade');
     final savedGender = prefs.getString('gender');
-    
+
     setState(() {
       teamName = savedTeamName ?? 'Team';
       sport = savedSport;
@@ -128,7 +128,7 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
 
   Future<void> _loadGames() async {
     final prefs = await SharedPreferences.getInstance();
-    final String? gamesJson = prefs.getString('published_games');
+    final String? gamesJson = prefs.getString('coach_published_games');
     setState(() {
       if (gamesJson != null && gamesJson.isNotEmpty) {
         try {
@@ -265,9 +265,7 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
               title: Text('Settings'),
               onTap: () {
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Settings not implemented yet')),
-                );
+                Navigator.pushNamed(context, '/settings');
               },
             ),
           ],
@@ -394,9 +392,10 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
                           setState(() {
                             isFabExpanded = false;
                           });
-                          Navigator.pushNamed(context, '/select_game_template', arguments: {
-                            'sport': sport,
-                          });
+                          Navigator.pushNamed(context, '/select_game_template',
+                              arguments: {
+                                'sport': sport,
+                              });
                         },
                         backgroundColor: Colors.blue[300],
                         label: const Text('Use Game Template',

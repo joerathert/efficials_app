@@ -26,7 +26,7 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen> {
     final setupCompleted = prefs.getBool('assigner_setup_completed') ?? false;
     final savedSport = prefs.getString('assigner_sport');
     final savedLeagueName = prefs.getString('league_name');
-    
+
     setState(() {
       sport = savedSport;
       leagueName = savedLeagueName ?? 'League';
@@ -44,7 +44,8 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen> {
   Widget build(BuildContext context) {
     if (isLoading) {
       return Scaffold(
-        body: const Center(child: CircularProgressIndicator(color: efficialsBlue)),
+        body: const Center(
+            child: CircularProgressIndicator(color: efficialsBlue)),
       );
     }
 
@@ -93,7 +94,9 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen> {
               onTap: () {
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Officials Assignment not implemented yet')),
+                  const SnackBar(
+                      content:
+                          Text('Officials Assignment not implemented yet')),
                 );
               },
             ),
@@ -118,9 +121,7 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen> {
               title: const Text('Settings'),
               onTap: () {
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Settings not implemented yet')),
-                );
+                Navigator.pushNamed(context, '/settings');
               },
             ),
           ],
@@ -202,7 +203,8 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen> {
                       icon: Icons.calendar_today,
                       title: 'Manage Schedules',
                       onTap: () {
-                        Navigator.pushNamed(context, '/assigner_manage_schedules');
+                        Navigator.pushNamed(
+                            context, '/assigner_manage_schedules');
                       },
                     ),
                   ),
@@ -237,7 +239,8 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen> {
                       title: 'Reports',
                       onTap: () {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Reports not implemented yet')),
+                          const SnackBar(
+                              content: Text('Reports not implemented yet')),
                         );
                       },
                     ),

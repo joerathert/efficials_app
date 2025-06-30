@@ -15,24 +15,46 @@ class UnpublishedGamesScreen extends StatefulWidget {
 class _UnpublishedGamesScreenState extends State<UnpublishedGamesScreen> {
   List<Map<String, dynamic>> unpublishedGames = [];
   bool isLoading = true;
+  String? userRole;
+  String unpublishedGamesKey = 'ad_unpublished_games'; // Default to AD
 
   @override
   void initState() {
     super.initState();
-    _fetchUnpublishedGames();
+    _loadUserRole();
+  }
+
+  Future<void> _loadUserRole() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      // Check for each role type
+      if (prefs.getString('assigner_sport') != null) {
+        userRole = 'assigner';
+        unpublishedGamesKey = 'assigner_unpublished_games';
+      } else if (prefs.getString('coach_team') != null) {
+        userRole = 'coach';
+        unpublishedGamesKey = 'coach_unpublished_games';
+      } else {
+        userRole = 'ad'; // Default to athletic director
+        unpublishedGamesKey = 'ad_unpublished_games';
+      }
+      _fetchUnpublishedGames();
+    });
   }
 
   Future<void> _fetchUnpublishedGames() async {
     final prefs = await SharedPreferences.getInstance();
-    final String? gamesJson = prefs.getString('unpublished_games');
+    final String? gamesJson = prefs.getString(unpublishedGamesKey);
     setState(() {
       if (gamesJson != null && gamesJson.isNotEmpty) {
         try {
-          unpublishedGames = List<Map<String, dynamic>>.from(jsonDecode(gamesJson));
+          unpublishedGames =
+              List<Map<String, dynamic>>.from(jsonDecode(gamesJson));
           // Ensure proper type casting for nested objects
           for (var game in unpublishedGames) {
             if (game['selectedOfficials'] != null) {
-              game['selectedOfficials'] = (game['selectedOfficials'] as List<dynamic>)
+              game['selectedOfficials'] = (game['selectedOfficials']
+                      as List<dynamic>)
                   .map((official) => Map<String, dynamic>.from(official as Map))
                   .toList();
             }
@@ -71,7 +93,7 @@ class _UnpublishedGamesScreenState extends State<UnpublishedGamesScreen> {
       }
       return gameCopy;
     }).toList();
-    await prefs.setString('unpublished_games', jsonEncode(gamesToSave));
+    await prefs.setString(unpublishedGamesKey, jsonEncode(gamesToSave));
     setState(() {});
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Game deleted!')),
@@ -92,7 +114,7 @@ class _UnpublishedGamesScreenState extends State<UnpublishedGamesScreen> {
       }
       return gameCopy;
     }).toList();
-    await prefs.setString('unpublished_games', jsonEncode(gamesToSave));
+    await prefs.setString(unpublishedGamesKey, jsonEncode(gamesToSave));
   }
 
   void _showDeleteConfirmationDialog(int gameId, String gameTitle) {
@@ -197,20 +219,24 @@ class _UnpublishedGamesScreenState extends State<UnpublishedGamesScreen> {
                             itemCount: unpublishedGames.length,
                             itemBuilder: (context, index) {
                               final game = unpublishedGames[index];
-                              final sport = game['sport'] as String? ?? 'Unknown';
-                              final scheduleName = game['scheduleName'] as String? ?? 'Unknown';
+                              final sport =
+                                  game['sport'] as String? ?? 'Unknown';
+                              final scheduleName =
+                                  game['scheduleName'] as String? ?? 'Unknown';
                               final gameDate = game['date'] != null
-                                  ? DateFormat('EEEE, MMM d, yyyy').format(game['date'] as DateTime)
+                                  ? DateFormat('EEEE, MMM d, yyyy')
+                                      .format(game['date'] as DateTime)
                                   : 'Date not set';
-                              final gameTime = game['time'] != null 
-                                  ? (game['time'] as TimeOfDay).format(context) 
+                              final gameTime = game['time'] != null
+                                  ? (game['time'] as TimeOfDay).format(context)
                                   : 'Time not set';
-                              final location = game['location'] as String? ?? 'Location not set';
+                              final location = game['location'] as String? ??
+                                  'Location not set';
                               final opponent = game['opponent'] as String?;
                               final isAway = game['isAway'] as bool? ?? false;
                               final sportIcon = getSportIcon(sport);
-                              final opponentDisplay = opponent != null 
-                                  ? (isAway ? '@ $opponent' : 'vs $opponent') 
+                              final opponentDisplay = opponent != null
+                                  ? (isAway ? '@ $opponent' : 'vs $opponent')
                                   : null;
 
                               return Padding(
@@ -222,10 +248,13 @@ class _UnpublishedGamesScreenState extends State<UnpublishedGamesScreen> {
                                       '/review_game_info',
                                       arguments: game,
                                     ).then((result) {
-                                      if (result != null && result is Map<String, dynamic>) {
+                                      if (result != null &&
+                                          result is Map<String, dynamic>) {
                                         // Update the game in unpublished_games if edited
                                         setState(() {
-                                          final index = unpublishedGames.indexWhere((g) => g['id'] == game['id']);
+                                          final index =
+                                              unpublishedGames.indexWhere(
+                                                  (g) => g['id'] == game['id']);
                                           if (index != -1) {
                                             unpublishedGames[index] = result;
                                           }
@@ -249,13 +278,16 @@ class _UnpublishedGamesScreenState extends State<UnpublishedGamesScreen> {
                                       ],
                                     ),
                                     child: Row(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Container(
                                           padding: const EdgeInsets.all(8),
                                           decoration: BoxDecoration(
-                                            color: getSportIconColor(sport).withOpacity(0.1),
-                                            borderRadius: BorderRadius.circular(8),
+                                            color: getSportIconColor(sport)
+                                                .withOpacity(0.1),
+                                            borderRadius:
+                                                BorderRadius.circular(8),
                                           ),
                                           child: Icon(
                                             sportIcon,
@@ -266,7 +298,8 @@ class _UnpublishedGamesScreenState extends State<UnpublishedGamesScreen> {
                                         const SizedBox(width: 12),
                                         Expanded(
                                           child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
                                             children: [
                                               Text(
                                                 gameDate,
@@ -281,7 +314,9 @@ class _UnpublishedGamesScreenState extends State<UnpublishedGamesScreen> {
                                                 opponentDisplay != null
                                                     ? '$gameTime $opponentDisplay'
                                                     : '$gameTime - $scheduleName',
-                                                style: const TextStyle(fontSize: 16, color: Colors.black),
+                                                style: const TextStyle(
+                                                    fontSize: 16,
+                                                    color: Colors.black),
                                               ),
                                               if (opponentDisplay != null) ...[
                                                 const SizedBox(height: 4),
@@ -306,26 +341,37 @@ class _UnpublishedGamesScreenState extends State<UnpublishedGamesScreen> {
                                               Row(
                                                 children: [
                                                   Container(
-                                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                    padding: const EdgeInsets
+                                                        .symmetric(
+                                                        horizontal: 8,
+                                                        vertical: 4),
                                                     decoration: BoxDecoration(
-                                                      color: Colors.orange.withOpacity(0.1),
-                                                      borderRadius: BorderRadius.circular(12),
+                                                      color: Colors.orange
+                                                          .withOpacity(0.1),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              12),
                                                     ),
                                                     child: Row(
-                                                      mainAxisSize: MainAxisSize.min,
+                                                      mainAxisSize:
+                                                          MainAxisSize.min,
                                                       children: [
                                                         Icon(
                                                           Icons.edit,
                                                           size: 12,
-                                                          color: Colors.orange.shade700,
+                                                          color: Colors
+                                                              .orange.shade700,
                                                         ),
-                                                        const SizedBox(width: 4),
+                                                        const SizedBox(
+                                                            width: 4),
                                                         Text(
                                                           'Draft',
                                                           style: TextStyle(
                                                             fontSize: 12,
-                                                            color: Colors.orange.shade700,
-                                                            fontWeight: FontWeight.w600,
+                                                            color: Colors.orange
+                                                                .shade700,
+                                                            fontWeight:
+                                                                FontWeight.w600,
                                                           ),
                                                         ),
                                                       ],
@@ -333,20 +379,26 @@ class _UnpublishedGamesScreenState extends State<UnpublishedGamesScreen> {
                                                   ),
                                                   const Spacer(),
                                                   GestureDetector(
-                                                    onTap: () => _showDeleteConfirmationDialog(
-                                                      game['id'] as int, 
-                                                      '$sport - $scheduleName'
-                                                    ),
+                                                    onTap: () =>
+                                                        _showDeleteConfirmationDialog(
+                                                            game['id'] as int,
+                                                            '$sport - $scheduleName'),
                                                     child: Container(
-                                                      padding: const EdgeInsets.all(8),
+                                                      padding:
+                                                          const EdgeInsets.all(
+                                                              8),
                                                       decoration: BoxDecoration(
-                                                        color: Colors.red.withOpacity(0.1),
-                                                        borderRadius: BorderRadius.circular(8),
+                                                        color: Colors.red
+                                                            .withOpacity(0.1),
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(8),
                                                       ),
                                                       child: Icon(
                                                         Icons.delete_outline,
                                                         size: 20,
-                                                        color: Colors.red.shade600,
+                                                        color:
+                                                            Colors.red.shade600,
                                                       ),
                                                     ),
                                                   ),

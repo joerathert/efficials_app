@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'theme.dart';
+import 'utils.dart';
 
 class ScheduleFilterScreen extends StatefulWidget {
   final Map<String, Map<String, bool>> scheduleFilters;
@@ -28,12 +29,47 @@ class _ScheduleFilterScreenState extends State<ScheduleFilterScreen> {
   @override
   void initState() {
     super.initState();
-    scheduleFilters = Map.from(widget.scheduleFilters);
+    scheduleFilters = _separateGenderSports(widget.scheduleFilters);
     showAwayGames = widget.showAwayGames;
     showFullyCoveredGames = widget.showFullyCoveredGames;
     for (var sport in scheduleFilters.keys) {
       sportExpanded[sport] = false;
     }
+  }
+
+  Map<String, Map<String, bool>> _separateGenderSports(
+      Map<String, Map<String, bool>> originalFilters) {
+    final Map<String, Map<String, bool>> newFilters = {};
+
+    originalFilters.forEach((sport, schedules) {
+      if (sport.toLowerCase() == 'basketball') {
+        final Map<String, bool> boysSchedules = {};
+        final Map<String, bool> girlsSchedules = {};
+
+        schedules.forEach((schedule, value) {
+          if (schedule.toLowerCase().contains('boys')) {
+            boysSchedules[schedule] = value;
+          } else if (schedule.toLowerCase().contains('girls')) {
+            girlsSchedules[schedule] = value;
+          } else {
+            // If no gender specified, add to both
+            boysSchedules[schedule] = value;
+            girlsSchedules[schedule] = value;
+          }
+        });
+
+        if (boysSchedules.isNotEmpty) {
+          newFilters['Boys Basketball'] = boysSchedules;
+        }
+        if (girlsSchedules.isNotEmpty) {
+          newFilters['Girls Basketball'] = girlsSchedules;
+        }
+      } else {
+        newFilters[sport] = schedules;
+      }
+    });
+
+    return newFilters;
   }
 
   bool _areAllSchedulesSelected(String sport) {
@@ -136,21 +172,59 @@ class _ScheduleFilterScreenState extends State<ScheduleFilterScreen> {
                         widget.onFiltersChanged(scheduleFilters, showAwayGames,
                             showFullyCoveredGames);
                       },
-                      Icons.flight_takeoff,
+                      Icons.alternate_email,
                     ),
                     const SizedBox(height: 16),
-                    _buildSwitchTile(
-                      'Show Fully Covered Games',
-                      'Include games that have all officials assigned',
-                      showFullyCoveredGames,
-                      (value) {
-                        setState(() {
-                          showFullyCoveredGames = value;
-                        });
-                        widget.onFiltersChanged(scheduleFilters, showAwayGames,
-                            showFullyCoveredGames);
-                      },
-                      Icons.check_circle,
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.green.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(
+                            Icons.check_circle,
+                            color: Colors.green,
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Show Fully Covered Games',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Include games that have all officials assigned',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Switch(
+                          value: showFullyCoveredGames,
+                          onChanged: (value) {
+                            setState(() {
+                              showFullyCoveredGames = value;
+                            });
+                            widget.onFiltersChanged(scheduleFilters,
+                                showAwayGames, showFullyCoveredGames);
+                          },
+                          activeColor: efficialsBlue,
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -170,6 +244,11 @@ class _ScheduleFilterScreenState extends State<ScheduleFilterScreen> {
                 Expanded(
                   child: ListView(
                     children: scheduleFilters.keys.map((sport) {
+                      final baseSport = sport.toLowerCase().contains('boys') ||
+                              sport.toLowerCase().contains('girls')
+                          ? sport.split(' ').last
+                          : sport;
+
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 12.0),
                         child: Container(
@@ -192,12 +271,13 @@ class _ScheduleFilterScreenState extends State<ScheduleFilterScreen> {
                                 Container(
                                   padding: const EdgeInsets.all(8),
                                   decoration: BoxDecoration(
-                                    color: efficialsBlue.withOpacity(0.1),
+                                    color: getSportIconColor(baseSport)
+                                        .withOpacity(0.1),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Icon(
-                                    Icons.sports,
-                                    color: efficialsBlue,
+                                    getSportIcon(baseSport),
+                                    color: getSportIconColor(baseSport),
                                     size: 20,
                                   ),
                                 ),

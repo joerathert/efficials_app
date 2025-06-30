@@ -60,13 +60,13 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
   Future<bool?> _showCreateTemplateDialog() async {
     final prefs = await SharedPreferences.getInstance();
     final dontAskAgain = prefs.getBool('dont_ask_create_template') ?? false;
-    
+
     if (dontAskAgain) {
       return false; // Don't create template if user opted out
     }
-    
+
     bool checkboxValue = false;
-    
+
     return await showDialog<bool>(
       context: context,
       builder: (context) => StatefulBuilder(
@@ -181,14 +181,25 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
     }
 
     final prefs = await SharedPreferences.getInstance();
-    final String? gamesJson = prefs.getString('published_games');
+
+    // Determine which storage key to use based on user role
+    String publishedGamesKey;
+    if (isCoachScheduler == true) {
+      publishedGamesKey = 'coach_published_games';
+    } else if (isAssignerFlow == true) {
+      publishedGamesKey = 'assigner_published_games';
+    } else {
+      publishedGamesKey = 'ad_published_games';
+    }
+
+    final String? gamesJson = prefs.getString(publishedGamesKey);
     List<Map<String, dynamic>> publishedGames = [];
     if (gamesJson != null && gamesJson.isNotEmpty) {
       publishedGames = List<Map<String, dynamic>>.from(jsonDecode(gamesJson));
     }
 
     publishedGames.add(gameData);
-    await prefs.setString('published_games', jsonEncode(publishedGames));
+    await prefs.setString(publishedGamesKey, jsonEncode(publishedGames));
 
     // Don't show template dialog if game was created using a template
     bool? shouldCreateTemplate = false;
@@ -247,14 +258,25 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
     }
 
     final prefs = await SharedPreferences.getInstance();
-    final String? gamesJson = prefs.getString('unpublished_games');
+
+    // Determine which storage key to use based on user role
+    String unpublishedGamesKey;
+    if (isCoachScheduler == true) {
+      unpublishedGamesKey = 'coach_unpublished_games';
+    } else if (isAssignerFlow == true) {
+      unpublishedGamesKey = 'assigner_unpublished_games';
+    } else {
+      unpublishedGamesKey = 'ad_unpublished_games';
+    }
+
+    final String? gamesJson = prefs.getString(unpublishedGamesKey);
     List<Map<String, dynamic>> unpublishedGames = [];
     if (gamesJson != null && gamesJson.isNotEmpty) {
       unpublishedGames = List<Map<String, dynamic>>.from(jsonDecode(gamesJson));
     }
 
     unpublishedGames.add(gameData);
-    await prefs.setString('unpublished_games', jsonEncode(unpublishedGames));
+    await prefs.setString(unpublishedGamesKey, jsonEncode(unpublishedGames));
 
     // Don't show template dialog if game was created using a template
     bool? shouldCreateTemplate = false;
@@ -292,15 +314,18 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
         print('ReviewGameInfo - Full args: $args');
         print('ReviewGameInfo - Team from scheduleName: $teamName');
         print('ReviewGameInfo - Team from opponent: ${args['opponent']}');
-        print('ReviewGameInfo - Navigating back to Manage Schedules with team: $teamName');
-        
+        print(
+            'ReviewGameInfo - Navigating back to Manage Schedules with team: $teamName');
+
         final gameDate = args['date'] as DateTime?;
         print('ReviewGameInfo - Game date: $gameDate');
-        
+
         Navigator.pushNamedAndRemoveUntil(
           context,
           '/assigner_manage_schedules',
-          (route) => route.settings.name == '/assigner_home', // Keep assigner home in stack
+          (route) =>
+              route.settings.name ==
+              '/assigner_home', // Keep assigner home in stack
           arguments: {
             'selectedTeam': teamName, // Pass the team name back
             'focusDate': gameDate, // Pass the game date to focus calendar
