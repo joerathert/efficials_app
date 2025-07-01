@@ -113,145 +113,61 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
 
     return Scaffold(
       key: _scaffoldKey,
+      backgroundColor: darkBackground,
       appBar: AppBar(
         backgroundColor: efficialsBlack,
+        title: const Icon(
+          Icons.sports,
+          color: efficialsYellow,
+          size: 32,
+        ),
+        elevation: 0,
+        centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, size: 36, color: Colors.white),
+          icon: const Icon(Icons.arrow_back, color: efficialsWhite),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text('Edit Game Info', style: appBarTextStyle),
       ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 600),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const SizedBox(height: 20),
-                  SizedBox(
-                    width: 300,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.pushNamed(context, '/choose_location', arguments: {
-                          ...args,
-                          'isEdit': true,
-                          'isFromGameInfo': args['isFromGameInfo'] ?? false,
-                          'template': template, // Pass the GameTemplate object
-                        }).then((result) {
-                          if (result != null) {
-                            final updatedArgs = result as Map<String, dynamic>;
-                            print('EditGameInfoScreen - Updated Args from /choose_location: $updatedArgs');
-                            Navigator.pushReplacementNamed(
-                              context,
-                              '/review_game_info',
-                              arguments: {
-                                ...updatedArgs,
-                                'isEdit': true,
-                                'isFromGameInfo': args['isFromGameInfo'] ?? false,
-                                'template': template, // Pass the GameTemplate object
-                              },
-                            );
-                          }
-                        });
-                      },
-                      style: elevatedButtonStyle().copyWith(
-                        minimumSize: const WidgetStatePropertyAll(Size(300, 60)),
-                        padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 10, horizontal: 20)),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const SizedBox(height: 40),
+              const Text(
+                'Edit Game Info',
+                style: TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                  color: efficialsYellow,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 40),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: darkSurface,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.3),
+                        blurRadius: 10,
+                        offset: const Offset(0, 2),
                       ),
-                      child: const Text(
-                        'Location',
-                        style: signInButtonTextStyle,
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
+                    ],
                   ),
-                  const SizedBox(height: 20),
-                  SizedBox(
-                    width: 300,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.pushNamed(context, '/date_time', arguments: {
-                          ...args,
-                          'isEdit': true,
-                          'isFromGameInfo': args['isFromGameInfo'] ?? false,
-                          'template': template, // Pass the GameTemplate object
-                        }).then((result) {
-                          if (result != null) {
-                            final updatedArgs = result as Map<String, dynamic>;
-                            print('EditGameInfoScreen - Updated Args from /date_time: $updatedArgs');
-                            Navigator.pushReplacementNamed(
-                              context,
-                              '/review_game_info',
-                              arguments: {
-                                ...updatedArgs,
-                                'isEdit': true,
-                                'isFromGameInfo': args['isFromGameInfo'] ?? false,
-                                'template': template, // Pass the GameTemplate object
-                              },
-                            );
-                          }
-                        });
-                      },
-                      style: elevatedButtonStyle().copyWith(
-                        minimumSize: const WidgetStatePropertyAll(Size(300, 60)),
-                        padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 10, horizontal: 20)),
-                      ),
-                      child: const Text(
-                        'Date/Time',
-                        style: signInButtonTextStyle,
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  SizedBox(
-                    width: 300,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.pushNamed(context, '/additional_game_info', arguments: {
-                          ...args,
-                          'isEdit': true,
-                          'isFromGameInfo': args['isFromGameInfo'] ?? false,
-                          'template': template, // Pass the GameTemplate object
-                        }).then((result) {
-                          if (result != null) {
-                            final updatedArgs = result as Map<String, dynamic>;
-                            print('EditGameInfoScreen - Updated Args from /additional_game_info: $updatedArgs');
-                            Navigator.pushReplacementNamed(
-                              context,
-                              '/review_game_info',
-                              arguments: {
-                                ...updatedArgs,
-                                'isEdit': true,
-                                'isFromGameInfo': args['isFromGameInfo'] ?? false,
-                                'template': template, // Pass the GameTemplate object
-                              },
-                            );
-                          }
-                        });
-                      },
-                      style: elevatedButtonStyle().copyWith(
-                        minimumSize: const WidgetStatePropertyAll(Size(300, 60)),
-                        padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 10, horizontal: 20)),
-                      ),
-                      child: const Text(
-                        'Additional Game Info',
-                        style: signInButtonTextStyle,
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  SizedBox(
-                    width: 300,
-                    child: ElevatedButton(
-                      onPressed: _isAwayGame
-                          ? null // Disable for away games
-                          : () {
-                              Navigator.pushNamed(context, '/select_officials', arguments: {
+                  child: SingleChildScrollView(
+                    child: Column(
+                      children: [
+                        const SizedBox(height: 20),
+                        SizedBox(
+                          width: 300,
+                          child: ElevatedButton(
+                            onPressed: () {
+                              Navigator.pushNamed(context, '/choose_location', arguments: {
                                 ...args,
                                 'isEdit': true,
                                 'isFromGameInfo': args['isFromGameInfo'] ?? false,
@@ -259,7 +175,7 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
                               }).then((result) {
                                 if (result != null) {
                                   final updatedArgs = result as Map<String, dynamic>;
-                                  print('EditGameInfoScreen - Updated Args from /select_officials: $updatedArgs');
+                                  print('EditGameInfoScreen - Updated Args from /choose_location: $updatedArgs');
                                   Navigator.pushReplacementNamed(
                                     context,
                                     '/review_game_info',
@@ -273,39 +189,158 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
                                 }
                               });
                             },
-                      style: elevatedButtonStyle().copyWith(
-                        minimumSize: const WidgetStatePropertyAll(Size(300, 60)),
-                        padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 10, horizontal: 20)),
-                      ),
-                      child: const Text(
-                        'Selection Method',
-                        style: signInButtonTextStyle,
-                        textAlign: TextAlign.center,
-                      ),
+                            style: elevatedButtonStyle().copyWith(
+                              minimumSize: const WidgetStatePropertyAll(Size(300, 60)),
+                              padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 10, horizontal: 20)),
+                            ),
+                            child: const Text(
+                              'Location',
+                              style: signInButtonTextStyle,
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        SizedBox(
+                          width: 300,
+                          child: ElevatedButton(
+                            onPressed: () {
+                              Navigator.pushNamed(context, '/date_time', arguments: {
+                                ...args,
+                                'isEdit': true,
+                                'isFromGameInfo': args['isFromGameInfo'] ?? false,
+                                'template': template, // Pass the GameTemplate object
+                              }).then((result) {
+                                if (result != null) {
+                                  final updatedArgs = result as Map<String, dynamic>;
+                                  print('EditGameInfoScreen - Updated Args from /date_time: $updatedArgs');
+                                  Navigator.pushReplacementNamed(
+                                    context,
+                                    '/review_game_info',
+                                    arguments: {
+                                      ...updatedArgs,
+                                      'isEdit': true,
+                                      'isFromGameInfo': args['isFromGameInfo'] ?? false,
+                                      'template': template, // Pass the GameTemplate object
+                                    },
+                                  );
+                                }
+                              });
+                            },
+                            style: elevatedButtonStyle().copyWith(
+                              minimumSize: const WidgetStatePropertyAll(Size(300, 60)),
+                              padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 10, horizontal: 20)),
+                            ),
+                            child: const Text(
+                              'Date/Time',
+                              style: signInButtonTextStyle,
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        SizedBox(
+                          width: 300,
+                          child: ElevatedButton(
+                            onPressed: () {
+                              Navigator.pushNamed(context, '/additional_game_info', arguments: {
+                                ...args,
+                                'isEdit': true,
+                                'isFromGameInfo': args['isFromGameInfo'] ?? false,
+                                'template': template, // Pass the GameTemplate object
+                              }).then((result) {
+                                if (result != null) {
+                                  final updatedArgs = result as Map<String, dynamic>;
+                                  print('EditGameInfoScreen - Updated Args from /additional_game_info: $updatedArgs');
+                                  Navigator.pushReplacementNamed(
+                                    context,
+                                    '/review_game_info',
+                                    arguments: {
+                                      ...updatedArgs,
+                                      'isEdit': true,
+                                      'isFromGameInfo': args['isFromGameInfo'] ?? false,
+                                      'template': template, // Pass the GameTemplate object
+                                    },
+                                  );
+                                }
+                              });
+                            },
+                            style: elevatedButtonStyle().copyWith(
+                              minimumSize: const WidgetStatePropertyAll(Size(300, 60)),
+                              padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 10, horizontal: 20)),
+                            ),
+                            child: const Text(
+                              'Additional Game Info',
+                              style: signInButtonTextStyle,
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        SizedBox(
+                          width: 300,
+                          child: ElevatedButton(
+                            onPressed: _isAwayGame
+                                ? null // Disable for away games
+                                : () {
+                                    Navigator.pushNamed(context, '/select_officials', arguments: {
+                                      ...args,
+                                      'isEdit': true,
+                                      'isFromGameInfo': args['isFromGameInfo'] ?? false,
+                                      'template': template, // Pass the GameTemplate object
+                                    }).then((result) {
+                                      if (result != null) {
+                                        final updatedArgs = result as Map<String, dynamic>;
+                                        print('EditGameInfoScreen - Updated Args from /select_officials: $updatedArgs');
+                                        Navigator.pushReplacementNamed(
+                                          context,
+                                          '/review_game_info',
+                                          arguments: {
+                                            ...updatedArgs,
+                                            'isEdit': true,
+                                            'isFromGameInfo': args['isFromGameInfo'] ?? false,
+                                            'template': template, // Pass the GameTemplate object
+                                          },
+                                        );
+                                      }
+                                    });
+                                  },
+                            style: elevatedButtonStyle().copyWith(
+                              minimumSize: const WidgetStatePropertyAll(Size(300, 60)),
+                              padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 10, horizontal: 20)),
+                            ),
+                            child: const Text(
+                              'Selection Method',
+                              style: signInButtonTextStyle,
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        SizedBox(
+                          width: 300,
+                          child: ElevatedButton(
+                            onPressed: _isAwayGame
+                                ? null // Disable for away games
+                                : () => _handleEditOfficials(args),
+                            style: elevatedButtonStyle().copyWith(
+                              minimumSize: const WidgetStatePropertyAll(Size(300, 60)),
+                              padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 10, horizontal: 20)),
+                            ),
+                            child: const Text(
+                              'Selected Officials',
+                              style: signInButtonTextStyle,
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 20),
-                  SizedBox(
-                    width: 300,
-                    child: ElevatedButton(
-                      onPressed: _isAwayGame
-                          ? null // Disable for away games
-                          : () => _handleEditOfficials(args),
-                      style: elevatedButtonStyle().copyWith(
-                        minimumSize: const WidgetStatePropertyAll(Size(300, 60)),
-                        padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 10, horizontal: 20)),
-                      ),
-                      child: const Text(
-                        'Selected Officials',
-                        style: signInButtonTextStyle,
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                ],
+                ),
               ),
-            ),
+            ],
           ),
         ),
       ),

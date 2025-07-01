@@ -24,75 +24,116 @@ class _NameListScreenState extends State<NameListScreen> {
     final existingLists = args['existingLists'] as List<String>;
 
     return Scaffold(
+      backgroundColor: darkBackground,
       appBar: AppBar(
         backgroundColor: efficialsBlack,
+        title: const Icon(
+          Icons.sports,
+          color: efficialsYellow,
+          size: 32,
+        ),
+        elevation: 0,
+        centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, size: 36, color: Colors.white),
+          icon: const Icon(Icons.arrow_back, color: efficialsWhite),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
-          'Name List',
-          style: TextStyle(color: darkSurface, fontSize: 20, fontWeight: FontWeight.bold),
-        ),
       ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 600),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    'Name your list of $sport officials.',
-                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 60),
-                  TextField(
-                    controller: _nameController,
-                    decoration: textFieldDecoration('Ex. Varsity $sport Officials'),
-                    textAlign: TextAlign.left,
-                    style: const TextStyle(fontSize: 18),
-                    enableSuggestions: false,
-                    autocorrect: false,
-                    showCursor: true,
-                  ),
-                  const SizedBox(height: 60),
-                  ElevatedButton(
-                    onPressed: () {
-                      final name = _nameController.text.trim();
-                      if (name.isEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Please enter a list name!')),
-                        );
-                      } else if (existingLists.contains(name)) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('List name must be unique!')),
-                        );
-                      } else if (RegExp(r'^\s+$').hasMatch(name)) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('List name cannot be just spaces!')),
-                        );
-                      } else {
-                        Navigator.pushNamed(
-                          context,
-                          '/populate_roster',
-                          arguments: {'sport': sport, 'listName': name},
-                        ).then((result) {
-                          if (result != null) {
-                            Navigator.pop(context, result);
-                          }
-                        });
-                      }
-                    },
-                    style: elevatedButtonStyle(),
-                    child: const Text('Continue', style: signInButtonTextStyle),
-                  ),
-                ],
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const SizedBox(height: 40),
+              const Text(
+                'Name List',
+                style: TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                  color: efficialsYellow,
+                ),
+                textAlign: TextAlign.center,
               ),
-            ),
+              const SizedBox(height: 40),
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: darkSurface,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.3),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Text(
+                      'Name your list of $sport officials',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        color: Colors.white,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 24),
+                    TextField(
+                      controller: _nameController,
+                      decoration: textFieldDecoration('Ex. Varsity $sport Officials'),
+                      textAlign: TextAlign.left,
+                      style: const TextStyle(fontSize: 18, color: Colors.white),
+                      enableSuggestions: false,
+                      autocorrect: false,
+                      showCursor: true,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 40),
+              ElevatedButton(
+                onPressed: () {
+                  final name = _nameController.text.trim();
+                  if (name.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: const Text('Please enter a list name!'),
+                        backgroundColor: darkSurface,
+                      ),
+                    );
+                  } else if (existingLists.contains(name)) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: const Text('List name must be unique!'),
+                        backgroundColor: darkSurface,
+                      ),
+                    );
+                  } else if (RegExp(r'^\s+$').hasMatch(name)) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: const Text('List name cannot be just spaces!'),
+                        backgroundColor: darkSurface,
+                      ),
+                    );
+                  } else {
+                    Navigator.pushNamed(
+                      context,
+                      '/populate_roster',
+                      arguments: {'sport': sport, 'listName': name},
+                    ).then((result) {
+                      if (result != null) {
+                        Navigator.pop(context, result);
+                      }
+                    });
+                  }
+                },
+                style: elevatedButtonStyle(),
+                child: const Text('Continue', style: signInButtonTextStyle),
+              ),
+            ],
           ),
         ),
       ),

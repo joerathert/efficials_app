@@ -98,7 +98,11 @@ class _SelectSportScreenState extends State<SelectSportScreen> {
                     const SizedBox(height: 40),
                     const Text(
                       'Select Sport',
-                      style: headlineStyle,
+                      style: TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                        color: efficialsYellow,
+                      ),
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 8),

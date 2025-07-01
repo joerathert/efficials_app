@@ -377,65 +377,83 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
                 ),
               ),
               const SizedBox(height: 40),
-              ElevatedButton(
-                onPressed: (selectedSchedule == null ||
-                        selectedSchedule == 'No schedules available' ||
-                        selectedSchedule == '+ Create new schedule')
-                    ? null
-                    : () {
-                        // Validate sport match if a template is used
-                        if (!_validateSportMatch()) {
-                          return;
-                        }
-                        final selected = schedules
-                            .firstWhere((s) => s['name'] == selectedSchedule);
-                        Navigator.pushNamed(
-                          context,
-                          '/date_time',
-                          arguments: {
-                            'scheduleName': selectedSchedule,
-                            'sport': selected['sport'],
-                            'template':
-                                template, // Pass the template to the next screen
+              Center(
+                child: SizedBox(
+                  width: 200,
+                  child: ElevatedButton(
+                    onPressed: (selectedSchedule == null ||
+                            selectedSchedule == 'No schedules available' ||
+                            selectedSchedule == '+ Create new schedule')
+                        ? null
+                        : () {
+                            // Validate sport match if a template is used
+                            if (!_validateSportMatch()) {
+                              return;
+                            }
+                            final selected = schedules.firstWhere(
+                                (s) => s['name'] == selectedSchedule);
+                            Navigator.pushNamed(
+                              context,
+                              '/date_time',
+                              arguments: {
+                                'scheduleName': selectedSchedule,
+                                'sport': selected['sport'],
+                                'template':
+                                    template, // Pass the template to the next screen
+                              },
+                            );
                           },
-                        );
-                      },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: efficialsYellow,
-                  foregroundColor: efficialsBlack,
-                  disabledBackgroundColor: Colors.grey[600],
-                  disabledForegroundColor: Colors.grey[300],
-                  padding:
-                      const EdgeInsets.symmetric(vertical: 15, horizontal: 50),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: efficialsYellow,
+                      foregroundColor: efficialsBlack,
+                      disabledBackgroundColor: Colors.grey[600],
+                      disabledForegroundColor: Colors.grey[300],
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 15, horizontal: 50),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text('Continue',
+                        style: TextStyle(
+                          color: efficialsBlack,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        )),
                   ),
                 ),
-                child: const Text('Continue',
-                    style: TextStyle(
-                      color: efficialsBlack,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    )),
               ),
               const SizedBox(height: 16),
               if (selectedSchedule != null &&
                   selectedSchedule != 'No schedules available' &&
                   selectedSchedule != '+ Create new schedule')
-                TextButton.icon(
-                  onPressed: () {
-                    final selected = schedules
-                        .firstWhere((s) => s['name'] == selectedSchedule);
-                    _showFirstDeleteConfirmationDialog(
-                        selectedSchedule!, selected['id'] as int);
-                  },
-                  icon: const Icon(Icons.delete_outline,
-                      color: Colors.red, size: 20),
-                  label: const Text(
-                    'Delete Schedule',
-                    style: TextStyle(
-                      color: Colors.red,
-                      fontSize: 16,
+                Center(
+                  child: SizedBox(
+                    width: 200,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        final selected = schedules
+                            .firstWhere((s) => s['name'] == selectedSchedule);
+                        _showFirstDeleteConfirmationDialog(
+                            selectedSchedule!, selected['id'] as int);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.black,
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 15, horizontal: 50),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text(
+                        'Delete',
+                        style: TextStyle(
+                          color: Colors.black,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
                   ),
                 ),

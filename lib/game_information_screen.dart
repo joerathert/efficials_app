@@ -275,12 +275,15 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Confirm Delete'),
-        content: const Text('Are you sure you want to delete this game?'),
+        backgroundColor: darkSurface,
+        title: const Text('Confirm Delete', 
+            style: TextStyle(color: efficialsYellow, fontSize: 20, fontWeight: FontWeight.bold)),
+        content: const Text('Are you sure you want to delete this game?',
+            style: TextStyle(color: Colors.white)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel', style: TextStyle(color: efficialsBlue)),
+            child: const Text('Cancel', style: TextStyle(color: efficialsYellow)),
           ),
           TextButton(
             onPressed: () {
@@ -341,10 +344,18 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
         .toList();
 
     return Scaffold(
+      backgroundColor: darkBackground,
       appBar: AppBar(
         backgroundColor: efficialsBlack,
+        title: const Icon(
+          Icons.sports,
+          color: efficialsYellow,
+          size: 32,
+        ),
+        elevation: 0,
+        centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, size: 36, color: Colors.white),
+          icon: const Icon(Icons.arrow_back, color: efficialsWhite),
           onPressed: () {
             final returnArgs = {
               ...args,
@@ -358,7 +369,6 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
             Navigator.pop(context, returnArgs);
           },
         ),
-        title: const Text('Game Information', style: appBarTextStyle),
       ),
       body: CustomScrollView(
         slivers: [
@@ -371,7 +381,7 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('Game Details', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                    const Text('Game Details', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: efficialsYellow)),
                     TextButton(
                       onPressed: () => Navigator.pushNamed(
                         context,
@@ -452,7 +462,7 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                           Navigator.pop(context, result);
                         }
                       }),
-                      child: const Text('Edit', style: TextStyle(color: efficialsBlue, fontSize: 18)),
+                      child: const Text('Edit', style: TextStyle(color: efficialsYellow, fontSize: 18)),
                     ),
                   ],
                 ),
@@ -477,14 +487,36 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                               width: 150,
                               child: Text(
                                 '${e.key}:',
-                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.white),
                               ),
                             ),
                             Expanded(
-                              child: Text(
-                                e.value,
-                                style: const TextStyle(fontSize: 16),
-                              ),
+                              child: e.key == 'Schedule Name' 
+                                ? GestureDetector(
+                                    onTap: () {
+                                      Navigator.pushNamed(
+                                        context,
+                                        '/schedule_details',
+                                        arguments: {
+                                          'scheduleName': scheduleName,
+                                          'scheduleId': args['scheduleId'],
+                                        },
+                                      );
+                                    },
+                                    child: Text(
+                                      e.value,
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        color: efficialsYellow,
+                                        decoration: TextDecoration.underline,
+                                        decorationColor: efficialsYellow,
+                                      ),
+                                    ),
+                                  )
+                                : Text(
+                                    e.value,
+                                    style: const TextStyle(fontSize: 16, color: Colors.white),
+                                  ),
                             ),
                           ],
                         ),
@@ -494,7 +526,7 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                     if (!isAwayGame) ...[
                       Text(
                         'Confirmed Officials ($officialsHired/$requiredOfficials)',
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: efficialsYellow),
                       ),
                       const SizedBox(height: 10),
                       if (confirmedOfficials.isEmpty)
@@ -515,9 +547,9 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                                   name,
                                   style: const TextStyle(
                                     fontSize: 16,
-                                    color: Colors.blue,
+                                    color: efficialsYellow,
                                     decoration: TextDecoration.underline,
-                                    decorationColor: Colors.blue,
+                                    decorationColor: efficialsYellow,
                                   ),
                                 ),
                               ),
@@ -528,7 +560,7 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                         const SizedBox(height: 20),
                         const Text(
                           'Interested Officials',
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: efficialsYellow),
                         ),
                         const SizedBox(height: 10),
                         if (interestedOfficials.isEmpty)
@@ -538,8 +570,8 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                             children: interestedOfficials.map((official) {
                               final officialId = official['id'] as int;
                               return CheckboxListTile(
-                                title: Text(official['name'] as String),
-                                subtitle: Text('Distance: ${(official['distance'] as num?)?.toStringAsFixed(1) ?? '0.0'} mi'),
+                                title: Text(official['name'] as String, style: const TextStyle(color: Colors.white)),
+                                subtitle: Text('Distance: ${(official['distance'] as num?)?.toStringAsFixed(1) ?? '0.0'} mi', style: const TextStyle(color: Colors.grey)),
                                 value: selectedForHire[officialId] ?? false,
                                 onChanged: (value) {
                                   setState(() {
@@ -551,7 +583,8 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                                     }
                                   });
                                 },
-                                activeColor: efficialsBlue,
+                                activeColor: efficialsYellow,
+                                checkColor: efficialsBlack,
                               );
                             }).toList(),
                           ),
@@ -568,7 +601,7 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                       ],
                       const SizedBox(height: 20),
                     ],
-                    const Text('Selected Officials', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    const Text('Selected Officials', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: efficialsYellow)),
                     const SizedBox(height: 10),
                     if (isAwayGame)
                       const Text('No officials needed for away games.', style: TextStyle(fontSize: 16, color: Colors.grey))
@@ -599,7 +632,7 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                               final min = list['minOfficials'] as int;
                               final max = list['maxOfficials'] as int;
                               final currentCount = selectedCounts[listName] ?? 0;
-                              final textColor = currentCount > max || currentCount < min ? Colors.red : Colors.black;
+                              final textColor = currentCount > max || currentCount < min ? Colors.red : Colors.white;
                               return Padding(
                                 padding: const EdgeInsets.symmetric(vertical: 4),
                                 child: Text(
@@ -618,7 +651,7 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                           padding: const EdgeInsets.symmetric(vertical: 4),
                           child: Text(
                             '${list['name']}: Min ${list['minOfficials']}, Max ${list['maxOfficials']}',
-                            style: const TextStyle(fontSize: 16),
+                            style: const TextStyle(fontSize: 16, color: Colors.white),
                           ),
                         ),
                       ),
@@ -628,15 +661,15 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                         padding: const EdgeInsets.symmetric(vertical: 4),
                         child: Text(
                           'List Used: ${args['selectedListName']}',
-                          style: const TextStyle(fontSize: 16),
+                          style: const TextStyle(fontSize: 16, color: Colors.white),
                         ),
                       ),
                     ]
                     else ...[
                       ...selectedOfficials.map(
                         (official) => ListTile(
-                          title: Text(official['name'] as String),
-                          subtitle: Text('Distance: ${(official['distance'] as num?)?.toStringAsFixed(1) ?? '0.0'} mi'),
+                          title: Text(official['name'] as String, style: const TextStyle(color: Colors.white)),
+                          subtitle: Text('Distance: ${(official['distance'] as num?)?.toStringAsFixed(1) ?? '0.0'} mi', style: const TextStyle(color: Colors.grey)),
                         ),
                       ),
                     ],

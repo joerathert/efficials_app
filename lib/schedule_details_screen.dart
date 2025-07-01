@@ -120,35 +120,26 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
+        backgroundColor: darkSurface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Row(
           children: [
-            Icon(Icons.edit, color: efficialsBlue, size: 24),
+            Icon(Icons.edit, color: efficialsYellow, size: 24),
             SizedBox(width: 12),
             Text(
               'Edit Schedule Name',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: primaryTextColor,
+                color: efficialsYellow,
               ),
             ),
           ],
         ),
         content: TextField(
           controller: controller,
-          decoration: InputDecoration(
-            labelText: 'Schedule Name',
-            labelStyle: const TextStyle(color: Colors.grey),
-            hintText: 'Enter new schedule name',
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-            focusedBorder: const OutlineInputBorder(
-              borderSide: BorderSide(color: efficialsBlue, width: 2),
-            ),
-            floatingLabelStyle: const TextStyle(color: efficialsBlue),
-          ),
+          decoration: textFieldDecoration('Schedule Name'),
+          style: const TextStyle(color: Colors.white),
           textCapitalization: TextCapitalization.words,
           autofocus: true,
         ),
@@ -157,7 +148,7 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
             onPressed: () => Navigator.pop(context),
             child: const Text(
               'Cancel',
-              style: TextStyle(color: Colors.grey, fontSize: 16),
+              style: TextStyle(color: efficialsYellow, fontSize: 16),
             ),
           ),
           ElevatedButton(
@@ -175,14 +166,10 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                 Navigator.pop(context);
               }
             },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: efficialsBlack,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8)),
-            ),
+            style: elevatedButtonStyle(),
             child: const Text(
               'Save',
-              style: TextStyle(color: darkSurface, fontSize: 16),
+              style: signInButtonTextStyle,
             ),
           ),
         ],
@@ -305,13 +292,20 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: darkBackground,
       appBar: AppBar(
         backgroundColor: efficialsBlack,
+        title: const Icon(
+          Icons.sports,
+          color: efficialsYellow,
+          size: 32,
+        ),
+        elevation: 0,
+        centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, size: 36, color: Colors.white),
+          icon: const Icon(Icons.arrow_back, color: efficialsWhite),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text('Schedule Details', style: appBarTextStyle),
       ),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -329,13 +323,13 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                               child: Text(
                                 scheduleName ?? 'Unnamed Schedule',
                                 style: const TextStyle(
-                                    fontSize: 24, fontWeight: FontWeight.bold),
+                                    fontSize: 24, fontWeight: FontWeight.bold, color: efficialsYellow),
                                 textAlign: TextAlign.center,
                               ),
                             ),
                             IconButton(
                               icon: const Icon(Icons.edit,
-                                  color: efficialsBlue, size: 20),
+                                  color: efficialsYellow, size: 20),
                               onPressed: _showEditScheduleNameDialog,
                               tooltip: 'Edit schedule name',
                             ),
@@ -351,10 +345,10 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 12, vertical: 6),
                                 decoration: BoxDecoration(
-                                  color: efficialsBlue.withOpacity(0.1),
+                                  color: efficialsYellow.withOpacity(0.1),
                                   borderRadius: BorderRadius.circular(16),
                                   border: Border.all(
-                                      color: efficialsBlue.withOpacity(0.3),
+                                      color: efficialsYellow.withOpacity(0.3),
                                       width: 1),
                                 ),
                                 child: Row(
@@ -363,7 +357,7 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                                     const Icon(
                                       Icons.link,
                                       size: 16,
-                                      color: efficialsBlue,
+                                      color: efficialsYellow,
                                     ),
                                     const SizedBox(width: 6),
                                     Text(
@@ -371,7 +365,7 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                                       style: const TextStyle(
                                         fontSize: 14,
                                         fontWeight: FontWeight.w600,
-                                        color: efficialsBlue,
+                                        color: efficialsYellow,
                                       ),
                                     ),
                                   ],
@@ -434,26 +428,26 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                         calendarStyle: CalendarStyle(
                           outsideDaysVisible: false,
                           todayDecoration: BoxDecoration(
-                            color: efficialsBlue.withOpacity(0.5),
+                            color: efficialsYellow.withOpacity(0.5),
                             shape: BoxShape.rectangle,
                             borderRadius: BorderRadius.circular(4),
                           ),
                           selectedDecoration: BoxDecoration(
-                            color: efficialsBlue,
+                            color: efficialsYellow,
                             shape: BoxShape.rectangle,
                             borderRadius: BorderRadius.circular(4),
                           ),
                           defaultTextStyle: const TextStyle(
-                              fontSize: 16, color: Colors.black),
+                              fontSize: 16, color: Colors.white),
                           weekendTextStyle: const TextStyle(
-                              fontSize: 16, color: Colors.black),
+                              fontSize: 16, color: Colors.white),
                           outsideTextStyle:
                               const TextStyle(fontSize: 16, color: Colors.grey),
                           markersMaxCount: 0,
                         ),
                         daysOfWeekStyle: DaysOfWeekStyle(
-                          weekdayStyle: const TextStyle(fontSize: 14),
-                          weekendStyle: const TextStyle(fontSize: 14),
+                          weekdayStyle: const TextStyle(fontSize: 14, color: Colors.white),
+                          weekendStyle: const TextStyle(fontSize: 14, color: Colors.white),
                           dowTextFormatter: (date, locale) => date.weekday == 7
                               ? 'Sun'
                               : date.weekday == 1
@@ -471,11 +465,11 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                         headerStyle: const HeaderStyle(
                           formatButtonVisible: false,
                           titleTextStyle: TextStyle(
-                              fontSize: 18, fontWeight: FontWeight.bold),
+                              fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
                           leftChevronIcon:
-                              Icon(Icons.chevron_left, color: efficialsBlue),
+                              Icon(Icons.chevron_left, color: efficialsYellow),
                           rightChevronIcon:
-                              Icon(Icons.chevron_right, color: efficialsBlue),
+                              Icon(Icons.chevron_right, color: efficialsYellow),
                           titleCentered: true,
                         ),
                         calendarBuilders: CalendarBuilders(
@@ -492,7 +486,7 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
 
                             Color? backgroundColor;
                             Color textColor =
-                                isOutsideMonth ? Colors.grey : Colors.black;
+                                isOutsideMonth ? Colors.grey : Colors.white;
 
                             if (hasEvents) {
                               bool allAway = true;
@@ -545,10 +539,10 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                                   borderRadius: BorderRadius.circular(4),
                                   border: isSelected && backgroundColor == null
                                       ? Border.all(
-                                          color: efficialsBlue, width: 2)
+                                          color: efficialsYellow, width: 2)
                                       : isToday && backgroundColor == null
                                           ? Border.all(
-                                              color: efficialsBlue, width: 2)
+                                              color: efficialsYellow, width: 2)
                                           : null,
                                 ),
                                 child: Center(
@@ -582,7 +576,7 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                                   ),
                                 ),
                                 const SizedBox(width: 4),
-                                const Text('Away Game'),
+                                const Text('Away Game', style: TextStyle(color: Colors.white)),
                               ],
                             ),
                             const SizedBox(width: 16),
@@ -597,7 +591,7 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                                   ),
                                 ),
                                 const SizedBox(width: 4),
-                                const Text('Fully Hired'),
+                                const Text('Fully Hired', style: TextStyle(color: Colors.white)),
                               ],
                             ),
                             const SizedBox(width: 16),
@@ -612,7 +606,7 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                                   ),
                                 ),
                                 const SizedBox(width: 4),
-                                const Text('Needs Officials'),
+                                const Text('Needs Officials', style: TextStyle(color: Colors.white)),
                               ],
                             ),
                           ],
@@ -637,9 +631,10 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                                   }
                                 });
                               },
-                              activeColor: efficialsBlue,
+                              activeColor: efficialsYellow,
+                              checkColor: efficialsBlack,
                             ),
-                            const Text('Show only games needing officials'),
+                            const Text('Show only games needing officials', style: TextStyle(color: Colors.white)),
                           ],
                         ),
                       ),
@@ -693,6 +688,7 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                                       vertical: 4.0, horizontal: 16.0),
                                   child: Card(
                                     elevation: 2,
+                                    color: darkSurface,
                                     child: Padding(
                                       padding: const EdgeInsets.all(8.0),
                                       child: Row(
@@ -705,7 +701,7 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                                                 Text(
                                                   'Time: $gameTime',
                                                   style: const TextStyle(
-                                                      fontSize: 16),
+                                                      fontSize: 16, color: Colors.white),
                                                 ),
                                                 const SizedBox(height: 4),
                                                 Text(
@@ -722,13 +718,13 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                                                 Text(
                                                   'Location: $location',
                                                   style: const TextStyle(
-                                                      fontSize: 16),
+                                                      fontSize: 16, color: Colors.white),
                                                 ),
                                                 const SizedBox(height: 4),
                                                 Text(
                                                   'Opponent: $opponent',
                                                   style: const TextStyle(
-                                                      fontSize: 16),
+                                                      fontSize: 16, color: Colors.white),
                                                 ),
                                               ],
                                             ),
@@ -737,7 +733,7 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                                             onPressed: () =>
                                                 _createTemplateFromGame(game),
                                             icon: const Icon(Icons.link,
-                                                color: efficialsBlue),
+                                                color: efficialsYellow),
                                             tooltip:
                                                 'Create Template from Game',
                                           ),
@@ -776,9 +772,9 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                 _loadAssociatedTemplate();
               });
             },
-            backgroundColor: efficialsBlack,
+            backgroundColor: Colors.grey[600],
             tooltip: 'Set Template',
-            child: const Icon(Icons.link, color: Colors.white),
+            child: const Icon(Icons.link, color: efficialsYellow),
           ),
           const SizedBox(height: 10),
           FloatingActionButton(
@@ -812,9 +808,9 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                       _fetchGames();
                     });
                   },
-            backgroundColor: _selectedDay == null ? Colors.grey : efficialsBlue,
+            backgroundColor: _selectedDay == null ? Colors.grey[800] : Colors.grey[600],
             tooltip: 'Add Game',
-            child: const Icon(Icons.add, size: 30, color: Colors.white),
+            child: const Icon(Icons.add, size: 30, color: efficialsYellow),
           ),
         ],
       ),

@@ -82,7 +82,7 @@ class _SelectGameTemplateScreenState extends State<SelectGameTemplateScreen> {
     } else {
       final selectedTemplate =
           templates.firstWhere((t) => t.id == selectedTemplateId);
-      
+
       // Handle Coach flow - navigate to date_time with template data
       if (scheduleName == null) {
         // This is likely the Coach flow
@@ -98,11 +98,12 @@ class _SelectGameTemplateScreenState extends State<SelectGameTemplateScreen> {
         // This is the Assigner/Athletic Director flow
         String templateKey;
         if (isAssignerFlow) {
-          templateKey = 'assigner_team_template_${scheduleName!.toLowerCase().replaceAll(' ', '_')}';
+          templateKey =
+              'assigner_team_template_${scheduleName!.toLowerCase().replaceAll(' ', '_')}';
         } else {
           templateKey = 'schedule_template_${scheduleName!.toLowerCase()}';
         }
-        
+
         await prefs.setString(
           templateKey,
           jsonEncode(selectedTemplate.toJson()),
@@ -149,41 +150,44 @@ class _SelectGameTemplateScreenState extends State<SelectGameTemplateScreen> {
       children: [
         const Text(
           'Template Details:',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: efficialsYellow),
         ),
         const SizedBox(height: 10),
         if (template.includeSport && template.sport != null)
           Text('Sport: ${template.sport}',
-              style: const TextStyle(fontSize: 16)),
+              style: const TextStyle(fontSize: 16, color: Colors.white)),
         if (template.includeTime && template.time != null)
           Text('Time: ${template.time!.format(context)}',
-              style: const TextStyle(fontSize: 16)),
+              style: const TextStyle(fontSize: 16, color: Colors.white)),
         if (template.includeLocation && template.location != null)
           Text('Location: ${template.location}',
-              style: const TextStyle(fontSize: 16)),
+              style: const TextStyle(fontSize: 16, color: Colors.white)),
         if (template.includeLevelOfCompetition &&
             template.levelOfCompetition != null)
           Text('Level of Competition: ${template.levelOfCompetition}',
-              style: const TextStyle(fontSize: 16)),
+              style: const TextStyle(fontSize: 16, color: Colors.white)),
         if (template.includeGender && template.gender != null)
           Text('Gender: ${template.gender}',
-              style: const TextStyle(fontSize: 16)),
+              style: const TextStyle(fontSize: 16, color: Colors.white)),
         if (template.includeOfficialsRequired &&
             template.officialsRequired != null)
           Text('Officials Required: ${template.officialsRequired}',
-              style: const TextStyle(fontSize: 16)),
+              style: const TextStyle(fontSize: 16, color: Colors.white)),
         if (template.includeGameFee && template.gameFee != null)
           Text(
               'Game Fee: \$${double.parse(template.gameFee!).toStringAsFixed(2)}',
-              style: const TextStyle(fontSize: 16)),
+              style: const TextStyle(fontSize: 16, color: Colors.white)),
         if (template.includeHireAutomatically &&
             template.hireAutomatically != null)
           Text(
               'Hire Automatically: ${template.hireAutomatically! ? 'Yes' : 'No'}',
-              style: const TextStyle(fontSize: 16)),
+              style: const TextStyle(fontSize: 16, color: Colors.white)),
         if (template.includeOfficialsList && template.officialsListName != null)
           Text('Selected Officials: List Used (${template.officialsListName})',
-              style: const TextStyle(fontSize: 16)),
+              style: const TextStyle(fontSize: 16, color: Colors.white)),
       ],
     );
   }
@@ -197,13 +201,20 @@ class _SelectGameTemplateScreenState extends State<SelectGameTemplateScreen> {
     }
 
     return Scaffold(
+      backgroundColor: darkBackground,
       appBar: AppBar(
         backgroundColor: efficialsBlack,
+        title: const Icon(
+          Icons.sports,
+          color: efficialsYellow,
+          size: 32,
+        ),
+        elevation: 0,
+        centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, size: 36, color: Colors.white),
+          icon: const Icon(Icons.arrow_back, color: efficialsWhite),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text('Select Game Template', style: appBarTextStyle),
       ),
       body: SingleChildScrollView(
         child: Center(
@@ -214,63 +225,115 @@ class _SelectGameTemplateScreenState extends State<SelectGameTemplateScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
+                  const SizedBox(height: 40),
                   const Text(
-                    'Select a template for this schedule.',
+                    'Select Game Template',
                     style: TextStyle(
-                        fontSize: 20,
+                        fontSize: 32,
                         fontWeight: FontWeight.bold,
-                        color: Colors.black),
+                        color: efficialsYellow),
                     textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 20),
-                  isLoading
-                      ? const Center(child: CircularProgressIndicator())
-                      : DropdownButtonFormField<String>(
-                          decoration: textFieldDecoration('Templates'),
-                          value: selectedTemplateId,
-                          hint: const Text('Select a template'),
-                          onChanged: (newValue) {
-                            setState(() {
-                              selectedTemplateId = newValue;
-                              if (newValue == '0') {
-                                _associateTemplate();
-                              }
-                            });
-                          },
-                          items: templates.map((template) {
-                            return DropdownMenuItem(
-                              value: template.id,
-                              child: Text(template.name),
-                            );
-                          }).toList(),
+                  const SizedBox(height: 40),
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: darkSurface,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.3),
+                          blurRadius: 10,
+                          offset: const Offset(0, 2),
                         ),
-                  const SizedBox(height: 20),
-                  if (selectedTemplate != null) ...[
-                    _buildTemplateDetails(selectedTemplate),
-                    const SizedBox(height: 20),
-                  ],
-                  Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      ElevatedButton(
-                        onPressed: selectedTemplateId != null &&
-                                selectedTemplateId != '0'
-                            ? () => _editTemplate(selectedTemplate!)
-                            : null,
-                        style: elevatedButtonStyle(),
-                        child: const Text('Edit', style: signInButtonTextStyle),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        const Text(
+                          'Choose a template to use for games in this schedule, or create a new one.',
+                          style: TextStyle(fontSize: 16, color: Colors.white),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 24),
+                        isLoading
+                            ? const Center(child: CircularProgressIndicator())
+                            : DropdownButtonFormField<String>(
+                                decoration: textFieldDecoration('Templates'),
+                                value: selectedTemplateId,
+                                hint: const Text('Select a template',
+                                    style: TextStyle(color: efficialsGray)),
+                                style: const TextStyle(
+                                    color: Colors.white, fontSize: 16),
+                                dropdownColor: darkSurface,
+                                onChanged: (newValue) {
+                                  setState(() {
+                                    selectedTemplateId = newValue;
+                                    if (newValue == '0') {
+                                      _associateTemplate();
+                                    }
+                                  });
+                                },
+                                items: templates.map((template) {
+                                  return DropdownMenuItem(
+                                    value: template.id,
+                                    child: Text(template.name,
+                                        style: const TextStyle(
+                                            color: Colors.white)),
+                                  );
+                                }).toList(),
+                              ),
+                        if (selectedTemplate != null) ...[
+                          const SizedBox(height: 24),
+                          _buildTemplateDetails(selectedTemplate),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 40),
+                  SizedBox(
+                    width: 200,
+                    child: ElevatedButton(
+                      onPressed: selectedTemplateId != null &&
+                              selectedTemplateId != '0'
+                          ? () => _editTemplate(selectedTemplate!)
+                          : null,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: efficialsBlack,
+                        foregroundColor: Colors.white,
+                        disabledBackgroundColor: Colors.grey[600],
+                        disabledForegroundColor: Colors.black,
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 15, horizontal: 32),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                       ),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: selectedTemplateId != null &&
-                                selectedTemplateId != '0'
-                            ? _associateTemplate
-                            : null,
-                        style: elevatedButtonStyle(),
-                        child: const Text('Continue',
-                            style: signInButtonTextStyle),
+                      child: const Text('Edit', style: signInButtonTextStyle),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: 200,
+                    child: ElevatedButton(
+                      onPressed: selectedTemplateId != null &&
+                              selectedTemplateId != '0'
+                          ? _associateTemplate
+                          : null,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: efficialsBlack,
+                        foregroundColor: Colors.white,
+                        disabledBackgroundColor: Colors.grey[600],
+                        disabledForegroundColor: Colors.black,
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 15, horizontal: 32),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                       ),
-                    ],
+                      child: const Text('Continue', style: signInButtonTextStyle),
+                    ),
                   ),
                 ],
               ),

@@ -142,17 +142,32 @@ class _DateTimeScreenState extends State<DateTimeScreen>
               secondary: efficialsYellow,
               onSecondary: efficialsBlack,
             ),
-            timePickerTheme: const TimePickerThemeData(
+            timePickerTheme: TimePickerThemeData(
               backgroundColor: darkSurface,
               hourMinuteColor: darkBackground,
               hourMinuteTextColor: primaryTextColor,
-              dayPeriodColor: efficialsYellow,
-              dayPeriodTextColor: efficialsBlack,
+              dayPeriodColor: WidgetStateColor.resolveWith((states) {
+                if (states.contains(WidgetState.selected)) {
+                  return efficialsYellow;
+                }
+                return darkBackground;
+              }),
+              dayPeriodTextColor: WidgetStateColor.resolveWith((states) {
+                if (states.contains(WidgetState.selected)) {
+                  return efficialsBlack;
+                }
+                return Colors.white;
+              }),
               dialBackgroundColor: darkBackground,
               dialHandColor: efficialsYellow,
-              dialTextColor: primaryTextColor,
+              dialTextColor: WidgetStateColor.resolveWith((states) {
+                if (states.contains(WidgetState.selected)) {
+                  return efficialsBlack;
+                }
+                return primaryTextColor;
+              }),
               entryModeIconColor: efficialsYellow,
-              helpTextStyle: TextStyle(color: primaryTextColor),
+              helpTextStyle: const TextStyle(color: primaryTextColor),
             ),
           ),
           child: child!,
@@ -363,9 +378,7 @@ class _DateTimeScreenState extends State<DateTimeScreen>
               width: 2,
             ),
             borderRadius: BorderRadius.circular(12),
-            color: isSelected
-                ? efficialsYellow.withOpacity(0.1)
-                : Colors.transparent,
+            color: Colors.transparent,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,

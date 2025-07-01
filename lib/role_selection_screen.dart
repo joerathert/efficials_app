@@ -63,7 +63,7 @@ class RoleSelectionScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 24),
                       SizedBox(
-                        width: double.infinity,
+                        width: 200,
                         child: ElevatedButton(
                           onPressed: () {
                             Navigator.pushNamed(
@@ -71,7 +71,7 @@ class RoleSelectionScreen extends StatelessWidget {
                           },
                           style: elevatedButtonStyle(
                             padding: const EdgeInsets.symmetric(
-                                vertical: 15, horizontal: 50),
+                                vertical: 15, horizontal: 32),
                           ),
                           child: const Text('Scheduler',
                               style: signInButtonTextStyle),
@@ -79,7 +79,7 @@ class RoleSelectionScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 16),
                       SizedBox(
-                        width: double.infinity,
+                        width: 200,
                         child: ElevatedButton(
                           onPressed: () {
                             ScaffoldMessenger.of(context).showSnackBar(
@@ -90,7 +90,7 @@ class RoleSelectionScreen extends StatelessWidget {
                           },
                           style: elevatedButtonStyle(
                             padding: const EdgeInsets.symmetric(
-                                vertical: 15, horizontal: 50),
+                                vertical: 15, horizontal: 32),
                           ),
                           child: const Text('Official',
                               style: signInButtonTextStyle),
