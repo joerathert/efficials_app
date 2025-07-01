@@ -44,6 +44,10 @@ class _SelectGameTemplateScreenState extends State<SelectGameTemplateScreen> {
   Future<void> _fetchTemplates() async {
     final prefs = await SharedPreferences.getInstance();
     final String? templatesJson = prefs.getString('game_templates');
+
+    // Store the current selection before clearing the list
+    final currentSelection = selectedTemplateId;
+
     setState(() {
       templates.clear();
       if (templatesJson != null && templatesJson.isNotEmpty) {
@@ -62,8 +66,17 @@ class _SelectGameTemplateScreenState extends State<SelectGameTemplateScreen> {
         name: '+ Create new template',
         includeSport: false,
       ));
+
+      // Restore the selection if the template still exists
+      if (currentSelection != null &&
+          templates.any((t) => t.id == currentSelection)) {
+        selectedTemplateId = currentSelection;
+      }
+
       isLoading = false;
     });
+    print(
+        'Templates loaded. Count: ${templates.length}, Selected ID: $selectedTemplateId'); // Debug print
   }
 
   Future<void> _associateTemplate() async {
@@ -221,7 +234,12 @@ class _SelectGameTemplateScreenState extends State<SelectGameTemplateScreen> {
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 600),
             child: Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.only(
+                top: 16,
+                left: 16,
+                right: 16,
+                bottom: 100, // Add significant bottom padding
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
@@ -268,12 +286,13 @@ class _SelectGameTemplateScreenState extends State<SelectGameTemplateScreen> {
                                     color: Colors.white, fontSize: 16),
                                 dropdownColor: darkSurface,
                                 onChanged: (newValue) {
+                                  print('Selected template ID: $newValue');
                                   setState(() {
                                     selectedTemplateId = newValue;
-                                    if (newValue == '0') {
-                                      _associateTemplate();
-                                    }
                                   });
+                                  if (newValue == '0') {
+                                    _associateTemplate();
+                                  }
                                 },
                                 items: templates.map((template) {
                                   return DropdownMenuItem(
@@ -292,47 +311,75 @@ class _SelectGameTemplateScreenState extends State<SelectGameTemplateScreen> {
                     ),
                   ),
                   const SizedBox(height: 40),
-                  SizedBox(
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 16),
                     width: 200,
                     child: ElevatedButton(
                       onPressed: selectedTemplateId != null &&
                               selectedTemplateId != '0'
-                          ? () => _editTemplate(selectedTemplate!)
+                          ? () {
+                              print(
+                                  'Edit button pressed. Template ID: $selectedTemplateId');
+                              _editTemplate(selectedTemplate!);
+                            }
                           : null,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: efficialsBlack,
-                        foregroundColor: Colors.white,
-                        disabledBackgroundColor: Colors.grey[600],
-                        disabledForegroundColor: Colors.black,
+                        backgroundColor: selectedTemplateId != null &&
+                                selectedTemplateId != '0'
+                            ? efficialsYellow
+                            : Colors.grey[600],
+                        foregroundColor: selectedTemplateId != null &&
+                                selectedTemplateId != '0'
+                            ? efficialsBlack
+                            : Colors.white,
                         padding: const EdgeInsets.symmetric(
                             vertical: 15, horizontal: 32),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),
-                      child: const Text('Edit', style: signInButtonTextStyle),
+                      child: const Text(
+                        'Edit',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  SizedBox(
+                  Container(
                     width: 200,
                     child: ElevatedButton(
                       onPressed: selectedTemplateId != null &&
                               selectedTemplateId != '0'
-                          ? _associateTemplate
+                          ? () {
+                              print(
+                                  'Continue button pressed. Template ID: $selectedTemplateId');
+                              _associateTemplate();
+                            }
                           : null,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: efficialsBlack,
-                        foregroundColor: Colors.white,
-                        disabledBackgroundColor: Colors.grey[600],
-                        disabledForegroundColor: Colors.black,
+                        backgroundColor: selectedTemplateId != null &&
+                                selectedTemplateId != '0'
+                            ? efficialsYellow
+                            : Colors.grey[600],
+                        foregroundColor: selectedTemplateId != null &&
+                                selectedTemplateId != '0'
+                            ? efficialsBlack
+                            : Colors.white,
                         padding: const EdgeInsets.symmetric(
                             vertical: 15, horizontal: 32),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),
-                      child: const Text('Continue', style: signInButtonTextStyle),
+                      child: const Text(
+                        'Continue',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                   ),
                 ],

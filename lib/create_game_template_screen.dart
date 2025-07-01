@@ -192,6 +192,51 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
     final TimeOfDay? picked = await showTimePicker(
       context: context,
       initialTime: selectedTime ?? TimeOfDay.now(),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            primaryColor: efficialsYellow,
+            colorScheme: const ColorScheme.dark(
+              primary: efficialsYellow,
+              onPrimary: efficialsBlack,
+              surface: darkSurface,
+              onSurface: primaryTextColor,
+              background: darkBackground,
+              onBackground: primaryTextColor,
+              secondary: efficialsYellow,
+              onSecondary: efficialsBlack,
+            ),
+            timePickerTheme: TimePickerThemeData(
+              backgroundColor: darkSurface,
+              hourMinuteColor: darkBackground,
+              hourMinuteTextColor: primaryTextColor,
+              dayPeriodColor: WidgetStateColor.resolveWith((states) {
+                if (states.contains(WidgetState.selected)) {
+                  return efficialsYellow;
+                }
+                return darkBackground;
+              }),
+              dayPeriodTextColor: WidgetStateColor.resolveWith((states) {
+                if (states.contains(WidgetState.selected)) {
+                  return efficialsBlack;
+                }
+                return Colors.white;
+              }),
+              dialBackgroundColor: darkBackground,
+              dialHandColor: efficialsYellow,
+              dialTextColor: WidgetStateColor.resolveWith((states) {
+                if (states.contains(WidgetState.selected)) {
+                  return efficialsBlack;
+                }
+                return primaryTextColor;
+              }),
+              entryModeIconColor: efficialsYellow,
+              helpTextStyle: const TextStyle(color: primaryTextColor),
+            ),
+          ),
+          child: child!,
+        );
+      },
     );
     if (picked != null && picked != selectedTime) {
       setState(() {
@@ -403,9 +448,13 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text('Template Configuration',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: efficialsYellow)),
+                style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: efficialsYellow)),
             const SizedBox(height: 8),
-            const Text('Checkboxes indicate which fields will be included in the template',
+            const Text(
+                'Checkboxes indicate which fields will be included in the template',
                 style: TextStyle(fontSize: 14, color: Colors.grey)),
             const SizedBox(height: 16),
             TextField(
@@ -425,8 +474,11 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Basic Information', 
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white)),
+                  const Text('Basic Information',
+                      style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white)),
                   const SizedBox(height: 16),
                   _buildFieldRow('Sport', sport ?? 'Unknown', (value) {},
                       isEditable: false, isCheckboxEnabled: false),
@@ -434,7 +486,8 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                     children: [
                       Checkbox(
                         value: includeTime,
-                        onChanged: (value) => setState(() => includeTime = value!),
+                        onChanged: (value) =>
+                            setState(() => includeTime = value!),
                         activeColor: efficialsYellow,
                         checkColor: efficialsBlack,
                       ),
@@ -450,9 +503,11 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                                   selectedTime == null
                                       ? 'Time: Select Time'
                                       : 'Time: ${selectedTime!.format(context)}',
-                                  style: const TextStyle(fontSize: 16, color: Colors.white),
+                                  style: const TextStyle(
+                                      fontSize: 16, color: Colors.white),
                                 ),
-                                const Icon(Icons.access_time, color: efficialsYellow),
+                                const Icon(Icons.access_time,
+                                    color: efficialsYellow),
                               ],
                             ),
                           ),
@@ -476,8 +531,8 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                             : DropdownButtonFormField<String>(
                                 decoration: textFieldDecoration('Location'),
                                 value: location != null &&
-                                        locations
-                                            .any((loc) => loc['name'] == location)
+                                        locations.any(
+                                            (loc) => loc['name'] == location)
                                     ? location
                                     : null,
                                 hint: locations.isEmpty ||
@@ -487,7 +542,8 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                                         style: TextStyle(color: Colors.grey))
                                     : const Text('Select location',
                                         style: TextStyle(color: efficialsGray)),
-                                style: const TextStyle(color: Colors.white, fontSize: 16),
+                                style: const TextStyle(
+                                    color: Colors.white, fontSize: 16),
                                 dropdownColor: darkSurface,
                                 onChanged: (newValue) {
                                   if (newValue == null) return;
@@ -500,7 +556,8 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                                           final newLoc =
                                               result as Map<String, dynamic>;
                                           setState(() {
-                                            locations.insert(locations.length - 1, {
+                                            locations
+                                                .insert(locations.length - 1, {
                                               'name': newLoc['name'],
                                               'address': newLoc['address'],
                                               'city': newLoc['city'],
@@ -523,7 +580,9 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                                 items: locations.map((loc) {
                                   return DropdownMenuItem(
                                     value: loc['name'] as String,
-                                    child: Text(loc['name'] as String, style: const TextStyle(color: Colors.white)),
+                                    child: Text(loc['name'] as String,
+                                        style: const TextStyle(
+                                            color: Colors.white)),
                                   );
                                 }).toList(),
                               ),
@@ -545,8 +604,11 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Game Details', 
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white)),
+                  const Text('Game Details',
+                      style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white)),
                   const SizedBox(height: 16),
                   Row(
                     children: [
@@ -559,11 +621,14 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                       ),
                       Expanded(
                         child: DropdownButtonFormField<String>(
-                          decoration: textFieldDecoration('Level of Competition'),
+                          decoration:
+                              textFieldDecoration('Level of Competition'),
                           value: levelOfCompetition,
                           hint: const Text('Level of Competition',
-                              style: TextStyle(fontSize: 16, color: efficialsGray)),
-                          style: const TextStyle(fontSize: 16, color: Colors.white),
+                              style: TextStyle(
+                                  fontSize: 16, color: efficialsGray)),
+                          style: const TextStyle(
+                              fontSize: 16, color: Colors.white),
                           dropdownColor: darkSurface,
                           onChanged: (value) {
                             setState(() {
@@ -574,8 +639,9 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                           items: competitionLevels.map((level) {
                             return DropdownMenuItem(
                               value: level,
-                              child:
-                                  Text(level, style: const TextStyle(fontSize: 16, color: Colors.white)),
+                              child: Text(level,
+                                  style: const TextStyle(
+                                      fontSize: 16, color: Colors.white)),
                             );
                           }).toList(),
                         ),
@@ -587,7 +653,8 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                     children: [
                       Checkbox(
                         value: includeGender,
-                        onChanged: (value) => setState(() => includeGender = value!),
+                        onChanged: (value) =>
+                            setState(() => includeGender = value!),
                         activeColor: efficialsYellow,
                         checkColor: efficialsBlack,
                       ),
@@ -595,14 +662,19 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                         child: DropdownButtonFormField<String>(
                           decoration: textFieldDecoration('Gender'),
                           value: gender,
-                          hint: const Text('Gender', style: TextStyle(fontSize: 16, color: efficialsGray)),
-                          style: const TextStyle(fontSize: 16, color: Colors.white),
+                          hint: const Text('Gender',
+                              style: TextStyle(
+                                  fontSize: 16, color: efficialsGray)),
+                          style: const TextStyle(
+                              fontSize: 16, color: Colors.white),
                           dropdownColor: darkSurface,
                           onChanged: (value) => setState(() => gender = value),
                           items: currentGenders.map((g) {
                             return DropdownMenuItem(
                               value: g,
-                              child: Text(g, style: const TextStyle(fontSize: 16, color: Colors.white)),
+                              child: Text(g,
+                                  style: const TextStyle(
+                                      fontSize: 16, color: Colors.white)),
                             );
                           }).toList(),
                         ),
@@ -621,11 +693,14 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                       ),
                       Expanded(
                         child: DropdownButtonFormField<int>(
-                          decoration: textFieldDecoration('# of Officials Required'),
+                          decoration:
+                              textFieldDecoration('# of Officials Required'),
                           value: officialsRequired,
                           hint: const Text('# of Officials Required',
-                              style: TextStyle(fontSize: 16, color: efficialsGray)),
-                          style: const TextStyle(fontSize: 16, color: Colors.white),
+                              style: TextStyle(
+                                  fontSize: 16, color: efficialsGray)),
+                          style: const TextStyle(
+                              fontSize: 16, color: Colors.white),
                           dropdownColor: darkSurface,
                           onChanged: (value) =>
                               setState(() => officialsRequired = value),
@@ -633,7 +708,8 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                             return DropdownMenuItem(
                               value: num,
                               child: Text(num.toString(),
-                                  style: const TextStyle(fontSize: 16, color: Colors.white)),
+                                  style: const TextStyle(
+                                      fontSize: 16, color: Colors.white)),
                             );
                           }).toList(),
                         ),
@@ -655,14 +731,18 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Financial & Hiring', 
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white)),
+                  const Text('Financial & Hiring',
+                      style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white)),
                   const SizedBox(height: 16),
                   Row(
                     children: [
                       Checkbox(
                         value: includeGameFee,
-                        onChanged: (value) => setState(() => includeGameFee = value!),
+                        onChanged: (value) =>
+                            setState(() => includeGameFee = value!),
                         activeColor: efficialsYellow,
                         checkColor: efficialsBlack,
                       ),
@@ -670,7 +750,8 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                         child: TextField(
                           controller: _gameFeeController,
                           decoration:
-                              textFieldDecoration('Game Fee per Official').copyWith(
+                              textFieldDecoration('Game Fee per Official')
+                                  .copyWith(
                             prefixText: '\$',
                             prefixStyle: const TextStyle(
                                 color: Colors.white, fontSize: 16),
@@ -678,10 +759,12 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                           ),
                           keyboardType: TextInputType.number,
                           inputFormatters: [
-                            FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                            FilteringTextInputFormatter.allow(
+                                RegExp(r'[0-9.]')),
                             LengthLimitingTextInputFormatter(7),
                           ],
-                          style: const TextStyle(fontSize: 16, color: Colors.white),
+                          style: const TextStyle(
+                              fontSize: 16, color: Colors.white),
                         ),
                       ),
                     ],
@@ -700,7 +783,8 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                         child: Row(
                           children: [
                             const Text('Hire Automatically: ',
-                                style: TextStyle(fontSize: 16, color: Colors.white)),
+                                style: TextStyle(
+                                    fontSize: 16, color: Colors.white)),
                             Switch(
                               value: hireAutomatically,
                               onChanged: (value) =>
@@ -708,7 +792,8 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                               activeColor: efficialsYellow,
                             ),
                             Text(hireAutomatically ? 'Yes' : 'No',
-                                style: const TextStyle(fontSize: 16, color: Colors.white)),
+                                style: const TextStyle(
+                                    fontSize: 16, color: Colors.white)),
                           ],
                         ),
                       ),
@@ -729,8 +814,11 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Officials Assignment', 
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white)),
+                  const Text('Officials Assignment',
+                      style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white)),
                   const SizedBox(height: 16),
                   Row(
                     children: [
@@ -754,7 +842,8 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                                     selectedListName == null
                                         ? 'Selected Officials: List Used'
                                         : 'Selected Officials: List Used ($selectedListName)',
-                                    style: const TextStyle(fontSize: 16, color: Colors.white),
+                                    style: const TextStyle(
+                                        fontSize: 16, color: Colors.white),
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),

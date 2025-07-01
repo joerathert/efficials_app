@@ -81,6 +81,9 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
         games.sort(
             (a, b) => (a['date'] as DateTime).compareTo(b['date'] as DateTime));
         _focusedDay = games.first['date'] as DateTime;
+        // Auto-select the first day with games and show its games
+        _selectedDay = _focusedDay;
+        _selectedDayGames = _getGamesForDay(_selectedDay!);
       } else {
         _focusedDay = DateTime.now();
       }
@@ -645,6 +648,7 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                           child: ListView.builder(
                             shrinkWrap: true,
                             itemCount: _selectedDayGames.length,
+                            padding: const EdgeInsets.only(bottom: 140), // Add bottom padding to prevent FAB overlap
                             itemBuilder: (context, index) {
                               final game = _selectedDayGames[index];
                               final gameTime = game['time'] != null
@@ -693,6 +697,14 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                                       padding: const EdgeInsets.all(8.0),
                                       child: Row(
                                         children: [
+                                          IconButton(
+                                            onPressed: () =>
+                                                _createTemplateFromGame(game),
+                                            icon: const Icon(Icons.link,
+                                                color: efficialsYellow),
+                                            tooltip:
+                                                'Create Template from Game',
+                                          ),
                                           Expanded(
                                             child: Column(
                                               crossAxisAlignment:
@@ -728,14 +740,6 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                                                 ),
                                               ],
                                             ),
-                                          ),
-                                          IconButton(
-                                            onPressed: () =>
-                                                _createTemplateFromGame(game),
-                                            icon: const Icon(Icons.link,
-                                                color: efficialsYellow),
-                                            tooltip:
-                                                'Create Template from Game',
                                           ),
                                         ],
                                       ),

@@ -304,6 +304,5 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
         ),
       ),
     );
-    );
   }
 }

@@ -155,6 +155,34 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
     }
   }
 
+  Future<void> _createTemplateFromGame() async {
+    // Navigate to the create game template screen with the game data pre-filled
+    final result = await Navigator.pushNamed(
+      context,
+      '/create_game_template',
+      arguments: {
+        'scheduleName': scheduleName,
+        'sport': sport,
+        'time': selectedTime, // TimeOfDay object
+        'location': location,
+        'locationData': args['locationData'], // Location details if available
+        'levelOfCompetition': levelOfCompetition,
+        'gender': gender,
+        'officialsRequired': officialsRequired,
+        'gameFee': gameFee != 'Not set' ? gameFee : null,
+        'hireAutomatically': hireAutomatically,
+        'selectedListName': args['selectedListName'] as String?,
+        'isAway': isAwayGame,
+      },
+    );
+
+    if (result != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Game template created successfully!')),
+      );
+    }
+  }
+
   Future<void> _confirmHires() async {
     final selectedCount = selectedForHire.values.where((v) => v).length;
     if (selectedCount == 0) {
@@ -382,16 +410,24 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const Text('Game Details', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: efficialsYellow)),
-                    TextButton(
-                      onPressed: () => Navigator.pushNamed(
-                        context,
-                        '/edit_game_info',
-                        arguments: {
-                          ...args,
-                          'isEdit': true,
-                          'isFromGameInfo': true,
-                        },
-                      ).then((result) {
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          onPressed: _createTemplateFromGame,
+                          icon: const Icon(Icons.link, color: efficialsYellow),
+                          tooltip: 'Create Template from Game',
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.pushNamed(
+                            context,
+                            '/edit_game_info',
+                            arguments: {
+                              ...args,
+                              'isEdit': true,
+                              'isFromGameInfo': true,
+                            },
+                          ).then((result) {
                         if (result != null && result is Map<String, dynamic>) {
                           setState(() {
                             args = result;
@@ -463,6 +499,8 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                         }
                       }),
                       child: const Text('Edit', style: TextStyle(color: efficialsYellow, fontSize: 18)),
+                    ),
+                      ],
                     ),
                   ],
                 ),

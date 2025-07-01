@@ -9,7 +9,8 @@
       "Bash(grep:*)",
       "Bash(flutter run:*)",
       "Bash(flutter:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(dart:*)"
     ],
     "deny": []
   }
