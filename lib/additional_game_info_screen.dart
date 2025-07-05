@@ -189,6 +189,7 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
       'selectedOfficials':
           args['selectedOfficials'] ?? <Map<String, dynamic>>[],
       'template': template,
+      'sport': template?.includeSport == true ? template?.sport : args['sport'],
       'fromScheduleDetails': args['fromScheduleDetails'] ?? false,
       'scheduleId': args['scheduleId'],
       'scheduleName': args['scheduleName'],
