@@ -538,8 +538,14 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       bottomNavigationBar: filtersApplied || initialOfficials.isNotEmpty
-          ? Padding(
-              padding: const EdgeInsets.all(32),
+          ? Container(
+              color: efficialsBlack,
+              padding: EdgeInsets.only(
+                left: 32,
+                right: 32,
+                top: 32,
+                bottom: MediaQuery.of(context).padding.bottom + 32,
+              ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [

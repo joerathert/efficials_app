@@ -859,15 +859,21 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
               ),
             ),
             const SizedBox(height: 24),
-            Center(
-              child: ElevatedButton(
-                onPressed: _saveTemplate,
-                style: elevatedButtonStyle(),
-                child:
-                    const Text('Save Template', style: signInButtonTextStyle),
-              ),
-            ),
           ],
+        ),
+      ),
+      bottomNavigationBar: Container(
+        color: efficialsBlack,
+        padding: EdgeInsets.only(
+          left: 32,
+          right: 32,
+          top: 16,
+          bottom: MediaQuery.of(context).padding.bottom + 16,
+        ),
+        child: ElevatedButton(
+          onPressed: _saveTemplate,
+          style: elevatedButtonStyle(),
+          child: const Text('Save Template', style: signInButtonTextStyle),
         ),
       ),
     );

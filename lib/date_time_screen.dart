@@ -297,7 +297,11 @@ class _DateTimeScreenState extends State<DateTimeScreen>
                   const Spacer(),
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    padding: EdgeInsets.only(
+                      left: 20,
+                      right: 20,
+                      bottom: MediaQuery.of(context).padding.bottom + 16,
+                    ),
                     child: ElevatedButton(
                       onPressed:
                           (_selectedDate != null && _selectedTime != null)

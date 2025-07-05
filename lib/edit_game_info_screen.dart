@@ -109,7 +109,9 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
         : '0';
     final gameFee = args['gameFee'] != null ? args['gameFee'].toString() : 'Not set';
     final hireAutomatically = args['hireAutomatically'] as bool? ?? false;
-    final selectedOfficials = args['selectedOfficials'] as List<Map<String, dynamic>>? ?? [];
+    final selectedOfficials = (args['selectedOfficials'] as List<dynamic>?)
+        ?.map((e) => Map<String, dynamic>.from(e as Map))
+        .toList() ?? [];
 
     return Scaffold(
       key: _scaffoldKey,
