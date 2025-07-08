@@ -133,10 +133,9 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
           _gameFeeController.text = args['gameFee']?.toString() ?? '';
           _hireAutomatically = args['hireAutomatically'] as bool? ?? false;
         }
-        // Opponent field should never be populated from templates
-        // Only use args opponent if not coming from template flow
-        _opponentController.text =
-            template == null ? (args['opponent'] as String? ?? '') : '';
+        // Opponent field should never be populated from templates initially
+        // But should preserve existing opponent value from args (e.g., during edit flow)
+        _opponentController.text = args['opponent'] as String? ?? '';
       }
       _isInitialized = true;
     }
@@ -197,6 +196,7 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
 
     print(
         'AdditionalGameInfoScreen _handleContinue - Navigating to: ${_isAwayGame ? '/review_game_info' : '/select_officials'}');
+    print('AdditionalGameInfoScreen _handleContinue - Opponent: ${_opponentController.text.trim()}');
     Navigator.pushNamed(
       context,
       _isAwayGame ? '/review_game_info' : '/select_officials',

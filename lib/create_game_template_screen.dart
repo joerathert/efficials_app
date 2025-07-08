@@ -125,6 +125,7 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
             _gameFeeController.text = args['gameFee']?.toString() ?? '';
             hireAutomatically = args['hireAutomatically'] as bool? ?? false;
             selectedListName = args['selectedListName'] as String?;
+            includeOfficialsList = selectedListName != null;
             if (args['time'] != null) {
               if (args['time'] is TimeOfDay) {
                 selectedTime = args['time'] as TimeOfDay;
@@ -844,7 +845,7 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                                         : 'Selected Officials: List Used ($selectedListName)',
                                     style: const TextStyle(
                                         fontSize: 16, color: Colors.white),
-                                    overflow: TextOverflow.ellipsis,
+                                    softWrap: true,
                                   ),
                                 ),
                                 const Icon(Icons.list, color: efficialsYellow),

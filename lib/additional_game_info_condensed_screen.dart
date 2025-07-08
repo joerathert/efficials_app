@@ -79,6 +79,7 @@ class _AdditionalGameInfoCondensedScreenState
           _hireAutomatically = args['hireAutomatically'] as bool? ?? false;
         }
         _opponentController.text = args['opponent'] as String? ?? '';
+        print('AdditionalGameInfoCondensedScreen - Setting opponent to: ${args['opponent']}');
       }
       _isInitialized = true;
     }

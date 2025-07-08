@@ -14,6 +14,7 @@ class UnpublishedGamesScreen extends StatefulWidget {
 
 class _UnpublishedGamesScreenState extends State<UnpublishedGamesScreen> {
   List<Map<String, dynamic>> unpublishedGames = [];
+  Set<int> selectedGameIds = {}; // Track selected game IDs
   bool isLoading = true;
   String? userRole;
   String unpublishedGamesKey = 'ad_unpublished_games'; // Default to AD
@@ -117,31 +118,113 @@ class _UnpublishedGamesScreenState extends State<UnpublishedGamesScreen> {
     await prefs.setString(unpublishedGamesKey, jsonEncode(gamesToSave));
   }
 
+  Future<void> _publishSelectedGames() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    // Get existing published games
+    final String? publishedGamesJson = prefs.getString('published_games');
+    List<Map<String, dynamic>> publishedGames = [];
+    if (publishedGamesJson != null && publishedGamesJson.isNotEmpty) {
+      publishedGames =
+          List<Map<String, dynamic>>.from(jsonDecode(publishedGamesJson));
+    }
+
+    // Add selected games to published games
+    final gamesToPublish = unpublishedGames
+        .where((game) => selectedGameIds.contains(game['id']))
+        .toList();
+    for (var game in gamesToPublish) {
+      final gameCopy = Map<String, dynamic>.from(game);
+      if (gameCopy['date'] != null) {
+        gameCopy['date'] = (gameCopy['date'] as DateTime).toIso8601String();
+      }
+      if (gameCopy['time'] != null) {
+        final time = gameCopy['time'] as TimeOfDay;
+        gameCopy['time'] = '${time.hour}:${time.minute}';
+      }
+      gameCopy['status'] = 'Published';
+      gameCopy['createdAt'] = DateTime.now().toIso8601String();
+      publishedGames.add(gameCopy);
+    }
+
+    // Save updated published games
+    await prefs.setString('published_games', jsonEncode(publishedGames));
+
+    // Remove published games from unpublished list
+    unpublishedGames
+        .removeWhere((game) => selectedGameIds.contains(game['id']));
+    await _saveUnpublishedGames();
+
+    setState(() {
+      selectedGameIds.clear();
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+            '${gamesToPublish.length} game${gamesToPublish.length == 1 ? '' : 's'} published successfully!'),
+      ),
+    );
+  }
+
   void _showDeleteConfirmationDialog(int gameId, String gameTitle) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Confirm Delete'),
-        content: Text('Are you sure you want to delete "$gameTitle"?'),
+        backgroundColor: darkSurface,
+        title: const Text(
+          'Confirm Delete',
+          style: TextStyle(
+            color: efficialsYellow,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: Text(
+          'Are you sure you want to delete "$gameTitle"?',
+          style: const TextStyle(
+            color: primaryTextColor,
+            fontSize: 16,
+          ),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel', style: TextStyle(color: efficialsBlue)),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(
+                color: efficialsYellow,
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
           ),
           TextButton(
             onPressed: () {
               Navigator.pop(context);
               _deleteGame(gameId);
             },
-            child: const Text('Delete', style: TextStyle(color: efficialsBlue)),
+            child: const Text(
+              'Delete',
+              style: TextStyle(
+                color: efficialsYellow,
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
           ),
         ],
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final hasSelectedGames = selectedGameIds.isNotEmpty;
+
     return Scaffold(
       backgroundColor: darkBackground,
       appBar: AppBar(
@@ -164,13 +247,48 @@ class _UnpublishedGamesScreenState extends State<UnpublishedGamesScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Draft Games',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: primaryTextColor,
-                ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Draft Games',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: primaryTextColor,
+                    ),
+                  ),
+                  if (!unpublishedGames.isEmpty)
+                    Row(
+                      children: [
+                        Checkbox(
+                          value: selectedGameIds.length ==
+                                  unpublishedGames.length &&
+                              unpublishedGames.isNotEmpty,
+                          onChanged: (bool? value) {
+                            setState(() {
+                              if (value == true) {
+                                selectedGameIds = unpublishedGames
+                                    .map((g) => g['id'] as int)
+                                    .toSet();
+                              } else {
+                                selectedGameIds.clear();
+                              }
+                            });
+                          },
+                          activeColor: efficialsYellow,
+                          checkColor: efficialsBlack,
+                        ),
+                        const Text(
+                          'Select All',
+                          style: TextStyle(
+                            color: primaryTextColor,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
+                    ),
+                ],
               ),
               const SizedBox(height: 10),
               const Text(
@@ -219,6 +337,7 @@ class _UnpublishedGamesScreenState extends State<UnpublishedGamesScreen> {
                             itemCount: unpublishedGames.length,
                             itemBuilder: (context, index) {
                               final game = unpublishedGames[index];
+                              final gameId = game['id'] as int;
                               final sport =
                                   game['sport'] as String? ?? 'Unknown';
                               final scheduleName =
@@ -281,6 +400,21 @@ class _UnpublishedGamesScreenState extends State<UnpublishedGamesScreen> {
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
+                                        Checkbox(
+                                          value:
+                                              selectedGameIds.contains(gameId),
+                                          onChanged: (bool? value) {
+                                            setState(() {
+                                              if (value == true) {
+                                                selectedGameIds.add(gameId);
+                                              } else {
+                                                selectedGameIds.remove(gameId);
+                                              }
+                                            });
+                                          },
+                                          activeColor: efficialsYellow,
+                                          checkColor: efficialsBlack,
+                                        ),
                                         Container(
                                           padding: const EdgeInsets.all(8),
                                           decoration: BoxDecoration(
@@ -316,7 +450,7 @@ class _UnpublishedGamesScreenState extends State<UnpublishedGamesScreen> {
                                                     : '$gameTime - $scheduleName',
                                                 style: const TextStyle(
                                                     fontSize: 16,
-                                                    color: Colors.black),
+                                                    color: primaryTextColor),
                                               ),
                                               if (opponentDisplay != null) ...[
                                                 const SizedBox(height: 4),
@@ -425,6 +559,33 @@ class _UnpublishedGamesScreenState extends State<UnpublishedGamesScreen> {
           ),
         ),
       ),
+      floatingActionButton: hasSelectedGames
+          ? Container(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+              margin: EdgeInsets.only(
+                  bottom: MediaQuery.of(context).padding.bottom + 16),
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _publishSelectedGames,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: efficialsYellow,
+                  foregroundColor: efficialsBlack,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: Text(
+                  'Publish ${selectedGameIds.length} Game${selectedGameIds.length == 1 ? '' : 's'}',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            )
+          : null,
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
   }
 }

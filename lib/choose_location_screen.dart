@@ -71,6 +71,7 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
             'location': template!.location,
             'isAwayGame': isAwayGame,
             'template': template,
+            'opponent': args['opponent'] ?? '', // Preserve opponent from args
           };
           final isCoach = args['teamName'] != null; // Detect Coach flow
           Navigator.pushReplacementNamed(
@@ -213,7 +214,8 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                             hint: const Text('Select a location',
                                 style: TextStyle(color: efficialsGray)),
                             dropdownColor: darkSurface,
-                            style: const TextStyle(color: Colors.white, fontSize: 16),
+                            style: const TextStyle(
+                                color: Colors.white, fontSize: 16),
                             onChanged: (newValue) {
                               if (newValue == null) return;
                               setState(() {
@@ -282,9 +284,11 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                       });
                     },
                     style: elevatedButtonStyle(
-                      padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 32),
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 15, horizontal: 32),
                     ),
-                    child: const Text('Edit Location', style: signInButtonTextStyle),
+                    child: const Text('Edit Location',
+                        style: signInButtonTextStyle),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -300,12 +304,17 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.red,
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 32),
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 15, horizontal: 32),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    child: const Text('Delete Location', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600)),
+                    child: const Text('Delete Location',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600)),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -313,49 +322,61 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
               SizedBox(
                 width: 200,
                 child: ElevatedButton(
-                onPressed: (selectedLocation != null &&
-                        selectedLocation != '+ Create new location')
-                    ? () {
-                        final selected = locations.firstWhere(
-                            (l) => l['name'] == selectedLocation);
-                        final isAwayGame = selectedLocation == 'Away Game';
-                        final nextArgs = {
-                          ...args, // Spread all original args to preserve parameters like isAssignerFlow
-                          'location':
-                              isAwayGame ? 'Away Game' : selected['name'],
-                          'locationData': isAwayGame ? null : selected,
-                          'isAwayGame': isAwayGame,
-                          'template': template,
-                        };
-                        print('Continue - Args: $nextArgs');
-                        final isCoach =
-                            args['teamName'] != null; // Detect Coach flow
-                        Navigator.pushNamed(
-                          context,
-                          isCoach
-                              ? '/additional_game_info_condensed'
-                              : '/additional_game_info',
-                          arguments: nextArgs,
-                        );
-                      }
-                    : null,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: efficialsYellow,
-                  foregroundColor: efficialsBlack,
-                  disabledBackgroundColor: Colors.grey[600],
-                  disabledForegroundColor: Colors.grey[300],
-                  padding: const EdgeInsets.symmetric(
-                      vertical: 15, horizontal: 50),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                  onPressed: (selectedLocation != null &&
+                          selectedLocation != '+ Create new location')
+                      ? () {
+                          final selected = locations
+                              .firstWhere((l) => l['name'] == selectedLocation);
+                          final isAwayGame = selectedLocation == 'Away Game';
+                          final nextArgs = {
+                            ...args, // Spread all original args to preserve parameters like isAssignerFlow
+                            'location':
+                                isAwayGame ? 'Away Game' : selected['name'],
+                            'locationData': isAwayGame ? null : selected,
+                            'isAwayGame': isAwayGame,
+                            'template': template,
+                            // Ensure we preserve all existing args
+                            'opponent': args['opponent'] ?? '', // Explicitly preserve opponent with fallback
+                            'levelOfCompetition': args['levelOfCompetition'],
+                            'gender': args['gender'],
+                            'officialsRequired': args['officialsRequired'],
+                            'gameFee': args['gameFee'],
+                            'hireAutomatically': args['hireAutomatically'],
+                            'selectedOfficials': args['selectedOfficials'],
+                            'method': args['method'],
+                            'selectedListName': args['selectedListName'],
+                            'selectedLists': args['selectedLists'],
+                          };
+                          print('Continue - Args: $nextArgs');
+                          print('Continue - Opponent: ${nextArgs['opponent']}');
+                          final isCoach =
+                              args['teamName'] != null; // Detect Coach flow
+                          Navigator.pushNamed(
+                            context,
+                            isCoach
+                                ? '/additional_game_info_condensed'
+                                : '/additional_game_info',
+                            arguments: nextArgs,
+                          );
+                        }
+                      : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: efficialsYellow,
+                    foregroundColor: efficialsBlack,
+                    disabledBackgroundColor: Colors.grey[600],
+                    disabledForegroundColor: Colors.grey[300],
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 15, horizontal: 50),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
-                ),
-                child: const Text('Continue',
-                    style: TextStyle(
-                      color: efficialsBlack,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    )),
+                  child: const Text('Continue',
+                      style: TextStyle(
+                        color: efficialsBlack,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      )),
                 ),
               ),
             ],

@@ -227,7 +227,7 @@ class _DateTimeScreenState extends State<DateTimeScreen>
                   const Text(
                     'When will the game be played?',
                     style: TextStyle(
-                      fontSize: 24,
+                      fontSize: 32,
                       fontWeight: FontWeight.bold,
                       color: efficialsYellow,
                     ),
@@ -255,7 +255,8 @@ class _DateTimeScreenState extends State<DateTimeScreen>
                           child: Text(
                             _formatDateTime(),
                             style: TextStyle(
-                              fontSize: 20,
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
                               color:
                                   _selectedDate != null && _selectedTime != null
                                       ? primaryTextColor
@@ -294,14 +295,10 @@ class _DateTimeScreenState extends State<DateTimeScreen>
                       ],
                     ),
                   ),
-                  const Spacer(),
+                  const SizedBox(height: 40),
                   Container(
                     width: double.infinity,
-                    padding: EdgeInsets.only(
-                      left: 20,
-                      right: 20,
-                      bottom: MediaQuery.of(context).padding.bottom + 16,
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: ElevatedButton(
                       onPressed:
                           (_selectedDate != null && _selectedTime != null)
@@ -353,7 +350,6 @@ class _DateTimeScreenState extends State<DateTimeScreen>
                       ),
                     ),
                   ),
-                  const SizedBox(height: 20),
                 ],
               ),
             ),
@@ -375,7 +371,7 @@ class _DateTimeScreenState extends State<DateTimeScreen>
         onTap: onPressed,
         borderRadius: BorderRadius.circular(12),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 16),
+          padding: const EdgeInsets.symmetric(vertical: 14),
           decoration: BoxDecoration(
             border: Border.all(
               color: isSelected ? efficialsYellow : secondaryTextColor,
@@ -390,14 +386,14 @@ class _DateTimeScreenState extends State<DateTimeScreen>
               Icon(
                 icon,
                 color: isSelected ? efficialsYellow : secondaryTextColor,
-                size: 28,
+                size: 24,
               ),
               const SizedBox(height: 8),
               Text(
                 label,
                 style: TextStyle(
                   color: isSelected ? efficialsYellow : secondaryTextColor,
-                  fontSize: 16,
+                  fontSize: 14,
                   fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                 ),
               ),

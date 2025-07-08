@@ -60,224 +60,304 @@ class _SportTemplatesScreenState extends State<SportTemplatesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final templateNames = templates.map((t) => t.name).toList()
-      ..add('+ Create new template');
-    // Find the selected template to display its details
-    GameTemplate? selectedTemplateDetails;
-    if (selectedTemplate != null &&
-        selectedTemplate != '+ Create new template') {
-      selectedTemplateDetails =
-          templates.firstWhere((t) => t.name == selectedTemplate);
-    }
-
     return Scaffold(
+      backgroundColor: darkBackground,
       appBar: AppBar(
         backgroundColor: efficialsBlack,
-        title: Text('$sport Templates', style: appBarTextStyle),
+        title: const Icon(
+          Icons.sports,
+          color: efficialsYellow,
+          size: 32,
+        ),
+        elevation: 0,
+        centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: efficialsWhite),
+          onPressed: () => Navigator.pop(context),
+        ),
       ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 600),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.start, // Align to top
-              crossAxisAlignment:
-                  CrossAxisAlignment.center, // Center horizontally
-              children: [
-                const SizedBox(height: 20), // Space below AppBar
-                isLoading
-                    ? const Center(child: CircularProgressIndicator())
-                    : templates.isEmpty
-                        ? const Center(
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const SizedBox(height: 40),
+              const Text(
+                'Select a Game Template',
+                style: TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                  color: efficialsYellow,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 40),
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: darkSurface,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.3),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Which Template would you like to use?',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: primaryTextColor,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 24),
+                    DropdownButtonFormField<String>(
+                      value: selectedTemplate,
+                      decoration: textFieldDecoration('Choose template'),
+                      dropdownColor: darkSurface,
+                      items: [
+                        ...templates.map((template) {
+                          return DropdownMenuItem(
+                            value: template.name,
                             child: Text(
-                              'No templates for this sport. Create a new template to get started.',
-                              textAlign: TextAlign.center,
+                              template.name ?? 'Unnamed Template',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                              ),
                             ),
-                          )
-                        : Column(
-                            crossAxisAlignment: CrossAxisAlignment
-                                .center, // Center horizontally
-                            children: [
-                              DropdownButtonFormField<String>(
-                                decoration: textFieldDecoration('Templates'),
-                                value: selectedTemplate,
-                                hint: const Text(
-                                  'Select a template',
-                                  style: TextStyle(color: Colors.grey),
-                                ),
-                                onChanged: _onTemplateSelected,
-                                items: templateNames.map((name) {
-                                  return DropdownMenuItem<String>(
-                                    value: name,
-                                    child: Text(name),
-                                  );
-                                }).toList(),
-                              ),
-                              const SizedBox(height: 20),
-                              // Display template details if a template is selected
-                              if (selectedTemplateDetails != null) ...[
-                                const Text(
-                                  'Template Details',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                const SizedBox(height: 10),
-                                Container(
-                                  padding: const EdgeInsets.all(16),
-                                  decoration: BoxDecoration(
-                                    color: darkSurface,
-                                    borderRadius: BorderRadius.circular(8),
-                                    border:
-                                        Border.all(color: Colors.grey[300]!),
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      if (selectedTemplateDetails
-                                              .includeSport &&
-                                          selectedTemplateDetails.sport != null)
-                                        _buildDetailRow(
-                                          'Sport',
-                                          selectedTemplateDetails.sport!,
-                                        ),
-                                      if (selectedTemplateDetails
-                                              .includeLocation &&
-                                          selectedTemplateDetails.location !=
-                                              null)
-                                        _buildDetailRow(
-                                          'Location',
-                                          selectedTemplateDetails.location!,
-                                        ),
-                                      if (selectedTemplateDetails
-                                              .includeLevelOfCompetition &&
-                                          selectedTemplateDetails
-                                                  .levelOfCompetition !=
-                                              null)
-                                        _buildDetailRow(
-                                          'Level of Competition',
-                                          selectedTemplateDetails
-                                              .levelOfCompetition!,
-                                        ),
-                                      if (selectedTemplateDetails
-                                              .includeGender &&
-                                          selectedTemplateDetails.gender !=
-                                              null)
-                                        _buildDetailRow(
-                                          'Gender',
-                                          selectedTemplateDetails.gender!,
-                                        ),
-                                      if (selectedTemplateDetails
-                                              .officialsRequired !=
-                                          null)
-                                        _buildDetailRow(
-                                          'Officials Required',
-                                          selectedTemplateDetails
-                                              .officialsRequired
-                                              .toString(),
-                                        ),
-                                      if (selectedTemplateDetails.gameFee !=
-                                          null)
-                                        _buildDetailRow(
-                                          'Game Fee',
-                                          '\$${double.tryParse(selectedTemplateDetails.gameFee!)?.toStringAsFixed(2) ?? selectedTemplateDetails.gameFee!}',
-                                        ),
-                                      if (selectedTemplateDetails
-                                              .includeHireAutomatically &&
-                                          selectedTemplateDetails
-                                                  .hireAutomatically !=
-                                              null)
-                                        _buildDetailRow(
-                                          'Hire Automatically',
-                                          selectedTemplateDetails
-                                                  .hireAutomatically!
-                                              ? 'Yes'
-                                              : 'No',
-                                        ),
-                                      if (selectedTemplateDetails
-                                              .includeSelectedOfficials &&
-                                          selectedTemplateDetails.method !=
-                                              null)
-                                        _buildDetailRow(
-                                          'Selected Officials',
-                                          _formatOfficialsDisplay(
-                                              selectedTemplateDetails),
-                                        ),
-                                      if (selectedTemplateDetails.includeDate &&
-                                          selectedTemplateDetails.date != null)
-                                        _buildDetailRow(
-                                          'Date',
-                                          DateFormat('MMM d, yyyy').format(
-                                              selectedTemplateDetails.date!),
-                                        ),
-                                      if (selectedTemplateDetails.includeTime &&
-                                          selectedTemplateDetails.time != null)
-                                        _buildDetailRow(
-                                          'Time',
-                                          selectedTemplateDetails.time!
-                                              .format(context),
-                                        ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                              const SizedBox(height: 60),
-                              ElevatedButton(
-                                onPressed: (selectedTemplate == null ||
-                                        selectedTemplate ==
-                                            '+ Create new template')
-                                    ? null
-                                    : () {
-                                        final selected = templates.firstWhere(
-                                            (t) => t.name == selectedTemplate);
-                                        Navigator.pushNamed(
-                                          context,
-                                          '/select_schedule',
-                                          arguments: {'template': selected},
-                                        );
-                                      },
-                                style: elevatedButtonStyle(),
-                                child: const Text(
-                                  'Create Game',
-                                  style: signInButtonTextStyle,
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              ElevatedButton(
-                                onPressed: (selectedTemplate == null ||
-                                        selectedTemplate ==
-                                            '+ Create new template')
-                                    ? null
-                                    : () {
-                                        final selected = templates.firstWhere(
-                                            (t) => t.name == selectedTemplate);
-                                        Navigator.pushNamed(
-                                          context,
-                                          '/create_game_template',
-                                          arguments: {
-                                            'template': selected,
-                                            'sport': sport,
-                                            'isEdit': true,
-                                          },
-                                        ).then((result) {
-                                          if (result != null) {
-                                            _fetchTemplates(); // Refresh templates after editing
-                                          }
-                                        });
-                                      },
-                                style: elevatedButtonStyle(),
-                                child: const Text(
-                                  'Edit Template',
-                                  style: signInButtonTextStyle,
-                                ),
-                              ),
-                            ],
+                          );
+                        }).toList(),
+                        const DropdownMenuItem(
+                          value: '+ Create new template',
+                          child: Text(
+                            '+ Create new template',
+                            style: TextStyle(
+                              color: efficialsYellow,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
+                        ),
+                      ],
+                      onChanged: _onTemplateSelected,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                      ),
+                      icon: const Icon(
+                        Icons.arrow_drop_down,
+                        color: efficialsYellow,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 30),
+              if (selectedTemplate != null &&
+                  selectedTemplate != '+ Create new template') ...[
+                SizedBox(
+                  width: 200,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      final selected = templates
+                          .firstWhere((t) => t.name == selectedTemplate);
+                      Navigator.pushNamed(
+                        context,
+                        '/create_game_template',
+                        arguments: {
+                          'template': selected,
+                          'sport': sport,
+                          'isEdit': true,
+                        },
+                      ).then((result) {
+                        if (result != null) {
+                          _fetchTemplates();
+                        }
+                      });
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: efficialsYellow,
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 15, horizontal: 32),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text(
+                      'Edit Template',
+                      style: TextStyle(
+                        color: efficialsBlack,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: 200,
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      final selected = templates
+                          .firstWhere((t) => t.name == selectedTemplate);
+                      final shouldDelete = await showDialog<bool>(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          backgroundColor: darkSurface,
+                          title: const Text(
+                            'Confirm Delete',
+                            style: TextStyle(
+                              color: efficialsYellow,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          content: Text(
+                            'Are you sure you want to delete "${selected.name}"?',
+                            style: const TextStyle(
+                              color: primaryTextColor,
+                              fontSize: 16,
+                            ),
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context, false),
+                              child: const Text(
+                                'Cancel',
+                                style: TextStyle(
+                                  color: efficialsYellow,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: () => Navigator.pop(context, true),
+                              child: const Text(
+                                'Delete',
+                                style: TextStyle(
+                                  color: efficialsYellow,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      );
+
+                      if (shouldDelete == true) {
+                        final prefs = await SharedPreferences.getInstance();
+                        final templatesJson = prefs.getString('game_templates');
+                        if (templatesJson != null) {
+                          final List<dynamic> decoded =
+                              jsonDecode(templatesJson);
+                          final updatedTemplates = decoded
+                              .where((t) => t['id'] != selected.id)
+                              .toList();
+                          await prefs.setString(
+                              'game_templates', jsonEncode(updatedTemplates));
+                          setState(() {
+                            templates.removeWhere((t) => t.id == selected.id);
+                            selectedTemplate = null;
+                          });
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                  content:
+                                      Text('Template deleted successfully')),
+                            );
+                          }
+                        }
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 15, horizontal: 32),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text(
+                      'Delete Template',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
               ],
-            ),
+              SizedBox(
+                width: 200,
+                child: ElevatedButton(
+                  onPressed: (selectedTemplate == null ||
+                          selectedTemplate == '+ Create new template')
+                      ? null
+                      : () {
+                          final selected = templates
+                              .firstWhere((t) => t.name == selectedTemplate);
+                          final args = ModalRoute.of(context)!
+                              .settings
+                              .arguments as Map<String, dynamic>?;
+                          final scheduleName = args?['scheduleName'] as String?;
+
+                          if (scheduleName != null) {
+                            Navigator.pushNamed(
+                              context,
+                              '/date_time',
+                              arguments: {
+                                'sport': sport,
+                                'template': selected,
+                                'scheduleName': scheduleName,
+                              },
+                            );
+                          } else {
+                            Navigator.pushNamed(
+                              context,
+                              '/select_schedule',
+                              arguments: {
+                                'sport': sport,
+                                'template': selected,
+                              },
+                            );
+                          }
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: efficialsYellow,
+                    disabledBackgroundColor: Colors.grey[600],
+                    disabledForegroundColor: Colors.grey[300],
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 15, horizontal: 50),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    'Continue',
+                    style: TextStyle(
+                      color: efficialsBlack,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
