@@ -136,6 +136,16 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
         // Opponent field should never be populated from templates initially
         // But should preserve existing opponent value from args (e.g., during edit flow)
         _opponentController.text = args['opponent'] as String? ?? '';
+        
+        // Validate that _officialsRequired is a valid option
+        if (_officialsRequired != null && !_officialsOptions.contains(_officialsRequired)) {
+          _officialsRequired = null;
+        }
+        
+        // Clear game fee if it's "0" (from away game) so hint text shows
+        if (_gameFeeController.text == '0' || _gameFeeController.text == '0.0' || _gameFeeController.text == '0.00') {
+          _gameFeeController.text = '';
+        }
       }
       _isInitialized = true;
     }

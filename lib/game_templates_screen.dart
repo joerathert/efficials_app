@@ -89,19 +89,25 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen> {
         child: Padding(
           padding: const EdgeInsets.all(20.0),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: 40),
               const Text(
                 'Game Templates',
                 style: TextStyle(
-                  fontSize: 32,
+                  fontSize: 24,
                   fontWeight: FontWeight.bold,
-                  color: efficialsYellow,
+                  color: primaryTextColor,
                 ),
-                textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 40),
+              const SizedBox(height: 10),
+              const Text(
+                'Manage your saved game templates',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: secondaryTextColor,
+                ),
+              ),
+              const SizedBox(height: 20),
               Expanded(
                 child: isLoading
                     ? const Center(
@@ -139,7 +145,7 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen> {
                               crossAxisCount: 2,
                               crossAxisSpacing: 16,
                               mainAxisSpacing: 16,
-                              childAspectRatio: 1, // Square tiles
+                              childAspectRatio: 1.2, // Slightly more rectangular tiles
                             ),
                             itemCount: sports.length,
                             itemBuilder: (context, index) {
@@ -163,14 +169,14 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen> {
                                     children: [
                                       Icon(
                                         getSportIcon(sport),
-                                        size: 48,
+                                        size: 36,
                                         color: efficialsYellow,
                                       ),
                                       const SizedBox(height: 8),
                                       Text(
                                         sport,
                                         style: const TextStyle(
-                                          fontSize: 18,
+                                          fontSize: 16,
                                           fontWeight: FontWeight.bold,
                                           color: Colors.white,
                                         ),
