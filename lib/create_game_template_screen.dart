@@ -125,7 +125,11 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
             _gameFeeController.text = args['gameFee']?.toString() ?? '';
             hireAutomatically = args['hireAutomatically'] as bool? ?? false;
             selectedListName = args['selectedListName'] as String?;
-            includeOfficialsList = selectedListName != null;
+            // Check if the game used the 'use_list' method and has a selected list name
+            includeOfficialsList = args['method'] == 'use_list' && selectedListName != null;
+            print('CreateGameTemplateScreen - selectedListName: $selectedListName');
+            print('CreateGameTemplateScreen - method: ${args['method']}');
+            print('CreateGameTemplateScreen - includeOfficialsList: $includeOfficialsList');
             if (args['time'] != null) {
               if (args['time'] is TimeOfDay) {
                 selectedTime = args['time'] as TimeOfDay;

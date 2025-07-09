@@ -138,20 +138,56 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
     }
 
     final prefs = await SharedPreferences.getInstance();
-    final String? gamesJson = prefs.getString('published_games');
+    
+    // Determine which storage key to use based on user role
+    final schedulerType = prefs.getString('schedulerType');
+    String publishedGamesKey;
+    
+    switch (schedulerType?.toLowerCase()) {
+      case 'coach':
+        publishedGamesKey = 'coach_published_games';
+        break;
+      case 'assigner':
+        publishedGamesKey = 'assigner_published_games';
+        break;
+      case 'athletic director':
+      case 'athleticdirector':
+      case 'ad':
+      default:
+        publishedGamesKey = 'ad_published_games';
+        break;
+    }
+    
+    print('Deleting game with ID: $gameId from storage key: $publishedGamesKey');
+    
+    final String? gamesJson = prefs.getString(publishedGamesKey);
     if (gamesJson != null && gamesJson.isNotEmpty) {
       try {
         List<Map<String, dynamic>> publishedGames = List<Map<String, dynamic>>.from(jsonDecode(gamesJson));
+        final initialCount = publishedGames.length;
         publishedGames.removeWhere((game) => game['id'] == gameId);
-        await prefs.setString('published_games', jsonEncode(publishedGames));
-        print('Game deleted - ID: $gameId');
-        Navigator.pop(context, {'deleted': true});
+        final finalCount = publishedGames.length;
+        
+        await prefs.setString(publishedGamesKey, jsonEncode(publishedGames));
+        print('Game deleted - ID: $gameId, Games removed: ${initialCount - finalCount}');
+        
+        if (initialCount > finalCount) {
+          Navigator.pop(context, {'deleted': true});
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Game not found in storage')),
+          );
+        }
       } catch (e) {
         print('Error deleting game: $e');
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Error deleting game')),
         );
       }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No games found in storage')),
+      );
     }
   }
 
@@ -270,7 +306,27 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
     });
 
     final prefs = await SharedPreferences.getInstance();
-    final String? gamesJson = prefs.getString('published_games');
+    
+    // Determine which storage key to use based on user role
+    final schedulerType = prefs.getString('schedulerType');
+    String publishedGamesKey;
+    
+    switch (schedulerType?.toLowerCase()) {
+      case 'coach':
+        publishedGamesKey = 'coach_published_games';
+        break;
+      case 'assigner':
+        publishedGamesKey = 'assigner_published_games';
+        break;
+      case 'athletic director':
+      case 'athleticdirector':
+      case 'ad':
+      default:
+        publishedGamesKey = 'ad_published_games';
+        break;
+    }
+    
+    final String? gamesJson = prefs.getString(publishedGamesKey);
     if (gamesJson != null && gamesJson.isNotEmpty) {
       List<Map<String, dynamic>> publishedGames = List<Map<String, dynamic>>.from(jsonDecode(gamesJson));
       final index = publishedGames.indexWhere((g) => g['id'] == args['id']);
@@ -280,7 +336,7 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
           'officialsHired': officialsHired,
           'selectedOfficials': selectedOfficials,
         };
-        await prefs.setString('published_games', jsonEncode(publishedGames));
+        await prefs.setString(publishedGamesKey, jsonEncode(publishedGames));
         print('Saved to SharedPreferences - updated game: ${publishedGames[index]}');
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Officials hired successfully!')),
