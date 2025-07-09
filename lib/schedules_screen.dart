@@ -210,19 +210,20 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Confirm Delete'),
-        content: Text('Are you sure you want to delete "$scheduleName"?'),
+        backgroundColor: darkSurface,
+        title: const Text('Confirm Delete', style: TextStyle(color: efficialsYellow, fontSize: 20, fontWeight: FontWeight.bold)),
+        content: Text('Are you sure you want to delete "$scheduleName"?', style: TextStyle(color: Colors.white)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel', style: TextStyle(color: efficialsBlue)),
+            child: const Text('Cancel', style: TextStyle(color: efficialsYellow)),
           ),
           TextButton(
             onPressed: () {
               Navigator.pop(context);
               _showSecondDeleteConfirmationDialog(scheduleName, scheduleId);
             },
-            child: const Text('Delete', style: TextStyle(color: efficialsBlue)),
+            child: const Text('Delete', style: TextStyle(color: efficialsYellow)),
           ),
         ],
       ),
@@ -234,14 +235,16 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Final Confirmation'),
+        backgroundColor: darkSurface,
+        title: const Text('Final Confirmation', style: TextStyle(color: efficialsYellow, fontSize: 20, fontWeight: FontWeight.bold)),
         content: const Text(
           'Deleting a schedule will erase all games associated with the schedule. Are you sure you want to delete this schedule?',
+          style: TextStyle(color: Colors.white),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel', style: TextStyle(color: efficialsBlue)),
+            child: const Text('Cancel', style: TextStyle(color: efficialsYellow)),
           ),
           TextButton(
             onPressed: () async {
@@ -252,7 +255,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                     scheduleNames.isNotEmpty ? scheduleNames[0] : null;
               });
             },
-            child: const Text('Delete', style: TextStyle(color: efficialsBlue)),
+            child: const Text('Delete', style: TextStyle(color: efficialsYellow)),
           ),
         ],
       ),
@@ -264,18 +267,19 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
+        backgroundColor: darkSurface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Row(
           children: [
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: efficialsBlue.withOpacity(0.1),
+                color: efficialsYellow.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: const Icon(
                 Icons.sports,
-                color: efficialsBlue,
+                color: efficialsYellow,
                 size: 24,
               ),
             ),
@@ -324,8 +328,9 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                       child: Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
+                          color: darkSurface,
                           border:
-                              Border.all(color: Colors.grey.withOpacity(0.2)),
+                              Border.all(color: Colors.grey[700]!, width: 1),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Row(
@@ -333,12 +338,12 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                             Container(
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
-                                color: efficialsBlue.withOpacity(0.1),
+                                color: efficialsYellow.withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: const Icon(
                                 Icons.schedule,
-                                color: efficialsBlue,
+                                color: efficialsYellow,
                                 size: 20,
                               ),
                             ),
@@ -355,7 +360,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                             ),
                             const Icon(
                               Icons.arrow_forward_ios,
-                              color: Colors.grey,
+                              color: efficialsYellow,
                               size: 16,
                             ),
                           ],

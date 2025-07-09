@@ -395,7 +395,7 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
     gameData['status'] = 'Published';
 
     final prefs = await SharedPreferences.getInstance();
-    final String? gamesJson = prefs.getString('published_games');
+    final String? gamesJson = prefs.getString('ad_published_games');
     List<Map<String, dynamic>> publishedGames = [];
     if (gamesJson != null && gamesJson.isNotEmpty) {
       publishedGames = List<Map<String, dynamic>>.from(jsonDecode(gamesJson));
@@ -408,7 +408,7 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
       publishedGames.add(gameData);
     }
 
-    await prefs.setString('published_games', jsonEncode(publishedGames));
+    await prefs.setString('ad_published_games', jsonEncode(publishedGames));
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Game updated successfully!')),

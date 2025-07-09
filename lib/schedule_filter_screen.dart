@@ -296,7 +296,8 @@ class _ScheduleFilterScreenState extends State<ScheduleFilterScreen> {
                                   value: _areAllSchedulesSelected(sport),
                                   onChanged: (value) =>
                                       _toggleSport(sport, value),
-                                  activeColor: efficialsBlue,
+                                  activeColor: efficialsYellow,
+                                  checkColor: efficialsBlack,
                                 ),
                               ],
                             ),
@@ -314,8 +315,12 @@ class _ScheduleFilterScreenState extends State<ScheduleFilterScreen> {
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 12, vertical: 8),
                                 decoration: BoxDecoration(
-                                  color: Colors.grey[50],
+                                  color: darkBackground,
                                   borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: Colors.grey[700]!,
+                                    width: 1,
+                                  ),
                                 ),
                                 child: Row(
                                   children: [
@@ -323,7 +328,8 @@ class _ScheduleFilterScreenState extends State<ScheduleFilterScreen> {
                                       value: scheduleFilters[sport]![schedule],
                                       onChanged: (value) => _toggleSchedule(
                                           sport, schedule, value),
-                                      activeColor: efficialsBlue,
+                                      activeColor: efficialsYellow,
+                                      checkColor: efficialsBlack,
                                     ),
                                     const SizedBox(width: 8),
                                     Expanded(

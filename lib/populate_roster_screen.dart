@@ -48,6 +48,12 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
                 [];
         isFromGameCreation = args['method'] == 'standard' || args['fromGameCreation'] == true;
         isEdit = args['isEdit'] == true;
+        
+        // Hide Save List button when creating a new list during game creation
+        // (coming from Use List -> Create New List flow where list name is already provided)
+        if (args['fromGameCreation'] == true && args['listName'] != null) {
+          showSaveListButton = false;
+        }
 
         for (var official in initialOfficials) {
           final officialId = official['id'];
@@ -582,11 +588,25 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
                               };
                               
                               try {
+                                // Determine the correct route based on the flow:
+                                // - If creating a new list during game creation (fromGameCreation=true + listName provided) -> review_list
+                                // - If using standard method from game creation (method=standard) -> review_game_info
+                                // - Otherwise -> review_list
+                                String targetRoute;
+                                if (args['fromGameCreation'] == true && args['listName'] != null) {
+                                  // Creating a new list during game creation flow
+                                  targetRoute = '/review_list';
+                                } else if (args['method'] == 'standard') {
+                                  // Standard method from select officials screen
+                                  targetRoute = '/review_game_info';
+                                } else {
+                                  // Default to review list
+                                  targetRoute = '/review_list';
+                                }
+                                
                                 final result = await Navigator.pushNamed(
                                   context,
-                                  isFromGameCreation
-                                      ? '/review_game_info'
-                                      : '/review_list',
+                                  targetRoute,
                                   arguments: updatedArgs,
                                 );
                                 

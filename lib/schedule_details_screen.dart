@@ -307,7 +307,19 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
         centerTitle: true,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: efficialsWhite),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () {
+            // Check if we can pop back to the previous screen
+            if (Navigator.canPop(context)) {
+              Navigator.pop(context);
+            } else {
+              // Fallback to AD home screen if navigation stack is empty
+              Navigator.pushNamedAndRemoveUntil(
+                context, 
+                '/athletic_director_home', 
+                (route) => false,
+              );
+            }
+          },
         ),
       ),
       body: isLoading
