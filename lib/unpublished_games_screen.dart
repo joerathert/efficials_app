@@ -121,8 +121,23 @@ class _UnpublishedGamesScreenState extends State<UnpublishedGamesScreen> {
   Future<void> _publishSelectedGames() async {
     final prefs = await SharedPreferences.getInstance();
 
+    // Determine the correct published games storage key based on user role
+    String publishedGamesKey;
+    switch (userRole) {
+      case 'coach':
+        publishedGamesKey = 'coach_published_games';
+        break;
+      case 'assigner':
+        publishedGamesKey = 'assigner_published_games';
+        break;
+      case 'ad':
+      default:
+        publishedGamesKey = 'ad_published_games';
+        break;
+    }
+
     // Get existing published games
-    final String? publishedGamesJson = prefs.getString('published_games');
+    final String? publishedGamesJson = prefs.getString(publishedGamesKey);
     List<Map<String, dynamic>> publishedGames = [];
     if (publishedGamesJson != null && publishedGamesJson.isNotEmpty) {
       publishedGames =
@@ -148,7 +163,7 @@ class _UnpublishedGamesScreenState extends State<UnpublishedGamesScreen> {
     }
 
     // Save updated published games
-    await prefs.setString('published_games', jsonEncode(publishedGames));
+    await prefs.setString(publishedGamesKey, jsonEncode(publishedGames));
 
     // Remove published games from unpublished list
     unpublishedGames

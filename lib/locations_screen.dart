@@ -79,12 +79,15 @@ class _LocationsScreenState extends State<LocationsScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Confirm Delete'),
-        content: Text('Are you sure you want to delete "$locationName"?'),
+        backgroundColor: darkSurface,
+        title: const Text('Confirm Delete', 
+            style: TextStyle(color: efficialsYellow, fontSize: 20, fontWeight: FontWeight.bold)),
+        content: Text('Are you sure you want to delete "$locationName"?',
+            style: const TextStyle(color: Colors.white)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel', style: TextStyle(color: efficialsBlue)),
+            child: const Text('Cancel', style: TextStyle(color: efficialsYellow)),
           ),
           TextButton(
             onPressed: () {
@@ -100,7 +103,7 @@ class _LocationsScreenState extends State<LocationsScreen> {
                 print('showDeleteConfirmationDialog - After: locations: $locations, selectedLocation: $selectedLocation');
               });
             },
-            child: const Text('Delete', style: TextStyle(color: efficialsBlue)),
+            child: const Text('Delete', style: TextStyle(color: efficialsYellow)),
           ),
         ],
       ),
@@ -114,42 +117,78 @@ class _LocationsScreenState extends State<LocationsScreen> {
     print('build - locations: $locations, selectedLocation: $selectedLocation');
 
     return Scaffold(
+      backgroundColor: darkBackground,
       appBar: AppBar(
         backgroundColor: efficialsBlack,
+        title: const Icon(
+          Icons.sports,
+          color: efficialsYellow,
+          size: 32,
+        ),
+        elevation: 0,
+        centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, size: 36, color: Colors.white),
+          icon: const Icon(Icons.arrow_back, color: efficialsWhite),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
-          'Locations',
-          style: TextStyle(
-            color: darkSurface,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
       ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 600),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text(
-                    'Select a location to edit, or create a new location.',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 60),
-                  locations.isEmpty || selectedLocation == null
-                      ? const CircularProgressIndicator()
-                      : DropdownButtonFormField<String>(
-                          decoration: textFieldDecoration('Locations'),
-                          value: selectedLocation,
-                          onChanged: (newValue) {
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Locations',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: primaryTextColor,
+                ),
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                'Manage your saved locations',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: secondaryTextColor,
+                ),
+              ),
+              const SizedBox(height: 40),
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: darkSurface,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.3),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Select a location to edit, or create a new location.',
+                      style: TextStyle(
+                        fontSize: 18,
+                        color: Colors.white,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 24),
+                    locations.isEmpty || selectedLocation == null
+                        ? const Center(child: CircularProgressIndicator())
+                        : DropdownButtonFormField<String>(
+                            decoration: textFieldDecoration('Locations'),
+                            value: selectedLocation,
+                            hint: const Text('Select a location', style: TextStyle(color: efficialsGray)),
+                            style: const TextStyle(color: Colors.white, fontSize: 16),
+                            dropdownColor: darkSurface,
+                            onChanged: (newValue) {
                             setState(() {
                               print('Dropdown onChanged - Before: newValue: $newValue, selectedLocation: $selectedLocation');
                               selectedLocation = newValue;
@@ -200,71 +239,112 @@ class _LocationsScreenState extends State<LocationsScreen> {
                                 location['name'] as String,
                                 style: location['name'] == 'No saved locations'
                                     ? const TextStyle(color: Colors.red)
-                                    : null,
+                                    : const TextStyle(color: Colors.white),
                               ),
                             );
                           }).toList(),
                         ),
-                  const SizedBox(height: 60),
-                  if (selectedLocation != null &&
-                      selectedLocation != '+ Create new location' &&
-                      selectedLocation != 'No saved locations' &&
-                      !selectedLocation!.startsWith('Error')) ...[
-                    ElevatedButton(
-                      onPressed: () {
-                        final selected = locations.firstWhere((l) => l['name'] == selectedLocation);
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const EditLocationScreen(),
-                            settings: RouteSettings(arguments: selected),
-                          ),
-                        ).then((result) {
-                          if (result != null) {
-                            setState(() {
-                              print('Edit location - Before: locations: $locations, selectedLocation: $selectedLocation');
-                              final updatedLocation = result as Map<String, dynamic>;
-                              final index = locations.indexWhere((l) => l['id'] == selected['id']);
-                              if (index != -1) {
-                                // Check for duplicate names before updating
-                                if (!locations.any((loc) => loc['name'] == updatedLocation['name'] && loc['id'] != selected['id'])) {
-                                  locations[index] = {
-                                    ...updatedLocation,
-                                    'id': selected['id'], // Preserve the original ID
-                                  };
-                                  selectedLocation = updatedLocation['name'] as String;
-                                  _saveLocations();
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('Location updated!')),
-                                  );
-                                } else {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('A location with this name already exists!')),
-                                  );
-                                  _validateSelectedLocation();
-                                }
-                              }
-                              print('Edit location - After: locations: $locations, selectedLocation: $selectedLocation');
-                            });
-                          }
-                        });
-                      },
-                      style: elevatedButtonStyle(),
-                      child: const Text('Edit Location', style: signInButtonTextStyle),
-                    ),
-                    const SizedBox(height: 8),
-                    ElevatedButton(
-                      onPressed: () {
-                        final selected = locations.firstWhere((l) => l['name'] == selectedLocation);
-                        _showDeleteConfirmationDialog(selectedLocation!, selected['id'] as int);
-                      },
-                      style: elevatedButtonStyle(backgroundColor: Colors.red),
-                      child: const Text('Delete Location', style: signInButtonTextStyle),
-                    ),
                   ],
-                ],
+                ),
               ),
-            ),
+              const SizedBox(height: 40),
+              if (selectedLocation != null &&
+                  selectedLocation != '+ Create new location' &&
+                  selectedLocation != 'No saved locations' &&
+                  !selectedLocation!.startsWith('Error')) ...[
+                Center(
+                  child: Column(
+                    children: [
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 16),
+                        width: 200,
+                        child: ElevatedButton(
+                          onPressed: () {
+                              final selected = locations.firstWhere((l) => l['name'] == selectedLocation);
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const EditLocationScreen(),
+                                  settings: RouteSettings(arguments: selected),
+                                ),
+                              ).then((result) {
+                                if (result != null) {
+                                  setState(() {
+                                    print('Edit location - Before: locations: $locations, selectedLocation: $selectedLocation');
+                                    final updatedLocation = result as Map<String, dynamic>;
+                                    final index = locations.indexWhere((l) => l['id'] == selected['id']);
+                                    if (index != -1) {
+                                      // Check for duplicate names before updating
+                                      if (!locations.any((loc) => loc['name'] == updatedLocation['name'] && loc['id'] != selected['id'])) {
+                                        locations[index] = {
+                                          ...updatedLocation,
+                                          'id': selected['id'], // Preserve the original ID
+                                        };
+                                        selectedLocation = updatedLocation['name'] as String;
+                                        _saveLocations();
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(content: Text('Location updated!')),
+                                        );
+                                      } else {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(content: Text('A location with this name already exists!')),
+                                        );
+                                        _validateSelectedLocation();
+                                      }
+                                    }
+                                    print('Edit location - After: locations: $locations, selectedLocation: $selectedLocation');
+                                  });
+                                }
+                              });
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: efficialsYellow,
+                              foregroundColor: efficialsBlack,
+                              padding: const EdgeInsets.symmetric(
+                                  vertical: 15, horizontal: 32),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            child: const Text(
+                              'Edit Location',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                      ),
+                      Container(
+                        width: 200,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            final selected = locations.firstWhere((l) => l['name'] == selectedLocation);
+                            _showDeleteConfirmationDialog(selectedLocation!, selected['id'] as int);
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                                vertical: 15, horizontal: 32),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: const Text(
+                            'Delete Location',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
           ),
         ),
       ),

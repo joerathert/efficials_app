@@ -30,15 +30,42 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (!isInitialized) {
-      final arguments = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
-      sport = arguments['sport'] as String;
-      listName = arguments['listName'] as String;
-      selectedOfficialsList = arguments['selectedOfficials'] as List<Map<String, dynamic>>;
-      filteredOfficials = List.from(selectedOfficialsList);
-      for (var official in selectedOfficialsList) {
-        selectedOfficials[official['id'] as int] = true;
+      try {
+        final arguments = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+        
+        sport = arguments['sport'] as String;
+        listName = arguments['listName'] as String;
+        
+        // Handle the selectedOfficials casting more safely
+        final selectedOfficialsRaw = arguments['selectedOfficials'];
+        
+        if (selectedOfficialsRaw is List) {
+          selectedOfficialsList = selectedOfficialsRaw.map((item) {
+            if (item is Map<String, dynamic>) {
+              return item;
+            } else if (item is Map) {
+              return Map<String, dynamic>.from(item);
+            } else {
+              throw Exception('Invalid official data type: ${item.runtimeType}');
+            }
+          }).toList();
+        } else {
+          throw Exception('selectedOfficials is not a List: ${selectedOfficialsRaw.runtimeType}');
+        }
+        
+        filteredOfficials = List.from(selectedOfficialsList);
+        
+        for (var official in selectedOfficialsList) {
+          final officialId = official['id'];
+          if (officialId is int) {
+            selectedOfficials[officialId] = true;
+          }
+        }
+        
+        isInitialized = true;
+      } catch (e, stackTrace) {
+        rethrow;
       }
-      isInitialized = true;
     }
   }
 
@@ -221,7 +248,8 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
                                     ),
                                   ],
                                 ),
-                                Expanded(
+                                SizedBox(
+                                  height: 300,
                                   child: ListView.builder(
                                     itemCount: filteredOfficials.length,
                                     itemBuilder: (context, index) {

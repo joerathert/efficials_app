@@ -125,11 +125,8 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
             _gameFeeController.text = args['gameFee']?.toString() ?? '';
             hireAutomatically = args['hireAutomatically'] as bool? ?? false;
             selectedListName = args['selectedListName'] as String?;
-            // Check if the game used the 'use_list' method and has a selected list name
-            includeOfficialsList = args['method'] == 'use_list' && selectedListName != null;
-            print('CreateGameTemplateScreen - selectedListName: $selectedListName');
-            print('CreateGameTemplateScreen - method: ${args['method']}');
-            print('CreateGameTemplateScreen - includeOfficialsList: $includeOfficialsList');
+            // Check if the game has a selected list name (indicates 'use_list' method was used)
+            includeOfficialsList = selectedListName != null && selectedListName!.isNotEmpty;
             if (args['time'] != null) {
               if (args['time'] is TimeOfDay) {
                 selectedTime = args['time'] as TimeOfDay;
@@ -341,6 +338,23 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
     if (templatesJson != null && templatesJson.isNotEmpty) {
       final List<dynamic> decoded = jsonDecode(templatesJson);
       templates = decoded.map((json) => GameTemplate.fromJson(json)).toList();
+    }
+
+    // Check for duplicate template names
+    final templateName = _nameController.text.trim();
+    final hasDuplicate = templates.any((template) => 
+      template.name?.toLowerCase() == templateName.toLowerCase() &&
+      (!isEditing || template.id != existingTemplate?.id)
+    );
+
+    if (hasDuplicate) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('A template named "$templateName" already exists. Please choose a different name.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
     }
 
     if (isEditing) {

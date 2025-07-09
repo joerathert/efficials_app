@@ -24,6 +24,7 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
   bool showSaveListButton = true;
   bool isFromGameCreation = false;
   bool isEdit = false;
+  bool isNavigating = false;
   final TextEditingController _listNameController = TextEditingController();
 
   @override
@@ -45,7 +46,7 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
                   return Map<String, dynamic>.from(item as Map);
                 }).toList() ??
                 [];
-        isFromGameCreation = args['method'] == 'standard';
+        isFromGameCreation = args['method'] == 'standard' || args['fromGameCreation'] == true;
         isEdit = args['isEdit'] == true;
 
         for (var official in initialOfficials) {
@@ -556,8 +557,14 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
                   SizedBox(
                     width: 250,
                     child: ElevatedButton(
-                      onPressed: selectedCount > 0
-                          ? () {
+                      onPressed: selectedCount > 0 && !isNavigating
+                          ? () async {
+                              if (isNavigating) return;
+                              
+                              setState(() {
+                                isNavigating = true;
+                              });
+                              
                               final selected = officials.where((o) {
                                 final officialId = o['id'];
                                 return officialId is int &&
@@ -573,21 +580,40 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
                                 'listName':
                                     args['listName'], // Preserve the listName
                               };
-                              Navigator.pushNamed(
-                                context,
-                                isFromGameCreation
-                                    ? '/review_game_info'
-                                    : '/review_list',
-                                arguments: updatedArgs,
-                              ).then((result) {
-                                if (result != null) {
+                              
+                              try {
+                                final result = await Navigator.pushNamed(
+                                  context,
+                                  isFromGameCreation
+                                      ? '/review_game_info'
+                                      : '/review_list',
+                                  arguments: updatedArgs,
+                                );
+                                
+                                // If we got a result, pop back with it
+                                if (result != null && mounted) {
                                   Navigator.pop(context, result);
                                 }
-                              });
+                              } finally {
+                                if (mounted) {
+                                  setState(() {
+                                    isNavigating = false;
+                                  });
+                                }
+                              }
                             }
                           : null,
                       style: elevatedButtonStyle(),
-                      child: const Text('Continue', style: signInButtonTextStyle),
+                      child: isNavigating 
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              ),
+                            )
+                          : const Text('Continue', style: signInButtonTextStyle),
                     ),
                   ),
                   if (isFromGameCreation && showSaveListButton) ...[

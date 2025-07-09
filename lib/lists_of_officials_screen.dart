@@ -231,228 +231,256 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                                   ),
                                 ),
                                 const SizedBox(height: 24),
-                                ElevatedButton.icon(
-                                  onPressed: () {
-                                    final existingListNames = actualLists
-                                        .map((list) => list['name'] as String)
-                                        .toList();
-                                    Navigator.pushNamed(
-                                      context,
-                                      '/create_new_list',
-                                      arguments: {
-                                        'existingLists': existingListNames,
-                                        'fromGameCreation': isFromGameCreation,
-                                        'sport': sport,
-                                      },
-                                    ).then((result) async {
-                                      if (result != null) {
-                                        await _handleNewListResult(
-                                            result, sport);
-                                      }
-                                    });
-                                  },
-                                  style: elevatedButtonStyle(),
-                                  icon: const Icon(Icons.add,
-                                      color: efficialsBlack),
-                                  label: const Text('Create New List',
-                                      style: signInButtonTextStyle),
+                                Container(
+                                  width: 250,
+                                  child: ElevatedButton.icon(
+                                    onPressed: () {
+                                      final existingListNames = actualLists
+                                          .map((list) => list['name'] as String)
+                                          .toList();
+                                      Navigator.pushNamed(
+                                        context,
+                                        '/create_new_list',
+                                        arguments: {
+                                          'existingLists': existingListNames,
+                                          'fromGameCreation': isFromGameCreation,
+                                          'sport': sport,
+                                          ...?args, // Pass through original game creation arguments
+                                        },
+                                      ).then((result) async {
+                                        if (result != null) {
+                                          await _handleNewListResult(result, sport);
+                                        }
+                                      });
+                                    },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: efficialsYellow,
+                                      foregroundColor: efficialsBlack,
+                                      padding: const EdgeInsets.symmetric(
+                                          vertical: 15, horizontal: 32),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                    ),
+                                    icon: const Icon(Icons.add, color: efficialsBlack),
+                                    label: const Text(
+                                      'Create New List',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
                                 ),
                               ],
                             ),
                           )
-                        : Column(
-                            children: [
-                              Expanded(
-                                child: ListView.builder(
-                                  itemCount: actualLists.length,
-                                  itemBuilder: (context, index) {
-                                    final list = actualLists[index];
-                                    final listName = list['name'] as String;
-                                    final officials =
-                                        list['officials'] as List<dynamic>? ??
-                                            [];
-                                    final officialCount = officials.length;
+                        : LayoutBuilder(
+                            builder: (context, constraints) {
+                              // Calculate available space for the list
+                              const buttonHeight = 60.0; // Approximate button height
+                              const padding = 20.0; // Padding between list and button
+                              const minBottomSpace = 100.0; // Minimum space from bottom to avoid navigation bar
+                              
+                              final maxListHeight = constraints.maxHeight - buttonHeight - padding - minBottomSpace;
+                              
+                              return Column(
+                                children: [
+                                  Container(
+                                    constraints: BoxConstraints(
+                                      maxHeight: maxListHeight > 0 ? maxListHeight : constraints.maxHeight * 0.6,
+                                    ),
+                                    child: ListView.builder(
+                                      shrinkWrap: true,
+                                      itemCount: actualLists.length,
+                                      itemBuilder: (context, index) {
+                                        final list = actualLists[index];
+                                        final listName = list['name'] as String;
+                                        final officials =
+                                            list['officials'] as List<dynamic>? ?? [];
+                                        final officialCount = officials.length;
 
-                                    return Padding(
-                                      padding:
-                                          const EdgeInsets.only(bottom: 12.0),
-                                      child: Container(
-                                        decoration: BoxDecoration(
-                                          color: darkSurface,
-                                          borderRadius:
-                                              BorderRadius.circular(12),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color:
-                                                  Colors.black.withOpacity(0.3),
-                                              spreadRadius: 1,
-                                              blurRadius: 3,
-                                              offset: const Offset(0, 1),
+                                        return Padding(
+                                          padding: const EdgeInsets.only(bottom: 12.0),
+                                          child: Container(
+                                            decoration: BoxDecoration(
+                                              color: darkSurface,
+                                              borderRadius: BorderRadius.circular(12),
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: Colors.black.withOpacity(0.3),
+                                                  spreadRadius: 1,
+                                                  blurRadius: 3,
+                                                  offset: const Offset(0, 1),
+                                                ),
+                                              ],
                                             ),
-                                          ],
-                                        ),
-                                        child: Padding(
-                                          padding: const EdgeInsets.all(16),
-                                          child: Row(
-                                            children: [
-                                              Container(
-                                                padding:
-                                                    const EdgeInsets.all(12),
-                                                decoration: BoxDecoration(
-                                                  color: getSportIconColor(
-                                                          list['sport']
-                                                                  as String? ??
-                                                              sport)
-                                                      .withOpacity(0.1),
-                                                  borderRadius:
-                                                      BorderRadius.circular(8),
-                                                ),
-                                                child: Icon(
-                                                  getSportIcon(list['sport']
-                                                          as String? ??
-                                                      sport),
-                                                  color: getSportIconColor(
-                                                      list['sport']
-                                                              as String? ??
-                                                          sport),
-                                                  size: 24,
-                                                ),
-                                              ),
-                                              const SizedBox(width: 16),
-                                              Expanded(
-                                                child: Column(
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment.start,
-                                                  children: [
-                                                    Text(
-                                                      listName,
-                                                      style: const TextStyle(
-                                                        fontSize: 18,
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                        color: primaryTextColor,
-                                                      ),
-                                                    ),
-                                                    const SizedBox(height: 4),
-                                                    Text(
-                                                      '$officialCount official${officialCount == 1 ? '' : 's'}',
-                                                      style: const TextStyle(
-                                                        fontSize: 14,
-                                                        color:
-                                                            secondaryTextColor,
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                              Row(
-                                                mainAxisSize: MainAxisSize.min,
+                                            child: Padding(
+                                              padding: const EdgeInsets.all(16),
+                                              child: Row(
                                                 children: [
-                                                  IconButton(
-                                                    onPressed: () {
-                                                      Navigator.pushNamed(
-                                                        context,
-                                                        '/edit_list',
-                                                        arguments: {
-                                                          'listName': listName,
-                                                          'listId':
-                                                              list['id'] as int,
-                                                          'officials': officials
-                                                              .map((official) => Map<
-                                                                      String,
-                                                                      dynamic>.from(
-                                                                  official
-                                                                      as Map))
-                                                              .toList(),
-                                                        },
-                                                      ).then((result) async {
-                                                        if (result != null) {
-                                                          await _handleEditListResult(
-                                                              result, list);
-                                                        }
-                                                      });
-                                                    },
-                                                    icon: const Icon(
-                                                      Icons.edit,
-                                                      color: efficialsYellow,
-                                                      size: 20,
+                                                  Container(
+                                                    padding: const EdgeInsets.all(12),
+                                                    decoration: BoxDecoration(
+                                                      color: getSportIconColor(
+                                                              list['sport'] as String? ??
+                                                                  sport)
+                                                          .withOpacity(0.1),
+                                                      borderRadius:
+                                                          BorderRadius.circular(8),
                                                     ),
-                                                    tooltip: 'Edit List',
+                                                    child: Icon(
+                                                      getSportIcon(
+                                                          list['sport'] as String? ??
+                                                              sport),
+                                                      color: getSportIconColor(
+                                                          list['sport'] as String? ??
+                                                              sport),
+                                                      size: 24,
+                                                    ),
                                                   ),
-                                                  IconButton(
-                                                    onPressed: () {
-                                                      _showDeleteConfirmationDialog(
+                                                  const SizedBox(width: 16),
+                                                  Expanded(
+                                                    child: Column(
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment.start,
+                                                      children: [
+                                                        Text(
                                                           listName,
-                                                          list['id'] as int);
-                                                    },
-                                                    icon: Icon(
-                                                      Icons.delete_outline,
-                                                      color:
-                                                          Colors.red.shade600,
-                                                      size: 20,
+                                                          style: const TextStyle(
+                                                            fontSize: 18,
+                                                            fontWeight: FontWeight.bold,
+                                                            color: primaryTextColor,
+                                                          ),
+                                                        ),
+                                                        const SizedBox(height: 4),
+                                                        Text(
+                                                          '$officialCount official${officialCount == 1 ? '' : 's'}',
+                                                          style: const TextStyle(
+                                                            fontSize: 14,
+                                                            color: secondaryTextColor,
+                                                          ),
+                                                        ),
+                                                      ],
                                                     ),
-                                                    tooltip: 'Delete List',
                                                   ),
-                                                  if (isFromGameCreation)
-                                                    IconButton(
-                                                      onPressed: () {
-                                                        setState(() {
-                                                          selectedList =
-                                                              listName;
-                                                        });
-                                                        _handleContinue();
-                                                      },
-                                                      icon: const Icon(
-                                                        Icons.arrow_forward,
-                                                        color: Colors.green,
-                                                        size: 20,
+                                                  Row(
+                                                    mainAxisSize: MainAxisSize.min,
+                                                    children: [
+                                                      IconButton(
+                                                        onPressed: () {
+                                                          Navigator.pushNamed(
+                                                            context,
+                                                            '/edit_list',
+                                                            arguments: {
+                                                              'listName': listName,
+                                                              'listId': list['id'] as int,
+                                                              'officials': officials
+                                                                  .map((official) => Map<
+                                                                          String,
+                                                                          dynamic>.from(
+                                                                      official as Map))
+                                                                  .toList(),
+                                                            },
+                                                          ).then((result) async {
+                                                            if (result != null) {
+                                                              await _handleEditListResult(
+                                                                  result, list);
+                                                            }
+                                                          });
+                                                        },
+                                                        icon: const Icon(
+                                                          Icons.edit,
+                                                          color: efficialsYellow,
+                                                          size: 20,
+                                                        ),
+                                                        tooltip: 'Edit List',
                                                       ),
-                                                      tooltip: 'Use This List',
-                                                    ),
+                                                      IconButton(
+                                                        onPressed: () {
+                                                          _showDeleteConfirmationDialog(
+                                                              listName,
+                                                              list['id'] as int);
+                                                        },
+                                                        icon: Icon(
+                                                          Icons.delete_outline,
+                                                          color: Colors.red.shade600,
+                                                          size: 20,
+                                                        ),
+                                                        tooltip: 'Delete List',
+                                                      ),
+                                                      if (isFromGameCreation)
+                                                        IconButton(
+                                                          onPressed: () {
+                                                            setState(() {
+                                                              selectedList = listName;
+                                                            });
+                                                            _handleContinue();
+                                                          },
+                                                          icon: const Icon(
+                                                            Icons.arrow_forward,
+                                                            color: Colors.green,
+                                                            size: 20,
+                                                          ),
+                                                          tooltip: 'Use This List',
+                                                        ),
+                                                    ],
+                                                  ),
                                                 ],
                                               ),
-                                            ],
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(height: 20),
+                                  Center(
+                                    child: Container(
+                                      width: 250,
+                                      child: ElevatedButton.icon(
+                                        onPressed: () {
+                                          final existingListNames = actualLists
+                                              .map((list) => list['name'] as String)
+                                              .toList();
+                                          Navigator.pushNamed(
+                                            context,
+                                            '/create_new_list',
+                                            arguments: {
+                                              'existingLists': existingListNames,
+                                              'fromGameCreation': isFromGameCreation,
+                                              'sport': sport,
+                                              ...?args, // Pass through original game creation arguments
+                                            },
+                                          ).then((result) async {
+                                            if (result != null) {
+                                              await _handleNewListResult(result, sport);
+                                            }
+                                          });
+                                        },
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: efficialsYellow,
+                                          foregroundColor: efficialsBlack,
+                                          padding: const EdgeInsets.symmetric(
+                                              vertical: 15, horizontal: 32),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                        ),
+                                        icon: const Icon(Icons.add, color: efficialsBlack),
+                                        label: const Text(
+                                          'Create New List',
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
                                           ),
                                         ),
                                       ),
-                                    );
-                                  },
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              SizedBox(
-                                width: double.infinity,
-                                child: ElevatedButton.icon(
-                                  onPressed: () {
-                                    final existingListNames = actualLists
-                                        .map((list) => list['name'] as String)
-                                        .toList();
-                                    Navigator.pushNamed(
-                                      context,
-                                      '/create_new_list',
-                                      arguments: {
-                                        'existingLists': existingListNames,
-                                        'fromGameCreation': isFromGameCreation,
-                                        'sport': sport,
-                                      },
-                                    ).then((result) async {
-                                      if (result != null) {
-                                        await _handleNewListResult(
-                                            result, sport);
-                                      }
-                                    });
-                                  },
-                                  style: elevatedButtonStyle(
-                                    padding: const EdgeInsets.symmetric(
-                                        vertical: 15),
+                                    ),
                                   ),
-                                  icon: const Icon(Icons.add,
-                                      color: efficialsBlack),
-                                  label: const Text('Create New List',
-                                      style: signInButtonTextStyle),
-                                ),
-                              ),
-                            ],
+                                ],
+                              );
+                            },
                           ),
               ),
             ],

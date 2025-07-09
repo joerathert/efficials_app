@@ -19,6 +19,8 @@ class _CreateNewListScreenState extends State<CreateNewListScreen> {
     'Other'
   ];
   List<String> existingLists = [];
+  bool isFromGameCreation = false;
+  bool shouldAutoNavigate = false;
 
   @override
   void didChangeDependencies() {
@@ -26,6 +28,46 @@ class _CreateNewListScreenState extends State<CreateNewListScreen> {
     final args =
         ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>?;
     existingLists = args?['existingLists'] as List<String>? ?? [];
+    isFromGameCreation = args?['fromGameCreation'] == true;
+    
+    // If we're coming from game creation and have a sport, auto-select it
+    if (isFromGameCreation && args?['sport'] != null) {
+      selectedSport = args!['sport'] as String;
+      shouldAutoNavigate = true;
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // Use WidgetsBinding to auto-navigate after the widget is built
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (shouldAutoNavigate) {
+        _continueToNameList();
+      }
+    });
+  }
+
+  void _continueToNameList() {
+    final args = ModalRoute.of(context)!.settings.arguments
+            as Map<String, dynamic>? ??
+        {};
+    Navigator.pushNamed(
+      context,
+      '/name_list',
+      arguments: {
+        'sport': selectedSport,
+        'existingLists': existingLists,
+        'locationData': args['locationData'],
+        'isAwayGame': args['isAwayGame'] ?? false,
+        'fromGameCreation': isFromGameCreation,
+        ...args, // Pass through all original arguments
+      },
+    ).then((result) {
+      if (result != null) {
+        Navigator.pop(context, result);
+      }
+    });
   }
 
   @override
@@ -111,23 +153,7 @@ class _CreateNewListScreenState extends State<CreateNewListScreen> {
               ElevatedButton(
                 onPressed: () {
                   if (selectedSport != null) {
-                    final args = ModalRoute.of(context)!.settings.arguments
-                            as Map<String, dynamic>? ??
-                        {};
-                    Navigator.pushNamed(
-                      context,
-                      '/name_list',
-                      arguments: {
-                        'sport': selectedSport,
-                        'existingLists': existingLists,
-                        'locationData': args['locationData'],
-                        'isAwayGame': args['isAwayGame'] ?? false,
-                      },
-                    ).then((result) {
-                      if (result != null) {
-                        Navigator.pop(context, result);
-                      }
-                    });
+                    _continueToNameList();
                   } else {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(

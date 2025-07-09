@@ -669,7 +669,12 @@ class _AthleticDirectorHomeScreenState
                   style: TextStyle(color: Colors.white)),
               onTap: () {
                 Navigator.pop(context);
-                Navigator.pushNamed(context, '/unpublished_games');
+                Navigator.pushNamed(context, '/unpublished_games').then((result) {
+                  if (result == true) {
+                    // Refresh the games list when returning from unpublished games
+                    _fetchGames();
+                  }
+                });
               },
             ),
             ListTile(

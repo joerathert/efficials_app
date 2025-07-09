@@ -172,7 +172,7 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
         print('Game deleted - ID: $gameId, Games removed: ${initialCount - finalCount}');
         
         if (initialCount > finalCount) {
-          Navigator.pop(context, {'deleted': true});
+          Navigator.pop(context, true);
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Game not found in storage')),
@@ -208,6 +208,7 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
         'gameFee': gameFee != 'Not set' ? gameFee : null,
         'hireAutomatically': hireAutomatically,
         'selectedListName': args['selectedListName'] as String?,
+        'method': args['method'] as String?,
         'isAway': isAwayGame,
       },
     );

@@ -122,7 +122,11 @@ class _NameListScreenState extends State<NameListScreen> {
                     Navigator.pushNamed(
                       context,
                       '/populate_roster',
-                      arguments: {'sport': sport, 'listName': name},
+                      arguments: {
+                        'sport': sport, 
+                        'listName': name,
+                        ...args, // Pass through all original arguments including game creation context
+                      },
                     ).then((result) {
                       if (result != null) {
                         Navigator.pop(context, result);
