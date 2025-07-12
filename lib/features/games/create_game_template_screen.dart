@@ -84,8 +84,7 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
         
         // Detect Away Game by checking for Away Game indicators
         if (isAwayGame || 
-            (locationArg != null && locationArg.toLowerCase().contains('away')) ||
-            (opponent != null && opponent.isNotEmpty && opponent != 'Not set')) {
+            (locationArg != null && locationArg.toLowerCase() == 'away game')) {
           
           // Show dialog and return to previous screen
           WidgetsBinding.instance.addPostFrameCallback((_) {

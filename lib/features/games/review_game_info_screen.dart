@@ -215,7 +215,7 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
       shouldCreateTemplate = await _showCreateTemplateDialog();
     }
 
-    if (shouldCreateTemplate == true) {
+    if (shouldCreateTemplate == true && !isAwayGame) {
       if (mounted) {
         Navigator.pushNamed(
           context,
@@ -231,6 +231,28 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
           _navigateBack();
         });
       }
+    } else if (shouldCreateTemplate == true && isAwayGame) {
+      if (mounted) {
+        await showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            backgroundColor: darkSurface,
+            title: const Text('Away Game Template Not Supported',
+                style: TextStyle(color: efficialsYellow, fontSize: 18, fontWeight: FontWeight.bold)),
+            content: const Text(
+              'Game templates can only be created from Home Games. Away Games have different data requirements and cannot be used as template bases.\n\nTo create a template, please use a Home Game instead.',
+              style: TextStyle(color: Colors.white),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('OK', style: TextStyle(color: efficialsYellow)),
+              ),
+            ],
+          ),
+        );
+      }
+      _navigateBack();
     } else {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -296,7 +318,7 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
       shouldCreateTemplate = await _showCreateTemplateDialog();
     }
 
-    if (shouldCreateTemplate == true) {
+    if (shouldCreateTemplate == true && !isAwayGame) {
       if (mounted) {
         Navigator.pushNamed(
           context,
@@ -312,6 +334,28 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
           _navigateBack();
         });
       }
+    } else if (shouldCreateTemplate == true && isAwayGame) {
+      if (mounted) {
+        await showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            backgroundColor: darkSurface,
+            title: const Text('Away Game Template Not Supported',
+                style: TextStyle(color: efficialsYellow, fontSize: 18, fontWeight: FontWeight.bold)),
+            content: const Text(
+              'Game templates can only be created from Home Games. Away Games have different data requirements and cannot be used as template bases.\n\nTo create a template, please use a Home Game instead.',
+              style: TextStyle(color: Colors.white),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('OK', style: TextStyle(color: efficialsYellow)),
+              ),
+            ],
+          ),
+        );
+      }
+      _navigateBack();
     } else {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

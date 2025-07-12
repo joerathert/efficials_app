@@ -204,17 +204,17 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
       'scheduleName': args['scheduleName'],
     };
 
-    Navigator.pushNamed(
-      context,
-      _isAwayGame ? '/review_game_info' : '/select_officials',
-      arguments: _isFromEdit
-          ? {
-              ...updatedArgs,
-              'isEdit': true,
-              'isFromGameInfo': args['isFromGameInfo'] ?? false
-            }
-          : updatedArgs,
-    );
+    if (_isFromEdit) {
+      // When editing an existing game, return to the review/game info screen
+      Navigator.pop(context, updatedArgs);
+    } else {
+      // Normal game creation flow
+      Navigator.pushNamed(
+        context,
+        _isAwayGame ? '/review_game_info' : '/select_officials',
+        arguments: updatedArgs,
+      );
+    }
   }
 
   @override
