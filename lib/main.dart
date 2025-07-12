@@ -1,48 +1,61 @@
 import 'package:flutter/material.dart';
-import 'welcome_screen.dart';
-import 'role_selection_screen.dart';
-import 'scheduler_signup_step1.dart';
-import 'scheduler_signup_step2.dart';
-import 'add_photo_screen.dart';
-import 'athletic_director_home_screen.dart';
-import 'athletic_director_setup_screen.dart';
-import 'lists_of_officials_screen.dart';
-import 'create_new_list_screen.dart';
-import 'name_list_screen.dart';
-import 'populate_roster_screen.dart';
-import 'review_list_screen.dart';
-import 'filter_settings_screen.dart';
-import 'edit_list_screen.dart';
-import 'theme.dart';
-import 'locations_screen.dart';
-import 'add_new_location_screen.dart';
-import 'select_sport_screen.dart';
-import 'name_schedule_screen.dart';
-import 'choose_location_screen.dart';
-import 'date_time_screen.dart';
-import 'additional_game_info_screen.dart';
-import 'select_officials_screen.dart';
-import 'review_game_info_screen.dart';
-import 'edit_game_info_screen.dart';
-import 'edit_location_screen.dart';
-import 'advanced_officials_selection_screen.dart';
-import 'unpublished_games_screen.dart';
-import 'game_information_screen.dart';
-import 'select_schedule_screen.dart';
-import 'schedules_screen.dart';
-import 'schedule_details_screen.dart';
-import 'new_game_template_screen.dart';
-import 'game_templates_screen.dart';
-import 'sport_templates_screen.dart';
-import 'select_game_template_screen.dart';
-import 'create_game_template_screen.dart';
-import 'assigner_home_screen.dart';
-import 'coach_home_screen.dart';
-import 'select_team_screen.dart';
-import 'assigner_sport_selection_screen.dart';
-import 'assigner_manage_schedules_screen.dart';
-import 'additional_game_info_condensed_screen.dart'; // New import
-import 'settings_screen.dart';
+
+// Auth screens
+import 'features/auth/welcome_screen.dart';
+import 'features/auth/role_selection_screen.dart';
+import 'features/auth/scheduler_signup_step1.dart';
+import 'features/auth/scheduler_signup_step2.dart';
+import 'features/auth/add_photo_screen.dart';
+import 'features/auth/athletic_director_setup_screen.dart';
+
+// Home screens
+import 'features/home/athletic_director_home_screen.dart';
+import 'features/home/assigner_home_screen.dart';
+import 'features/home/coach_home_screen.dart';
+import 'features/home/assigner_sport_selection_screen.dart';
+import 'features/home/settings_screen.dart';
+
+// Officials screens
+import 'features/officials/lists_of_officials_screen.dart';
+import 'features/officials/create_new_list_screen.dart';
+import 'features/officials/name_list_screen.dart';
+import 'features/officials/populate_roster_screen.dart';
+import 'features/officials/review_list_screen.dart';
+import 'features/officials/filter_settings_screen.dart';
+import 'features/officials/edit_list_screen.dart';
+import 'features/officials/advanced_officials_selection_screen.dart';
+import 'features/officials/select_officials_screen.dart';
+
+// Games screens
+import 'features/games/additional_game_info_screen.dart';
+import 'features/games/additional_game_info_condensed_screen.dart';
+import 'features/games/date_time_screen.dart';
+import 'features/games/review_game_info_screen.dart';
+import 'features/games/edit_game_info_screen.dart';
+import 'features/games/unpublished_games_screen.dart';
+import 'features/games/game_information_screen.dart';
+import 'features/games/game_templates_screen.dart';
+import 'features/games/sport_templates_screen.dart';
+import 'features/games/select_game_template_screen.dart';
+import 'features/games/create_game_template_screen.dart';
+import 'features/games/select_sport_screen.dart';
+import 'features/games/select_team_screen.dart';
+
+// Schedule screens
+import 'features/schedules/name_schedule_screen.dart';
+import 'features/schedules/select_schedule_screen.dart';
+import 'features/schedules/schedules_screen.dart';
+import 'features/schedules/schedule_details_screen.dart';
+import 'features/schedules/assigner_manage_schedules_screen.dart';
+
+// Location screens
+import 'features/locations/locations_screen.dart';
+import 'features/locations/add_new_location_screen.dart';
+import 'features/locations/choose_location_screen.dart';
+import 'features/locations/edit_location_screen.dart';
+
+// Shared
+import 'shared/theme.dart';
 
 void main() {
   runApp(const EfficialsApp());
