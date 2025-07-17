@@ -274,7 +274,8 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(20.0),
-          child: Column(
+          child: SingleChildScrollView(
+            child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               const SizedBox(height: 40),
@@ -452,6 +453,7 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
                 ),
               ),
             ],
+            ),
           ),
         ),
       ),

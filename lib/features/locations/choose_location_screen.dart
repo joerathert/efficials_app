@@ -18,13 +18,13 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
   bool isFromEdit = false;
   bool isFromGameInfo = false; // Added to match the error context
   bool originalIsAway = false;
+  bool isAssignerFlow = false;
   GameTemplate? template; // Store the selected template
 
   @override
   void initState() {
     super.initState();
     locations = [
-      {'name': 'Away Game', 'id': -2},
       {'name': '+ Create new location', 'id': 0},
     ];
     _fetchLocations();
@@ -40,6 +40,7 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
       isFromGameInfo =
           args['isFromGameInfo'] == true; // Added to match the error context
       originalIsAway = args['isAwayGame'] == true;
+      isAssignerFlow = args['isAssignerFlow'] == true;
 
       // Convert args['template'] from Map to GameTemplate if necessary
       template = args['template'] != null
@@ -90,9 +91,13 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
     final prefs = await SharedPreferences.getInstance();
     final String? locationsJson = prefs.getString('saved_locations');
     setState(() {
-      locations = [
-        {'name': 'Away Game', 'id': -2},
-      ];
+      locations = [];
+      
+      // Only add "Away Game" if not in Assigner flow
+      if (!isAssignerFlow) {
+        locations.add({'name': 'Away Game', 'id': -2});
+      }
+      
       try {
         if (locationsJson != null && locationsJson.isNotEmpty) {
           locations.addAll(
@@ -334,6 +339,7 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                             'locationData': isAwayGame ? null : selected,
                             'isAwayGame': isAwayGame,
                             'template': template,
+                            'isEdit': isFromEdit, // Explicitly pass the isEdit flag
                             // Ensure we preserve all existing args
                             'opponent': args['opponent'] ?? '', // Explicitly preserve opponent with fallback
                             'levelOfCompetition': args['levelOfCompetition'],

@@ -42,9 +42,11 @@ class _AssignerManageSchedulesScreenState
     if (args != null) {
       if (args['selectedTeam'] != null && _teamToRestore == null) {
         _teamToRestore = args['selectedTeam'] as String;
+        print('DEBUG: Setting team to restore: $_teamToRestore');
       }
       if (args['focusDate'] != null && _dateToFocus == null) {
         _dateToFocus = args['focusDate'] as DateTime;
+        print('DEBUG: Setting date to focus: $_dateToFocus');
       }
     }
   }
@@ -68,11 +70,18 @@ class _AssignerManageSchedulesScreenState
 
     // Check if we need to restore team selection after loading teams
     if (_teamToRestore != null) {
+      print('DEBUG: Trying to restore team: $_teamToRestore');
+      print('DEBUG: Available teams: $teams');
       if (teams.contains(_teamToRestore)) {
-        selectedTeam = _teamToRestore;
+        print('DEBUG: Team found, setting selectedTeam');
+        setState(() {
+          selectedTeam = _teamToRestore;
+        });
         await _fetchGames();
         await _loadAssociatedTemplate();
         _teamToRestore = null; // Clear after restoration
+      } else {
+        print('DEBUG: Team not found in teams list');
       }
     }
 
@@ -99,12 +108,14 @@ class _AssignerManageSchedulesScreenState
     final String? newTeamName = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Add New Team'),
+        backgroundColor: darkSurface,
+        title: const Text('Add New Team', style: TextStyle(color: primaryTextColor)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               controller: teamController,
+              style: textFieldTextStyle,
               decoration:
                   textFieldDecoration('Team Name (e.g. Alton Redbirds)'),
               textCapitalization: TextCapitalization.words,
@@ -283,6 +294,7 @@ class _AssignerManageSchedulesScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: darkBackground,
       appBar: AppBar(
         backgroundColor: efficialsBlack,
         leading: IconButton(
@@ -324,7 +336,7 @@ class _AssignerManageSchedulesScreenState
                                 'Get started by adding your first team to manage their game schedules.',
                                 style: TextStyle(
                                   fontSize: 16,
-                                  color: Colors.grey,
+                                  color: secondaryTextColor,
                                 ),
                                 textAlign: TextAlign.center,
                               ),
@@ -400,7 +412,9 @@ class _AssignerManageSchedulesScreenState
                                     horizontal: 16, vertical: 16),
                               ),
                               value: selectedTeam,
-                              hint: const Text('Select a team'),
+                              hint: const Text('Select a team', style: TextStyle(color: efficialsGray)),
+                              dropdownColor: darkSurface,
+                              style: const TextStyle(color: primaryTextColor),
                               onChanged: (newValue) async {
                                 if (newValue == '+ Add a new team') {
                                   await _addNewTeam();
@@ -419,7 +433,7 @@ class _AssignerManageSchedulesScreenState
                               items: [
                                 ...teams.map((team) => DropdownMenuItem(
                                       value: team,
-                                      child: Text(team),
+                                      child: Text(team, style: const TextStyle(color: primaryTextColor)),
                                     )),
                                 const DropdownMenuItem(
                                   value: '+ Add a new team',
@@ -428,7 +442,7 @@ class _AssignerManageSchedulesScreenState
                                       Icon(Icons.add_circle_outline,
                                           color: efficialsBlue, size: 20),
                                       SizedBox(width: 8),
-                                      Text('Add a new team'),
+                                      Text('Add a new team', style: TextStyle(color: primaryTextColor)),
                                     ],
                                   ),
                                 ),
@@ -545,6 +559,11 @@ class _AssignerManageSchedulesScreenState
                                     shape: BoxShape.rectangle,
                                     borderRadius: BorderRadius.circular(4),
                                   ),
+                                  selectedTextStyle: const TextStyle(
+                                    fontSize: 16,
+                                    color: efficialsBlack,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                   defaultTextStyle: const TextStyle(
                                       fontSize: 16, color: primaryTextColor),
                                   weekendTextStyle: const TextStyle(
@@ -591,7 +610,7 @@ class _AssignerManageSchedulesScreenState
                                     Color? backgroundColor;
                                     Color textColor = isOutsideMonth
                                         ? Colors.grey[400]!
-                                        : Colors.black87;
+                                        : primaryTextColor;
 
                                     if (hasEvents) {
                                       bool allAway = true;
@@ -631,6 +650,11 @@ class _AssignerManageSchedulesScreenState
                                         backgroundColor = Colors.green[400];
                                         textColor = Colors.white;
                                       }
+                                    }
+
+                                    // Override text color for selected dates to ensure readability
+                                    if (isSelected) {
+                                      textColor = efficialsBlack;
                                     }
 
                                     return Container(
@@ -684,17 +708,12 @@ class _AssignerManageSchedulesScreenState
                               decoration: BoxDecoration(
                                 color: darkSurface,
                                 borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: Colors.grey[200]!),
+                                border: Border.all(color: efficialsGray.withOpacity(0.3)),
                               ),
                               child: Row(
                                 mainAxisAlignment:
                                     MainAxisAlignment.spaceEvenly,
                                 children: [
-                                  _buildLegendItem(
-                                    color: Colors.grey[300]!,
-                                    label: 'Away Game',
-                                    icon: Icons.directions_bus,
-                                  ),
                                   _buildLegendItem(
                                     color: Colors.green[400]!,
                                     label: 'Fully Hired',
@@ -842,6 +861,7 @@ class _AssignerManageSchedulesScreenState
                                                         fontSize: 16,
                                                         fontWeight:
                                                             FontWeight.w500,
+                                                        color: primaryTextColor,
                                                       ),
                                                     ),
                                                   ],
@@ -888,7 +908,8 @@ class _AssignerManageSchedulesScreenState
                                                   child: Text(
                                                     location,
                                                     style: const TextStyle(
-                                                        fontSize: 16),
+                                                        fontSize: 16,
+                                                        color: primaryTextColor),
                                                   ),
                                                 ),
                                               ],
@@ -906,7 +927,8 @@ class _AssignerManageSchedulesScreenState
                                                   child: Text(
                                                     'vs $opponent',
                                                     style: const TextStyle(
-                                                        fontSize: 16),
+                                                        fontSize: 16,
+                                                        color: primaryTextColor),
                                                   ),
                                                 ),
                                               ],
@@ -924,9 +946,9 @@ class _AssignerManageSchedulesScreenState
                                 margin: const EdgeInsets.all(16),
                                 padding: const EdgeInsets.all(24),
                                 decoration: BoxDecoration(
-                                  color: Colors.grey[50],
+                                  color: darkSurface,
                                   borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: Colors.grey[200]!),
+                                  border: Border.all(color: efficialsGray.withOpacity(0.3)),
                                 ),
                                 child: Column(
                                   children: [
@@ -1014,7 +1036,7 @@ class _AssignerManageSchedulesScreenState
                   backgroundColor:
                       _selectedDay == null ? Colors.grey : efficialsBlue,
                   tooltip: 'Add Game',
-                  child: const Icon(Icons.add, size: 30, color: Colors.white),
+                  child: const Icon(Icons.add, size: 30, color: efficialsBlack),
                 ),
               ],
             )
@@ -1034,9 +1056,9 @@ class _AssignerManageSchedulesScreenState
         const SizedBox(width: 4),
         Text(
           label,
-          style: TextStyle(
+          style: const TextStyle(
             fontSize: 14,
-            color: Colors.grey[700],
+            color: primaryTextColor,
           ),
         ),
       ],

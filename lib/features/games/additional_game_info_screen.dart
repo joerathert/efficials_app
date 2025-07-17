@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../shared/theme.dart';
 import 'game_template.dart'; // Import the GameTemplate model
 
@@ -50,6 +51,41 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
   final List<String> _adultGenders = ['Men', 'Women', 'Co-ed'];
   final List<int> _officialsOptions = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 
+  Future<Map<String, dynamic>> _loadAssignerDefaults() async {
+    final prefs = await SharedPreferences.getInstance();
+    final sport = prefs.getString('assigner_sport');
+    
+    if (sport != null) {
+      final defaultsKey = 'assigner_sport_defaults_${sport.toLowerCase()}';
+      final defaultGender = prefs.getString('${defaultsKey}_gender');
+      final defaultOfficials = prefs.getString('${defaultsKey}_officials');
+      final defaultGameFee = prefs.getString('${defaultsKey}_game_fee');
+      
+      final defaultCompetitionLevel = prefs.getString('${defaultsKey}_competition_level');
+      
+      // Map genders to match the screen's expected format
+      String? mappedGender;
+      if (defaultGender != null) {
+        if (defaultGender == 'Boys') {
+          mappedGender = 'Boys';
+        } else if (defaultGender == 'Girls') {
+          mappedGender = 'Girls';
+        } else if (defaultGender == 'Coed') {
+          mappedGender = 'Co-ed';
+        }
+      }
+      
+      return {
+        'gender': mappedGender,
+        'officials': defaultOfficials != null ? int.tryParse(defaultOfficials) : null,
+        'gameFee': defaultGameFee,
+        'competitionLevel': defaultCompetitionLevel,
+      };
+    }
+    
+    return {};
+  }
+
   void _updateCurrentGenders() {
     if (_levelOfCompetition == null) {
       _currentGenders = _youthGenders;
@@ -86,72 +122,93 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (!_isInitialized) {
-      final args =
-          ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
-      if (args != null) {
-        _isFromEdit = args['isEdit'] == true;
-        _isAwayGame = args['isAwayGame'] == true;
-        template = args['template'] as GameTemplate?; // Extract the template
-
-        // Pre-fill fields from the template if available, otherwise use args
-        if (template != null) {
-          _levelOfCompetition = template!.includeLevelOfCompetition &&
-                  template!.levelOfCompetition != null
-              ? template!.levelOfCompetition
-              : args['levelOfCompetition'] as String?;
-          _updateCurrentGenders();
-          _gender = template!.includeGender && template!.gender != null
-              ? template!.gender
-              : (args['gender'] as String?);
-          if (_gender != null && !_currentGenders.contains(_gender)) {
-            _gender = null;
-          }
-          _officialsRequired = template!.includeOfficialsRequired &&
-                  template!.officialsRequired != null
-              ? template!.officialsRequired
-              : (args['officialsRequired'] != null
-                  ? int.tryParse(args['officialsRequired'].toString())
-                  : null);
-          _gameFeeController.text =
-              template!.includeGameFee && template!.gameFee != null
-                  ? template!.gameFee!
-                  : (args['gameFee']?.toString() ?? '');
-          _hireAutomatically = template!.includeHireAutomatically &&
-                  template!.hireAutomatically != null
-              ? template!.hireAutomatically!
-              : (args['hireAutomatically'] as bool? ?? false);
-        } else {
-          _levelOfCompetition = args['levelOfCompetition'] as String?;
-          _updateCurrentGenders();
-          final genderArg = args['gender'] as String?;
-          _gender = (genderArg != null && _currentGenders.contains(genderArg))
-              ? genderArg
-              : null;
-          _officialsRequired = args['officialsRequired'] != null
-              ? int.tryParse(args['officialsRequired'].toString())
-              : null;
-          _gameFeeController.text = args['gameFee']?.toString() ?? '';
-          _hireAutomatically = args['hireAutomatically'] as bool? ?? false;
-        }
-        // Opponent field should never be populated from templates initially
-        // But should preserve existing opponent value from args (e.g., during edit flow)
-        _opponentController.text = args['opponent'] as String? ?? '';
-        
-        // Validate that _officialsRequired is a valid option
-        if (_officialsRequired != null && !_officialsOptions.contains(_officialsRequired)) {
-          _officialsRequired = null;
-        }
-        
-        // Clear game fee if it's "0" (from away game) so hint text shows
-        if (_gameFeeController.text == '0' || _gameFeeController.text == '0.0' || _gameFeeController.text == '0.00') {
-          _gameFeeController.text = '';
-        }
-      }
-      _isInitialized = true;
+      _initializeAsync();
     }
   }
 
+  Future<void> _initializeAsync() async {
+    final args =
+        ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    if (args != null) {
+      _isFromEdit = args['isEdit'] == true;
+      _isAwayGame = args['isAwayGame'] == true;
+      template = args['template'] as GameTemplate?; // Extract the template
+
+      // Load assigner defaults (only for assigner flow, not for edit mode)
+      Map<String, dynamic> defaults = {};
+      final isAssignerFlow = args['isAssignerFlow'] == true;
+      if (isAssignerFlow && !_isFromEdit) {
+        defaults = await _loadAssignerDefaults();
+      }
+
+      // Pre-fill fields from the template if available, otherwise use args, then defaults
+      if (template != null) {
+        _levelOfCompetition = template!.includeLevelOfCompetition &&
+                template!.levelOfCompetition != null
+            ? template!.levelOfCompetition
+            : (args['levelOfCompetition'] as String? ?? defaults['competitionLevel']);
+        _updateCurrentGenders();
+        _gender = template!.includeGender && template!.gender != null
+            ? template!.gender
+            : (args['gender'] as String? ?? defaults['gender']);
+        if (_gender != null && !_currentGenders.contains(_gender)) {
+          _gender = null;
+        }
+        _officialsRequired = template!.includeOfficialsRequired &&
+                template!.officialsRequired != null
+            ? template!.officialsRequired
+            : (args['officialsRequired'] != null
+                ? int.tryParse(args['officialsRequired'].toString())
+                : defaults['officials']);
+        _gameFeeController.text =
+            template!.includeGameFee && template!.gameFee != null
+                ? template!.gameFee!
+                : (args['gameFee']?.toString() ?? defaults['gameFee'] ?? '');
+        _hireAutomatically = template!.includeHireAutomatically &&
+                template!.hireAutomatically != null
+            ? template!.hireAutomatically!
+            : (args['hireAutomatically'] as bool? ?? false);
+      } else {
+        _levelOfCompetition = args['levelOfCompetition'] as String? ?? defaults['competitionLevel'];
+        _updateCurrentGenders();
+        final genderArg = args['gender'] as String?;
+        _gender = (genderArg != null && _currentGenders.contains(genderArg))
+            ? genderArg
+            : (defaults['gender'] != null && _currentGenders.contains(defaults['gender']))
+                ? defaults['gender']
+                : null;
+        _officialsRequired = args['officialsRequired'] != null
+            ? int.tryParse(args['officialsRequired'].toString())
+            : defaults['officials'];
+        _gameFeeController.text = args['gameFee']?.toString() ?? defaults['gameFee'] ?? '';
+        _hireAutomatically = args['hireAutomatically'] as bool? ?? false;
+      }
+      // Opponent field should only be populated from args during edit flow
+      // Never pre-fill opponent for new games in assigner flow
+      if (_isFromEdit) {
+        _opponentController.text = args['opponent'] as String? ?? '';
+      } else {
+        _opponentController.text = '';
+      }
+      
+      // Validate that _officialsRequired is a valid option
+      if (_officialsRequired != null && !_officialsOptions.contains(_officialsRequired)) {
+        _officialsRequired = null;
+      }
+      
+      // Clear game fee if it's "0" (from away game) so hint text shows
+      if (_gameFeeController.text == '0' || _gameFeeController.text == '0.0' || _gameFeeController.text == '0.00') {
+        _gameFeeController.text = '';
+      }
+    }
+    
+    setState(() {
+      _isInitialized = true;
+    });
+  }
+
   void _handleContinue() {
+    
     if (!_isAwayGame) {
       if (_levelOfCompetition == null ||
           _gender == null ||
@@ -205,13 +262,22 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
     };
 
     if (_isFromEdit) {
-      // When editing an existing game, return to the review/game info screen
-      Navigator.pop(context, updatedArgs);
+      // When editing an existing game, navigate directly to review screen
+      Navigator.pushReplacementNamed(
+        context,
+        '/review_game_info',
+        arguments: {
+          ...updatedArgs,
+          'isEdit': true,
+          'isFromGameInfo': args['isFromGameInfo'] ?? false
+        },
+      );
     } else {
       // Normal game creation flow
+      final nextRoute = _isAwayGame ? '/review_game_info' : '/select_officials';
       Navigator.pushNamed(
         context,
-        _isAwayGame ? '/review_game_info' : '/select_officials',
+        nextRoute,
         arguments: updatedArgs,
       );
     }
@@ -342,11 +408,11 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
                           decoration:
                               textFieldDecoration('Game Fee per Official').copyWith(
                             prefixText: '\$',
-                            prefixStyle: const TextStyle(color: Colors.white),
+                            prefixStyle: const TextStyle(color: fieldLineWhite, fontSize: 16),
                             hintText: 'Enter fee (e.g., 50 or 50.00)',
                             hintStyle: const TextStyle(color: efficialsGray),
                           ),
-                          style: const TextStyle(color: Colors.white, fontSize: 16),
+                          style: const TextStyle(color: fieldLineWhite, fontSize: 16),
                           keyboardType: TextInputType.number,
                           inputFormatters: [
                             FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),

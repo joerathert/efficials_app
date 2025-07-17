@@ -119,10 +119,10 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen> {
             ),
             ListTile(
               leading: const Icon(Icons.settings, color: efficialsYellow),
-              title: const Text('Settings', style: TextStyle(color: Colors.white)),
+              title: const Text('Game Defaults', style: TextStyle(color: Colors.white)),
               onTap: () {
                 Navigator.pop(context);
-                Navigator.pushNamed(context, '/settings');
+                Navigator.pushNamed(context, '/assigner_sport_defaults');
               },
             ),
           ],
@@ -237,13 +237,10 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: _buildActionCard(
-                      icon: Icons.analytics,
-                      title: 'Reports',
+                      icon: Icons.settings,
+                      title: 'Game Defaults',
                       onTap: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                              content: Text('Reports not implemented yet')),
-                        );
+                        Navigator.pushNamed(context, '/assigner_sport_defaults');
                       },
                     ),
                   ),

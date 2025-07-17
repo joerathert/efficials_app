@@ -92,6 +92,7 @@ class _AssignerSportSelectionScreenState
                 const SizedBox(height: 40),
                 TextField(
                   controller: _leagueNameController,
+                  style: textFieldTextStyle,
                   decoration: textFieldDecoration(
                       'League Name (Ex. Metro Basketball League)'),
                 ),
@@ -134,10 +135,9 @@ class _AssignerSportSelectionScreenState
                       },
                       child: Container(
                         decoration: BoxDecoration(
-                          color: isSelected ? efficialsBlue : Colors.white,
+                          color: isSelected ? efficialsBlue : darkSurface,
                           border: Border.all(
-                            color:
-                                isSelected ? efficialsBlue : Colors.grey[300]!,
+                            color: isSelected ? efficialsBlue : efficialsGray.withOpacity(0.3),
                             width: 2,
                           ),
                           borderRadius: BorderRadius.circular(8),
@@ -148,7 +148,7 @@ class _AssignerSportSelectionScreenState
                             Icon(
                               getSportIcon(sport),
                               color: isSelected
-                                  ? Colors.white
+                                  ? efficialsBlack
                                   : getSportIconColor(sport),
                               size: 20,
                             ),
@@ -157,8 +157,7 @@ class _AssignerSportSelectionScreenState
                               child: Text(
                                 sport,
                                 style: TextStyle(
-                                  color:
-                                      isSelected ? Colors.white : Colors.black,
+                                  color: isSelected ? efficialsBlack : primaryTextColor,
                                   fontSize: 14,
                                   fontWeight: FontWeight.w500,
                                 ),

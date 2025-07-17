@@ -286,8 +286,12 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
                           width: 300,
                           child: ElevatedButton(
                             onPressed: () {
+                              // Check if this is a coach flow by checking for teamName
+                              final isCoach = args['teamName'] != null;
+                              final route = isCoach ? '/additional_game_info_condensed' : '/additional_game_info';
+                              
                               Navigator.pushNamed(
-                                  context, '/additional_game_info',
+                                  context, route,
                                   arguments: {
                                     ...args,
                                     'isEdit': true,

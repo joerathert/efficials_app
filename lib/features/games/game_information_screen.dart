@@ -590,10 +590,10 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                                     onTap: () {
                                       Navigator.pushNamed(
                                         context,
-                                        '/schedule_details',
+                                        '/assigner_manage_schedules',
                                         arguments: {
-                                          'scheduleName': scheduleName,
-                                          'scheduleId': args['scheduleId'],
+                                          'selectedTeam': scheduleName,
+                                          'focusDate': selectedDate,
                                         },
                                       );
                                     },

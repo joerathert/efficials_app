@@ -96,6 +96,12 @@ InputDecoration textFieldDecoration(String label, {Widget? suffixIcon}) {
   );
 }
 
+// Text Style for TextFields - Dark Mode
+const TextStyle textFieldTextStyle = TextStyle(
+  color: primaryTextColor,
+  fontSize: 16,
+);
+
 // Button Styles
 ButtonStyle elevatedButtonStyle({EdgeInsetsGeometry? padding, Color? backgroundColor}) {
   return ElevatedButton.styleFrom(

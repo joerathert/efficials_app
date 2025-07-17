@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../shared/theme.dart';
 import 'game_template.dart'; // Import the GameTemplate model
 
@@ -27,17 +28,37 @@ class _AdditionalGameInfoCondensedScreenState
 
   final List<int> _officialsOptions = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 
+  Future<Map<String, dynamic>> _loadAssignerDefaults() async {
+    final prefs = await SharedPreferences.getInstance();
+    final sport = prefs.getString('assigner_sport');
+    
+    if (sport != null) {
+      final defaultsKey = 'assigner_sport_defaults_${sport.toLowerCase()}';
+      final defaultOfficials = prefs.getString('${defaultsKey}_officials');
+      final defaultGameFee = prefs.getString('${defaultsKey}_game_fee');
+      
+      return {
+        'officials': defaultOfficials != null ? int.tryParse(defaultOfficials) : null,
+        'gameFee': defaultGameFee,
+      };
+    }
+    
+    return {};
+  }
+
   void _showHireInfoDialog() {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Hire Automatically'),
+        backgroundColor: darkSurface,
+        title: const Text('Hire Automatically', style: TextStyle(color: primaryTextColor)),
         content: const Text(
-            'When checked, the system will automatically assign officials based on your preferences and availability. Uncheck to manually select officials.'),
+            'When checked, the system will automatically assign officials based on your preferences and availability. Uncheck to manually select officials.',
+            style: TextStyle(color: primaryTextColor)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Close', style: TextStyle(color: efficialsBlue)),
+            child: const Text('Close', style: TextStyle(color: efficialsYellow)),
           ),
         ],
       ),
@@ -48,40 +69,60 @@ class _AdditionalGameInfoCondensedScreenState
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (!_isInitialized) {
-      final args =
-          ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
-      if (args != null) {
-        _isFromEdit = args['isEdit'] == true;
-        _isAwayGame = args['isAwayGame'] == true;
-        template = args['template'] as GameTemplate?; // Extract the template
-
-        // Pre-fill fields from the template if available, otherwise use args or Coach data
-        if (template != null) {
-          _officialsRequired = template!.includeOfficialsRequired &&
-                  template!.officialsRequired != null
-              ? template!.officialsRequired
-              : (args['officialsRequired'] != null
-                  ? int.tryParse(args['officialsRequired'].toString())
-                  : null);
-          _gameFeeController.text =
-              template!.includeGameFee && template!.gameFee != null
-                  ? template!.gameFee!
-                  : (args['gameFee']?.toString() ?? '');
-          _hireAutomatically = template!.includeHireAutomatically &&
-                  template!.hireAutomatically != null
-              ? template!.hireAutomatically!
-              : (args['hireAutomatically'] as bool? ?? false);
-        } else {
-          _officialsRequired = args['officialsRequired'] != null
-              ? int.tryParse(args['officialsRequired'].toString())
-              : null;
-          _gameFeeController.text = args['gameFee']?.toString() ?? '';
-          _hireAutomatically = args['hireAutomatically'] as bool? ?? false;
-        }
-        _opponentController.text = args['opponent'] as String? ?? '';
-      }
-      _isInitialized = true;
+      _initializeAsync();
     }
+  }
+
+  Future<void> _initializeAsync() async {
+    final args =
+        ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    if (args != null) {
+      _isFromEdit = args['isEdit'] == true;
+      _isAwayGame = args['isAwayGame'] == true;
+      template = args['template'] as GameTemplate?; // Extract the template
+
+      // Load assigner defaults (only for assigner flow, not for edit mode)
+      Map<String, dynamic> defaults = {};
+      final isAssignerFlow = args['isAssignerFlow'] == true;
+      if (isAssignerFlow && !_isFromEdit) {
+        defaults = await _loadAssignerDefaults();
+      }
+
+      // Pre-fill fields from the template if available, otherwise use args or Coach data, then defaults
+      if (template != null) {
+        _officialsRequired = template!.includeOfficialsRequired &&
+                template!.officialsRequired != null
+            ? template!.officialsRequired
+            : (args['officialsRequired'] != null
+                ? int.tryParse(args['officialsRequired'].toString())
+                : defaults['officials']);
+        _gameFeeController.text =
+            template!.includeGameFee && template!.gameFee != null
+                ? template!.gameFee!
+                : (args['gameFee']?.toString() ?? defaults['gameFee'] ?? '');
+        _hireAutomatically = template!.includeHireAutomatically &&
+                template!.hireAutomatically != null
+            ? template!.hireAutomatically!
+            : (args['hireAutomatically'] as bool? ?? false);
+      } else {
+        _officialsRequired = args['officialsRequired'] != null
+            ? int.tryParse(args['officialsRequired'].toString())
+            : defaults['officials'];
+        _gameFeeController.text = args['gameFee']?.toString() ?? defaults['gameFee'] ?? '';
+        _hireAutomatically = args['hireAutomatically'] as bool? ?? false;
+      }
+      // Opponent field should only be populated from args during edit flow
+      // Never pre-fill opponent for new games in assigner flow
+      if (_isFromEdit) {
+        _opponentController.text = args['opponent'] as String? ?? '';
+      } else {
+        _opponentController.text = '';
+      }
+    }
+    
+    setState(() {
+      _isInitialized = true;
+    });
   }
 
   void _handleContinue() {
@@ -132,29 +173,40 @@ class _AdditionalGameInfoCondensedScreenState
       'scheduleName': args['scheduleName'],
     };
 
-    Navigator.pushNamed(
-      context,
-      _isAwayGame ? '/review_game_info' : '/select_officials',
-      arguments: _isFromEdit
-          ? {
-              ...updatedArgs,
-              'isEdit': true,
-              'isFromGameInfo': args['isFromGameInfo'] ?? false
-            }
-          : updatedArgs,
-    );
+    if (_isFromEdit) {
+      // When in edit mode, we need to navigate back to the edit screen
+      // Pop back to the edit screen and then navigate to review
+      Navigator.pushReplacementNamed(
+        context,
+        '/review_game_info',
+        arguments: {
+          ...updatedArgs,
+          'isEdit': true,
+          'isFromGameInfo': args['isFromGameInfo'] ?? false
+        },
+      );
+    } else {
+      Navigator.pushNamed(
+        context,
+        _isAwayGame ? '/review_game_info' : '/select_officials',
+        arguments: updatedArgs,
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: darkBackground,
       appBar: AppBar(
-        backgroundColor: efficialsBlue,
+        backgroundColor: efficialsBlack,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, size: 36, color: Colors.white),
+          icon: const Icon(Icons.arrow_back, size: 36, color: efficialsWhite),
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text('Additional Game Info', style: appBarTextStyle),
+        elevation: 0,
+        centerTitle: true,
       ),
       body: Center(
         child: ConstrainedBox(
@@ -170,21 +222,26 @@ class _AdditionalGameInfoCondensedScreenState
                     DropdownButtonFormField<int>(
                       decoration:
                           textFieldDecoration('Required number of officials'),
+                      style: textFieldTextStyle,
+                      dropdownColor: darkSurface,
+                      iconEnabledColor: efficialsYellow,
                       value: _officialsRequired,
-                      hint: const Text('Required number of officials'),
+                      hint: const Text('Required number of officials', style: TextStyle(color: efficialsGray)),
                       onChanged: (value) =>
                           setState(() => _officialsRequired = value),
                       items: _officialsOptions
                           .map((num) => DropdownMenuItem(
-                              value: num, child: Text(num.toString())))
+                              value: num, child: Text(num.toString(), style: textFieldTextStyle)))
                           .toList(),
                     ),
                     const SizedBox(height: 20),
                     TextField(
                       controller: _gameFeeController,
+                      style: textFieldTextStyle,
                       decoration:
                           textFieldDecoration('Game Fee per Official').copyWith(
                         prefixText: '\$',
+                        prefixStyle: const TextStyle(color: primaryTextColor, fontSize: 16),
                         hintText: 'Enter fee (e.g., 50 or 50.00)',
                       ),
                       keyboardType: TextInputType.number,
@@ -198,6 +255,7 @@ class _AdditionalGameInfoCondensedScreenState
                   ],
                   TextField(
                     controller: _opponentController,
+                    style: textFieldTextStyle,
                     decoration: textFieldDecoration('Opponent'),
                     keyboardType: TextInputType.text,
                   ),
@@ -210,12 +268,21 @@ class _AdditionalGameInfoCondensedScreenState
                           value: _hireAutomatically,
                           onChanged: (value) => setState(
                               () => _hireAutomatically = value ?? false),
-                          activeColor: efficialsBlue,
+                          activeColor: efficialsYellow,
+                          checkColor: efficialsBlack,
+                          fillColor: WidgetStateProperty.resolveWith<Color>(
+                            (Set<WidgetState> states) {
+                              if (states.contains(WidgetState.selected)) {
+                                return efficialsYellow;
+                              }
+                              return darkSurface;
+                            },
+                          ),
                         ),
-                        const Text('Hire Automatically'),
+                        const Text('Hire Automatically', style: TextStyle(color: primaryTextColor)),
                         IconButton(
                           icon: const Icon(Icons.help_outline,
-                              color: efficialsBlue),
+                              color: efficialsYellow),
                           onPressed: _showHireInfoDialog,
                         ),
                       ],

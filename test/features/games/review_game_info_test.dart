@@ -123,5 +123,43 @@ void main() {
       expect(routeCalled, isTrue);
       expect(find.text('New Game Template'), findsOneWidget);
     });
+
+    testWidgets('away game skip dialog smoke test - template dialog not shown for away games', (WidgetTester tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) {
+              return ElevatedButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ReviewGameInfoScreen(),
+                      settings: RouteSettings(
+                        arguments: {
+                          'sport': 'Basketball',
+                          'location': 'Away Court',
+                          'date': DateTime.now(),
+                          'time': TimeOfDay.now(),
+                          'opponent': 'Away Team',
+                          'isAway': true,
+                        },
+                      ),
+                    ),
+                  );
+                },
+                child: Text('Navigate to Away Game'),
+              );
+            },
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Navigate to Away Game'));
+      await tester.pumpAndSettle();
+      
+      expect(find.byType(ReviewGameInfoScreen), findsOneWidget);
+      expect(find.text('No officials needed for away games.'), findsOneWidget);
+    });
   });
 }

@@ -233,7 +233,7 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
           children: [
             Container(
               height: totalBannerHeight,
-              decoration: const BoxDecoration(color: efficialsBlue),
+              decoration: const BoxDecoration(color: efficialsBlack),
               child: Padding(
                 padding: EdgeInsets.only(
                   top: statusBarHeight + 8.0,
@@ -244,21 +244,59 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
                 child: const Text(
                   'Menu',
                   style: TextStyle(
-                      color: darkSurface,
+                      color: efficialsWhite,
                       fontSize: 20,
                       fontWeight: FontWeight.bold),
                 ),
               ),
             ),
             ListTile(
-              leading: const Icon(Icons.schedule, color: efficialsYellow),
+              leading: const Icon(Icons.calendar_month, color: efficialsYellow),
               title: const Text('Team Schedule', style: TextStyle(color: Colors.white)),
               onTap: () {
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                      content: Text('Team Schedule not implemented yet')),
-                );
+                Navigator.pushNamed(context, '/team_schedule');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.games, color: efficialsYellow),
+              title: const Text('Unpublished Games',
+                  style: TextStyle(color: Colors.white)),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/unpublished_games').then((result) {
+                  if (result == true) {
+                    // Refresh the games list when returning from unpublished games
+                    _loadGames();
+                  }
+                });
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.location_on, color: efficialsYellow),
+              title: const Text('Locations',
+                  style: TextStyle(color: Colors.white)),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/locations');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.people, color: efficialsYellow),
+              title: const Text('Lists of Officials',
+                  style: TextStyle(color: Colors.white)),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/lists_of_officials');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.copy, color: efficialsYellow),
+              title: const Text('Game Templates',
+                  style: TextStyle(color: Colors.white)),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/sport_templates', arguments: {'sport': sport});
               },
             ),
             ListTile(
@@ -313,6 +351,7 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
                                 style: const TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.bold,
+                                  color: efficialsWhite,
                                 ),
                               ),
                               Text(
@@ -334,6 +373,7 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
+                      color: efficialsWhite,
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -398,10 +438,10 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
                                 'sport': sport,
                               });
                         },
-                        backgroundColor: Colors.blue[300],
+                        backgroundColor: efficialsYellow,
                         label: const Text('Use Game Template',
-                            style: TextStyle(color: Colors.white)),
-                        icon: const Icon(Icons.copy, color: Colors.white),
+                            style: TextStyle(color: efficialsBlack)),
+                        icon: const Icon(Icons.copy, color: efficialsBlack),
                       ),
                     ),
                   ),
@@ -426,10 +466,10 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
                                 'gender': gender,
                               });
                         },
-                        backgroundColor: Colors.white,
+                        backgroundColor: efficialsYellow,
                         label: const Text('Start from Scratch',
-                            style: TextStyle(color: efficialsBlue)),
-                        icon: const Icon(Icons.add, color: efficialsBlue),
+                            style: TextStyle(color: efficialsBlack)),
+                        icon: const Icon(Icons.add, color: efficialsBlack),
                       ),
                     ),
                   ),
@@ -440,9 +480,9 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
                       isFabExpanded = !isFabExpanded;
                     });
                   },
-                  backgroundColor: Colors.grey[800],
+                  backgroundColor: efficialsYellow,
                   child: Icon(isFabExpanded ? Icons.close : Icons.add,
-                      size: 30, color: efficialsYellow),
+                      size: 30, color: efficialsBlack),
                 ),
               ],
             ),
@@ -523,14 +563,14 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
                     style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
-                        color: Colors.black),
+                        color: efficialsWhite),
                   ),
                   const SizedBox(height: 4),
                   Row(
                     children: [
                       Text('$gameTime - $gameTitle',
                           style: const TextStyle(
-                              fontSize: 16, color: Colors.black)),
+                              fontSize: 16, color: efficialsWhite)),
                       const SizedBox(width: 8),
                       Icon(sportIcon,
                           color: getSportIconColor(sport), size: 24),

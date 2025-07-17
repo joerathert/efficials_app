@@ -90,6 +90,7 @@ class _SchedulerSignUpStep1State extends State<SchedulerSignUpStep1> {
                     children: [
                       TextField(
                         controller: _emailController,
+                        style: textFieldTextStyle,
                         decoration: textFieldDecoration('Email address'),
                         keyboardType: TextInputType.emailAddress,
                         textCapitalization: TextCapitalization.none,
@@ -97,30 +98,35 @@ class _SchedulerSignUpStep1State extends State<SchedulerSignUpStep1> {
                       const SizedBox(height: 20),
                       TextField(
                         controller: _passwordController,
+                        style: textFieldTextStyle,
                         decoration: textFieldDecoration('Password'),
                         obscureText: true,
                       ),
                       const SizedBox(height: 20),
                       TextField(
                         controller: _confirmPasswordController,
+                        style: textFieldTextStyle,
                         decoration: textFieldDecoration('Confirm password'),
                         obscureText: true,
                       ),
                       const SizedBox(height: 20),
                       TextField(
                         controller: _firstNameController,
+                        style: textFieldTextStyle,
                         decoration: textFieldDecoration('First name'),
                         textCapitalization: TextCapitalization.words,
                       ),
                       const SizedBox(height: 20),
                       TextField(
                         controller: _lastNameController,
+                        style: textFieldTextStyle,
                         decoration: textFieldDecoration('Last name'),
                         textCapitalization: TextCapitalization.words,
                       ),
                       const SizedBox(height: 20),
                       TextField(
                         controller: _phoneController,
+                        style: textFieldTextStyle,
                         decoration: textFieldDecoration('Phone number'),
                         keyboardType: TextInputType.phone,
                       ),

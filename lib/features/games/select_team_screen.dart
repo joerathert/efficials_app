@@ -161,6 +161,7 @@ class _SelectTeamScreenState extends State<SelectTeamScreen> {
                         controller: _teamNameController,
                         decoration:
                             textFieldDecoration('Ex. Maryville Redwings'),
+                        style: textFieldTextStyle,
                         textCapitalization: TextCapitalization.words,
                       ),
                       const SizedBox(height: 24),
@@ -175,11 +176,14 @@ class _SelectTeamScreenState extends State<SelectTeamScreen> {
                       const SizedBox(height: 8),
                       DropdownButtonFormField<String>(
                         decoration: textFieldDecoration('Select Sport'),
+                        style: textFieldTextStyle,
+                        dropdownColor: darkSurface,
+                        iconEnabledColor: efficialsYellow,
                         value: _selectedSport,
                         items: sports.map((sport) {
                           return DropdownMenuItem(
                             value: sport,
-                            child: Text(sport),
+                            child: Text(sport, style: textFieldTextStyle),
                           );
                         }).toList(),
                         onChanged: (value) {
@@ -200,11 +204,14 @@ class _SelectTeamScreenState extends State<SelectTeamScreen> {
                       const SizedBox(height: 8),
                       DropdownButtonFormField<String>(
                         decoration: textFieldDecoration('Select Grade Level'),
+                        style: textFieldTextStyle,
+                        dropdownColor: darkSurface,
+                        iconEnabledColor: efficialsYellow,
                         value: _selectedGrade,
                         items: grades.map((grade) {
                           return DropdownMenuItem(
                             value: grade,
-                            child: Text(grade),
+                            child: Text(grade, style: textFieldTextStyle),
                           );
                         }).toList(),
                         onChanged: (value) {
@@ -226,11 +233,14 @@ class _SelectTeamScreenState extends State<SelectTeamScreen> {
                       const SizedBox(height: 8),
                       DropdownButtonFormField<String>(
                         decoration: textFieldDecoration('Select Gender'),
+                        style: textFieldTextStyle,
+                        dropdownColor: darkSurface,
+                        iconEnabledColor: efficialsYellow,
                         value: _selectedGender,
                         items: genders.map((gender) {
                           return DropdownMenuItem(
                             value: gender,
-                            child: Text(gender),
+                            child: Text(gender, style: textFieldTextStyle),
                           );
                         }).toList(),
                         onChanged: (value) {

@@ -14,6 +14,7 @@ import 'features/home/assigner_home_screen.dart';
 import 'features/home/coach_home_screen.dart';
 import 'features/home/assigner_sport_selection_screen.dart';
 import 'features/home/settings_screen.dart';
+import 'features/settings/assigner_sport_defaults_screen.dart';
 
 // Officials screens
 import 'features/officials/lists_of_officials_screen.dart';
@@ -46,6 +47,7 @@ import 'features/schedules/name_schedule_screen.dart';
 import 'features/schedules/select_schedule_screen.dart';
 import 'features/schedules/schedules_screen.dart';
 import 'features/schedules/schedule_details_screen.dart';
+import 'features/schedules/team_schedule_screen.dart';
 import 'features/schedules/assigner_manage_schedules_screen.dart';
 
 // Location screens
@@ -154,6 +156,7 @@ class EfficialsApp extends StatelessWidget {
         '/select_schedule': (context) => const SelectScheduleScreen(),
         '/schedules': (context) => const SchedulesScreen(),
         '/schedule_details': (context) => const ScheduleDetailsScreen(),
+        '/team_schedule': (context) => const TeamScheduleScreen(),
         '/new_game_template': (context) => const CreateGameTemplateScreen(),
         '/game_templates': (context) => const GameTemplatesScreen(),
         '/sport_templates': (context) => const SportTemplatesScreen(),
@@ -162,6 +165,7 @@ class EfficialsApp extends StatelessWidget {
         '/additional_game_info_condensed': (context) =>
             const AdditionalGameInfoCondensedScreen(),
         '/settings': (context) => const SettingsScreen(),
+        '/assigner_sport_defaults': (context) => const AssignerSportDefaultsScreen(),
       },
     );
   }

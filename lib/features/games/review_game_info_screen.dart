@@ -209,9 +209,9 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
     publishedGames.add(gameData);
     await prefs.setString(publishedGamesKey, jsonEncode(publishedGames));
 
-    // Don't show template dialog if game was created using a template
+    // Don't show template dialog if game was created using a template or is away game
     bool? shouldCreateTemplate = false;
-    if (!isUsingTemplate) {
+    if (!isUsingTemplate && !isAwayGame) {
       shouldCreateTemplate = await _showCreateTemplateDialog();
     }
 
@@ -312,9 +312,9 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
     unpublishedGames.add(gameData);
     await prefs.setString(unpublishedGamesKey, jsonEncode(unpublishedGames));
 
-    // Don't show template dialog if game was created using a template
+    // Don't show template dialog if game was created using a template or is away game
     bool? shouldCreateTemplate = false;
-    if (!isUsingTemplate) {
+    if (!isUsingTemplate && !isAwayGame) {
       shouldCreateTemplate = await _showCreateTemplateDialog();
     }
 
