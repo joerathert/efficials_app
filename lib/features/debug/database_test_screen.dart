@@ -126,6 +126,49 @@ class _DatabaseTestScreenState extends State<DatabaseTestScreen> {
     }
   }
 
+  Future<void> _clearTemplatesOnly() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Clear Templates Only'),
+        content: const Text('This will delete only game templates while preserving officials and other data. Are you sure?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Clear Templates'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      setState(() {
+        isLoading = true;
+        testResult = 'Clearing templates...';
+      });
+
+      try {
+        await MigrationService().clearTemplatesOnly();
+        setState(() {
+          testResult = 'Templates cleared successfully! (Officials preserved)';
+          isLoading = false;
+        });
+        
+        // Reload status after clearing
+        await _loadMigrationStatus();
+      } catch (e) {
+        setState(() {
+          testResult = 'Template clearing error: $e';
+          isLoading = false;
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -285,6 +328,18 @@ class _DatabaseTestScreenState extends State<DatabaseTestScreen> {
             onPressed: _forceMigration,
             style: elevatedButtonStyle(),
             child: const Text('Force Migration'),
+          ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: _clearTemplatesOnly,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Clear Templates Only'),
           ),
         ),
         const SizedBox(height: 12),

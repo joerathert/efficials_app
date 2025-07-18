@@ -171,7 +171,7 @@ class GameTemplateRepository extends BaseRepository {
     }
 
     if (template.includeTime && template.time != null) {
-      gameData['time'] = template.time?.format(null);
+      gameData['time'] = template.time != null ? '${template.time!.hour.toString().padLeft(2, '0')}:${template.time!.minute.toString().padLeft(2, '0')}' : null;
     }
 
     if (template.includeLocation && template.locationId != null) {

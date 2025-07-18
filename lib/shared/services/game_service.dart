@@ -255,14 +255,12 @@ class GameService {
       // Check if template name already exists
       final exists = await _templateRepository.doesTemplateExist(userId, templateData['name']);
       if (exists) {
-        debugPrint('Template with name "${templateData['name']}" already exists');
         return null;
       }
 
       // Get sport ID
       final sportId = await _getSportId(templateData['sport']);
       if (sportId == null) {
-        debugPrint('Sport not found: ${templateData['sport']}');
         return null;
       }
 
@@ -323,6 +321,96 @@ class GameService {
       return true;
     } catch (e) {
       debugPrint('Error deleting template: $e');
+      return false;
+    }
+  }
+
+  // Clear all templates for current user (safe - doesn't affect officials)
+  Future<bool> clearAllTemplates() async {
+    try {
+      final userId = await _getCurrentUserId();
+      final templates = await _templateRepository.getTemplatesByUser(userId);
+      
+      for (final template in templates) {
+        await _templateRepository.deleteGameTemplate(template.id!);
+      }
+      
+      debugPrint('Cleared ${templates.length} templates for user $userId');
+      return true;
+    } catch (e) {
+      debugPrint('Error clearing templates: $e');
+      return false;
+    }
+  }
+
+  // Update a template
+  Future<bool> updateTemplate(dynamic templateData) async {
+    try {
+      // Convert templateData to Map if it's a GameTemplate object
+      Map<String, dynamic> data;
+      if (templateData is Map<String, dynamic>) {
+        data = templateData;
+      } else {
+        // Assume it's a GameTemplate object with toJson method
+        data = templateData.toJson();
+      }
+
+      final templateId = int.parse(data['id'].toString());
+      final userId = await _getCurrentUserId();
+      
+      // Get sport ID
+      final sportId = await _getSportId(data['sport']);
+      if (sportId == null) {
+        debugPrint('Sport not found: ${data['sport']}');
+        return false;
+      }
+
+      // Get location ID if provided
+      int? locationId;
+      if (data['location'] != null) {
+        locationId = await _getLocationId(data['location']);
+      }
+
+      final template = GameTemplate(
+        id: templateId,
+        name: data['name'],
+        sportId: sportId,
+        userId: userId,
+        scheduleName: data['scheduleName'],
+        date: data['date'] != null ? DateTime.parse(data['date']) : null,
+        time: data['time'] != null ? TimeOfDay.fromDateTime(DateTime.parse('2000-01-01 ${data['time']}')) : null,
+        locationId: locationId,
+        opponent: data['opponent'],
+        isAwayGame: data['isAwayGame'] ?? false,
+        levelOfCompetition: data['levelOfCompetition'],
+        gender: data['gender'],
+        officialsRequired: data['officialsRequired'],
+        gameFee: data['gameFee'],
+        hireAutomatically: data['hireAutomatically'],
+        selectedOfficials: data['selectedOfficials'],
+        officialsListName: data['officialsListName'],
+        method: data['method'],
+        includeSport: data['includeSport'] ?? false,
+        includeScheduleName: data['includeScheduleName'] ?? false,
+        includeDate: data['includeDate'] ?? false,
+        includeTime: data['includeTime'] ?? false,
+        includeLocation: data['includeLocation'] ?? false,
+        includeIsAwayGame: data['includeIsAwayGame'] ?? false,
+        includeLevelOfCompetition: data['includeLevelOfCompetition'] ?? false,
+        includeGender: data['includeGender'] ?? false,
+        includeOfficialsRequired: data['includeOfficialsRequired'] ?? false,
+        includeGameFee: data['includeGameFee'] ?? false,
+        includeOpponent: data['includeOpponent'] ?? false,
+        includeHireAutomatically: data['includeHireAutomatically'] ?? false,
+        includeSelectedOfficials: data['includeSelectedOfficials'] ?? false,
+        includeOfficialsList: data['includeOfficialsList'] ?? false,
+        createdAt: DateTime.now(),
+      );
+
+      await _templateRepository.updateGameTemplate(template);
+      return true;
+    } catch (e) {
+      debugPrint('Error updating template: $e');
       return false;
     }
   }
@@ -395,13 +483,13 @@ class GameService {
   // Convert GameTemplate model to Map for UI
   Map<String, dynamic> _templateToMap(GameTemplate template) {
     return {
-      'id': template.id,
+      'id': template.id?.toString(), // Convert int to string for UI
       'name': template.name,
-      'sport': template.sportName,
+      'sport': template.sportName, // Use sportName from database model
       'scheduleName': template.scheduleName,
-      'date': template.date,
-      'time': template.time,
-      'location': template.locationName,
+      'date': template.date?.toIso8601String(), // Convert DateTime to string
+      'time': template.time != null ? '${template.time!.hour.toString().padLeft(2, '0')}:${template.time!.minute.toString().padLeft(2, '0')}' : null, // Convert TimeOfDay to string
+      'location': template.locationName, // Use locationName from database model
       'isAwayGame': template.isAwayGame,
       'levelOfCompetition': template.levelOfCompetition,
       'gender': template.gender,
@@ -410,7 +498,7 @@ class GameService {
       'opponent': template.opponent,
       'hireAutomatically': template.hireAutomatically,
       'method': template.method,
-      'officialsListId': template.officialsListId,
+      'officialsListName': template.officialsListName, // Add this for UI compatibility
       'includeScheduleName': template.includeScheduleName,
       'includeSport': template.includeSport,
       'includeDate': template.includeDate,
@@ -425,7 +513,7 @@ class GameService {
       'includeHireAutomatically': template.includeHireAutomatically,
       'includeSelectedOfficials': template.includeSelectedOfficials,
       'includeOfficialsList': template.includeOfficialsList,
-      'createdAt': template.createdAt,
+      'createdAt': template.createdAt?.toIso8601String(),
     };
   }
 }

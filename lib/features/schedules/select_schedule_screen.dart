@@ -18,24 +18,34 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
   bool isLoading = true;
   GameTemplate? template; // Store the selected template
   final ScheduleService _scheduleService = ScheduleService();
+  bool _hasInitialized = false; // Flag to prevent multiple initializations
 
   @override
   void initState() {
     super.initState();
-    _fetchSchedules();
+    // Don't fetch schedules immediately - wait for template to load in didChangeDependencies
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Get the arguments from the current route
-    final args = ModalRoute.of(context)!.settings.arguments;
+    
+    // Only initialize once to prevent multiple calls
+    if (!_hasInitialized) {
+      _hasInitialized = true;
+      
+      // Get the arguments from the current route
+      final args = ModalRoute.of(context)!.settings.arguments;
 
-    // Handle the case when args is a Map (coming from HomeScreen with a template)
-    if (args is Map<String, dynamic>?) {
-      if (args != null && args.containsKey('template')) {
-        template = args['template'] as GameTemplate?;
+      // Handle the case when args is a Map (coming from HomeScreen with a template)
+      if (args is Map<String, dynamic>?) {
+        if (args != null && args.containsKey('template')) {
+          template = args['template'] as GameTemplate?;
+        }
       }
+      
+      // Now fetch schedules after template is loaded
+      _fetchSchedules();
     }
   }
 
@@ -46,6 +56,29 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
       
       setState(() {
         schedules = schedulesList;
+        
+        // Filter schedules by the template's sport if a template is provided
+        if (template != null &&
+            template!.includeSport &&
+            template!.sport != null) {
+          schedules = schedules
+              .where((schedule) =>
+                  schedule['sport'] == template!.sport ||
+                  schedule['name'] == '+ Create new schedule')
+              .toList();
+        }
+        
+        // Add default options if no schedules are available
+        if (schedules.isEmpty) {
+          schedules.add({'name': 'No schedules available', 'id': -1, 'sport': 'None'});
+        }
+        schedules.add({'name': '+ Create new schedule', 'id': 0, 'sport': 'None'});
+        
+        // Ensure selectedSchedule is valid or null
+        if (selectedSchedule != null && !schedules.any((s) => s['name'] == selectedSchedule)) {
+          selectedSchedule = null;
+        }
+        
         isLoading = false;
       });
     } catch (e) {
@@ -136,6 +169,12 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
         }
         schedules
             .add({'name': '+ Create new schedule', 'id': 0, 'sport': 'None'});
+        
+        // Ensure selectedSchedule is valid or null
+        if (selectedSchedule != null && !schedules.any((s) => s['name'] == selectedSchedule)) {
+          selectedSchedule = null;
+        }
+        
         isLoading = false;
       } catch (e) {
         // Handle parsing errors
@@ -144,6 +183,12 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
             .add({'name': 'No schedules available', 'id': -1, 'sport': 'None'});
         schedules
             .add({'name': '+ Create new schedule', 'id': 0, 'sport': 'None'});
+        
+        // Ensure selectedSchedule is valid or null
+        if (selectedSchedule != null && !schedules.any((s) => s['name'] == selectedSchedule)) {
+          selectedSchedule = null;
+        }
+        
         isLoading = false;
       }
     });
@@ -330,6 +375,8 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
                             dropdownColor: darkSurface,
                             style: const TextStyle(
                                 color: Colors.white, fontSize: 16),
+                            isDense: false,
+                            isExpanded: true,
                             onChanged: (newValue) {
                               setState(() {
                                 selectedSchedule = newValue;
@@ -343,12 +390,23 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
                                         'sport': template
                                             ?.sport, // Pass the template's sport
                                       }).then((result) async {
-                                    if (result != null && result is String) {
+                                    if (result != null) {
                                       await _fetchSchedules();
+                                      
+                                      // Handle both schedule objects and schedule names
+                                      String? scheduleName;
+                                      if (result is Map<String, dynamic>) {
+                                        // Result is a schedule object from database
+                                        scheduleName = result['name'] as String?;
+                                      } else if (result is String) {
+                                        // Result is a schedule name from SharedPreferences
+                                        scheduleName = result;
+                                      }
+                                      
                                       setState(() {
-                                        if (schedules
-                                            .any((s) => s['name'] == result)) {
-                                          selectedSchedule = result;
+                                        if (scheduleName != null && schedules
+                                            .any((s) => s['name'] == scheduleName)) {
+                                          selectedSchedule = scheduleName;
                                         } else {
                                           // Fallback: Select the first schedule if the new one isn't found
                                           if (schedules.isNotEmpty &&

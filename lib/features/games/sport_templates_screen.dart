@@ -124,7 +124,7 @@ class _SportTemplatesScreenState extends State<SportTemplatesScreen> {
   Future<void> _deleteTemplate(GameTemplate template) async {
     try {
       // Use GameService to delete template from database
-      final success = await _gameService.deleteTemplate(template.id);
+      final success = await _gameService.deleteTemplate(int.parse(template.id));
       
       if (success) {
         // Refresh the templates list
@@ -349,6 +349,8 @@ class _SportTemplatesScreenState extends State<SportTemplatesScreen> {
                                                                   fontSize: 14,
                                                                   color: secondaryTextColor,
                                                                 ),
+                                                                overflow: TextOverflow.ellipsis,
+                                                                maxLines: 2,
                                                               ),
                                                             ],
                                                           ),
@@ -668,6 +670,8 @@ class _SportTemplatesScreenState extends State<SportTemplatesScreen> {
             child: Text(
               value,
               style: const TextStyle(fontSize: 16),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 2,
             ),
           ),
         ],

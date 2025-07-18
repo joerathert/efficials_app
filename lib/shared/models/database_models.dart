@@ -88,6 +88,18 @@ class Sport {
       createdAt: DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
     );
   }
+
+  Sport copyWith({
+    int? id,
+    String? name,
+    DateTime? createdAt,
+  }) {
+    return Sport(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
 }
 
 // Schedule model
@@ -128,6 +140,24 @@ class Schedule {
       userId: map['user_id']?.toInt() ?? 0,
       createdAt: DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
       sportName: map['sport_name'],
+    );
+  }
+
+  Schedule copyWith({
+    int? id,
+    String? name,
+    int? sportId,
+    int? userId,
+    DateTime? createdAt,
+    String? sportName,
+  }) {
+    return Schedule(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      sportId: sportId ?? this.sportId,
+      userId: userId ?? this.userId,
+      createdAt: createdAt ?? this.createdAt,
+      sportName: sportName ?? this.sportName,
     );
   }
 }
@@ -408,6 +438,8 @@ class GameTemplate {
   final bool? hireAutomatically;
   final String? method;
   final int? officialsListId;
+  final List<Map<String, dynamic>>? selectedOfficials;
+  final String? officialsListName;
   
   // Include flags
   final bool includeScheduleName;
@@ -449,6 +481,8 @@ class GameTemplate {
     this.hireAutomatically,
     this.method,
     this.officialsListId,
+    this.selectedOfficials,
+    this.officialsListName,
     this.includeScheduleName = false,
     this.includeSport = false,
     this.includeDate = false,

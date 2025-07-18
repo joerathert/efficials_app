@@ -4,6 +4,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import '../../shared/theme.dart';
 import 'game_template.dart';
+import '../../shared/services/repositories/sport_repository.dart';
+import '../../shared/services/game_service.dart';
 
 class CreateGameTemplateScreen extends StatefulWidget {
   const CreateGameTemplateScreen({super.key});
@@ -29,6 +31,11 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
   GameTemplate? existingTemplate;
   List<Map<String, dynamic>> locations = []; // List of saved locations
   bool isLoadingLocations = true; // Track location loading
+  List<String> availableSports = []; // List of available sports
+  bool isLoadingSports = true; // Track sports loading
+  bool isCreatingFromScratch = false; // Track if creating from scratch
+  final SportRepository _sportRepository = SportRepository();
+  final GameService _gameService = GameService();
 
   // Toggle states for including fields in the template
   bool includeSport = true;
@@ -73,9 +80,14 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
   void initState() {
     super.initState();
     _fetchLocations(); // Fetch locations at initialization
+    _fetchSports(); // Fetch sports at initialization
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final args =
           ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>?;
+      
+      // Determine if we're creating from scratch (no arguments)
+      isCreatingFromScratch = (args == null);
+      
       if (args != null) {
         // Check if this is an Away Game - Away Games can't be used for templates
         final isAwayGame = args['isAway'] as bool? ?? false;
@@ -232,6 +244,20 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
     });
   }
 
+  Future<void> _fetchSports() async {
+    // Use consistent sports list that matches other screens
+    setState(() {
+      availableSports = [
+        'Football',
+        'Basketball',
+        'Baseball',
+        'Soccer',
+        'Volleyball',
+      ];
+      isLoadingSports = false;
+    });
+  }
+
   Future<void> _saveLocations() async {
     final prefs = await SharedPreferences.getInstance();
     final locationsToSave = locations.where((loc) => loc['id'] != 0).toList();
@@ -378,49 +404,143 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
       includeLocation: includeLocation,
     );
 
-    final prefs = await SharedPreferences.getInstance();
-    final String? templatesJson = prefs.getString('game_templates');
-    List<GameTemplate> templates = [];
-    if (templatesJson != null && templatesJson.isNotEmpty) {
-      final List<dynamic> decoded = jsonDecode(templatesJson);
-      templates = decoded.map((json) => GameTemplate.fromJson(json)).toList();
-    }
+    // Try to save to database first
+    try {
+      final templateData = {
+        'name': newTemplate.name,
+        'sport': newTemplate.sport,
+        'scheduleName': newTemplate.scheduleName,
+        'date': newTemplate.date, // Pass DateTime object directly
+        'time': newTemplate.time, // Pass TimeOfDay object directly
+        'location': newTemplate.location,
+        'isAwayGame': newTemplate.isAwayGame,
+        'levelOfCompetition': newTemplate.levelOfCompetition,
+        'gender': newTemplate.gender,
+        'officialsRequired': newTemplate.officialsRequired,
+        'gameFee': newTemplate.gameFee,
+        'opponent': newTemplate.opponent,
+        'hireAutomatically': newTemplate.hireAutomatically,
+        'method': newTemplate.method,
+        'officialsListId': null, // Will be handled by GameService
+        'includeScheduleName': newTemplate.includeScheduleName,
+        'includeSport': newTemplate.includeSport,
+        'includeDate': newTemplate.includeDate,
+        'includeTime': newTemplate.includeTime,
+        'includeLocation': newTemplate.includeLocation,
+        'includeIsAwayGame': newTemplate.includeIsAwayGame,
+        'includeLevelOfCompetition': newTemplate.includeLevelOfCompetition,
+        'includeGender': newTemplate.includeGender,
+        'includeOfficialsRequired': newTemplate.includeOfficialsRequired,
+        'includeGameFee': newTemplate.includeGameFee,
+        'includeOpponent': newTemplate.includeOpponent,
+        'includeHireAutomatically': newTemplate.includeHireAutomatically,
+        'includeSelectedOfficials': newTemplate.includeSelectedOfficials,
+        'includeOfficialsList': newTemplate.includeOfficialsList,
+      };
 
-    // Check for duplicate template names
-    final templateName = _nameController.text.trim();
-    final hasDuplicate = templates.any((template) => 
-      template.name?.toLowerCase() == templateName.toLowerCase() &&
-      (!isEditing || template.id != existingTemplate?.id)
-    );
-
-    if (hasDuplicate) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('A template named "$templateName" already exists. Please choose a different name.'),
-            backgroundColor: Colors.red,
-          ),
+      if (isEditing) {
+        // Update existing template
+        final success = await _gameService.updateTemplate(newTemplate.toJson());
+        if (!success) {
+          throw Exception('Failed to update template in database');
+        }
+      } else {
+        // Create new template
+        final result = await _gameService.createTemplate(templateData);
+        if (result == null) {
+          throw Exception('Failed to create template in database');
+        }
+        // Create a new template object with the database ID
+        final savedTemplate = GameTemplate(
+          id: result['id'].toString(),
+          name: newTemplate.name,
+          scheduleName: newTemplate.scheduleName,
+          sport: newTemplate.sport,
+          date: newTemplate.date,
+          time: newTemplate.time,
+          location: newTemplate.location,
+          isAwayGame: newTemplate.isAwayGame,
+          levelOfCompetition: newTemplate.levelOfCompetition,
+          gender: newTemplate.gender,
+          officialsRequired: newTemplate.officialsRequired,
+          gameFee: newTemplate.gameFee,
+          opponent: newTemplate.opponent,
+          hireAutomatically: newTemplate.hireAutomatically,
+          method: newTemplate.method,
+          selectedOfficials: newTemplate.selectedOfficials,
+          officialsListName: newTemplate.officialsListName,
+          includeScheduleName: newTemplate.includeScheduleName,
+          includeSport: newTemplate.includeSport,
+          includeDate: newTemplate.includeDate,
+          includeTime: newTemplate.includeTime,
+          includeLocation: newTemplate.includeLocation,
+          includeIsAwayGame: newTemplate.includeIsAwayGame,
+          includeLevelOfCompetition: newTemplate.includeLevelOfCompetition,
+          includeGender: newTemplate.includeGender,
+          includeOfficialsRequired: newTemplate.includeOfficialsRequired,
+          includeGameFee: newTemplate.includeGameFee,
+          includeOpponent: newTemplate.includeOpponent,
+          includeHireAutomatically: newTemplate.includeHireAutomatically,
+          includeSelectedOfficials: newTemplate.includeSelectedOfficials,
+          includeOfficialsList: newTemplate.includeOfficialsList,
         );
+        
+        if (mounted) {
+          Navigator.pop(context, savedTemplate);
+        }
+        return;
       }
-      return;
-    }
 
-    if (isEditing) {
-      // Find and update the existing template
-      final index = templates.indexWhere((t) => t.id == existingTemplate!.id);
-      if (index != -1) {
-        templates[index] = newTemplate;
+      if (mounted) {
+        Navigator.pop(context, newTemplate);
       }
-    } else {
-      // Add new template
-      templates.add(newTemplate);
-    }
+    } catch (e) {
+      // Fallback to SharedPreferences if database fails
+      
+      final prefs = await SharedPreferences.getInstance();
+      final String? templatesJson = prefs.getString('game_templates');
+      List<GameTemplate> templates = [];
+      if (templatesJson != null && templatesJson.isNotEmpty) {
+        final List<dynamic> decoded = jsonDecode(templatesJson);
+        templates = decoded.map((json) => GameTemplate.fromJson(json)).toList();
+      }
 
-    await prefs.setString('game_templates',
-        jsonEncode(templates.map((t) => t.toJson()).toList()));
+      // Check for duplicate template names
+      final templateName = _nameController.text.trim();
+      final hasDuplicate = templates.any((template) => 
+        template.name?.toLowerCase() == templateName.toLowerCase() &&
+        (!isEditing || template.id != existingTemplate?.id)
+      );
 
-    if (mounted) {
-      Navigator.pop(context, newTemplate);
+      if (hasDuplicate) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('A template named "$templateName" already exists. Please choose a different name.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
+      if (isEditing) {
+        // Find and update the existing template
+        final index = templates.indexWhere((t) => t.id == existingTemplate!.id);
+        if (index != -1) {
+          templates[index] = newTemplate;
+        }
+      } else {
+        // Add new template
+        templates.add(newTemplate);
+      }
+
+      await prefs.setString('game_templates',
+          jsonEncode(templates.map((t) => t.toJson()).toList()));
+
+      if (mounted) {
+        Navigator.pop(context, newTemplate);
+      }
     }
   }
 
@@ -547,8 +667,54 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                           fontWeight: FontWeight.w600,
                           color: Colors.white)),
                   const SizedBox(height: 16),
-                  _buildFieldRow('Sport', sport ?? 'Not specified', (value) {},
-                      isEditable: false, isCheckboxEnabled: false),
+                  // Sport field - editable when creating from scratch
+                  isCreatingFromScratch
+                      ? Row(
+                          children: [
+                            Checkbox(
+                              value: includeSport,
+                              onChanged: (value) {
+                                // Sport is always included, but we need onChanged for styling
+                                setState(() {
+                                  includeSport = true; // Always keep it true
+                                });
+                              },
+                              activeColor: efficialsYellow,
+                              checkColor: efficialsBlack,
+                            ),
+                            Expanded(
+                              child: isLoadingSports
+                                  ? const CircularProgressIndicator()
+                                  : DropdownButtonFormField<String>(
+                                      decoration: textFieldDecoration('Sport'),
+                                      value: sport != null &&
+                                              availableSports.contains(sport)
+                                          ? sport
+                                          : null,
+                                      hint: const Text('Select Sport',
+                                          style: TextStyle(color: efficialsGray)),
+                                      style: const TextStyle(
+                                          color: Colors.white, fontSize: 16),
+                                      dropdownColor: darkSurface,
+                                      onChanged: (newValue) {
+                                        setState(() {
+                                          sport = newValue;
+                                        });
+                                      },
+                                      items: availableSports.map((sportName) {
+                                        return DropdownMenuItem(
+                                          value: sportName,
+                                          child: Text(sportName,
+                                              style: const TextStyle(
+                                                  color: Colors.white)),
+                                        );
+                                      }).toList(),
+                                    ),
+                            ),
+                          ],
+                        )
+                      : _buildFieldRow('Sport', sport ?? 'Not specified', (value) {},
+                          isEditable: false, isCheckboxEnabled: false),
                   Row(
                     children: [
                       Checkbox(
@@ -614,6 +780,7 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                                 style: const TextStyle(
                                     color: Colors.white, fontSize: 16),
                                 dropdownColor: darkSurface,
+                                isExpanded: true,
                                 onChanged: (newValue) {
                                   if (newValue == null) return;
                                   setState(() {
@@ -651,7 +818,8 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                                     value: loc['name'] as String,
                                     child: Text(loc['name'] as String,
                                         style: const TextStyle(
-                                            color: Colors.white)),
+                                            color: Colors.white),
+                                        overflow: TextOverflow.ellipsis),
                                   );
                                 }).toList(),
                               ),

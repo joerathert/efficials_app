@@ -135,10 +135,37 @@ class MigrationService {
     try {
       await _databaseHelper.deleteDatabase();
       final prefs = await SharedPreferences.getInstance();
+      
+      // Clear all SharedPreferences data that gets migrated back to database
+      await prefs.remove('saved_locations');
+      await prefs.remove('game_templates');
+      await prefs.remove('saved_lists');
+      await prefs.remove('ad_published_games');
+      await prefs.remove('coach_published_games');
+      await prefs.remove('assigner_published_games');
+      
       await prefs.setBool('database_migration_completed', false);
       debugPrint('Database reset completed');
     } catch (e) {
       debugPrint('Database reset failed: $e');
+      rethrow;
+    }
+  }
+
+  // Clear only templates (preserves officials and other data)
+  Future<void> clearTemplatesOnly() async {
+    try {
+      // Clear templates from database
+      final db = await _databaseHelper.database;
+      await db.delete('game_templates');
+      
+      // Clear templates from SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('game_templates');
+      
+      debugPrint('Templates cleared successfully (officials preserved)');
+    } catch (e) {
+      debugPrint('Template clearing failed: $e');
       rethrow;
     }
   }
