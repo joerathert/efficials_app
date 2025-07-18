@@ -169,7 +169,7 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
 
   Future<Map<String, dynamic>?> _fetchGameById(int gameId) async {
     final prefs = await SharedPreferences.getInstance();
-    final String? gamesJson = prefs.getString('published_games');
+    final String? gamesJson = prefs.getString('coach_published_games');
     if (gamesJson != null && gamesJson.isNotEmpty) {
       try {
         final List<Map<String, dynamic>> games =

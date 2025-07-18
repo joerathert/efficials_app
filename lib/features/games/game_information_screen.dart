@@ -587,15 +587,49 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                             Expanded(
                               child: e.key == 'Schedule Name' 
                                 ? GestureDetector(
-                                    onTap: () {
-                                      Navigator.pushNamed(
-                                        context,
-                                        '/assigner_manage_schedules',
-                                        arguments: {
-                                          'selectedTeam': scheduleName,
-                                          'focusDate': selectedDate,
-                                        },
-                                      );
+                                    onTap: () async {
+                                      final prefs = await SharedPreferences.getInstance();
+                                      final schedulerType = prefs.getString('schedulerType');
+                                      
+                                      if (!mounted) return;
+                                      
+                                      String route;
+                                      Map<String, dynamic> arguments;
+                                      
+                                      switch (schedulerType?.toLowerCase()) {
+                                        case 'coach':
+                                          route = '/team_schedule';
+                                          arguments = {
+                                            'teamName': scheduleName,
+                                            'focusDate': selectedDate,
+                                          };
+                                          break;
+                                        case 'athletic director':
+                                        case 'athleticdirector':
+                                        case 'ad':
+                                          route = '/schedule_details';
+                                          arguments = {
+                                            'scheduleName': scheduleName,
+                                            'focusDate': selectedDate,
+                                          };
+                                          break;
+                                        case 'assigner':
+                                        default:
+                                          route = '/assigner_manage_schedules';
+                                          arguments = {
+                                            'selectedTeam': scheduleName,
+                                            'focusDate': selectedDate,
+                                          };
+                                          break;
+                                      }
+                                      
+                                      if (mounted) {
+                                        Navigator.pushNamed(
+                                          context,
+                                          route,
+                                          arguments: arguments,
+                                        );
+                                      }
                                     },
                                     child: Text(
                                       e.value,

@@ -246,6 +246,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ],
               ),
 
+            // Developer Settings
+            _buildSettingSection(
+              'Developer',
+              [
+                ListTile(
+                  leading: const Icon(Icons.bug_report),
+                  title: const Text(
+                    'Database Test',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  subtitle: const Text(
+                    'Test database migration and functionality',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: secondaryTextColor,
+                    ),
+                  ),
+                  onTap: () {
+                    Navigator.pushNamed(context, '/database_test');
+                  },
+                ),
+              ],
+            ),
+
             // Account Settings
             _buildSettingSection(
               'Account',

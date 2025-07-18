@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 
+// Database and services
+import 'dart:io';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'shared/services/migration_service.dart';
+
 // Auth screens
 import 'features/auth/welcome_screen.dart';
 import 'features/auth/role_selection_screen.dart';
@@ -56,10 +61,30 @@ import 'features/locations/add_new_location_screen.dart';
 import 'features/locations/choose_location_screen.dart';
 import 'features/locations/edit_location_screen.dart';
 
+// Debug screens
+import 'features/debug/database_test_screen.dart';
+
 // Shared
 import 'shared/theme.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize sqflite for desktop platforms
+  if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfi;
+  }
+  
+  // Initialize database and run migration
+  try {
+    await MigrationService().initializeDatabase();
+    debugPrint('Database initialization completed successfully');
+  } catch (e) {
+    debugPrint('Failed to initialize database: $e');
+    // Continue without database - app should still work with SharedPreferences
+  }
+  
   runApp(const EfficialsApp());
 }
 
@@ -166,6 +191,7 @@ class EfficialsApp extends StatelessWidget {
             const AdditionalGameInfoCondensedScreen(),
         '/settings': (context) => const SettingsScreen(),
         '/assigner_sport_defaults': (context) => const AssignerSportDefaultsScreen(),
+        '/database_test': (context) => const DatabaseTestScreen(),
       },
     );
   }
