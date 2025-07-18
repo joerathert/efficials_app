@@ -1,8 +1,7 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../shared/theme.dart';
+import '../../shared/services/location_service.dart';
 //test AGAIN
 const List<String> usStates = [
   'AL',
@@ -70,6 +69,7 @@ class _AddNewLocationScreenState extends State<AddNewLocationScreen> {
   final _cityController = TextEditingController();
   final _stateController = TextEditingController();
   final _zipCodeController = TextEditingController();
+  final LocationService _locationService = LocationService();
 
   @override
   void dispose() {
@@ -114,32 +114,33 @@ class _AddNewLocationScreenState extends State<AddNewLocationScreen> {
       return;
     }
 
-    final prefs = await SharedPreferences.getInstance();
-    final locationsJson = prefs.getString('saved_locations');
-    final locations = locationsJson != null && locationsJson.isNotEmpty
-        ? List<Map<String, dynamic>>.from(jsonDecode(locationsJson))
-        : [];
-    if (locations.any(
-        (loc) => loc['name'].toString().toLowerCase() == name.toLowerCase())) {
+    try {
+      // Use LocationService exclusively now that database is stable
+      final newLocation = await _locationService.createLocation(
+        name: name,
+        address: address,
+        city: city,
+        state: state,
+        zip: zip,
+      );
+
+      if (newLocation != null) {
+        if (mounted) {
+          Navigator.pop(context, newLocation);
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('A location with this name already exists')),
+          );
+        }
+      }
+    } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('A location with this name already exists')),
+          const SnackBar(content: Text('Error creating location')),
         );
       }
-      return;
-    }
-
-    final newLocation = {
-      'name': name,
-      'address': address,
-      'city': city,
-      'state': state,
-      'zip': zip,
-      'id': DateTime.now().millisecondsSinceEpoch,
-    };
-    if (mounted) {
-      Navigator.pop(context, newLocation);
     }
   }
 

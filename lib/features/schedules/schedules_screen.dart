@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../shared/theme.dart';
+import '../../shared/services/schedule_service.dart';
+import '../../shared/services/game_service.dart';
 
 class SchedulesScreen extends StatefulWidget {
   const SchedulesScreen({super.key});
@@ -16,6 +18,8 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
   List<String> scheduleNames = [];
   Map<String, List<Map<String, dynamic>>> groupedSchedules = {};
   bool isLoading = true;
+  final ScheduleService _scheduleService = ScheduleService();
+  final GameService _gameService = GameService();
 
   @override
   void initState() {
@@ -24,6 +28,75 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
   }
 
   Future<void> _loadSchedules() async {
+    try {
+      // Try to get schedules from database first
+      final schedulesWithGameCounts = await _scheduleService.getSchedulesWithGameCounts();
+      
+      // Also get games to extract gender information
+      final publishedGames = await _gameService.getPublishedGames();
+      final unpublishedGames = await _gameService.getUnpublishedGames();
+      final allGames = [...publishedGames, ...unpublishedGames];
+      
+      await _processScheduleData(schedulesWithGameCounts, allGames);
+    } catch (e) {
+      // Fallback to SharedPreferences if database fails
+      await _loadSchedulesFromPrefs();
+    }
+  }
+
+  Future<void> _processScheduleData(
+    List<Map<String, dynamic>> schedulesWithGameCounts,
+    List<Map<String, dynamic>> allGames,
+  ) async {
+    Set<String> scheduleNameSet = {};
+    Map<String, Set<String>> sportGenders = {}; // Track genders per sport
+    Map<String, Map<String, dynamic>> scheduleDetails = {}; // Store schedule details
+
+    // Process schedules from database
+    for (var item in schedulesWithGameCounts) {
+      final schedule = item['schedule'] as Map<String, dynamic>;
+      final gameCount = item['gameCount'] as int;
+      
+      final scheduleName = schedule['name'] as String;
+      final sport = schedule['sport'] as String? ?? 'Unknown';
+      
+      scheduleNameSet.add(scheduleName);
+      
+      // Find games for this schedule to get gender info
+      final scheduleGames = allGames.where((game) => 
+        game['scheduleName'] == scheduleName).toList();
+      
+      // Get gender from games (use first non-null gender found)
+      String gender = 'Unknown';
+      for (var game in scheduleGames) {
+        final gameGender = game['gender'] as String?;
+        if (gameGender != null && gameGender.toLowerCase() != 'unknown') {
+          gender = gameGender;
+          break;
+        }
+      }
+      
+      // Track genders per sport
+      if (!sportGenders.containsKey(sport)) {
+        sportGenders[sport] = <String>{};
+      }
+      if (gender.toLowerCase() != 'unknown') {
+        sportGenders[sport]!.add(gender);
+      }
+      
+      // Store schedule details
+      scheduleDetails[scheduleName] = {
+        'sport': sport,
+        'gender': gender,
+        'scheduleName': scheduleName,
+        'gameCount': gameCount,
+      };
+    }
+
+    await _processScheduleGrouping(scheduleNameSet, sportGenders, scheduleDetails);
+  }
+
+  Future<void> _loadSchedulesFromPrefs() async {
     final prefs = await SharedPreferences.getInstance();
     final String? unpublishedGamesJson =
         prefs.getString('ad_unpublished_games');
@@ -75,6 +148,14 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
     } catch (e) {
     }
 
+    await _processScheduleGrouping(scheduleNameSet, sportGenders, scheduleDetails);
+  }
+
+  Future<void> _processScheduleGrouping(
+    Set<String> scheduleNameSet,
+    Map<String, Set<String>> sportGenders,
+    Map<String, Map<String, dynamic>> scheduleDetails,
+  ) async {
     // Group schedules by sport and create display names
     Map<String, List<Map<String, dynamic>>> grouped = {};
 
@@ -119,6 +200,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
           'sport': sport,
           'gender': gender,
           'displayName': displayName,
+          'gameCount': details['gameCount'] ?? 0,
         });
       }
     }

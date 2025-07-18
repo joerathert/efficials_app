@@ -106,6 +106,7 @@ class MigrationService {
       'assigner_published_games',
       'saved_locations',
       'game_templates',
+      'saved_lists',
     ];
 
     for (String key in keys) {

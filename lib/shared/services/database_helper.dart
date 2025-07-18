@@ -288,6 +288,7 @@ class DatabaseHelper {
       await db.transaction((txn) async {
         await _migrateUserData(txn, prefs);
         await _migrateLocations(txn, prefs);
+        await _migrateOfficials(txn, prefs);
         await _migrateGames(txn, prefs);
         await _migrateTemplates(txn, prefs);
         await _migrateSettings(txn, prefs);
@@ -305,6 +306,13 @@ class DatabaseHelper {
   Future<void> _migrateUserData(Transaction txn, SharedPreferences prefs) async {
     final schedulerType = prefs.getString('schedulerType');
     if (schedulerType == null) return;
+
+    // Check if user already exists
+    final existingUsers = await txn.query('users', limit: 1);
+    if (existingUsers.isNotEmpty) {
+      debugPrint('User already exists, skipping user migration');
+      return;
+    }
 
     final userData = <String, dynamic>{
       'scheduler_type': schedulerType,
@@ -351,6 +359,61 @@ class DatabaseHelper {
       }
     } catch (e) {
       debugPrint('Error migrating locations: $e');
+    }
+  }
+
+  Future<void> _migrateOfficials(Transaction txn, SharedPreferences prefs) async {
+    final listsJson = prefs.getString('saved_lists');
+    if (listsJson == null || listsJson.isEmpty) return;
+
+    try {
+      final List<dynamic> officialLists = jsonDecode(listsJson);
+      for (var list in officialLists) {
+        final listName = list['name'];
+        final sport = list['sport'];
+        
+        if (listName == null || sport == null) continue;
+
+        // Get or create sport
+        final sportId = await _getOrCreateSport(txn, sport);
+        
+        // Create official list
+        final listId = await txn.insert('official_lists', {
+          'name': listName,
+          'sport_id': sportId,
+          'user_id': 1,
+        });
+
+        // Add officials to the list
+        final officials = list['officials'];
+        if (officials != null && officials is List) {
+          for (var official in officials) {
+            String officialName;
+            if (official is String) {
+              officialName = official;
+            } else if (official is Map && official['name'] != null) {
+              officialName = official['name'];
+            } else {
+              continue;
+            }
+
+            // Create official
+            final officialId = await txn.insert('officials', {
+              'name': officialName,
+              'sport_id': sportId,
+              'user_id': 1,
+            });
+
+            // Add to list
+            await txn.insert('official_list_members', {
+              'list_id': listId,
+              'official_id': officialId,
+            });
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error migrating officials: $e');
     }
   }
 
@@ -518,11 +581,29 @@ class DatabaseHelper {
 
     for (var entry in settings.entries) {
       if (entry.value != null) {
-        await txn.insert('user_settings', {
-          'user_id': 1,
-          'key': entry.key,
-          'value': entry.value.toString(),
-        });
+        // Check if setting already exists
+        final existing = await txn.query(
+          'user_settings',
+          where: 'user_id = ? AND key = ?',
+          whereArgs: [1, entry.key],
+        );
+
+        if (existing.isNotEmpty) {
+          // Update existing setting
+          await txn.update(
+            'user_settings',
+            {'value': entry.value.toString()},
+            where: 'user_id = ? AND key = ?',
+            whereArgs: [1, entry.key],
+          );
+        } else {
+          // Insert new setting
+          await txn.insert('user_settings', {
+            'user_id': 1,
+            'key': entry.key,
+            'value': entry.value.toString(),
+          });
+        }
       }
     }
   }

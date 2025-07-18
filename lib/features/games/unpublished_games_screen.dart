@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../shared/theme.dart';
 import '../../shared/utils/utils.dart';
+import '../../shared/services/game_service.dart';
 
 class UnpublishedGamesScreen extends StatefulWidget {
   const UnpublishedGamesScreen({super.key});
@@ -18,6 +19,7 @@ class _UnpublishedGamesScreenState extends State<UnpublishedGamesScreen> {
   bool isLoading = true;
   String? userRole;
   String unpublishedGamesKey = 'ad_unpublished_games'; // Default to AD
+  final GameService _gameService = GameService();
 
   @override
   void initState() {
@@ -44,6 +46,33 @@ class _UnpublishedGamesScreenState extends State<UnpublishedGamesScreen> {
   }
 
   Future<void> _fetchUnpublishedGames() async {
+    try {
+      // Try to get games from database first
+      final games = await _gameService.getUnpublishedGames();
+      setState(() {
+        unpublishedGames = games;
+        // Convert string dates and times to proper types for UI
+        for (var game in unpublishedGames) {
+          if (game['date'] != null && game['date'] is String) {
+            game['date'] = DateTime.parse(game['date'] as String);
+          }
+          if (game['time'] != null && game['time'] is String) {
+            final timeParts = (game['time'] as String).split(':');
+            game['time'] = TimeOfDay(
+              hour: int.parse(timeParts[0]),
+              minute: int.parse(timeParts[1]),
+            );
+          }
+        }
+        isLoading = false;
+      });
+    } catch (e) {
+      // Fallback to SharedPreferences if database fails
+      await _fetchUnpublishedGamesFromPrefs();
+    }
+  }
+
+  Future<void> _fetchUnpublishedGamesFromPrefs() async {
     final prefs = await SharedPreferences.getInstance();
     final String? gamesJson = prefs.getString(unpublishedGamesKey);
     setState(() {
@@ -79,6 +108,29 @@ class _UnpublishedGamesScreenState extends State<UnpublishedGamesScreen> {
   }
 
   Future<void> _deleteGame(int gameId) async {
+    try {
+      // Try to delete from database first
+      final success = await _gameService.deleteGame(gameId);
+      if (success) {
+        setState(() {
+          unpublishedGames.removeWhere((game) => game['id'] == gameId);
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Game deleted!')),
+          );
+        }
+      } else {
+        // Fallback to SharedPreferences
+        await _deleteGameFromPrefs(gameId);
+      }
+    } catch (e) {
+      // Fallback to SharedPreferences
+      await _deleteGameFromPrefs(gameId);
+    }
+  }
+
+  Future<void> _deleteGameFromPrefs(int gameId) async {
     final prefs = await SharedPreferences.getInstance();
     unpublishedGames.removeWhere((game) => game['id'] == gameId);
     // Convert DateTime and TimeOfDay to strings before saving
@@ -120,6 +172,42 @@ class _UnpublishedGamesScreenState extends State<UnpublishedGamesScreen> {
   }
 
   Future<void> _publishSelectedGames() async {
+    final gamesToPublish = unpublishedGames
+        .where((game) => selectedGameIds.contains(game['id']))
+        .toList();
+    
+    if (gamesToPublish.isEmpty) return;
+
+    try {
+      // Try to publish games using database service
+      final gameIds = gamesToPublish.map((game) => game['id'] as int).toList();
+      final success = await _gameService.publishGames(gameIds);
+      
+      if (success) {
+        setState(() {
+          unpublishedGames.removeWhere((game) => selectedGameIds.contains(game['id']));
+          selectedGameIds.clear();
+        });
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                  '${gamesToPublish.length} game${gamesToPublish.length == 1 ? '' : 's'} published successfully!'),
+            ),
+          );
+        }
+      } else {
+        // Fallback to SharedPreferences
+        await _publishSelectedGamesWithPrefs(gamesToPublish);
+      }
+    } catch (e) {
+      // Fallback to SharedPreferences
+      await _publishSelectedGamesWithPrefs(gamesToPublish);
+    }
+  }
+
+  Future<void> _publishSelectedGamesWithPrefs(List<Map<String, dynamic>> gamesToPublish) async {
     final prefs = await SharedPreferences.getInstance();
 
     // Determine the correct published games storage key based on user role
@@ -146,9 +234,6 @@ class _UnpublishedGamesScreenState extends State<UnpublishedGamesScreen> {
     }
 
     // Add selected games to published games
-    final gamesToPublish = unpublishedGames
-        .where((game) => selectedGameIds.contains(game['id']))
-        .toList();
     for (var game in gamesToPublish) {
       final gameCopy = Map<String, dynamic>.from(game);
       if (gameCopy['date'] != null) {

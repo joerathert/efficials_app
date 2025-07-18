@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../shared/theme.dart';
+import '../../shared/services/location_service.dart';
 
 // List of 50 US states (abbreviations)
 const List<String> usStates = [
@@ -24,6 +25,7 @@ class _EditLocationScreenState extends State<EditLocationScreen> {
   final _cityController = TextEditingController();
   final _stateController = TextEditingController();
   final _zipCodeController = TextEditingController();
+  final LocationService _locationService = LocationService();
   Map<String, dynamic>? location;
   bool _isInitialized = false;
 
@@ -67,7 +69,7 @@ class _EditLocationScreenState extends State<EditLocationScreen> {
     return usStates.contains(state.toUpperCase());
   }
 
-  void _handleContinue() {
+  void _handleContinue() async {
     final name = _nameController.text.trim();
     final address = _addressController.text.trim();
     final city = _cityController.text.trim();
@@ -93,15 +95,42 @@ class _EditLocationScreenState extends State<EditLocationScreen> {
       return;
     }
 
-    final updatedLocation = {
-      'name': name,
-      'address': address,
-      'city': city,
-      'state': state,
-      'zip': zip,
-      'id': location?['id'],
-    };
-    Navigator.of(context).pop(updatedLocation);
+    if (location?['id'] == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Error: Location ID not found')),
+      );
+      return;
+    }
+
+    try {
+      // Use LocationService exclusively now that database is stable
+      final updatedLocation = await _locationService.updateLocation(
+        id: location!['id'] as int,
+        name: name,
+        address: address,
+        city: city,
+        state: state,
+        zip: zip,
+      );
+
+      if (updatedLocation != null) {
+        if (mounted) {
+          Navigator.of(context).pop(updatedLocation);
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('A location with this name already exists')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Error updating location')),
+        );
+      }
+    }
   }
 
   @override

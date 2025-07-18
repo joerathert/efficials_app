@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'game_template.dart';
 import '../../shared/theme.dart';
 import '../../shared/utils/utils.dart';
+import '../../shared/services/game_service.dart';
 
 class GameTemplatesScreen extends StatefulWidget {
   const GameTemplatesScreen({super.key});
@@ -18,6 +19,7 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen> {
   List<String> sports = [];
   String? schedulerType;
   String? userSport;
+  final GameService _gameService = GameService();
 
   @override
   void initState() {
@@ -26,6 +28,53 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen> {
   }
 
   Future<void> _fetchTemplates() async {
+    try {
+      // Use GameService to get templates from database
+      final templatesData = await _gameService.getTemplates();
+      
+      // Load scheduler information (still needed for user context)
+      final prefs = await SharedPreferences.getInstance();
+      schedulerType = prefs.getString('schedulerType');
+      if (schedulerType == 'Assigner') {
+        userSport = prefs.getString('assigner_sport');
+      } else if (schedulerType == 'Coach') {
+        userSport = prefs.getString('sport');
+      }
+      
+      setState(() {
+        templates.clear();
+        // Convert Map data to GameTemplate objects
+        templates = templatesData.map((templateData) => GameTemplate.fromJson(templateData)).toList();
+        
+        // Extract unique sports from templates, excluding null values
+        Set<String> allSports = templates
+            .where((t) =>
+                t.includeSport && t.sport != null) // Ensure sport is not null
+            .map((t) => t.sport!) // Use ! since we filtered out nulls
+          .toSet();
+      
+        // Filter sports based on scheduler type
+        if (schedulerType == 'Assigner' && userSport != null) {
+          // Assigners only see their assigned sport
+          sports = allSports.where((sport) => sport == userSport).toList();
+        } else if (schedulerType == 'Coach' && userSport != null) {
+          // Coaches only see their team's sport
+          sports = allSports.where((sport) => sport == userSport).toList();
+        } else {
+          // Athletic Directors see all sports
+          sports = allSports.toList();
+        }
+        
+        sports.sort(); // Sort alphabetically for consistency
+        isLoading = false;
+      });
+    } catch (e) {
+      // Fallback to SharedPreferences if database fails
+      await _fetchTemplatesFromPrefs();
+    }
+  }
+
+  Future<void> _fetchTemplatesFromPrefs() async {
     final prefs = await SharedPreferences.getInstance();
     final String? templatesJson = prefs.getString('game_templates');
     
@@ -91,15 +140,41 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen> {
   }
 
   Future<void> _deleteTemplate(GameTemplate template) async {
+    try {
+      // Use GameService to delete template from database
+      final success = await _gameService.deleteTemplate(template.id);
+      
+      if (success) {
+        // Refresh the templates list
+        await _fetchTemplates();
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Template deleted successfully')),
+          );
+        }
+      } else {
+        // Fallback to SharedPreferences
+        await _deleteTemplateFromPrefs(template);
+      }
+    } catch (e) {
+      // Fallback to SharedPreferences
+      await _deleteTemplateFromPrefs(template);
+    }
+  }
+
+  Future<void> _deleteTemplateFromPrefs(GameTemplate template) async {
     setState(() {
       templates.removeWhere((t) => t.id == template.id);
     });
     await _saveTemplates();
     await _fetchTemplates();
     
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Template deleted successfully')),
-    );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Template deleted successfully')),
+      );
+    }
   }
 
   Future<void> _saveTemplates() async {

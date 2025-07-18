@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../shared/theme.dart';
 import 'game_template.dart';
+import '../../shared/services/game_service.dart';
 
 class SelectGameTemplateScreen extends StatefulWidget {
   const SelectGameTemplateScreen({super.key});
@@ -19,6 +20,7 @@ class _SelectGameTemplateScreenState extends State<SelectGameTemplateScreen> {
   String? scheduleName;
   String? sport;
   bool isAssignerFlow = false;
+  final GameService _gameService = GameService();
 
   @override
   void initState() {
@@ -42,6 +44,36 @@ class _SelectGameTemplateScreenState extends State<SelectGameTemplateScreen> {
   }
 
   Future<void> _fetchTemplates() async {
+    try {
+      // Store the current selection before clearing the list
+      final currentSelection = selectedTemplateId;
+      
+      // Use GameService to get templates from database
+      final templatesData = sport != null 
+          ? await _gameService.getTemplatesBySport(sport!)
+          : await _gameService.getTemplates();
+      
+      setState(() {
+        templates.clear();
+        // Convert Map data to GameTemplate objects
+        templates = templatesData.map((templateData) => GameTemplate.fromJson(templateData)).toList();
+        
+        // Try to restore the previous selection if it still exists
+        if (currentSelection != null && templates.any((t) => t.id == currentSelection)) {
+          selectedTemplateId = currentSelection;
+        } else {
+          selectedTemplateId = null;
+        }
+        
+        isLoading = false;
+      });
+    } catch (e) {
+      // Fallback to SharedPreferences if database fails
+      await _fetchTemplatesFromPrefs();
+    }
+  }
+
+  Future<void> _fetchTemplatesFromPrefs() async {
     final prefs = await SharedPreferences.getInstance();
     final String? templatesJson = prefs.getString('game_templates');
 
@@ -143,21 +175,39 @@ class _SelectGameTemplateScreenState extends State<SelectGameTemplateScreen> {
     );
 
     if (updatedTemplate != null && updatedTemplate is GameTemplate) {
-      setState(() {
-        final index = templates.indexWhere((t) => t.id == updatedTemplate.id);
-        if (index != -1) {
-          templates[index] = updatedTemplate;
+      try {
+        // Use GameService to update template in database
+        final success = await _gameService.updateTemplate(updatedTemplate);
+        
+        if (success) {
+          // Refresh the templates list
+          await _fetchTemplates();
+        } else {
+          // Fallback to SharedPreferences
+          await _updateTemplateInPrefs(updatedTemplate);
         }
-      });
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(
-        'game_templates',
-        jsonEncode(templates
-            .where((t) => t.id != '0')
-            .map((t) => t.toJson())
-            .toList()),
-      );
+      } catch (e) {
+        // Fallback to SharedPreferences
+        await _updateTemplateInPrefs(updatedTemplate);
+      }
     }
+  }
+
+  Future<void> _updateTemplateInPrefs(GameTemplate updatedTemplate) async {
+    setState(() {
+      final index = templates.indexWhere((t) => t.id == updatedTemplate.id);
+      if (index != -1) {
+        templates[index] = updatedTemplate;
+      }
+    });
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      'game_templates',
+      jsonEncode(templates
+          .where((t) => t.id != '0')
+          .map((t) => t.toJson())
+          .toList()),
+    );
   }
 
   Widget _buildTemplateDetails(GameTemplate template) {

@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'game_template.dart';
 import '../../shared/theme.dart';
 import '../../shared/utils/utils.dart';
+import '../../shared/services/game_service.dart';
 
 class SportTemplatesScreen extends StatefulWidget {
   const SportTemplatesScreen({super.key});
@@ -21,6 +22,7 @@ class _SportTemplatesScreenState extends State<SportTemplatesScreen> {
   String? schedulerType;
   String? teamName;
   String? expandedTemplateId;
+  final GameService _gameService = GameService();
 
   @override
   void didChangeDependencies() {
@@ -32,6 +34,31 @@ class _SportTemplatesScreenState extends State<SportTemplatesScreen> {
   }
 
   Future<void> _fetchTemplates() async {
+    try {
+      // Use GameService to get templates from database for specific sport
+      final templatesData = await _gameService.getTemplatesBySport(sport);
+      
+      // Load scheduler information for coaches (still needed for context)
+      final prefs = await SharedPreferences.getInstance();
+      schedulerType = prefs.getString('schedulerType');
+      if (schedulerType == 'Coach') {
+        teamName = prefs.getString('team_name');
+      }
+      
+      setState(() {
+        templates.clear();
+        // Convert Map data to GameTemplate objects and filter by sport
+        templates = templatesData.map((templateData) => GameTemplate.fromJson(templateData)).toList();
+        templates = templates.where((template) => template.sport == sport).toList();
+        isLoading = false;
+      });
+    } catch (e) {
+      // Fallback to SharedPreferences if database fails
+      await _fetchTemplatesFromPrefs();
+    }
+  }
+
+  Future<void> _fetchTemplatesFromPrefs() async {
     final prefs = await SharedPreferences.getInstance();
     final String? templatesJson = prefs.getString('game_templates');
     
@@ -95,6 +122,30 @@ class _SportTemplatesScreenState extends State<SportTemplatesScreen> {
   }
 
   Future<void> _deleteTemplate(GameTemplate template) async {
+    try {
+      // Use GameService to delete template from database
+      final success = await _gameService.deleteTemplate(template.id);
+      
+      if (success) {
+        // Refresh the templates list
+        await _fetchTemplates();
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Template deleted successfully')),
+          );
+        }
+      } else {
+        // Fallback to SharedPreferences
+        await _deleteTemplateFromPrefs(template);
+      }
+    } catch (e) {
+      // Fallback to SharedPreferences
+      await _deleteTemplateFromPrefs(template);
+    }
+  }
+
+  Future<void> _deleteTemplateFromPrefs(GameTemplate template) async {
     final prefs = await SharedPreferences.getInstance();
     final templatesJson = prefs.getString('game_templates');
     if (templatesJson != null) {

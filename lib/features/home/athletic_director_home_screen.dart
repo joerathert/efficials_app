@@ -6,6 +6,7 @@ import '../../shared/theme.dart';
 import '../schedules/schedule_filter_screen.dart';
 import '../games/game_template.dart';
 import '../../shared/utils/utils.dart';
+import '../../shared/services/game_service.dart';
 import 'dart:developer' as developer;
 
 class Game {
@@ -104,6 +105,7 @@ class _AthleticDirectorHomeScreenState
   double pullDistance = 0.0;
   static const double pullThreshold = 80.0;
   ScrollController scrollController = ScrollController();
+  final GameService _gameService = GameService();
 
   @override
   void initState() {
@@ -159,6 +161,40 @@ class _AthleticDirectorHomeScreenState
   }
 
   Future<void> _fetchGames() async {
+    try {
+      // Try to get games from database first
+      final publishedGamesData = await _gameService.getFilteredGames(
+        showAwayGames: showAwayGames,
+        showFullyCoveredGames: showFullyCoveredGames,
+        scheduleFilters: scheduleFilters,
+        status: 'Published',
+      );
+      
+      final unpublishedGamesData = await _gameService.getUnpublishedGames();
+      
+      // Extract schedule names from all games
+      Set<String> scheduleNames = {};
+      for (var game in [...publishedGamesData, ...unpublishedGamesData]) {
+        final scheduleName = game['scheduleName'];
+        if (scheduleName != null) {
+          scheduleNames.add(scheduleName as String);
+        }
+      }
+      existingSchedules = scheduleNames.toList();
+      
+      setState(() {
+        publishedGames = publishedGamesData.map(Game.fromJson).toList();
+        isLoading = false;
+      });
+    } catch (e) {
+      // Fallback to SharedPreferences if database fails
+      await _fetchGamesFromPrefs();
+    }
+
+    await _initializeScheduleFilters();
+  }
+
+  Future<void> _fetchGamesFromPrefs() async {
     final prefs = await SharedPreferences.getInstance();
     final String? gamesJson = prefs.getString('ad_published_games');
     final String? unpublishedGamesJson =
@@ -201,8 +237,6 @@ class _AthleticDirectorHomeScreenState
       }
       isLoading = false;
     });
-
-    await _initializeScheduleFilters();
   }
 
   Future<void> _loadFilters() async {

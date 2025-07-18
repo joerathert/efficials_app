@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../shared/theme.dart';
+import '../../shared/services/location_service.dart';
 import 'edit_location_screen.dart';
 
 class LocationsScreen extends StatefulWidget {
@@ -14,6 +15,7 @@ class LocationsScreen extends StatefulWidget {
 class _LocationsScreenState extends State<LocationsScreen> {
   String? selectedLocation;
   List<Map<String, dynamic>> locations = [];
+  final LocationService _locationService = LocationService();
 
   @override
   void initState() {
@@ -41,33 +43,71 @@ class _LocationsScreenState extends State<LocationsScreen> {
   }
 
   Future<void> _fetchLocations() async {
-    final prefs = await SharedPreferences.getInstance();
-    final String? locationsJson = prefs.getString('saved_locations');
-    setState(() {
-      if (locationsJson != null) {
-        List<Map<String, dynamic>> fetchedLocations = List<Map<String, dynamic>>.from(jsonDecode(locationsJson));
-        // Remove duplicates based on the 'name' field
+    try {
+      // Use LocationService exclusively now that database is stable
+      final fetchedLocations = await _locationService.getLocations();
+      
+      setState(() {
         locations = [];
-        final seenNames = <String>{};
-        for (var loc in fetchedLocations) {
-          if (!seenNames.contains(loc['name'])) {
-            seenNames.add(loc['name'] as String);
-            locations.add(loc);
-          }
-        }
+        
+        // Add saved locations from database
+        locations.addAll(fetchedLocations);
+        
+        // Add default options
         if (locations.isEmpty) {
           locations.add({'name': 'No saved locations', 'id': -1});
         }
         locations.add({'name': '+ Create new location', 'id': 0});
-      }
-      _validateSelectedLocation();
-    });
+        
+        // Ensure selectedLocation is valid
+        if (selectedLocation == null || !locations.any((loc) => loc['name'] == selectedLocation)) {
+          selectedLocation = locations.first['name'] as String;
+        }
+      });
+    } catch (e) {
+      debugPrint('Error fetching locations: $e');
+      setState(() {
+        locations = [
+          {'name': 'No saved locations', 'id': -1},
+          {'name': '+ Create new location', 'id': 0},
+        ];
+        selectedLocation = 'No saved locations';
+      });
+    }
   }
 
   Future<void> _saveLocations() async {
-    final prefs = await SharedPreferences.getInstance();
-    final locationsToSave = locations.where((location) => location['id'] != 0 && location['id'] != -1).toList();
-    await prefs.setString('saved_locations', jsonEncode(locationsToSave));
+    // This method is no longer needed as we're using the database
+    // But keeping it for now to avoid breaking existing code
+    // Will be removed in cleanup phase
+  }
+
+  Future<void> _deleteLocationFromPrefs(String locationName) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final String? locationsJson = prefs.getString('saved_locations');
+      
+      if (locationsJson != null && locationsJson.isNotEmpty) {
+        final List<dynamic> locationsList = jsonDecode(locationsJson);
+        locationsList.removeWhere((loc) => loc['name'] == locationName);
+        await prefs.setString('saved_locations', jsonEncode(locationsList));
+      }
+      
+      // Refresh the locations list
+      await _fetchLocations();
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Location deleted successfully')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Error deleting location')),
+        );
+      }
+    }
   }
 
   void _showDeleteConfirmationDialog(String locationName, int locationId) {
@@ -85,16 +125,29 @@ class _LocationsScreenState extends State<LocationsScreen> {
             child: const Text('Cancel', style: TextStyle(color: efficialsYellow)),
           ),
           TextButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(context);
-              setState(() {
-                locations.removeWhere((location) => location['id'] == locationId);
-                if (locations.isEmpty || (locations.length == 1 && locations[0]['id'] == 0)) {
-                  locations.insert(0, {'name': 'No saved locations', 'id': -1});
+              try {
+                // Use LocationService to delete from database
+                final success = await _locationService.deleteLocation(locationId);
+                
+                if (success) {
+                  // Refresh the locations list
+                  await _fetchLocations();
+                  
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Location deleted successfully')),
+                    );
+                  }
+                } else {
+                  // Fallback to SharedPreferences
+                  await _deleteLocationFromPrefs(locationName);
                 }
-                _validateSelectedLocation();
-                _saveLocations();
-              });
+              } catch (e) {
+                // Fallback to SharedPreferences
+                await _deleteLocationFromPrefs(locationName);
+              }
             },
             child: const Text('Delete', style: TextStyle(color: efficialsYellow)),
           ),
@@ -126,10 +179,11 @@ class _LocationsScreenState extends State<LocationsScreen> {
       ),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+          padding: const EdgeInsets.all(16.0),
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
               const Text(
                 'Locations',
                 style: TextStyle(
@@ -148,7 +202,9 @@ class _LocationsScreenState extends State<LocationsScreen> {
               ),
               const SizedBox(height: 40),
               Container(
-                padding: const EdgeInsets.all(24),
+                width: double.infinity,
+                margin: const EdgeInsets.symmetric(horizontal: 4),
+                padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
                   color: darkSurface,
                   borderRadius: BorderRadius.circular(12),
@@ -186,30 +242,10 @@ class _LocationsScreenState extends State<LocationsScreen> {
                               if (newValue == '+ Create new location') {
                                 Navigator.pushNamed(context, '/add_new_location').then((result) {
                                   if (result != null) {
-                                    setState(() {
-                                      if (locations.any((l) => l['name'] == 'No saved locations')) {
-                                        locations.removeWhere((l) => l['name'] == 'No saved locations');
-                                      }
-                                      final newLocation = result as Map<String, dynamic>;
-                                      // Check for duplicate names before adding
-                                      if (!locations.any((loc) => loc['name'] == newLocation['name'])) {
-                                        locations.insert(0, {
-                                          'name': newLocation['name'],
-                                          'address': newLocation['address'],
-                                          'city': newLocation['city'],
-                                          'state': newLocation['state'],
-                                          'zip': newLocation['zip'],
-                                          'id': locations.length + 1,
-                                        });
-                                        selectedLocation = newLocation['name'] as String? ?? 'Unknown Location';
-                                        _saveLocations();
-                                      } else {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(content: Text('A location with this name already exists!')),
-                                        );
-                                        _validateSelectedLocation();
-                                      }
-                                    });
+                                    // Location was created successfully, refresh the list
+                                    _fetchLocations();
+                                    final newLocation = result as Map<String, dynamic>;
+                                    selectedLocation = newLocation['name'] as String? ?? 'Unknown Location';
                                   } else {
                                     _validateSelectedLocation();
                                   }
@@ -220,13 +256,20 @@ class _LocationsScreenState extends State<LocationsScreen> {
                             });
                           },
                           items: locations.map((location) {
+                            final locationName = location['name'] as String;
                             return DropdownMenuItem(
-                              value: location['name'] as String? ?? 'Unknown Location',
-                              child: Text(
-                                location['name'] as String? ?? 'Unknown Location',
-                                style: location['name'] == 'No saved locations'
-                                    ? const TextStyle(color: Colors.red)
-                                    : const TextStyle(color: Colors.white),
+                              value: locationName,
+                              child: Container(
+                                width: double.infinity,
+                                constraints: const BoxConstraints(maxWidth: 280),
+                                child: Text(
+                                  locationName,
+                                  style: location['name'] == 'No saved locations'
+                                      ? const TextStyle(color: Colors.red)
+                                      : const TextStyle(color: Colors.white),
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
+                                ),
                               ),
                             );
                           }).toList(),
@@ -244,7 +287,7 @@ class _LocationsScreenState extends State<LocationsScreen> {
                     children: [
                       Container(
                         margin: const EdgeInsets.only(bottom: 16),
-                        width: 200,
+                        constraints: const BoxConstraints(maxWidth: 200),
                         child: ElevatedButton(
                           onPressed: () {
                               final selected = locations.firstWhere((l) => l['name'] == selectedLocation);
@@ -256,29 +299,13 @@ class _LocationsScreenState extends State<LocationsScreen> {
                                 ),
                               ).then((result) {
                                 if (result != null) {
-                                  setState(() {
-                                    final updatedLocation = result as Map<String, dynamic>;
-                                    final index = locations.indexWhere((l) => l['id'] == selected['id']);
-                                    if (index != -1) {
-                                      // Check for duplicate names before updating
-                                      if (!locations.any((loc) => loc['name'] == updatedLocation['name'] && loc['id'] != selected['id'])) {
-                                        locations[index] = {
-                                          ...updatedLocation,
-                                          'id': selected['id'], // Preserve the original ID
-                                        };
-                                        selectedLocation = updatedLocation['name'] as String? ?? 'Unknown Location';
-                                        _saveLocations();
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(content: Text('Location updated!')),
-                                        );
-                                      } else {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(content: Text('A location with this name already exists!')),
-                                        );
-                                        _validateSelectedLocation();
-                                      }
-                                    }
-                                  });
+                                  // Location was updated successfully, refresh the list
+                                  _fetchLocations();
+                                  final updatedLocation = result as Map<String, dynamic>;
+                                  selectedLocation = updatedLocation['name'] as String? ?? 'Unknown Location';
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Location updated!')),
+                                  );
                                 }
                               });
                             },
@@ -301,7 +328,7 @@ class _LocationsScreenState extends State<LocationsScreen> {
                           ),
                       ),
                       Container(
-                        width: 200,
+                        constraints: const BoxConstraints(maxWidth: 200),
                         child: ElevatedButton(
                           onPressed: () {
                             final selected = locations.firstWhere((l) => l['name'] == selectedLocation);
@@ -329,7 +356,7 @@ class _LocationsScreenState extends State<LocationsScreen> {
                   ),
                 ),
               ],
-            ],
+            ),
           ),
         ),
       ),

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../shared/theme.dart';
+import '../../shared/services/schedule_service.dart';
 
 class NameScheduleScreen extends StatefulWidget {
   const NameScheduleScreen({super.key});
@@ -12,6 +13,7 @@ class NameScheduleScreen extends StatefulWidget {
 
 class _NameScheduleScreenState extends State<NameScheduleScreen> {
   final _nameController = TextEditingController();
+  final ScheduleService _scheduleService = ScheduleService();
 
   @override
   void dispose() {
@@ -31,6 +33,29 @@ class _NameScheduleScreenState extends State<NameScheduleScreen> {
         ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
     final sport = args['sport'] as String? ?? 'Unknown';
 
+    try {
+      // Try to create schedule using database service first
+      final schedule = await _scheduleService.createSchedule(
+        name: name,
+        sportName: sport,
+      );
+
+      if (schedule != null) {
+        // Schedule created successfully
+        Navigator.pop(context, schedule);
+      } else {
+        // Schedule already exists
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('A schedule with this name already exists!')),
+        );
+      }
+    } catch (e) {
+      // Fallback to SharedPreferences if database fails
+      await _handleContinueWithPrefs(name, sport);
+    }
+  }
+
+  Future<void> _handleContinueWithPrefs(String name, String sport) async {
     // Save the schedule to SharedPreferences
     final prefs = await SharedPreferences.getInstance();
     final String? unpublishedGamesJson = prefs.getString('unpublished_games');

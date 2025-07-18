@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../shared/theme.dart';
 import '../games/game_template.dart'; // Import the GameTemplate model
+import '../../shared/services/schedule_service.dart';
 
 class SelectScheduleScreen extends StatefulWidget {
   const SelectScheduleScreen({super.key});
@@ -16,6 +17,7 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
   List<Map<String, dynamic>> schedules = [];
   bool isLoading = true;
   GameTemplate? template; // Store the selected template
+  final ScheduleService _scheduleService = ScheduleService();
 
   @override
   void initState() {
@@ -38,6 +40,21 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
   }
 
   Future<void> _fetchSchedules() async {
+    try {
+      // Try to get schedules from database first
+      final schedulesList = await _scheduleService.getSchedules();
+      
+      setState(() {
+        schedules = schedulesList;
+        isLoading = false;
+      });
+    } catch (e) {
+      // Fallback to SharedPreferences if database fails
+      await _fetchSchedulesFromPrefs();
+    }
+  }
+
+  Future<void> _fetchSchedulesFromPrefs() async {
     final prefs = await SharedPreferences.getInstance();
     final String? unpublishedGamesJson = prefs.getString('unpublished_games');
     final String? publishedGamesJson = prefs.getString('published_games');
