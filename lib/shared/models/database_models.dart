@@ -12,6 +12,12 @@ class User {
   final String? grade;
   final String? gender;
   final String? leagueName;
+  final String userType;
+  final String? email;
+  final String? passwordHash;
+  final String? firstName;
+  final String? lastName;
+  final String? phone;
   final DateTime createdAt;
 
   User({
@@ -25,6 +31,12 @@ class User {
     this.grade,
     this.gender,
     this.leagueName,
+    this.userType = 'scheduler',
+    this.email,
+    this.passwordHash,
+    this.firstName,
+    this.lastName,
+    this.phone,
     DateTime? createdAt,
   }) : createdAt = createdAt ?? DateTime.now();
 
@@ -40,6 +52,12 @@ class User {
       'grade': grade,
       'gender': gender,
       'league_name': leagueName,
+      'user_type': userType,
+      'email': email,
+      'password_hash': passwordHash,
+      'first_name': firstName,
+      'last_name': lastName,
+      'phone': phone,
       'created_at': createdAt.toIso8601String(),
     };
   }
@@ -56,6 +74,12 @@ class User {
       grade: map['grade'],
       gender: map['gender'],
       leagueName: map['league_name'],
+      userType: map['user_type'] ?? 'scheduler',
+      email: map['email'],
+      passwordHash: map['password_hash'],
+      firstName: map['first_name'],
+      lastName: map['last_name'],
+      phone: map['phone'],
       createdAt: DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
     );
   }
@@ -210,6 +234,15 @@ class Official {
   final int? sportId;
   final String? rating;
   final int userId;
+  final int? officialUserId;
+  final String? email;
+  final String? phone;
+  final String availabilityStatus;
+  final String? profileImageUrl;
+  final String? bio;
+  final int? experienceYears;
+  final String? certificationLevel;
+  final bool isUserAccount;
   final DateTime createdAt;
 
   // Joined data
@@ -221,6 +254,15 @@ class Official {
     this.sportId,
     this.rating,
     required this.userId,
+    this.officialUserId,
+    this.email,
+    this.phone,
+    this.availabilityStatus = 'available',
+    this.profileImageUrl,
+    this.bio,
+    this.experienceYears,
+    this.certificationLevel,
+    this.isUserAccount = false,
     DateTime? createdAt,
     this.sportName,
   }) : createdAt = createdAt ?? DateTime.now();
@@ -232,6 +274,15 @@ class Official {
       'sport_id': sportId,
       'rating': rating,
       'user_id': userId,
+      'official_user_id': officialUserId,
+      'email': email,
+      'phone': phone,
+      'availability_status': availabilityStatus,
+      'profile_image_url': profileImageUrl,
+      'bio': bio,
+      'experience_years': experienceYears,
+      'certification_level': certificationLevel,
+      'is_user_account': isUserAccount ? 1 : 0,
       'created_at': createdAt.toIso8601String(),
     };
   }
@@ -243,6 +294,15 @@ class Official {
       sportId: map['sport_id']?.toInt(),
       rating: map['rating'],
       userId: map['user_id']?.toInt() ?? 0,
+      officialUserId: map['official_user_id']?.toInt(),
+      email: map['email'],
+      phone: map['phone'],
+      availabilityStatus: map['availability_status'] ?? 'available',
+      profileImageUrl: map['profile_image_url'],
+      bio: map['bio'],
+      experienceYears: map['experience_years']?.toInt(),
+      certificationLevel: map['certification_level'],
+      isUserAccount: (map['is_user_account'] ?? 0) == 1,
       createdAt: DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
       sportName: map['sport_name'],
     );
@@ -619,6 +679,319 @@ class UserSetting {
       userId: map['user_id']?.toInt() ?? 0,
       key: map['key'] ?? '',
       value: map['value'] ?? '',
+    );
+  }
+}
+
+// Official User model (for authentication)
+class OfficialUser {
+  final int? id;
+  final String email;
+  final String passwordHash;
+  final String? phone;
+  final String firstName;
+  final String lastName;
+  final bool profileVerified;
+  final bool emailVerified;
+  final bool phoneVerified;
+  final String status;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+
+  OfficialUser({
+    this.id,
+    required this.email,
+    required this.passwordHash,
+    this.phone,
+    required this.firstName,
+    required this.lastName,
+    this.profileVerified = false,
+    this.emailVerified = false,
+    this.phoneVerified = false,
+    this.status = 'active',
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) : createdAt = createdAt ?? DateTime.now(),
+       updatedAt = updatedAt ?? DateTime.now();
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'email': email,
+      'password_hash': passwordHash,
+      'phone': phone,
+      'first_name': firstName,
+      'last_name': lastName,
+      'profile_verified': profileVerified ? 1 : 0,
+      'email_verified': emailVerified ? 1 : 0,
+      'phone_verified': phoneVerified ? 1 : 0,
+      'status': status,
+      'created_at': createdAt.toIso8601String(),
+      'updated_at': updatedAt.toIso8601String(),
+    };
+  }
+
+  factory OfficialUser.fromMap(Map<String, dynamic> map) {
+    return OfficialUser(
+      id: map['id']?.toInt(),
+      email: map['email'] ?? '',
+      passwordHash: map['password_hash'] ?? '',
+      phone: map['phone'],
+      firstName: map['first_name'] ?? '',
+      lastName: map['last_name'] ?? '',
+      profileVerified: (map['profile_verified'] ?? 0) == 1,
+      emailVerified: (map['email_verified'] ?? 0) == 1,
+      phoneVerified: (map['phone_verified'] ?? 0) == 1,
+      status: map['status'] ?? 'active',
+      createdAt: DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
+      updatedAt: DateTime.parse(map['updated_at'] ?? DateTime.now().toIso8601String()),
+    );
+  }
+}
+
+// Game Assignment model
+class GameAssignment {
+  final int? id;
+  final int gameId;
+  final int officialId;
+  final String? position;
+  final String status;
+  final int assignedBy;
+  final DateTime assignedAt;
+  final DateTime? respondedAt;
+  final String? responseNotes;
+  final double? feeAmount;
+
+  GameAssignment({
+    this.id,
+    required this.gameId,
+    required this.officialId,
+    this.position,
+    this.status = 'pending',
+    required this.assignedBy,
+    DateTime? assignedAt,
+    this.respondedAt,
+    this.responseNotes,
+    this.feeAmount,
+  }) : assignedAt = assignedAt ?? DateTime.now();
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'game_id': gameId,
+      'official_id': officialId,
+      'position': position,
+      'status': status,
+      'assigned_by': assignedBy,
+      'assigned_at': assignedAt.toIso8601String(),
+      'responded_at': respondedAt?.toIso8601String(),
+      'response_notes': responseNotes,
+      'fee_amount': feeAmount,
+    };
+  }
+
+  factory GameAssignment.fromMap(Map<String, dynamic> map) {
+    return GameAssignment(
+      id: map['id']?.toInt(),
+      gameId: map['game_id']?.toInt() ?? 0,
+      officialId: map['official_id']?.toInt() ?? 0,
+      position: map['position'],
+      status: map['status'] ?? 'pending',
+      assignedBy: map['assigned_by']?.toInt() ?? 0,
+      assignedAt: DateTime.parse(map['assigned_at'] ?? DateTime.now().toIso8601String()),
+      respondedAt: map['responded_at'] != null ? DateTime.parse(map['responded_at']) : null,
+      responseNotes: map['response_notes'],
+      feeAmount: map['fee_amount']?.toDouble(),
+    );
+  }
+}
+
+// Official Availability model
+class OfficialAvailability {
+  final int? id;
+  final int officialId;
+  final DateTime date;
+  final TimeOfDay? startTime;
+  final TimeOfDay? endTime;
+  final String status;
+  final String? notes;
+  final DateTime createdAt;
+
+  OfficialAvailability({
+    this.id,
+    required this.officialId,
+    required this.date,
+    this.startTime,
+    this.endTime,
+    this.status = 'available',
+    this.notes,
+    DateTime? createdAt,
+  }) : createdAt = createdAt ?? DateTime.now();
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'official_id': officialId,
+      'date': date.toIso8601String().split('T')[0], // Date only
+      'start_time': startTime != null ? '${startTime!.hour}:${startTime!.minute}' : null,
+      'end_time': endTime != null ? '${endTime!.hour}:${endTime!.minute}' : null,
+      'status': status,
+      'notes': notes,
+      'created_at': createdAt.toIso8601String(),
+    };
+  }
+
+  factory OfficialAvailability.fromMap(Map<String, dynamic> map) {
+    TimeOfDay? parseTime(String? timeStr) {
+      if (timeStr == null || timeStr.isEmpty) return null;
+      final parts = timeStr.split(':');
+      if (parts.length == 2) {
+        return TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+      }
+      return null;
+    }
+
+    return OfficialAvailability(
+      id: map['id']?.toInt(),
+      officialId: map['official_id']?.toInt() ?? 0,
+      date: DateTime.parse(map['date'] ?? DateTime.now().toIso8601String()),
+      startTime: parseTime(map['start_time']),
+      endTime: parseTime(map['end_time']),
+      status: map['status'] ?? 'available',
+      notes: map['notes'],
+      createdAt: DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
+    );
+  }
+}
+
+// Official Sports model
+class OfficialSport {
+  final int? id;
+  final int officialId;
+  final int sportId;
+  final String? certificationLevel;
+  final int? yearsExperience;
+  final bool isPrimary;
+  final DateTime createdAt;
+
+  // Joined data
+  final String? sportName;
+
+  OfficialSport({
+    this.id,
+    required this.officialId,
+    required this.sportId,
+    this.certificationLevel,
+    this.yearsExperience,
+    this.isPrimary = false,
+    DateTime? createdAt,
+    this.sportName,
+  }) : createdAt = createdAt ?? DateTime.now();
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'official_id': officialId,
+      'sport_id': sportId,
+      'certification_level': certificationLevel,
+      'years_experience': yearsExperience,
+      'is_primary': isPrimary ? 1 : 0,
+      'created_at': createdAt.toIso8601String(),
+    };
+  }
+
+  factory OfficialSport.fromMap(Map<String, dynamic> map) {
+    return OfficialSport(
+      id: map['id']?.toInt(),
+      officialId: map['official_id']?.toInt() ?? 0,
+      sportId: map['sport_id']?.toInt() ?? 0,
+      certificationLevel: map['certification_level'],
+      yearsExperience: map['years_experience']?.toInt(),
+      isPrimary: (map['is_primary'] ?? 0) == 1,
+      createdAt: DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
+      sportName: map['sport_name'],
+    );
+  }
+}
+
+// Official Notification model
+class OfficialNotification {
+  final int? id;
+  final int officialId;
+  final String type;
+  final String title;
+  final String message;
+  final int? relatedGameId;
+  final DateTime? readAt;
+  final DateTime createdAt;
+
+  OfficialNotification({
+    this.id,
+    required this.officialId,
+    required this.type,
+    required this.title,
+    required this.message,
+    this.relatedGameId,
+    this.readAt,
+    DateTime? createdAt,
+  }) : createdAt = createdAt ?? DateTime.now();
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'official_id': officialId,
+      'type': type,
+      'title': title,
+      'message': message,
+      'related_game_id': relatedGameId,
+      'read_at': readAt?.toIso8601String(),
+      'created_at': createdAt.toIso8601String(),
+    };
+  }
+
+  factory OfficialNotification.fromMap(Map<String, dynamic> map) {
+    return OfficialNotification(
+      id: map['id']?.toInt(),
+      officialId: map['official_id']?.toInt() ?? 0,
+      type: map['type'] ?? '',
+      title: map['title'] ?? '',
+      message: map['message'] ?? '',
+      relatedGameId: map['related_game_id']?.toInt(),
+      readAt: map['read_at'] != null ? DateTime.parse(map['read_at']) : null,
+      createdAt: DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
+    );
+  }
+}
+
+// Official Settings model
+class OfficialSetting {
+  final int? id;
+  final int officialId;
+  final String settingKey;
+  final String settingValue;
+
+  OfficialSetting({
+    this.id,
+    required this.officialId,
+    required this.settingKey,
+    required this.settingValue,
+  });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'official_id': officialId,
+      'setting_key': settingKey,
+      'setting_value': settingValue,
+    };
+  }
+
+  factory OfficialSetting.fromMap(Map<String, dynamic> map) {
+    return OfficialSetting(
+      id: map['id']?.toInt(),
+      officialId: map['official_id']?.toInt() ?? 0,
+      settingKey: map['setting_key'] ?? '',
+      settingValue: map['setting_value'] ?? '',
     );
   }
 }

@@ -2,6 +2,15 @@
 
 Rules for Claude Code in the **Efficials** Flutter project to ensure consistency and alignment with project goals.
 
+## User Flow Context
+When a message starts with these prefixes, interpret the context from that user's perspective:
+- **AD** - Athletic Director user flow (administrative oversight, game management, templates)
+- **AS** - Assigner user flow (official assignment, scheduling, availability management)  
+- **CO** - Coach user flow (team management, game participation, roster management)
+- **OF** - Officials user flow (game officiating, availability, assignment acceptance)
+
+Format: `[PREFIX] - [Description of action/observation]`
+
 - Use `setState` with `StatefulWidget` for state management unless explicitly specified otherwise.
 - Add new routes to `lib/main.dart` routes map using `Navigator.pushNamed`.
 - Do not assume file contents; request specific files (e.g., `lib/main.dart`, `lib/features/auth/welcome_screen.dart`) before referencing or modifying.

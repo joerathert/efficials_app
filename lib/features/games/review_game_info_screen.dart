@@ -1,8 +1,10 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../shared/theme.dart';
+import '../../shared/services/game_service.dart';
 
 class ReviewGameInfoScreen extends StatefulWidget {
   const ReviewGameInfoScreen({super.key});
@@ -23,6 +25,7 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
   String? teamName;
   bool isUsingTemplate = false;
   bool isAssignerFlow = false;
+  final GameService _gameService = GameService();
 
   @override
   void didChangeDependencies() {
@@ -180,6 +183,20 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
       }
     }
 
+    // Save to database first with original data types
+    try {
+      final dbResult = await _gameService.createGame(gameData);
+      if (dbResult != null) {
+        debugPrint('Game saved to database successfully with ID: ${dbResult['id']}');
+      } else {
+        debugPrint('Failed to save game to database - result was null');
+      }
+    } catch (e) {
+      debugPrint('Error saving game to database: $e');
+      // Continue with SharedPreferences as fallback
+    }
+
+    // Convert data for SharedPreferences storage
     if (gameData['date'] != null) {
       gameData['date'] = (gameData['date'] as DateTime).toIso8601String();
     }
@@ -283,6 +300,20 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
       }
     }
 
+    // Save to database first with original data types
+    try {
+      final dbResult = await _gameService.createGame(gameData);
+      if (dbResult != null) {
+        debugPrint('Unpublished game saved to database successfully with ID: ${dbResult['id']}');
+      } else {
+        debugPrint('Failed to save unpublished game to database - result was null');
+      }
+    } catch (e) {
+      debugPrint('Error saving unpublished game to database: $e');
+      // Continue with SharedPreferences as fallback
+    }
+
+    // Convert data for SharedPreferences storage
     if (gameData['date'] != null) {
       gameData['date'] = (gameData['date'] as DateTime).toIso8601String();
     }

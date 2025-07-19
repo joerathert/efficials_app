@@ -24,7 +24,7 @@ class DatabaseHelper {
     
     return await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -36,8 +36,121 @@ class DatabaseHelper {
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     // Handle database upgrades here
-    if (oldVersion < newVersion) {
-      // Add migration logic for future versions
+    if (oldVersion < 2) {
+      // Add new tables for Official user functionality
+      await db.execute('''
+        CREATE TABLE official_users (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          email TEXT UNIQUE NOT NULL,
+          password_hash TEXT NOT NULL,
+          phone TEXT,
+          first_name TEXT NOT NULL,
+          last_name TEXT NOT NULL,
+          profile_verified BOOLEAN DEFAULT FALSE,
+          email_verified BOOLEAN DEFAULT FALSE,
+          phone_verified BOOLEAN DEFAULT FALSE,
+          status TEXT DEFAULT 'active',
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      ''');
+
+      await db.execute('''
+        CREATE TABLE game_assignments (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          game_id INTEGER REFERENCES games(id),
+          official_id INTEGER REFERENCES officials(id),
+          position TEXT,
+          status TEXT DEFAULT 'pending',
+          assigned_by INTEGER REFERENCES users(id),
+          assigned_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          responded_at DATETIME,
+          response_notes TEXT,
+          fee_amount DECIMAL(10,2),
+          UNIQUE(game_id, official_id)
+        )
+      ''');
+
+      await db.execute('''
+        CREATE TABLE official_availability (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          official_id INTEGER REFERENCES officials(id),
+          date DATE NOT NULL,
+          start_time TIME,
+          end_time TIME,
+          status TEXT DEFAULT 'available',
+          notes TEXT,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(official_id, date, start_time)
+        )
+      ''');
+
+      await db.execute('''
+        CREATE TABLE official_sports (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          official_id INTEGER REFERENCES officials(id),
+          sport_id INTEGER REFERENCES sports(id),
+          certification_level TEXT,
+          years_experience INTEGER,
+          is_primary BOOLEAN DEFAULT FALSE,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(official_id, sport_id)
+        )
+      ''');
+
+      await db.execute('''
+        CREATE TABLE official_notifications (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          official_id INTEGER REFERENCES officials(id),
+          type TEXT NOT NULL,
+          title TEXT NOT NULL,
+          message TEXT NOT NULL,
+          related_game_id INTEGER REFERENCES games(id),
+          read_at DATETIME,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      ''');
+
+      await db.execute('''
+        CREATE TABLE official_settings (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          official_id INTEGER REFERENCES officials(id),
+          setting_key TEXT NOT NULL,
+          setting_value TEXT,
+          UNIQUE(official_id, setting_key)
+        )
+      ''');
+
+      // Add new columns to existing officials table
+      await db.execute('ALTER TABLE officials ADD COLUMN official_user_id INTEGER REFERENCES official_users(id)');
+      await db.execute('ALTER TABLE officials ADD COLUMN email TEXT');
+      await db.execute('ALTER TABLE officials ADD COLUMN phone TEXT');
+      await db.execute('ALTER TABLE officials ADD COLUMN availability_status TEXT DEFAULT "available"');
+      await db.execute('ALTER TABLE officials ADD COLUMN profile_image_url TEXT');
+      await db.execute('ALTER TABLE officials ADD COLUMN bio TEXT');
+      await db.execute('ALTER TABLE officials ADD COLUMN experience_years INTEGER');
+      await db.execute('ALTER TABLE officials ADD COLUMN certification_level TEXT');
+      await db.execute('ALTER TABLE officials ADD COLUMN is_user_account BOOLEAN DEFAULT FALSE');
+
+      // Add new columns to existing users table
+      await db.execute('ALTER TABLE users ADD COLUMN user_type TEXT DEFAULT "scheduler"');
+      await db.execute('ALTER TABLE users ADD COLUMN email TEXT');
+      await db.execute('ALTER TABLE users ADD COLUMN password_hash TEXT');
+      await db.execute('ALTER TABLE users ADD COLUMN first_name TEXT');
+      await db.execute('ALTER TABLE users ADD COLUMN last_name TEXT');
+      await db.execute('ALTER TABLE users ADD COLUMN phone TEXT');
+
+      // Add indexes for new tables
+      await db.execute('CREATE INDEX idx_official_users_email ON official_users(email)');
+      await db.execute('CREATE INDEX idx_game_assignments_game_id ON game_assignments(game_id)');
+      await db.execute('CREATE INDEX idx_game_assignments_official_id ON game_assignments(official_id)');
+      await db.execute('CREATE INDEX idx_game_assignments_status ON game_assignments(status)');
+      await db.execute('CREATE INDEX idx_official_availability_official_id ON official_availability(official_id)');
+      await db.execute('CREATE INDEX idx_official_availability_date ON official_availability(date)');
+      await db.execute('CREATE INDEX idx_official_sports_official_id ON official_sports(official_id)');
+      await db.execute('CREATE INDEX idx_official_sports_sport_id ON official_sports(sport_id)');
+      await db.execute('CREATE INDEX idx_official_notifications_official_id ON official_notifications(official_id)');
+      await db.execute('CREATE INDEX idx_official_settings_official_id ON official_settings(official_id)');
     }
   }
 
@@ -55,6 +168,12 @@ class DatabaseHelper {
         grade TEXT,
         gender TEXT,
         league_name TEXT,
+        user_type TEXT DEFAULT 'scheduler',
+        email TEXT,
+        password_hash TEXT,
+        first_name TEXT,
+        last_name TEXT,
+        phone TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     ''');
@@ -111,6 +230,15 @@ class DatabaseHelper {
         sport_id INTEGER REFERENCES sports(id),
         rating TEXT,
         user_id INTEGER REFERENCES users(id),
+        official_user_id INTEGER REFERENCES official_users(id),
+        email TEXT,
+        phone TEXT,
+        availability_status TEXT DEFAULT 'available',
+        profile_image_url TEXT,
+        bio TEXT,
+        experience_years INTEGER,
+        certification_level TEXT,
+        is_user_account BOOLEAN DEFAULT FALSE,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     ''');
@@ -233,6 +361,95 @@ class DatabaseHelper {
       )
     ''');
 
+    // Official user authentication table
+    await db.execute('''
+      CREATE TABLE official_users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        email TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        phone TEXT,
+        first_name TEXT NOT NULL,
+        last_name TEXT NOT NULL,
+        profile_verified BOOLEAN DEFAULT FALSE,
+        email_verified BOOLEAN DEFAULT FALSE,
+        phone_verified BOOLEAN DEFAULT FALSE,
+        status TEXT DEFAULT 'active',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    ''');
+
+    // Game assignments table for tracking assignment status
+    await db.execute('''
+      CREATE TABLE game_assignments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        game_id INTEGER REFERENCES games(id),
+        official_id INTEGER REFERENCES officials(id),
+        position TEXT,
+        status TEXT DEFAULT 'pending',
+        assigned_by INTEGER REFERENCES users(id),
+        assigned_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        responded_at DATETIME,
+        response_notes TEXT,
+        fee_amount DECIMAL(10,2),
+        UNIQUE(game_id, official_id)
+      )
+    ''');
+
+    // Official availability table
+    await db.execute('''
+      CREATE TABLE official_availability (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        official_id INTEGER REFERENCES officials(id),
+        date DATE NOT NULL,
+        start_time TIME,
+        end_time TIME,
+        status TEXT DEFAULT 'available',
+        notes TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(official_id, date, start_time)
+      )
+    ''');
+
+    // Official sports and certifications
+    await db.execute('''
+      CREATE TABLE official_sports (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        official_id INTEGER REFERENCES officials(id),
+        sport_id INTEGER REFERENCES sports(id),
+        certification_level TEXT,
+        years_experience INTEGER,
+        is_primary BOOLEAN DEFAULT FALSE,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(official_id, sport_id)
+      )
+    ''');
+
+    // Official notifications
+    await db.execute('''
+      CREATE TABLE official_notifications (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        official_id INTEGER REFERENCES officials(id),
+        type TEXT NOT NULL,
+        title TEXT NOT NULL,
+        message TEXT NOT NULL,
+        related_game_id INTEGER REFERENCES games(id),
+        read_at DATETIME,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    ''');
+
+    // Official settings
+    await db.execute('''
+      CREATE TABLE official_settings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        official_id INTEGER REFERENCES officials(id),
+        setting_key TEXT NOT NULL,
+        setting_value TEXT,
+        UNIQUE(official_id, setting_key)
+      )
+    ''');
+
     // Create indexes for better performance
     await _createIndexes(db);
     
@@ -248,6 +465,18 @@ class DatabaseHelper {
     await db.execute('CREATE INDEX idx_schedules_user_id ON schedules(user_id)');
     await db.execute('CREATE INDEX idx_locations_user_id ON locations(user_id)');
     await db.execute('CREATE INDEX idx_officials_user_id ON officials(user_id)');
+    
+    // Indexes for new official tables
+    await db.execute('CREATE INDEX idx_official_users_email ON official_users(email)');
+    await db.execute('CREATE INDEX idx_game_assignments_game_id ON game_assignments(game_id)');
+    await db.execute('CREATE INDEX idx_game_assignments_official_id ON game_assignments(official_id)');
+    await db.execute('CREATE INDEX idx_game_assignments_status ON game_assignments(status)');
+    await db.execute('CREATE INDEX idx_official_availability_official_id ON official_availability(official_id)');
+    await db.execute('CREATE INDEX idx_official_availability_date ON official_availability(date)');
+    await db.execute('CREATE INDEX idx_official_sports_official_id ON official_sports(official_id)');
+    await db.execute('CREATE INDEX idx_official_sports_sport_id ON official_sports(sport_id)');
+    await db.execute('CREATE INDEX idx_official_notifications_official_id ON official_notifications(official_id)');
+    await db.execute('CREATE INDEX idx_official_settings_official_id ON official_settings(official_id)');
   }
 
   Future<void> _insertDefaultSports(Database db) async {

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -162,6 +163,7 @@ class _AthleticDirectorHomeScreenState
 
   Future<void> _fetchGames() async {
     try {
+      debugPrint('Fetching games from database...');
       // Try to get games from database first
       final publishedGamesData = await _gameService.getFilteredGames(
         showAwayGames: showAwayGames,
@@ -169,8 +171,10 @@ class _AthleticDirectorHomeScreenState
         scheduleFilters: scheduleFilters,
         status: 'Published',
       );
+      debugPrint('Published games from database: ${publishedGamesData.length}');
       
       final unpublishedGamesData = await _gameService.getUnpublishedGames();
+      debugPrint('Unpublished games from database: ${unpublishedGamesData.length}');
       
       // Extract schedule names from all games
       Set<String> scheduleNames = {};
@@ -186,7 +190,9 @@ class _AthleticDirectorHomeScreenState
         publishedGames = publishedGamesData.map(Game.fromJson).toList();
         isLoading = false;
       });
+      debugPrint('Set publishedGames state with ${publishedGames.length} games');
     } catch (e) {
+      debugPrint('Error fetching games from database: $e');
       // Fallback to SharedPreferences if database fails
       await _fetchGamesFromPrefs();
     }

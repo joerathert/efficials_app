@@ -10,6 +10,10 @@ import 'features/auth/welcome_screen.dart';
 import 'features/auth/role_selection_screen.dart';
 import 'features/auth/scheduler_signup_step1.dart';
 import 'features/auth/scheduler_signup_step2.dart';
+import 'features/auth/official_signup_step1.dart';
+import 'features/auth/official_signup_step2.dart';
+import 'features/auth/official_signup_step3.dart';
+import 'features/auth/official_signup_step4.dart';
 import 'features/auth/add_photo_screen.dart';
 import 'features/auth/athletic_director_setup_screen.dart';
 
@@ -17,6 +21,7 @@ import 'features/auth/athletic_director_setup_screen.dart';
 import 'features/home/athletic_director_home_screen.dart';
 import 'features/home/assigner_home_screen.dart';
 import 'features/home/coach_home_screen.dart';
+import 'features/home/official_home_screen.dart';
 import 'features/home/assigner_sport_selection_screen.dart';
 import 'features/home/settings_screen.dart';
 import 'features/settings/assigner_sport_defaults_screen.dart';
@@ -144,6 +149,10 @@ class EfficialsApp extends StatelessWidget {
         '/role_selection': (context) => const RoleSelectionScreen(),
         '/scheduler_signup_step1': (context) => const SchedulerSignUpStep1(),
         '/scheduler_signup_step2': (context) => const SchedulerSignUpStep2(),
+        '/official_signup_step1': (context) => const OfficialSignUpStep1(),
+        '/official_signup_step2': (context) => const OfficialSignUpStep2(),
+        '/official_signup_step3': (context) => const OfficialSignUpStep3(),
+        '/official_signup_step4': (context) => const OfficialSignUpStep4(),
         '/add_photo': (context) => const AddPhotoScreen(),
         '/athletic_director_setup': (context) =>
             const AthleticDirectorSetupScreen(),
@@ -151,6 +160,7 @@ class EfficialsApp extends StatelessWidget {
             const AthleticDirectorHomeScreen(),
         '/assigner_home': (context) => const AssignerHomeScreen(),
         '/coach_home': (context) => const CoachHomeScreen(),
+        '/official_home': (context) => const OfficialHomeScreen(),
         '/select_team': (context) => const SelectTeamScreen(),
         '/assigner_sport_selection': (context) =>
             const AssignerSportSelectionScreen(),

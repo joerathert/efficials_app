@@ -82,11 +82,8 @@ class RoleSelectionScreen extends StatelessWidget {
                         width: 200,
                         child: ElevatedButton(
                           onPressed: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                  content: Text(
-                                      'Official sign-up not implemented yet')),
-                            );
+                            Navigator.pushNamed(
+                                context, '/official_signup_step1');
                           },
                           style: elevatedButtonStyle(
                             padding: const EdgeInsets.symmetric(

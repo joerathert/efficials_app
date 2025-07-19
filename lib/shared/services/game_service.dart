@@ -22,7 +22,26 @@ class GameService {
   // Get current user ID (for database operations)
   Future<int> _getCurrentUserId() async {
     final user = await _userRepository.getCurrentUser();
-    return user?.id ?? 1; // Default to 1 if no user found
+    if (user != null) {
+      debugPrint('Found current user with ID: ${user.id}');
+      return user.id!;
+    }
+    
+    // If no user exists, create a default Athletic Director user
+    debugPrint('No user found, creating default user');
+    try {
+      final defaultUser = User(
+        schedulerType: 'Athletic Director',
+        setupCompleted: true,
+        schoolName: 'Default School',
+      );
+      final userId = await _userRepository.createUser(defaultUser);
+      debugPrint('Created default user with ID: $userId');
+      return userId;
+    } catch (e) {
+      debugPrint('Error creating default user: $e');
+      return 1; // Fallback to ID 1
+    }
   }
 
   // GAME OPERATIONS
@@ -78,6 +97,7 @@ class GameService {
   // Create a new game
   Future<Map<String, dynamic>?> createGame(Map<String, dynamic> gameData) async {
     try {
+      debugPrint('Creating game with data: $gameData');
       final userId = await _getCurrentUserId();
       
       // Get sport ID
@@ -86,6 +106,7 @@ class GameService {
         debugPrint('Sport not found: ${gameData['sport']}');
         return null;
       }
+      debugPrint('Found sport ID: $sportId for sport: ${gameData['sport']}');
 
       // Get schedule ID if provided
       int? scheduleId;
@@ -121,9 +142,16 @@ class GameService {
       );
 
       final gameId = await _gameRepository.createGame(game);
+      debugPrint('Game created with database ID: $gameId');
       final createdGame = await _gameRepository.getGameById(gameId);
       
-      return createdGame != null ? _gameToMap(createdGame) : null;
+      if (createdGame != null) {
+        debugPrint('Successfully retrieved created game from database');
+        return _gameToMap(createdGame);
+      } else {
+        debugPrint('Failed to retrieve created game from database');
+        return null;
+      }
     } catch (e) {
       debugPrint('Error creating game: $e');
       return null;
