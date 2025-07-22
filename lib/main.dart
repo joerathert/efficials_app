@@ -36,6 +36,7 @@ import 'features/officials/filter_settings_screen.dart';
 import 'features/officials/edit_list_screen.dart';
 import 'features/officials/advanced_officials_selection_screen.dart';
 import 'features/officials/select_officials_screen.dart';
+import 'features/officials/official_game_details_screen.dart';
 
 // Games screens
 import 'features/games/additional_game_info_screen.dart';
@@ -49,6 +50,7 @@ import 'features/games/game_templates_screen.dart';
 import 'features/games/sport_templates_screen.dart';
 import 'features/games/select_game_template_screen.dart';
 import 'features/games/create_game_template_screen.dart';
+import 'features/games/new_game_template_screen.dart';
 import 'features/games/select_sport_screen.dart';
 import 'features/games/select_team_screen.dart';
 
@@ -192,7 +194,10 @@ class EfficialsApp extends StatelessWidget {
         '/schedules': (context) => const SchedulesScreen(),
         '/schedule_details': (context) => const ScheduleDetailsScreen(),
         '/team_schedule': (context) => const TeamScheduleScreen(),
-        '/new_game_template': (context) => const CreateGameTemplateScreen(),
+        '/new_game_template': (context) {
+          final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+          return NewGameTemplateScreen(gameData: args);
+        },
         '/game_templates': (context) => const GameTemplatesScreen(),
         '/sport_templates': (context) => const SportTemplatesScreen(),
         '/select_game_template': (context) => const SelectGameTemplateScreen(),
@@ -202,6 +207,7 @@ class EfficialsApp extends StatelessWidget {
         '/settings': (context) => const SettingsScreen(),
         '/assigner_sport_defaults': (context) => const AssignerSportDefaultsScreen(),
         '/database_test': (context) => const DatabaseTestScreen(),
+        '/official_game_details': (context) => const OfficialGameDetailsScreen(),
       },
     );
   }

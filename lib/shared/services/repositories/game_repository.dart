@@ -286,6 +286,19 @@ class GameRepository extends BaseRepository {
     );
   }
 
+  // Update officials hired count
+  Future<int> updateOfficialsHired(int gameId, int officialsHired) async {
+    return await update(
+      tableName,
+      {
+        'officials_hired': officialsHired,
+        'updated_at': DateTime.now().toIso8601String(),
+      },
+      'id = ?',
+      [gameId],
+    );
+  }
+
   // Bulk update games status
   Future<void> bulkUpdateGameStatus(List<int> gameIds, String status) async {
     if (gameIds.isEmpty) return;

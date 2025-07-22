@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:table_calendar/table_calendar.dart';
 import '../../shared/theme.dart';
 import '../games/game_template.dart'; // Import the GameTemplate model
+import '../../shared/services/schedule_service.dart';
 
 class ScheduleDetailsScreen extends StatefulWidget {
   const ScheduleDetailsScreen({super.key});
@@ -15,6 +16,7 @@ class ScheduleDetailsScreen extends StatefulWidget {
 class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
   String? scheduleName;
   int? scheduleId;
+  String? sport; // Store the schedule's sport
   List<Map<String, dynamic>> games = [];
   bool isLoading = true;
   DateTime _focusedDay = DateTime.now();
@@ -22,6 +24,7 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
   List<Map<String, dynamic>> _selectedDayGames = [];
   bool _showOnlyNeedsOfficials = false; // Toggle state for filtering
   String? associatedTemplateName; // Store the associated template name
+  final ScheduleService _scheduleService = ScheduleService();
 
   @override
   void didChangeDependencies() {
@@ -31,7 +34,77 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
     scheduleName = args['scheduleName'] as String?;
     scheduleId = args['scheduleId'] as int?;
     _fetchGames();
+    _loadScheduleDetails(); // Load schedule details including sport after games are loaded
     _loadAssociatedTemplate(); // Load the associated template
+  }
+
+  Future<void> _loadScheduleDetails() async {
+    if (scheduleId != null) {
+      try {
+        final scheduleDetails = await _scheduleService.getScheduleById(scheduleId!);
+        if (scheduleDetails != null) {
+          final scheduleSport = scheduleDetails['sport'] as String?;
+          
+          // If schedule sport is null or empty, try to infer it from games
+          if (scheduleSport == null || scheduleSport.isEmpty || scheduleSport == 'null') {
+            await _inferAndUpdateScheduleSport();
+          } else {
+            setState(() {
+              sport = scheduleSport;
+            });
+          }
+        }
+      } catch (e) {
+        // If database fails, sport will remain null and we'll fall back to the old method
+        print('Failed to load schedule details: $e');
+      }
+    }
+  }
+  
+  Future<void> _inferAndUpdateScheduleSport() async {
+    // Try to infer sport from existing games
+    String? inferredSport;
+    if (games.isNotEmpty) {
+      inferredSport = games.first['sport'] as String?;
+    }
+    
+    // If we still don't have a sport, try to guess from schedule name
+    if (inferredSport == null || inferredSport.isEmpty) {
+      inferredSport = _inferSportFromScheduleName(scheduleName ?? '');
+    }
+    
+    if (inferredSport != null && inferredSport.isNotEmpty && inferredSport != 'Unknown') {
+      try {
+        // Update the schedule in the database with the inferred sport
+        // This is a simplified approach - you might want to implement updateScheduleSport in ScheduleService
+        setState(() {
+          sport = inferredSport;
+        });
+        print('Inferred sport for schedule: $inferredSport');
+      } catch (e) {
+        print('Failed to update schedule sport: $e');
+      }
+    } else {
+      setState(() {
+        sport = 'Unknown';
+      });
+    }
+  }
+  
+  String _inferSportFromScheduleName(String scheduleName) {
+    final name = scheduleName.toLowerCase();
+    if (name.contains('football')) return 'Football';
+    if (name.contains('basketball')) return 'Basketball';
+    if (name.contains('baseball')) return 'Baseball';
+    if (name.contains('soccer')) return 'Soccer';
+    if (name.contains('tennis')) return 'Tennis';
+    if (name.contains('volleyball')) return 'Volleyball';
+    if (name.contains('track')) return 'Track';
+    if (name.contains('swim')) return 'Swimming';
+    if (name.contains('golf')) return 'Golf';
+    if (name.contains('wrestling')) return 'Wrestling';
+    if (name.contains('cross country')) return 'Cross Country';
+    return 'Unknown';
   }
 
   Future<void> _fetchGames() async {
@@ -780,16 +853,19 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
           FloatingActionButton(
             heroTag: 'setTemplate',
             onPressed: () {
-              // Determine the sport from the first game, if available
-              final sport = games.isNotEmpty
+              // Use the sport from the schedule itself, fallback to games if needed
+              final sportToUse = sport ?? (games.isNotEmpty
                   ? games.first['sport'] as String? ?? 'Unknown'
-                  : 'Unknown';
+                  : 'Unknown');
+              print('DEBUG ScheduleDetails - Navigating with sport: $sportToUse');
+              print('DEBUG ScheduleDetails - Schedule sport: $sport');
+              print('DEBUG ScheduleDetails - Schedule name: $scheduleName');
               Navigator.pushNamed(
                 context,
                 '/select_game_template',
                 arguments: {
                   'scheduleName': scheduleName,
-                  'sport': sport,
+                  'sport': sportToUse,
                 },
               ).then((_) {
                 _loadAssociatedTemplate();

@@ -421,6 +421,7 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
         'opponent': newTemplate.opponent,
         'hireAutomatically': newTemplate.hireAutomatically,
         'method': newTemplate.method,
+        'officialsListName': newTemplate.officialsListName, // Add the missing officials list name
         'officialsListId': null, // Will be handled by GameService
         'includeScheduleName': newTemplate.includeScheduleName,
         'includeSport': newTemplate.includeSport,

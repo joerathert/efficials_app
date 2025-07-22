@@ -1,9 +1,10 @@
 import 'dart:convert';
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../shared/theme.dart';
+import '../../shared/services/repositories/game_assignment_repository.dart';
+import '../../shared/services/game_service.dart';
 
 class GameInformationScreen extends StatefulWidget {
   const GameInformationScreen({super.key});
@@ -30,7 +31,14 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
   late String opponent;
   late int officialsHired;
   List<Map<String, dynamic>> interestedOfficials = [];
+  List<Map<String, dynamic>> confirmedOfficialsFromDB = [];
   Map<int, bool> selectedForHire = {};
+  
+  // Repository for fetching real interested officials data
+  final GameAssignmentRepository _gameAssignmentRepo = GameAssignmentRepository();
+  
+  // Service for database game operations
+  final GameService _gameService = GameService();
 
   @override
   void didChangeDependencies() {
@@ -38,6 +46,15 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
     final newArgs = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
     setState(() {
       args = Map<String, dynamic>.from(newArgs);
+      
+      // Debug logging to see what data we have
+      print('=== GAME INFORMATION DEBUG ===');
+      print('method: ${args['method']}');
+      print('selectedListName: ${args['selectedListName']}');
+      print('selectedLists: ${args['selectedLists']}');
+      print('selectedOfficials: ${args['selectedOfficials']}');
+      print('isAwayGame: ${args['isAwayGame']}');
+      print('==============================');
       sport = args['sport'] as String? ?? 'Unknown';
       scheduleName = args['scheduleName'] as String? ?? 'Unnamed';
       location = args['location'] as String? ?? 'Not set';
@@ -85,22 +102,8 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
       } catch (e) {
         selectedLists = [];
       }
-      if (!isAwayGame && !hireAutomatically && selectedOfficials.isNotEmpty && officialsHired < (officialsRequired ?? 0)) {
-        final random = Random();
-        final interestCount = random.nextInt(4) + 3;
-        final availableOfficials = selectedOfficials
-            .where((o) => !selectedOfficials.take(officialsHired).any((h) => h['id'] == o['id']))
-            .toList()
-          ..shuffle(random);
-        interestedOfficials = availableOfficials.take(interestCount.clamp(0, availableOfficials.length)).toList();
-        selectedForHire = {};
-        for (var official in interestedOfficials) {
-          selectedForHire[official['id'] as int] = false;
-        }
-      } else {
-        interestedOfficials = [];
-        selectedForHire = {};
-      }
+      // Load real interested officials from database
+      _loadInterestedOfficials();
     });
   }
 
@@ -125,6 +128,57 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
     officialsHired = 0;
   }
 
+  // Load real interested officials from database
+  Future<void> _loadInterestedOfficials() async {
+    final gameId = args['id'];
+    if (gameId == null) return;
+    
+    try {
+      // Check if this is a database game (integer ID) or SharedPreferences game (timestamp ID)
+      // Database IDs are typically small integers (1, 2, 3...) 
+      // SharedPreferences IDs are large timestamps (1721664123456...)
+      int? databaseGameId;
+      
+      if (gameId is int) {
+        databaseGameId = gameId;
+      } else if (gameId is String) {
+        databaseGameId = int.tryParse(gameId);
+      }
+      
+      // Only try to load from database if this looks like a database game ID
+      // (small integer, not a large timestamp)
+      if (databaseGameId != null && databaseGameId < 1000000000000) {
+        print('Loading interested officials for database game ID: $databaseGameId');
+        final interestedOfficials = await _gameAssignmentRepo.getInterestedOfficialsForGame(databaseGameId);
+        final confirmedOfficials = await _gameAssignmentRepo.getConfirmedOfficialsForGame(databaseGameId);
+        
+        setState(() {
+          // Create mutable copies of the query results
+          this.interestedOfficials = List<Map<String, dynamic>>.from(interestedOfficials);
+          confirmedOfficialsFromDB = List<Map<String, dynamic>>.from(confirmedOfficials);
+          selectedForHire = {};
+          for (var official in this.interestedOfficials) {
+            selectedForHire[official['id'] as int] = false;
+          }
+        });
+      } else {
+        print('SharedPreferences game detected (ID: $gameId) - express interest not supported');
+        // For SharedPreferences games, interested officials feature is not supported
+        // as they use a different storage system
+        setState(() {
+          interestedOfficials = [];
+          selectedForHire = {};
+        });
+      }
+    } catch (e) {
+      print('Error loading interested officials: $e');
+      setState(() {
+        interestedOfficials = [];
+        selectedForHire = {};
+      });
+    }
+  }
+
   Future<void> _deleteGame() async {
     final gameId = args['id'];
     if (gameId == null) {
@@ -134,6 +188,61 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
       return;
     }
 
+    try {
+      // Check if this is a database game (integer ID) or SharedPreferences game (timestamp ID)
+      int? databaseGameId;
+      
+      if (gameId is int) {
+        databaseGameId = gameId;
+      } else if (gameId is String) {
+        databaseGameId = int.tryParse(gameId);
+      }
+      
+      // For database games, use the GameService
+      if (databaseGameId != null && databaseGameId < 1000000000000) {
+        print('Deleting database game ID: $databaseGameId');
+        final success = await _gameService.deleteGame(databaseGameId);
+        
+        if (success) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Game deleted successfully'),
+                backgroundColor: Colors.green,
+              ),
+            );
+            Navigator.pop(context, true);
+          }
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Failed to delete game'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        }
+      } else {
+        // For SharedPreferences games, use the legacy approach
+        print('Deleting SharedPreferences game ID: $gameId');
+        await _deleteSharedPreferencesGame(gameId);
+      }
+    } catch (e) {
+      print('Error deleting game: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Error deleting game'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  // Legacy method for SharedPreferences games (to be phased out)
+  Future<void> _deleteSharedPreferencesGame(dynamic gameId) async {
     final prefs = await SharedPreferences.getInstance();
     
     // Determine which storage key to use based on user role
@@ -155,7 +264,6 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
         break;
     }
     
-    
     final String? gamesJson = prefs.getString(publishedGamesKey);
     if (gamesJson != null && gamesJson.isNotEmpty) {
       try {
@@ -168,6 +276,12 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
         
         if (initialCount > finalCount) {
           if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Legacy game deleted successfully'),
+                backgroundColor: Colors.green,
+              ),
+            );
             Navigator.pop(context, true);
           }
         } else {
@@ -180,7 +294,7 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Error deleting game')),
+            const SnackBar(content: Text('Error deleting legacy game')),
           );
         }
       }
@@ -293,22 +407,86 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
       officialsHired += selectedCount;
       args['officialsHired'] = officialsHired;
       selectedOfficials.addAll(hiredOfficials);
-      interestedOfficials.removeWhere((o) => hiredIds.contains(o['id']));
+      // Create a new mutable list instead of modifying the read-only query result
+      interestedOfficials = interestedOfficials.where((o) => !hiredIds.contains(o['id'])).toList();
       selectedForHire.clear();
-      if (officialsHired < (officialsRequired ?? 0)) {
-        final random = Random();
-        final interestCount = random.nextInt(4) + 3;
-        final remainingOfficials = selectedOfficials
-            .where((o) => !hiredOfficials.any((h) => h['id'] == o['id']))
-            .toList()
-          ..shuffle(random);
-        interestedOfficials = remainingOfficials.take(interestCount.clamp(0, remainingOfficials.length)).toList();
-        for (var official in interestedOfficials) {
-          selectedForHire[official['id'] as int] = false;
-        }
-      }
     });
 
+    try {
+      final gameId = args['id'];
+      
+      // Check if this is a database game (integer ID) or SharedPreferences game (timestamp ID)
+      int? databaseGameId;
+      
+      if (gameId is int) {
+        databaseGameId = gameId;
+      } else if (gameId is String) {
+        databaseGameId = int.tryParse(gameId);
+      }
+      
+      // For database games, use the GameService
+      if (databaseGameId != null && databaseGameId < 1000000000000) {
+        print('Updating officials hired count for database game ID: $databaseGameId');
+        
+        // Update the officials hired count in database
+        final updateResult = await _gameService.updateOfficialsHired(databaseGameId, officialsHired);
+        
+        // Update GameAssignment status from 'pending' to 'accepted' for hired officials
+        for (final officialId in hiredIds) {
+          try {
+            final assignmentId = await _getAssignmentId(databaseGameId, officialId);
+            if (assignmentId > 0) {
+              await _gameAssignmentRepo.updateAssignmentStatus(assignmentId, 'accepted');
+              print('Updated assignment $assignmentId for official $officialId to accepted');
+            } else {
+              print('ERROR: Could not find assignment for game $databaseGameId, official $officialId');
+            }
+          } catch (e) {
+            print('ERROR updating assignment status for official $officialId: $e');
+          }
+        }
+        
+        if (updateResult) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Officials hired successfully!'),
+                backgroundColor: Colors.green,
+              ),
+            );
+            // Reload the officials data to show the updated state
+            _loadInterestedOfficials();
+          }
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Failed to update game'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        }
+      } else {
+        // For SharedPreferences games, use the legacy approach
+        print('Updating officials hired count for SharedPreferences game ID: $gameId');
+        await _updateSharedPreferencesGame();
+      }
+    } catch (e) {
+      print('Error updating game: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Error updating game'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  // Legacy method for SharedPreferences games (to be phased out)
+  Future<void> _updateSharedPreferencesGame() async {
     final prefs = await SharedPreferences.getInstance();
     
     // Determine which storage key to use based on user role
@@ -343,20 +521,138 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
         await prefs.setString(publishedGamesKey, jsonEncode(publishedGames));
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Officials hired successfully!')),
+            const SnackBar(content: Text('Legacy game updated successfully!')),
           );
-          final returnArgs = {
-            ...args,
-            'date': selectedDate?.toIso8601String(),
-            'time': selectedTime != null ? '${selectedTime!.hour}:${selectedTime!.minute}' : null,
-            'officialsRequired': officialsRequired,
-            'selectedOfficials': selectedOfficials,
-            'selectedLists': selectedLists,
-          };
-          Navigator.pop(context, returnArgs);
         }
       }
     }
+  }
+
+  Future<int> _getAssignmentId(int gameId, int officialId) async {
+    final assignment = await _gameAssignmentRepo.getAssignmentByGameAndOfficial(gameId, officialId);
+    return assignment?.id ?? 0;
+  }
+
+  void _showListOfficials(String listName) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final String? listsJson = prefs.getString('saved_lists');
+      final List<Map<String, dynamic>> savedListsRaw = listsJson != null && listsJson.isNotEmpty
+          ? List<Map<String, dynamic>>.from(jsonDecode(listsJson))
+          : [];
+      
+      final savedLists = {
+        for (var list in savedListsRaw) list['name'] as String: List<Map<String, dynamic>>.from(list['officials'] ?? [])
+      };
+      
+      final officials = savedLists[listName] ?? [];
+      
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            backgroundColor: darkSurface,
+            title: Text(
+              'Officials in "$listName"',
+              style: const TextStyle(color: efficialsYellow, fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: officials.isEmpty
+                  ? const Text('No officials in this list.', style: TextStyle(color: Colors.white))
+                  : Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: officials.map((official) => Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Text(
+                          '• ${official['name']} (${official['distance']?.toStringAsFixed(1) ?? '0.0'} mi)',
+                          style: const TextStyle(color: Colors.white, fontSize: 16),
+                        ),
+                      )).toList(),
+                    ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Close', style: TextStyle(color: efficialsYellow)),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      print('Error loading list officials: $e');
+    }
+  }
+
+  Widget _buildSelectedOfficialsSection() {
+    print('Building Selected Officials Section:');
+    print('  isAwayGame: $isAwayGame');
+    print('  method: ${args['method']}');
+    print('  selectedListName: ${args['selectedListName']}');
+    print('  selectedLists length: ${selectedLists.length}');
+    print('  selectedOfficials length: ${selectedOfficials.length}');
+    
+    if (isAwayGame) {
+      return const Text('No officials needed for away games.', style: TextStyle(fontSize: 16, color: Colors.grey));
+    }
+
+    // For list-based selection methods, show clickable list names
+    if (args['method'] == 'use_list' && args['selectedListName'] != null) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: GestureDetector(
+          onTap: () => _showListOfficials(args['selectedListName']),
+          child: Text(
+            'List Used: ${args['selectedListName']}',
+            style: const TextStyle(
+              fontSize: 16,
+              color: efficialsYellow,
+              decoration: TextDecoration.underline,
+              decorationColor: efficialsYellow,
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (args['method'] == 'advanced' && args['selectedLists'] != null) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: selectedLists.map((list) => Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: GestureDetector(
+            onTap: () => _showListOfficials(list['name']),
+            child: Text(
+              '${list['name']}: Min ${list['minOfficials']}, Max ${list['maxOfficials']}',
+              style: const TextStyle(
+                fontSize: 16,
+                color: efficialsYellow,
+                decoration: TextDecoration.underline,
+                decorationColor: efficialsYellow,
+              ),
+            ),
+          ),
+        )).toList(),
+      );
+    }
+
+    // For manual selection, show individual officials
+    if (selectedOfficials.isNotEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: selectedOfficials.map((official) => Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Text(
+            '• ${official['name']} (${(official['distance'] as num?)?.toStringAsFixed(1) ?? '0.0'} mi)',
+            style: const TextStyle(fontSize: 16, color: Colors.white),
+          ),
+        )).toList(),
+      );
+    }
+
+    return const Text('No officials selected.', style: TextStyle(fontSize: 16, color: Colors.grey));
   }
 
   void _showDeleteConfirmationDialog() {
@@ -426,10 +722,23 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
     };
 
     final requiredOfficials = officialsRequired ?? 0;
-    final confirmedOfficials = selectedOfficials
-        .take(officialsHired)
-        .map((official) => official['name'] as String)
-        .toList();
+    
+    // Combine manually selected officials and database confirmed officials (avoiding duplicates)
+    final confirmedOfficialNames = <String>{};
+    
+    // Add manually selected officials (from game creation)
+    confirmedOfficialNames.addAll(
+      selectedOfficials
+          .take(officialsHired)
+          .map((official) => official['name'] as String)
+    );
+    
+    // Add database confirmed officials (from express interest)
+    confirmedOfficialNames.addAll(
+      confirmedOfficialsFromDB.map((official) => official['name'] as String)
+    );
+    
+    final confirmedOfficials = confirmedOfficialNames.toList();
 
     return Scaffold(
       backgroundColor: darkBackground,
@@ -537,19 +846,8 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                             } catch (e) {
                               selectedLists = [];
                             }
-                            if (!isAwayGame && !hireAutomatically && selectedOfficials.isNotEmpty && officialsHired < (officialsRequired ?? 0)) {
-                              final random = Random();
-                              final interestCount = random.nextInt(4) + 3;
-                              final shuffledOfficials = List<Map<String, dynamic>>.from(selectedOfficials)..shuffle(random);
-                              interestedOfficials = shuffledOfficials.take(interestCount.clamp(0, selectedOfficials.length)).toList();
-                              selectedForHire = {};
-                              for (var official in interestedOfficials) {
-                                selectedForHire[official['id'] as int] = false;
-                              }
-                            } else {
-                              interestedOfficials = [];
-                              selectedForHire = {};
-                            }
+                            // Load real interested officials from database
+                            _loadInterestedOfficials();
                           });
                           Navigator.pop(context, result);
                         }
@@ -653,7 +951,7 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                     const SizedBox(height: 20),
                     if (!isAwayGame) ...[
                       Text(
-                        'Confirmed Officials ($officialsHired/$requiredOfficials)',
+                        'Confirmed Officials (${confirmedOfficials.length}/$requiredOfficials)',
                         style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: efficialsYellow),
                       ),
                       const SizedBox(height: 10),
@@ -692,7 +990,7 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                         ),
                         const SizedBox(height: 10),
                         if (interestedOfficials.isEmpty)
-                          const Text('No officials have expressed interest yet.', style: TextStyle(fontSize: 16, color: Colors.grey))
+                          _buildNoOfficialsMessage()
                         else
                           Column(
                             children: interestedOfficials.map((official) {
@@ -731,76 +1029,7 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                     ],
                     const Text('Selected Officials', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: efficialsYellow)),
                     const SizedBox(height: 10),
-                    if (isAwayGame)
-                      const Text('No officials needed for away games.', style: TextStyle(fontSize: 16, color: Colors.grey))
-                    else if (selectedOfficials.isEmpty)
-                      const Text('No officials selected.', style: TextStyle(fontSize: 16, color: Colors.grey))
-                    else if (args['method'] == 'advanced' && args['selectedLists'] != null && !hireAutomatically && officialsHired < requiredOfficials) ...[
-                      FutureBuilder<Map<String, List<Map<String, dynamic>>>>(
-                        future: Future<Map<String, List<Map<String, dynamic>>>>.sync(() async {
-                          final prefs = await SharedPreferences.getInstance();
-                          final String? listsJson = prefs.getString('saved_lists');
-                          final List<Map<String, dynamic>> savedListsRaw = listsJson != null && listsJson.isNotEmpty
-                              ? List<Map<String, dynamic>>.from(jsonDecode(listsJson))
-                              : [];
-                          return {
-                            for (var list in savedListsRaw) list['name'] as String: List<Map<String, dynamic>>.from(list['officials'] ?? [])
-                          };
-                        }),
-                        builder: (context, snapshot) {
-                          if (!snapshot.hasData) {
-                            return const CircularProgressIndicator();
-                          }
-                          final savedLists = snapshot.data!;
-                          final selectedCounts = _getSelectedCounts(savedLists);
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: selectedLists.map((list) {
-                              final listName = list['name'] as String;
-                              final min = list['minOfficials'] as int;
-                              final max = list['maxOfficials'] as int;
-                              final currentCount = selectedCounts[listName] ?? 0;
-                              final textColor = currentCount > max || currentCount < min ? Colors.red : Colors.white;
-                              return Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 4),
-                                child: Text(
-                                  '$listName: $currentCount/$max selected (min $min, max $max)',
-                                  style: TextStyle(fontSize: 16, color: textColor),
-                                ),
-                              );
-                            }).toList(),
-                          );
-                        },
-                      ),
-                    ]
-                    else if (args['method'] == 'advanced' && args['selectedLists'] != null) ...[
-                      ...selectedLists.map(
-                        (list) => Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 4),
-                          child: Text(
-                            '${list['name']}: Min ${list['minOfficials']}, Max ${list['maxOfficials']}',
-                            style: const TextStyle(fontSize: 16, color: Colors.white),
-                          ),
-                        ),
-                      ),
-                    ]
-                    else if (args['method'] == 'use_list' && args['selectedListName'] != null) ...[
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4),
-                        child: Text(
-                          'List Used: ${args['selectedListName']}',
-                          style: const TextStyle(fontSize: 16, color: Colors.white),
-                        ),
-                      ),
-                    ]
-                    else ...[
-                      ...selectedOfficials.map(
-                        (official) => ListTile(
-                          title: Text(official['name'] as String, style: const TextStyle(color: Colors.white)),
-                          subtitle: Text('Distance: ${(official['distance'] as num?)?.toStringAsFixed(1) ?? '0.0'} mi', style: const TextStyle(color: Colors.grey)),
-                        ),
-                      ),
-                    ],
+                    _buildSelectedOfficialsSection(),
                     const SizedBox(height: 20),
                     Center(
                       child: ElevatedButton(
@@ -818,6 +1047,43 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
         ],
       ),
     );
+  }
+
+  Widget _buildNoOfficialsMessage() {
+    final gameId = args['id'];
+    
+    // Check if this is a SharedPreferences game (large timestamp ID)
+    bool isSharedPrefsGame = false;
+    if (gameId is int && gameId > 1000000000000) {
+      isSharedPrefsGame = true;
+    } else if (gameId is String) {
+      final parsedId = int.tryParse(gameId);
+      if (parsedId != null && parsedId > 1000000000000) {
+        isSharedPrefsGame = true;
+      }
+    }
+    
+    if (isSharedPrefsGame) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Express interest is not available for this game.',
+            style: TextStyle(fontSize: 16, color: Colors.grey),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'This game was created using the legacy system. To enable express interest functionality, please recreate this game through the current game creation process.',
+            style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+          ),
+        ],
+      );
+    } else {
+      return const Text(
+        'No officials have expressed interest yet.',
+        style: TextStyle(fontSize: 16, color: Colors.grey),
+      );
+    }
   }
 }
 

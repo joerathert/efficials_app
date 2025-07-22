@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../shared/theme.dart';
+import '../../shared/services/repositories/game_assignment_repository.dart';
+import '../../shared/services/repositories/official_repository.dart';
+import '../../shared/services/user_session_service.dart';
+import '../../shared/models/database_models.dart';
 
 class OfficialAssignmentsScreen extends StatefulWidget {
   const OfficialAssignmentsScreen({super.key});
@@ -10,102 +14,82 @@ class OfficialAssignmentsScreen extends StatefulWidget {
 
 class _OfficialAssignmentsScreenState extends State<OfficialAssignmentsScreen> {
   String _selectedFilter = 'All';
+  
+  // Repositories
+  final GameAssignmentRepository _assignmentRepo = GameAssignmentRepository();
+  final OfficialRepository _officialRepo = OfficialRepository();
+  
+  // State
+  List<GameAssignment> assignments = [];
+  bool _isLoading = true;
+  Official? _currentOfficial;
+  
+  @override
+  void initState() {
+    super.initState();
+    _loadAssignments();
+  }
+  
+  Future<void> _loadAssignments() async {
+    try {
+      setState(() {
+        _isLoading = true;
+      });
+      
+      // Get current user session
+      final userSession = UserSessionService.instance;
+      final userId = await userSession.getCurrentUserId();
+      final userType = await userSession.getCurrentUserType();
+      
+      if (userId == null || userType != 'official') {
+        return;
+      }
+      
+      // Get the official record
+      _currentOfficial = await _officialRepo.getOfficialByOfficialUserId(userId);
+      
+      if (_currentOfficial == null) {
+        return;
+      }
+      
+      // Load all assignments for this official
+      final allAssignments = await _assignmentRepo.getAssignmentsForOfficial(_currentOfficial!.id!);
+      
+      if (mounted) {
+        setState(() {
+          assignments = allAssignments;
+        });
+      }
+    } catch (e) {
+      print('Error loading assignments: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
 
-  // Mock data for demonstration
-  final List<Map<String, dynamic>> assignments = [
-    {
-      'id': 1,
-      'sport': 'Football',
-      'date': DateTime.now().add(const Duration(days: 3)),
-      'time': '7:00 PM',
-      'school': 'Lincoln High vs Roosevelt',
-      'location': 'Lincoln High School',
-      'fee': 60.0,
-      'status': 'pending',
-      'position': 'Referee',
-      'assignedBy': 'Sarah Johnson',
-      'assignedAt': DateTime.now().subtract(const Duration(hours: 2)),
-      'expiresAt': DateTime.now().add(const Duration(hours: 22)),
-      'notes': 'JV game, 2 officials needed',
-    },
-    {
-      'id': 2,
-      'sport': 'Basketball',
-      'date': DateTime.now().add(const Duration(days: 4)),
-      'time': '2:00 PM',
-      'school': 'Central vs North',
-      'location': 'Central High School',
-      'fee': 45.0,
-      'status': 'pending',
-      'position': 'Umpire',
-      'assignedBy': 'Mike Thompson',
-      'assignedAt': DateTime.now().subtract(const Duration(hours: 5)),
-      'expiresAt': DateTime.now().add(const Duration(hours: 19)),
-      'notes': 'Varsity game',
-    },
-    {
-      'id': 3,
-      'sport': 'Basketball',
-      'date': DateTime.now().add(const Duration(days: 7)),
-      'time': '6:30 PM',
-      'school': 'East vs West',
-      'location': 'East High School',
-      'fee': 45.0,
-      'status': 'pending',
-      'position': 'Referee',
-      'assignedBy': 'Lisa Davis',
-      'assignedAt': DateTime.now().subtract(const Duration(minutes: 30)),
-      'expiresAt': DateTime.now().add(const Duration(hours: 47, minutes: 30)),
-      'notes': 'Conference championship game',
-    },
-    {
-      'id': 4,
-      'sport': 'Football',
-      'date': DateTime.now().add(const Duration(days: 1)),
-      'time': '7:00 PM',
-      'school': 'Madison vs Jefferson',
-      'location': 'Madison High School',
-      'fee': 60.0,
-      'status': 'accepted',
-      'position': 'Referee',
-      'assignedBy': 'Tom Wilson',
-      'assignedAt': DateTime.now().subtract(const Duration(days: 2)),
-      'acceptedAt': DateTime.now().subtract(const Duration(days: 1)),
-    },
-    {
-      'id': 5,
-      'sport': 'Basketball',
-      'date': DateTime.now().subtract(const Duration(days: 1)),
-      'time': '1:00 PM',
-      'school': 'Adams vs Wilson',
-      'location': 'Adams High School',
-      'fee': 45.0,
-      'status': 'declined',
-      'position': 'Umpire',
-      'assignedBy': 'Sarah Johnson',
-      'assignedAt': DateTime.now().subtract(const Duration(days: 3)),
-      'declinedAt': DateTime.now().subtract(const Duration(days: 2)),
-      'declineReason': 'Schedule conflict',
-    },
-  ];
-
-  List<Map<String, dynamic>> get filteredAssignments {
-    List<Map<String, dynamic>> filtered = assignments;
+  List<GameAssignment> get filteredAssignments {
+    List<GameAssignment> filtered = assignments;
 
     if (_selectedFilter == 'Pending') {
-      filtered = filtered.where((assignment) => assignment['status'] == 'pending').toList();
+      filtered = filtered.where((assignment) => assignment.status == 'pending').toList();
     } else if (_selectedFilter == 'Accepted') {
-      filtered = filtered.where((assignment) => assignment['status'] == 'accepted').toList();
+      filtered = filtered.where((assignment) => assignment.status == 'accepted').toList();
     } else if (_selectedFilter == 'Declined') {
-      filtered = filtered.where((assignment) => assignment['status'] == 'declined').toList();
+      filtered = filtered.where((assignment) => assignment.status == 'declined').toList();
     }
 
     // Sort by date/priority
     filtered.sort((a, b) {
       // Pending assignments first, then by date
-      if (a['status'] == 'pending' && b['status'] != 'pending') return -1;
-      if (b['status'] == 'pending' && a['status'] != 'pending') return 1;
-      return a['date'].compareTo(b['date']);
+      if (a.status == 'pending' && b.status != 'pending') return -1;
+      if (b.status == 'pending' && a.status != 'pending') return 1;
+      final dateA = a.gameDate ?? DateTime(1970);
+      final dateB = b.gameDate ?? DateTime(1970);
+      return dateA.compareTo(dateB);
     });
 
     return filtered;
@@ -113,7 +97,7 @@ class _OfficialAssignmentsScreenState extends State<OfficialAssignmentsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final pendingCount = assignments.where((a) => a['status'] == 'pending').length;
+    final pendingCount = assignments.where((a) => a.status == 'pending').length;
 
     return Scaffold(
       backgroundColor: darkBackground,
@@ -186,14 +170,18 @@ class _OfficialAssignmentsScreenState extends State<OfficialAssignmentsScreen> {
             Expanded(
               child: Container(
                 margin: const EdgeInsets.symmetric(horizontal: 20),
-                child: filteredAssignments.isEmpty
-                    ? _buildEmptyState()
-                    : ListView.builder(
-                        itemCount: filteredAssignments.length,
-                        itemBuilder: (context, index) {
-                          return _buildAssignmentCard(filteredAssignments[index]);
-                        },
-                      ),
+                child: _isLoading
+                    ? const Center(
+                        child: CircularProgressIndicator(color: efficialsYellow),
+                      )
+                    : filteredAssignments.isEmpty
+                        ? _buildEmptyState()
+                        : ListView.builder(
+                            itemCount: filteredAssignments.length,
+                            itemBuilder: (context, index) {
+                              return _buildAssignmentCard(filteredAssignments[index]);
+                            },
+                          ),
               ),
             ),
           ],
@@ -202,8 +190,18 @@ class _OfficialAssignmentsScreenState extends State<OfficialAssignmentsScreen> {
     );
   }
 
-  Widget _buildAssignmentCard(Map<String, dynamic> assignment) {
-    final status = assignment['status'] as String;
+  Widget _buildAssignmentCard(GameAssignment assignment) {
+    final status = assignment.status;
+    final sportName = assignment.sportName ?? 'Sport';
+    final opponent = assignment.opponent ?? 'TBD';
+    final locationName = assignment.locationName ?? 'TBD';
+    final fee = assignment.feeAmount ?? 0.0;
+    final position = assignment.position ?? 'Official';
+    
+    final gameDate = assignment.gameDate;
+    final gameTime = assignment.gameTime;
+    final dateString = gameDate != null ? _formatDate(gameDate) : 'TBD';
+    final timeString = gameTime != null ? _formatTime(gameTime) : 'TBD';
     Color statusColor;
     Color borderColor;
 
@@ -243,7 +241,7 @@ class _OfficialAssignmentsScreenState extends State<OfficialAssignmentsScreen> {
               Row(
                 children: [
                   Text(
-                    assignment['sport'],
+                    sportName,
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -269,7 +267,7 @@ class _OfficialAssignmentsScreenState extends State<OfficialAssignmentsScreen> {
                 ],
               ),
               Text(
-                '\$${assignment['fee']}',
+                '\$${fee.toStringAsFixed(2)}',
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
@@ -283,7 +281,7 @@ class _OfficialAssignmentsScreenState extends State<OfficialAssignmentsScreen> {
           
           // Game details
           Text(
-            assignment['school'],
+            opponent,
             style: const TextStyle(
               fontSize: 16,
               color: Colors.white,
@@ -297,7 +295,7 @@ class _OfficialAssignmentsScreenState extends State<OfficialAssignmentsScreen> {
               Icon(Icons.schedule, size: 14, color: Colors.grey[400]),
               const SizedBox(width: 4),
               Text(
-                '${_formatDate(assignment['date'])} at ${assignment['time']}',
+                '$dateString at $timeString',
                 style: TextStyle(
                   fontSize: 14,
                   color: Colors.grey[400],
@@ -313,7 +311,7 @@ class _OfficialAssignmentsScreenState extends State<OfficialAssignmentsScreen> {
               const SizedBox(width: 4),
               Expanded(
                 child: Text(
-                  assignment['location'],
+                  locationName,
                   style: TextStyle(
                     fontSize: 14,
                     color: Colors.grey[400],
@@ -329,7 +327,7 @@ class _OfficialAssignmentsScreenState extends State<OfficialAssignmentsScreen> {
               Icon(Icons.person, size: 14, color: Colors.grey[400]),
               const SizedBox(width: 4),
               Text(
-                'Position: ${assignment['position']}',
+                'Position: $position',
                 style: TextStyle(
                   fontSize: 14,
                   color: Colors.grey[400],
@@ -338,7 +336,7 @@ class _OfficialAssignmentsScreenState extends State<OfficialAssignmentsScreen> {
             ],
           ),
           
-          if (assignment['notes'] != null) ...[
+          if (assignment.responseNotes != null) ...[
             const SizedBox(height: 8),
             Container(
               padding: const EdgeInsets.all(8),
@@ -352,7 +350,7 @@ class _OfficialAssignmentsScreenState extends State<OfficialAssignmentsScreen> {
                   const SizedBox(width: 4),
                   Expanded(
                     child: Text(
-                      assignment['notes'],
+                      assignment.responseNotes!,
                       style: TextStyle(
                         fontSize: 12,
                         color: Colors.grey[400],
@@ -369,7 +367,7 @@ class _OfficialAssignmentsScreenState extends State<OfficialAssignmentsScreen> {
           
           // Assignment metadata
           Text(
-            'Assigned by ${assignment['assignedBy']} • ${_formatTimeAgo(assignment['assignedAt'])}',
+            'Assigned by ${'Scheduler'} • ${_formatTimeAgo(assignment.assignedAt)}',
             style: TextStyle(
               fontSize: 12,
               color: Colors.grey[500],
@@ -380,7 +378,7 @@ class _OfficialAssignmentsScreenState extends State<OfficialAssignmentsScreen> {
           if (status == 'pending') ...[
             const SizedBox(height: 4),
             Text(
-              'Expires in ${_formatTimeRemaining(assignment['expiresAt'])}',
+              'Expires in ${_formatTimeRemaining(DateTime.now().add(Duration(days: 2)))}',
               style: const TextStyle(
                 fontSize: 12,
                 color: Colors.orange,
@@ -390,7 +388,9 @@ class _OfficialAssignmentsScreenState extends State<OfficialAssignmentsScreen> {
           ] else if (status == 'accepted') ...[
             const SizedBox(height: 4),
             Text(
-              'Accepted ${_formatTimeAgo(assignment['acceptedAt'])}',
+              assignment.respondedAt != null 
+                  ? 'Accepted ${_formatTimeAgo(assignment.respondedAt!)}'
+                  : 'Accepted',
               style: const TextStyle(
                 fontSize: 12,
                 color: Colors.green,
@@ -398,12 +398,28 @@ class _OfficialAssignmentsScreenState extends State<OfficialAssignmentsScreen> {
             ),
           ] else if (status == 'declined') ...[
             const SizedBox(height: 4),
-            Text(
-              'Declined ${_formatTimeAgo(assignment['declinedAt'])} • ${assignment['declineReason']}',
-              style: const TextStyle(
-                fontSize: 12,
-                color: Colors.red,
-              ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  assignment.respondedAt != null 
+                      ? 'Declined ${_formatTimeAgo(assignment.respondedAt!)}'
+                      : 'Declined',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Colors.red,
+                  ),
+                ),
+                if (assignment.responseNotes != null)
+                  Text(
+                    'Reason: ${assignment.responseNotes!}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[500],
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+              ],
             ),
           ],
           
@@ -490,21 +506,32 @@ class _OfficialAssignmentsScreenState extends State<OfficialAssignmentsScreen> {
     );
   }
 
-  void _acceptAssignment(Map<String, dynamic> assignment) {
-    setState(() {
-      assignment['status'] = 'accepted';
-      assignment['acceptedAt'] = DateTime.now();
-    });
-    
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Assignment accepted for ${assignment['school']}'),
-        backgroundColor: Colors.green,
-      ),
-    );
+  void _acceptAssignment(GameAssignment assignment) async {
+    try {
+      await _assignmentRepo.updateAssignmentStatus(assignment.id!, 'accepted');
+      await _loadAssignments(); // Reload data
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Assignment accepted for ${assignment.opponent ?? 'game'}'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error accepting assignment: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
-  void _showDeclineDialog(Map<String, dynamic> assignment) {
+  void _showDeclineDialog(GameAssignment assignment) {
     final reasonController = TextEditingController();
     
     showDialog(
@@ -519,7 +546,7 @@ class _OfficialAssignmentsScreenState extends State<OfficialAssignmentsScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              'Are you sure you want to decline this assignment for ${assignment['school']}?',
+              'Are you sure you want to decline this assignment for ${assignment.opponent}?',
               style: const TextStyle(color: Colors.white),
             ),
             const SizedBox(height: 16),
@@ -553,19 +580,30 @@ class _OfficialAssignmentsScreenState extends State<OfficialAssignmentsScreen> {
     );
   }
 
-  void _declineAssignment(Map<String, dynamic> assignment, String reason) {
-    setState(() {
-      assignment['status'] = 'declined';
-      assignment['declinedAt'] = DateTime.now();
-      assignment['declineReason'] = reason.isNotEmpty ? reason : 'No reason provided';
-    });
-    
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Assignment declined for ${assignment['school']}'),
-        backgroundColor: Colors.red,
-      ),
-    );
+  void _declineAssignment(GameAssignment assignment, String reason) async {
+    try {
+      await _assignmentRepo.updateAssignmentStatus(assignment.id!, 'declined', 
+          responseNotes: reason.isNotEmpty ? reason : 'No reason provided');
+      await _loadAssignments(); // Reload data
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Assignment declined for ${assignment.opponent ?? 'game'}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error declining assignment: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   String _formatDate(DateTime date) {
@@ -608,5 +646,14 @@ class _OfficialAssignmentsScreenState extends State<OfficialAssignmentsScreen> {
     } else {
       return 'Expires soon';
     }
+  }
+  
+  String _formatTime(DateTime time) {
+    final hour = time.hour;
+    final minute = time.minute;
+    final period = hour >= 12 ? 'PM' : 'AM';
+    final displayHour = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
+    
+    return '$displayHour:${minute.toString().padLeft(2, '0')} $period';
   }
 }

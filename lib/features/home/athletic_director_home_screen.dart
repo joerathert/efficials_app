@@ -8,6 +8,7 @@ import '../schedules/schedule_filter_screen.dart';
 import '../games/game_template.dart';
 import '../../shared/utils/utils.dart';
 import '../../shared/services/game_service.dart';
+import '../../shared/services/user_session_service.dart';
 import 'dart:developer' as developer;
 
 class Game {
@@ -51,8 +52,8 @@ class Game {
     return Game(
       id: json['id'] as int,
       scheduleName: json['scheduleName'] as String?,
-      date:
-          json['date'] != null ? DateTime.parse(json['date'] as String) : null,
+      date: json['date'] != null ? 
+        (json['date'] is DateTime ? json['date'] as DateTime : DateTime.parse(json['date'] as String)) : null,
       time: time,
       sport: json['sport'] as String? ?? 'Unknown Sport',
       officialsRequired:
@@ -265,6 +266,51 @@ class _AthleticDirectorHomeScreenState
   }
 
   Future<void> _initializeScheduleFilters() async {
+    try {
+      // Use database data instead of SharedPreferences
+      debugPrint('Initializing schedule filters from database...');
+      
+      // Get all games (published and unpublished) from database
+      final publishedGamesData = await _gameService.getPublishedGames();
+      final unpublishedGamesData = await _gameService.getUnpublishedGames();
+      
+      List<Game> allGames = [];
+      allGames.addAll(publishedGamesData.map(Game.fromJson));
+      allGames.addAll(unpublishedGamesData.map(Game.fromJson));
+      
+      debugPrint('Building schedule filters from ${allGames.length} total games');
+
+      final Map<String, Map<String, bool>> newScheduleFilters = {};
+      for (var game in allGames) {
+        if (game.scheduleName == null) {
+          continue; // Skip games without a schedule name
+        }
+        if (!newScheduleFilters.containsKey(game.sport)) {
+          newScheduleFilters[game.sport] = {};
+        }
+        if (!newScheduleFilters[game.sport]!.containsKey(game.scheduleName)) {
+          newScheduleFilters[game.sport]![game.scheduleName!] = true;
+        }
+      }
+
+      if (newScheduleFilters.isNotEmpty &&
+          (scheduleFilters.isEmpty || _hasNewSchedules(newScheduleFilters))) {
+        debugPrint('Updating schedule filters with ${newScheduleFilters.length} sports');
+        setState(() {
+          scheduleFilters = newScheduleFilters;
+        });
+        await _saveFilters();
+      }
+    } catch (e) {
+      debugPrint('Error initializing schedule filters from database: $e');
+      // Fallback to SharedPreferences approach if database fails
+      await _initializeScheduleFiltersFromPrefs();
+    }
+  }
+
+  // Legacy fallback method for SharedPreferences (to be phased out)
+  Future<void> _initializeScheduleFiltersFromPrefs() async {
+    debugPrint('Falling back to SharedPreferences for schedule filters');
     final prefs = await SharedPreferences.getInstance();
     final String? gamesJson = prefs.getString('ad_published_games');
     final String? unpublishedGamesJson =
@@ -330,6 +376,18 @@ class _AthleticDirectorHomeScreenState
   }
 
   Future<Map<String, dynamic>?> _fetchGameById(int gameId) async {
+    try {
+      // Try to get game from database first with officials data reconstructed
+      final game = await _gameService.getGameByIdWithOfficials(gameId);
+      if (game != null) {
+        return game;
+      }
+    } catch (e) {
+      debugPrint('Error fetching game from database: $e');
+      // Fallback to SharedPreferences if database fails
+    }
+    
+    // Fallback to SharedPreferences
     final prefs = await SharedPreferences.getInstance();
     final String? gamesJson = prefs.getString('ad_published_games');
     if (gamesJson != null && gamesJson.isNotEmpty) {
@@ -734,6 +792,16 @@ class _AthleticDirectorHomeScreenState
                 Navigator.pushNamed(context, '/settings');
               },
             ),
+            const Divider(color: Colors.grey),
+            ListTile(
+              leading: const Icon(Icons.logout, color: Colors.red),
+              title: const Text('Logout',
+                  style: TextStyle(color: Colors.red)),
+              onTap: () {
+                Navigator.pop(context);
+                _handleLogout();
+              },
+            ),
           ],
         ),
       ),
@@ -983,35 +1051,11 @@ class _AthleticDirectorHomeScreenState
         if (mounted) {
           Navigator.pushNamed(context, '/game_information', arguments: latestGame)
               .then((result) async {
-            if (result == true) {
-              await _fetchGames();
-            } else if (result != null && result is Map<String, dynamic>) {
-              final prefs = await SharedPreferences.getInstance();
-              final String? gamesJson = prefs.getString('ad_published_games');
-              if (gamesJson != null && gamesJson.isNotEmpty) {
-                List<Map<String, dynamic>> updatedGames =
-                    List<Map<String, dynamic>>.from(jsonDecode(gamesJson));
-                final index = updatedGames.indexWhere((g) => g['id'] == game.id);
-                if (index != -1) {
-                  updatedGames[index] = {
-                    ...updatedGames[index],
-                    ...result,
-                    'date': result['date'] is String
-                        ? result['date']
-                        : (result['date'] as DateTime?)?.toIso8601String(),
-                    'time': result['time'] is String
-                        ? result['time']
-                        : result['time'] != null
-                            ? '${(result['time'] as TimeOfDay).hour}:${(result['time'] as TimeOfDay).minute}'
-                            : null,
-                  };
-                  await prefs.setString(
-                      'ad_published_games', jsonEncode(updatedGames));
-                  await _fetchGames();
-                }
-              }
-            } else if (result != null &&
-                (result as Map<String, dynamic>)['refresh'] == true) {
+            // Always refresh from database after game information screen
+            if (result == true || 
+                (result != null && result is Map<String, dynamic>) ||
+                (result != null && (result as Map<String, dynamic>)['refresh'] == true)) {
+              debugPrint('Refreshing games after game information screen update');
               await _fetchGames();
             }
           });
@@ -1134,6 +1178,46 @@ class _AthleticDirectorHomeScreenState
           ],
         ),
       ),
+    );
+  }
+
+  void _handleLogout() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: darkSurface,
+          title: const Text(
+            'Logout',
+            style: TextStyle(color: primaryTextColor),
+          ),
+          content: const Text(
+            'Are you sure you want to logout?',
+            style: TextStyle(color: primaryTextColor),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel', style: TextStyle(color: secondaryTextColor)),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.pop(context); // Close dialog
+                
+                // Clear user session
+                await UserSessionService.instance.clearSession();
+                
+                Navigator.pushNamedAndRemoveUntil(
+                  context,
+                  '/welcome',
+                  (route) => false,
+                ); // Go to welcome screen and clear navigation stack
+              },
+              child: const Text('Logout', style: TextStyle(color: Colors.red)),
+            ),
+          ],
+        );
+      },
     );
   }
 }

@@ -1,5 +1,6 @@
 import '../../models/database_models.dart';
 import 'base_repository.dart';
+import '../user_session_service.dart';
 
 class UserRepository extends BaseRepository {
   static const String tableName = 'users';
@@ -34,16 +35,15 @@ class UserRepository extends BaseRepository {
     return User.fromMap(results.first);
   }
 
-  // Get current user (assuming single user for now)
+  // Get current user (from session)
   Future<User?> getCurrentUser() async {
-    final results = await query(
-      tableName,
-      orderBy: 'created_at ASC',
-      limit: 1,
-    );
-
-    if (results.isEmpty) return null;
-    return User.fromMap(results.first);
+    final currentUserId = await UserSessionService.instance.getCurrentUserId();
+    final userType = await UserSessionService.instance.getCurrentUserType();
+    
+    // Only return scheduler users from this method
+    if (currentUserId == null || userType != 'scheduler') return null;
+    
+    return await getUserById(currentUserId);
   }
 
   // Get user by scheduler type

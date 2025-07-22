@@ -1,7 +1,9 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sqflite/sqflite.dart';
 import '../../shared/theme.dart';
+import '../../shared/services/database_helper.dart';
 
 class PopulateRosterScreen extends StatefulWidget {
   const PopulateRosterScreen({super.key});
@@ -82,186 +84,148 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
 
   Future<void> _loadOfficials() async {
     setState(() => isLoading = true);
-    // Placeholder for real official data with addresses
-    List<Map<String, dynamic>> newOfficials = [
-      {
-        'id': 1,
-        'name': 'John Doe',
-        'cityState': 'Chicago, IL',
-        'distance': 5.2,
-        'yearsExperience': 10,
-        'ihsaRegistered': true,
-        'ihsaRecognized': false,
-        'ihsaCertified': false,
-        'level': 'Varsity',
-        'sports': ['Football', 'Basketball']
-      },
-      {
-        'id': 2,
-        'name': 'Jane Smith',
-        'cityState': 'Naperville, IL',
-        'distance': 15.7,
-        'yearsExperience': 8,
-        'ihsaRegistered': false,
-        'ihsaRecognized': true,
-        'ihsaCertified': false,
-        'level': 'Varsity',
-        'sports': ['Basketball', 'Soccer']
-      },
-      {
-        'id': 3,
-        'name': 'Mike Johnson',
-        'cityState': 'Aurora, IL',
-        'distance': 10.0,
-        'yearsExperience': 12,
-        'ihsaRegistered': true,
-        'ihsaRecognized': true,
-        'ihsaCertified': true,
-        'level': 'Varsity',
-        'sports': ['Football', 'Baseball']
-      },
-      {
-        'id': 4,
-        'name': 'Sarah Lee',
-        'cityState': 'Evanston, IL',
-        'distance': 8.5,
-        'yearsExperience': 6,
-        'ihsaRegistered': true,
-        'ihsaRecognized': false,
-        'ihsaCertified': false,
-        'level': 'Varsity',
-        'sports': ['Soccer', 'Volleyball']
-      },
-      {
-        'id': 5,
-        'name': 'Tom Brown',
-        'cityState': 'Joliet, IL',
-        'distance': 20.1,
-        'yearsExperience': 15,
-        'ihsaRegistered': false,
-        'ihsaRecognized': true,
-        'ihsaCertified': true,
-        'level': 'Varsity',
-        'sports': ['Football', 'Basketball']
-      },
-      {
-        'id': 6,
-        'name': 'Emily Davis',
-        'cityState': 'Schaumburg, IL',
-        'distance': 12.3,
-        'yearsExperience': 9,
-        'ihsaRegistered': true,
-        'ihsaRecognized': false,
-        'ihsaCertified': false,
-        'level': 'Varsity',
-        'sports': ['Baseball', 'Soccer']
-      },
-      {
-        'id': 7,
-        'name': 'Chris Wilson',
-        'cityState': 'Peoria, IL',
-        'distance': 25.0,
-        'yearsExperience': 11,
-        'ihsaRegistered': false,
-        'ihsaRecognized': true,
-        'ihsaCertified': false,
-        'level': 'Varsity',
-        'sports': ['Basketball', 'Volleyball']
-      },
-      {
-        'id': 8,
-        'name': 'Lisa Adams',
-        'cityState': 'Rockford, IL',
-        'distance': 30.2,
-        'yearsExperience': 7,
-        'ihsaRegistered': true,
-        'ihsaRecognized': true,
-        'ihsaCertified': false,
-        'level': 'Varsity',
-        'sports': ['Football', 'Soccer']
-      },
-      {
-        'id': 9,
-        'name': 'David Kim',
-        'cityState': 'Springfield, IL',
-        'distance': 18.9,
-        'yearsExperience': 13,
-        'ihsaRegistered': false,
-        'ihsaRecognized': false,
-        'ihsaCertified': true,
-        'level': 'Varsity',
-        'sports': ['Baseball', 'Basketball']
-      },
-      {
-        'id': 10,
-        'name': 'Rachel Patel',
-        'cityState': 'Elgin, IL',
-        'distance': 14.6,
-        'yearsExperience': 5,
-        'ihsaRegistered': true,
-        'ihsaRecognized': false,
-        'ihsaCertified': false,
-        'level': 'Varsity',
-        'sports': ['Volleyball', 'Football']
-      },
-    ];
-
-    if (filterSettings != null) {
-      final args =
-          ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>? ??
-              {'sport': 'Football'};
+    
+    try {
+      final db = await DatabaseHelper().database;
+      final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>? ?? {'sport': 'Football'};
       final sport = args['sport'] as String? ?? 'Football';
-      final locationData =
-          filterSettings!['locationData'] as Map<String, dynamic>?;
-      final isAwayGame = args['isAwayGame'] as bool? ?? false;
-
-      if (!isAwayGame && locationData != null) {
-        // TODO: Replace with geolocation API call when implemented
-        // For now, use hardcoded distances; later, calculate from locationData['address'] to official['address']
+      
+      // Get sport_id for the requested sport
+      final sportResult = await db.query('sports', where: 'name = ?', whereArgs: [sport]);
+      if (sportResult.isEmpty) {
+        setState(() {
+          officials = [];
+          filteredOfficials = [];
+          filteredOfficialsWithoutSearch = [];
+          isLoading = false;
+        });
+        return;
       }
-
-      newOfficials = newOfficials.where((official) {
-        bool matches = true;
-        if (filterSettings!['ihsaRegistered'] &&
-            !(official['ihsaRegistered'] ?? false)) {
-          matches = false;
-        }
-        if (filterSettings!['ihsaRecognized'] &&
-            !(official['ihsaRecognized'] ?? false)) {
-          matches = false;
-        }
-        if (filterSettings!['ihsaCertified'] &&
-            !(official['ihsaCertified'] ?? false)) {
-          matches = false;
-        }
-        if (filterSettings!['minYears'] > (official['yearsExperience'] ?? 0)) {
-          matches = false;
-        }
-        if (filterSettings!['levels'].isNotEmpty &&
-            !filterSettings!['levels'].contains(official['level'])) {
-          matches = false;
-        }
-        if (!isAwayGame &&
-            filterSettings!['radius'] != null &&
-            filterSettings!['radius'] <
-                (official['distance'] ?? double.infinity)) {
-          matches = false;
-        }
-        if (!(official['sports'] as List).contains(sport)) matches = false;
-        return matches;
+      final sportId = sportResult.first['id'] as int;
+      
+      // Query officials with their sport certifications
+      final query = '''
+        SELECT DISTINCT 
+          o.id,
+          o.name,
+          o.email,
+          o.phone,
+          os.certification_level,
+          os.years_experience,
+          os.competition_levels,
+          os.is_primary
+        FROM officials o
+        JOIN official_sports os ON o.id = os.official_id
+        WHERE os.sport_id = ?
+      ''';
+      
+      final results = await db.rawQuery(query, [sportId]);
+      
+      List<Map<String, dynamic>> newOfficials = results.map((row) {
+        // Parse certification level to determine IHSA flags
+        final certLevel = row['certification_level'] as String? ?? '';
+        final competitionLevels = (row['competition_levels'] as String? ?? '').split(',');
+        
+        return {
+          'id': row['id'],
+          'name': row['name'],
+          'cityState': 'Chicago, IL', // TODO: Replace with actual address from officials table
+          'distance': 10.0 + (row['id'] as int) * 2.5, // TODO: Calculate actual distance
+          'yearsExperience': row['years_experience'] ?? 0,
+          'ihsaRegistered': certLevel == 'IHSA Registered',
+          'ihsaRecognized': certLevel == 'IHSA Recognized', 
+          'ihsaCertified': certLevel == 'IHSA Certified',
+          'level': competitionLevels.isNotEmpty ? competitionLevels.first : 'Varsity',
+          'competitionLevels': competitionLevels,
+          'sports': [sport], // Single sport for this query
+        };
       }).toList();
-    }
+      
+      if (filterSettings != null) {
+        final locationData = filterSettings!['locationData'] as Map<String, dynamic>?;
+        final isAwayGame = args['isAwayGame'] as bool? ?? false;
 
-    setState(() {
-      for (var newOfficial in newOfficials) {
-        if (!officials.any((o) => o['id'] == newOfficial['id'])) {
-          officials.add(newOfficial);
+        if (!isAwayGame && locationData != null) {
+          // TODO: Replace with geolocation API call when implemented
+          // For now, use hardcoded distances; later, calculate from locationData['address'] to official['address']
         }
+
+        newOfficials = newOfficials.where((official) {
+          bool matches = true;
+          
+          // Check IHSA certifications (hierarchical - higher levels include lower levels)
+          final wantsRegistered = filterSettings!['ihsaRegistered'] ?? false;
+          final wantsRecognized = filterSettings!['ihsaRecognized'] ?? false;
+          final wantsCertified = filterSettings!['ihsaCertified'] ?? false;
+          
+          final isRegistered = official['ihsaRegistered'] ?? false;
+          final isRecognized = official['ihsaRecognized'] ?? false;
+          final isCertified = official['ihsaCertified'] ?? false;
+          
+          // If they want Registered: accept Registered, Recognized, or Certified
+          if (wantsRegistered && !(isRegistered || isRecognized || isCertified)) {
+            matches = false;
+          }
+          
+          // If they want Recognized: accept Recognized or Certified (not just Registered)
+          if (wantsRecognized && !(isRecognized || isCertified)) {
+            matches = false;
+          }
+          
+          // If they want Certified: only accept Certified
+          if (wantsCertified && !isCertified) {
+            matches = false;
+          }
+          
+          // Check minimum years experience
+          if ((filterSettings!['minYears'] ?? 0) > (official['yearsExperience'] ?? 0)) {
+            matches = false;
+          }
+          
+          // Check competition levels - official must match at least one selected level
+          final selectedLevels = filterSettings!['levels'] as List<String>? ?? [];
+          if (selectedLevels.isNotEmpty) {
+            final officialLevels = official['competitionLevels'] as List<String>? ?? [];
+            bool hasMatchingLevel = false;
+            for (String level in selectedLevels) {
+              if (officialLevels.contains(level)) {
+                hasMatchingLevel = true;
+                break;
+              }
+            }
+            if (!hasMatchingLevel) {
+              matches = false;
+            }
+          }
+          
+          // Check distance radius
+          if (!isAwayGame &&
+              filterSettings!['radius'] != null &&
+              filterSettings!['radius'] < (official['distance'] ?? double.infinity)) {
+            matches = false;
+          }
+          
+          return matches;
+        }).toList();
       }
-      filteredOfficials = List.from(officials);
-      filteredOfficialsWithoutSearch = List.from(officials);
-      isLoading = false;
-    });
+      
+      setState(() {
+        // Replace officials with the filtered results
+        officials = List.from(newOfficials);
+        filteredOfficials = List.from(newOfficials);
+        filteredOfficialsWithoutSearch = List.from(newOfficials);
+        isLoading = false;
+      });
+      
+    } catch (e) {
+      print('Error loading officials: $e');
+      setState(() {
+        officials = [];
+        filteredOfficials = [];
+        filteredOfficialsWithoutSearch = [];
+        isLoading = false;
+      });
+    }
   }
 
   void _applyFiltersWithSettings(Map<String, dynamic> settings) {

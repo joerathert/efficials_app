@@ -4,6 +4,9 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../shared/theme.dart';
 import '../../shared/utils/utils.dart'; // For getSportIcon
+import '../../shared/services/user_session_service.dart';
+import '../../shared/services/repositories/user_repository.dart';
+import '../../shared/services/game_service.dart';
 
 class Game {
   final int id;
@@ -46,8 +49,8 @@ class Game {
     return Game(
       id: json['id'] as int,
       scheduleName: json['scheduleName'] as String?,
-      date:
-          json['date'] != null ? DateTime.parse(json['date'] as String) : null,
+      date: json['date'] != null ? 
+        (json['date'] is DateTime ? json['date'] as DateTime : DateTime.parse(json['date'] as String)) : null,
       time: time,
       sport: json['sport'] as String? ?? 'Unknown Sport',
       officialsRequired:
@@ -94,6 +97,9 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
   List<Game> games = [];
   bool isLoading = true;
   bool isFabExpanded = false;
+  
+  // Service for database game operations
+  final GameService _gameService = GameService();
 
   @override
   void initState() {
@@ -102,31 +108,96 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
   }
 
   Future<void> _checkTeamSetup() async {
-    final prefs = await SharedPreferences.getInstance();
-    final teamSetupCompleted = prefs.getBool('team_setup_completed') ?? false;
-    final savedTeamName = prefs.getString('team_name');
-    final savedSport = prefs.getString('sport');
-    final savedGrade = prefs.getString('grade');
-    final savedGender = prefs.getString('gender');
+    try {
+      // Get current user from database instead of SharedPreferences
+      final currentUser = await UserSessionService.instance.getCurrentSchedulerUser();
+      
+      if (currentUser == null) {
+        // No user logged in, redirect to login
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          Navigator.pushReplacementNamed(context, '/welcome');
+        });
+        return;
+      }
 
-    setState(() {
-      teamName = savedTeamName ?? 'Team';
-      sport = savedSport;
-      grade = savedGrade;
-      gender = savedGender;
-      isLoading = false;
-    });
+      // Check if user setup is completed in database
+      final teamSetupCompleted = currentUser.setupCompleted;
 
-    if (!teamSetupCompleted) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        Navigator.pushReplacementNamed(context, '/select_team');
+      setState(() {
+        teamName = currentUser.teamName ?? 'Team';
+        sport = currentUser.sport;
+        grade = currentUser.grade;
+        gender = currentUser.gender;
+        isLoading = false;
       });
-    } else {
-      _loadGames();
+
+      if (!teamSetupCompleted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          Navigator.pushReplacementNamed(context, '/select_team');
+        });
+      } else {
+        _loadGames();
+      }
+    } catch (e) {
+      // Handle error
+      setState(() {
+        isLoading = false;
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Navigator.pushReplacementNamed(context, '/welcome');
+      });
     }
   }
 
   Future<void> _loadGames() async {
+    try {
+      debugPrint('Loading games from database for team: $teamName');
+      // Use database instead of SharedPreferences
+      final allGamesData = await _gameService.getPublishedGames();
+      debugPrint('Retrieved ${allGamesData.length} published games from database');
+      
+      List<Game> filteredGames = allGamesData
+          .map(Game.fromJson)
+          .where((game) =>
+              game.opponent == teamName ||
+              (game.scheduleName != null &&
+                  game.scheduleName!.contains(teamName!)))
+          .toList();
+      
+      // Sort games by date and time
+      filteredGames.sort((a, b) {
+        if (a.date == null && b.date == null) return 0;
+        if (a.date == null) return 1;
+        if (b.date == null) return -1;
+        DateTime aDateTime = a.date!;
+        DateTime bDateTime = b.date!;
+        if (a.time != null) {
+          aDateTime = DateTime(aDateTime.year, aDateTime.month,
+              aDateTime.day, a.time!.hour, a.time!.minute);
+        }
+        if (b.time != null) {
+          bDateTime = DateTime(bDateTime.year, bDateTime.month,
+              bDateTime.day, b.time!.hour, b.time!.minute);
+        }
+        return aDateTime.compareTo(bDateTime);
+      });
+      
+      debugPrint('Filtered to ${filteredGames.length} games for this team');
+      
+      setState(() {
+        games = filteredGames;
+        isLoading = false;
+      });
+    } catch (e) {
+      debugPrint('Error loading games from database: $e');
+      // Fallback to SharedPreferences if database fails
+      await _loadGamesFromPrefs();
+    }
+  }
+
+  // Legacy method for SharedPreferences fallback (to be phased out)
+  Future<void> _loadGamesFromPrefs() async {
+    debugPrint('Falling back to SharedPreferences for games');
     final prefs = await SharedPreferences.getInstance();
     final String? gamesJson = prefs.getString('coach_published_games');
     setState(() {
@@ -168,6 +239,20 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
   }
 
   Future<Map<String, dynamic>?> _fetchGameById(int gameId) async {
+    try {
+      // Try to get game from database first
+      final game = await _gameService.getGameById(gameId);
+      if (game != null) {
+        debugPrint('Retrieved game from database: ${game['id']}');
+        return game;
+      }
+    } catch (e) {
+      debugPrint('Error fetching game from database: $e');
+      // Fallback to SharedPreferences if database fails
+    }
+    
+    // Fallback to SharedPreferences
+    debugPrint('Falling back to SharedPreferences for game: $gameId');
     final prefs = await SharedPreferences.getInstance();
     final String? gamesJson = prefs.getString('coach_published_games');
     if (gamesJson != null && gamesJson.isNotEmpty) {
@@ -305,6 +390,16 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
               onTap: () {
                 Navigator.pop(context);
                 Navigator.pushNamed(context, '/settings');
+              },
+            ),
+            const Divider(color: Colors.grey),
+            ListTile(
+              leading: const Icon(Icons.logout, color: Colors.red),
+              title: const Text('Logout',
+                  style: TextStyle(color: Colors.red)),
+              onTap: () {
+                Navigator.pop(context);
+                _handleLogout();
               },
             ),
           ],
@@ -515,35 +610,11 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
         if (mounted) {
           Navigator.pushNamed(context, '/game_information', arguments: latestGame)
               .then((result) async {
-            if (result == true) {
-              await _loadGames();
-            } else if (result != null && result is Map<String, dynamic>) {
-              final prefs = await SharedPreferences.getInstance();
-              final String? gamesJson = prefs.getString('published_games');
-              if (gamesJson != null && gamesJson.isNotEmpty) {
-                List<Map<String, dynamic>> updatedGames =
-                    List<Map<String, dynamic>>.from(jsonDecode(gamesJson));
-                final index = updatedGames.indexWhere((g) => g['id'] == game.id);
-                if (index != -1) {
-                  updatedGames[index] = {
-                    ...updatedGames[index],
-                    ...result,
-                    'date': result['date'] is String
-                        ? result['date']
-                        : (result['date'] as DateTime?)?.toIso8601String(),
-                    'time': result['time'] is String
-                        ? result['time']
-                        : result['time'] != null
-                            ? '${(result['time'] as TimeOfDay).hour}:${(result['time'] as TimeOfDay).minute}'
-                            : null,
-                  };
-                  await prefs.setString(
-                      'published_games', jsonEncode(updatedGames));
-                  await _loadGames();
-                }
-              }
-            } else if (result != null &&
-                (result as Map<String, dynamic>)['refresh'] == true) {
+            // Always refresh from database after game information screen
+            if (result == true || 
+                (result != null && result is Map<String, dynamic>) ||
+                (result != null && (result as Map<String, dynamic>)['refresh'] == true)) {
+              debugPrint('Refreshing games after game information screen update');
               await _loadGames();
             }
           });
@@ -602,6 +673,46 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  void _handleLogout() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: darkSurface,
+          title: const Text(
+            'Logout',
+            style: TextStyle(color: primaryTextColor),
+          ),
+          content: const Text(
+            'Are you sure you want to logout?',
+            style: TextStyle(color: primaryTextColor),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel', style: TextStyle(color: secondaryTextColor)),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.pop(context); // Close dialog
+                
+                // Clear user session
+                await UserSessionService.instance.clearSession();
+                
+                Navigator.pushNamedAndRemoveUntil(
+                  context,
+                  '/welcome',
+                  (route) => false,
+                ); // Go to welcome screen and clear navigation stack
+              },
+              child: const Text('Logout', style: TextStyle(color: Colors.red)),
+            ),
+          ],
+        );
+      },
     );
   }
 }

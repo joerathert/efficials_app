@@ -100,4 +100,80 @@ class SportRepository extends BaseRepository {
     final sportId = await createSport(sport);
     return sport.copyWith(id: sportId);
   }
+
+  // Sport defaults methods
+  
+  // Get sport defaults by user and sport
+  Future<SportDefaults?> getSportDefaultsByUserAndSport(int userId, String sportName) async {
+    final sport = await getSportByName(sportName);
+    if (sport == null) return null;
+    
+    final results = await query(
+      'sport_defaults',
+      where: 'user_id = ? AND sport_id = ?',
+      whereArgs: [userId, sport.id],
+      limit: 1,
+    );
+    
+    if (results.isEmpty) return null;
+    
+    final map = results.first;
+    return SportDefaults(
+      id: map['id'],
+      userId: map['user_id'],
+      sportId: sport.id,
+      sportName: sport.name,
+      gender: map['gender'],
+      officialsRequired: map['officials_required'],
+      gameFee: map['game_fee'],
+      levelOfCompetition: map['level_of_competition'],
+    );
+  }
+  
+  // Save sport defaults
+  Future<void> saveSportDefaults(SportDefaults sportDefaults) async {
+    final sport = await getOrCreateSport(sportDefaults.sportName);
+    
+    final data = {
+      'user_id': sportDefaults.userId,
+      'sport_id': sport.id,
+      'gender': sportDefaults.gender,
+      'officials_required': sportDefaults.officialsRequired,
+      'game_fee': sportDefaults.gameFee,
+      'level_of_competition': sportDefaults.levelOfCompetition,
+    };
+    
+    // Check if defaults already exist
+    final existing = await query(
+      'sport_defaults',
+      where: 'user_id = ? AND sport_id = ?',
+      whereArgs: [sportDefaults.userId, sport.id],
+      limit: 1,
+    );
+    
+    if (existing.isNotEmpty) {
+      // Update existing
+      await update(
+        'sport_defaults',
+        data,
+        'user_id = ? AND sport_id = ?',
+        [sportDefaults.userId, sport.id],
+      );
+    } else {
+      // Create new
+      await insert('sport_defaults', data);
+    }
+  }
+  
+  // Delete sport defaults
+  Future<void> deleteSportDefaults(int userId, String sportName) async {
+    final sport = await getSportByName(sportName);
+    if (sport == null) return;
+    
+    await delete(
+      'sport_defaults',
+      'user_id = ? AND sport_id = ?',
+      [userId, sport.id],
+    );
+  }
 }

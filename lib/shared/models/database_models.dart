@@ -325,6 +325,7 @@ class Game {
   final int officialsHired;
   final String? gameFee;
   final String? opponent;
+  final String? homeTeam;
   final bool hireAutomatically;
   final String? method;
   final String status;
@@ -352,6 +353,7 @@ class Game {
     this.officialsHired = 0,
     this.gameFee,
     this.opponent,
+    this.homeTeam,
     this.hireAutomatically = false,
     this.method,
     this.status = 'Unpublished',
@@ -380,6 +382,7 @@ class Game {
       'officials_hired': officialsHired,
       'game_fee': gameFee,
       'opponent': opponent,
+      'home_team': homeTeam,
       'hire_automatically': hireAutomatically ? 1 : 0,
       'method': method,
       'status': status,
@@ -406,7 +409,8 @@ class Game {
       sportId: map['sport_id']?.toInt() ?? 0,
       locationId: map['location_id']?.toInt(),
       userId: map['user_id']?.toInt() ?? 0,
-      date: map['date'] != null ? DateTime.parse(map['date']) : null,
+      date: map['date'] != null ? 
+        (map['date'] is DateTime ? map['date'] as DateTime : DateTime.parse(map['date'] as String)) : null,
       time: gameTime,
       isAway: (map['is_away'] ?? 0) == 1,
       levelOfCompetition: map['level_of_competition'],
@@ -415,6 +419,7 @@ class Game {
       officialsHired: map['officials_hired']?.toInt() ?? 0,
       gameFee: map['game_fee'],
       opponent: map['opponent'],
+      homeTeam: map['home_team'],
       hireAutomatically: (map['hire_automatically'] ?? 0) == 1,
       method: map['method'],
       status: map['status'] ?? 'Unpublished',
@@ -617,7 +622,8 @@ class GameTemplate {
       sportId: map['sport_id']?.toInt() ?? 0,
       userId: map['user_id']?.toInt() ?? 0,
       scheduleName: map['schedule_name'],
-      date: map['date'] != null ? DateTime.parse(map['date']) : null,
+      date: map['date'] != null ? 
+        (map['date'] is DateTime ? map['date'] as DateTime : DateTime.parse(map['date'] as String)) : null,
       time: gameTime,
       locationId: map['location_id']?.toInt(),
       isAwayGame: (map['is_away_game'] ?? 0) == 1,
@@ -646,6 +652,7 @@ class GameTemplate {
       createdAt: DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
       sportName: map['sport_name'],
       locationName: map['location_name'],
+      officialsListName: map['officials_list_name'],
     );
   }
 }
@@ -761,6 +768,24 @@ class GameAssignment {
   final DateTime? respondedAt;
   final String? responseNotes;
   final double? feeAmount;
+  
+  // Additional fields from JOIN queries
+  DateTime? _gameDate;
+  DateTime? _gameTime;
+  String? _sportName;
+  String? _opponent;
+  String? _homeTeam;
+  String? _locationName;
+  String? _locationAddress;
+  
+  // Getters for the additional fields
+  DateTime? get gameDate => _gameDate;
+  DateTime? get gameTime => _gameTime;
+  String? get sportName => _sportName;
+  String? get opponent => _opponent;
+  String? get homeTeam => _homeTeam;
+  String? get locationName => _locationName;
+  String? get locationAddress => _locationAddress;
 
   GameAssignment({
     this.id,
@@ -791,7 +816,7 @@ class GameAssignment {
   }
 
   factory GameAssignment.fromMap(Map<String, dynamic> map) {
-    return GameAssignment(
+    final assignment = GameAssignment(
       id: map['id']?.toInt(),
       gameId: map['game_id']?.toInt() ?? 0,
       officialId: map['official_id']?.toInt() ?? 0,
@@ -803,6 +828,31 @@ class GameAssignment {
       responseNotes: map['response_notes'],
       feeAmount: map['fee_amount']?.toDouble(),
     );
+    
+    // Add additional fields from JOIN queries if they exist
+    if (map.containsKey('date')) {
+      assignment._gameDate = map['date'] != null ? DateTime.parse(map['date']) : null;
+    }
+    if (map.containsKey('time')) {
+      assignment._gameTime = map['time'] != null ? DateTime.parse('1970-01-01 ${map['time']}') : null;
+    }
+    if (map.containsKey('sport_name')) {
+      assignment._sportName = map['sport_name'];
+    }
+    if (map.containsKey('opponent')) {
+      assignment._opponent = map['opponent'];
+    }
+    if (map.containsKey('home_team')) {
+      assignment._homeTeam = map['home_team'];
+    }
+    if (map.containsKey('location_name')) {
+      assignment._locationName = map['location_name'];
+    }
+    if (map.containsKey('location_address')) {
+      assignment._locationAddress = map['location_address'];
+    }
+    
+    return assignment;
   }
 }
 
@@ -992,6 +1042,54 @@ class OfficialSetting {
       officialId: map['official_id']?.toInt() ?? 0,
       settingKey: map['setting_key'] ?? '',
       settingValue: map['setting_value'] ?? '',
+    );
+  }
+}
+
+// Sport Defaults model
+class SportDefaults {
+  final int? id;
+  final int userId;
+  final int? sportId;
+  final String sportName;
+  final String? gender;
+  final int? officialsRequired;
+  final String? gameFee;
+  final String? levelOfCompetition;
+
+  SportDefaults({
+    this.id,
+    required this.userId,
+    this.sportId,
+    required this.sportName,
+    this.gender,
+    this.officialsRequired,
+    this.gameFee,
+    this.levelOfCompetition,
+  });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'user_id': userId,
+      'sport_id': sportId,
+      'gender': gender,
+      'officials_required': officialsRequired,
+      'game_fee': gameFee,
+      'level_of_competition': levelOfCompetition,
+    };
+  }
+
+  factory SportDefaults.fromMap(Map<String, dynamic> map) {
+    return SportDefaults(
+      id: map['id']?.toInt(),
+      userId: map['user_id']?.toInt() ?? 0,
+      sportId: map['sport_id']?.toInt(),
+      sportName: map['sport_name'] ?? '',
+      gender: map['gender'],
+      officialsRequired: map['officials_required']?.toInt(),
+      gameFee: map['game_fee'],
+      levelOfCompetition: map['level_of_competition'],
     );
   }
 }

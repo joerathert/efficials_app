@@ -234,11 +234,18 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
 
     if (shouldCreateTemplate == true && !isAwayGame) {
       if (mounted) {
+        // Debug: Check what data we're passing to template creation
+        print('DEBUG Review Game - gameData being passed to template:');
+        print('DEBUG Review Game - method: ${gameData['method']}');
+        print('DEBUG Review Game - selectedListName: ${gameData['selectedListName']}');
+        
+        print('DEBUG Review Game - About to navigate to /new_game_template');
         Navigator.pushNamed(
           context,
           '/new_game_template',
           arguments: gameData,
         ).then((result) {
+          print('DEBUG Review Game - Returned from template creation with result: $result');
           if (result == true && mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(

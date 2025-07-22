@@ -47,8 +47,11 @@ class _UnpublishedGamesScreenState extends State<UnpublishedGamesScreen> {
 
   Future<void> _fetchUnpublishedGames() async {
     try {
+      debugPrint('Fetching unpublished games from database...');
       // Try to get games from database first
       final games = await _gameService.getUnpublishedGames();
+      debugPrint('Retrieved ${games.length} unpublished games from database');
+      
       setState(() {
         unpublishedGames = games;
         // Convert string dates and times to proper types for UI
@@ -67,6 +70,7 @@ class _UnpublishedGamesScreenState extends State<UnpublishedGamesScreen> {
         isLoading = false;
       });
     } catch (e) {
+      debugPrint('Error fetching unpublished games from database: $e');
       // Fallback to SharedPreferences if database fails
       await _fetchUnpublishedGamesFromPrefs();
     }
@@ -179,11 +183,13 @@ class _UnpublishedGamesScreenState extends State<UnpublishedGamesScreen> {
     if (gamesToPublish.isEmpty) return;
 
     try {
+      debugPrint('Publishing ${gamesToPublish.length} games to database...');
       // Try to publish games using database service
       final gameIds = gamesToPublish.map((game) => game['id'] as int).toList();
       final success = await _gameService.publishGames(gameIds);
       
       if (success) {
+        debugPrint('Successfully published ${gamesToPublish.length} games to database');
         setState(() {
           unpublishedGames.removeWhere((game) => selectedGameIds.contains(game['id']));
           selectedGameIds.clear();
@@ -194,14 +200,17 @@ class _UnpublishedGamesScreenState extends State<UnpublishedGamesScreen> {
             SnackBar(
               content: Text(
                   '${gamesToPublish.length} game${gamesToPublish.length == 1 ? '' : 's'} published successfully!'),
+              backgroundColor: Colors.green,
             ),
           );
         }
       } else {
+        debugPrint('Database publish failed, falling back to SharedPreferences');
         // Fallback to SharedPreferences
         await _publishSelectedGamesWithPrefs(gamesToPublish);
       }
     } catch (e) {
+      debugPrint('Error publishing games to database: $e');
       // Fallback to SharedPreferences
       await _publishSelectedGamesWithPrefs(gamesToPublish);
     }

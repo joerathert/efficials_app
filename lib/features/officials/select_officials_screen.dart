@@ -31,6 +31,7 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
         ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
     template = args['template'] as GameTemplate?; // Extract the template
 
+
     // If the template includes an officials list, pre-fill the selection and navigate
     if (template != null &&
         template!.includeOfficialsList &&

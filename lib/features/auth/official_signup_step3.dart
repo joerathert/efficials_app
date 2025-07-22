@@ -37,12 +37,11 @@ class _OfficialSignUpStep3State extends State<OfficialSignUpStep3> {
   ];
 
   final List<String> competitionLevels = [
-    '6U - 18U',
-    'Grade School',
-    'Middle School',
-    'Underclass',
-    'JV',
-    'Varsity',
+    'Grade School (6U-11U)',
+    'Middle School (11U-14U)',
+    'Underclass (15U-16U)',
+    'Junior Varsity (16U-17U)',
+    'Varsity (17U-18U)',
     'College',
     'Adult',
   ];
@@ -66,7 +65,7 @@ class _OfficialSignUpStep3State extends State<OfficialSignUpStep3> {
       selectedSports['Football'] = {
         'certification': 'IHSA Registered',
         'experience': 3,
-        'levels': ['JV', 'Varsity'],
+        'levels': ['Junior Varsity (16U-17U)', 'Varsity (17U-18U)'],
       };
     });
   }
@@ -323,26 +322,37 @@ class _OfficialSignUpStep3State extends State<OfficialSignUpStep3> {
               ),
             ),
             const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: competitionLevels.map((level) {
                 final isSelected = (sportData['levels'] as List<String>).contains(level);
-                return FilterChip(
-                  label: Text(level),
-                  selected: isSelected,
-                  onSelected: (selected) {
-                    setState(() {
-                      if (selected) {
-                        (sportData['levels'] as List<String>).add(level);
-                      } else {
-                        (sportData['levels'] as List<String>).remove(level);
-                      }
-                    });
-                  },
-                  selectedColor: efficialsYellow,
-                  checkmarkColor: efficialsBlack,
-                  labelStyle: TextStyle(
-                    color: isSelected ? efficialsBlack : Colors.white,
+                return Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.only(bottom: 8),
+                  child: FilterChip(
+                    label: SizedBox(
+                      width: double.infinity,
+                      child: Text(
+                        level,
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    selected: isSelected,
+                    onSelected: (selected) {
+                      setState(() {
+                        if (selected) {
+                          (sportData['levels'] as List<String>).add(level);
+                        } else {
+                          (sportData['levels'] as List<String>).remove(level);
+                        }
+                      });
+                    },
+                    selectedColor: efficialsYellow,
+                    backgroundColor: Colors.grey[800],
+                    checkmarkColor: efficialsBlack,
+                    labelStyle: TextStyle(
+                      color: isSelected ? efficialsBlack : Colors.white,
+                    ),
                   ),
                 );
               }).toList(),

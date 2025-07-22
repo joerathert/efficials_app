@@ -24,7 +24,7 @@ class DatabaseHelper {
     
     return await openDatabase(
       path,
-      version: 2,
+      version: 6,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -151,6 +151,114 @@ class DatabaseHelper {
       await db.execute('CREATE INDEX idx_official_sports_sport_id ON official_sports(sport_id)');
       await db.execute('CREATE INDEX idx_official_notifications_official_id ON official_notifications(official_id)');
       await db.execute('CREATE INDEX idx_official_settings_official_id ON official_settings(official_id)');
+    }
+    
+    if (oldVersion < 3) {
+      // Add home_team column to games table
+      await db.execute('ALTER TABLE games ADD COLUMN home_team TEXT');
+      
+      // Try to populate home_team for existing games
+      // Get Athletic Director's school info from SharedPreferences if available
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        
+        // Update test data to use Edwardsville Tigers instead of Test School Eagles
+        final currentSchoolName = prefs.getString('ad_school_name');
+        final currentMascot = prefs.getString('ad_mascot');
+        
+        String schoolName = 'Edwardsville';
+        String mascot = 'Tigers';
+        
+        // Use existing school info if available, otherwise default to Edwardsville Tigers
+        if (currentSchoolName != null && currentMascot != null && 
+            currentSchoolName != 'Test School' && currentSchoolName != 'Default School' && currentSchoolName != 'Central High School') {
+          schoolName = currentSchoolName;
+          mascot = currentMascot;
+        }
+        // Note: Don't update SharedPreferences here - version 5 migration will handle moving to database
+        
+        final homeTeam = '$schoolName $mascot';
+        await db.execute(
+          'UPDATE games SET home_team = ? WHERE home_team IS NULL OR home_team = ? OR home_team = ? OR home_team = ?',
+          [homeTeam, 'Test School Eagles', 'Default School Eagles', 'Central High School Eagles']
+        );
+        
+        // Also update users table with correct school info
+        await db.execute(
+          'UPDATE users SET school_name = ?, mascot = ? WHERE (school_name = ? OR school_name = ? OR school_name = ?) AND scheduler_type = ?',
+          [schoolName, mascot, 'Test School', 'Default School', 'Central High School', 'Athletic Director']
+        );
+        
+      } catch (e) {
+        // If we can't get prefs or update, just continue - the column is added
+        print('Could not populate home_team for existing games: $e');
+      }
+    }
+    
+    if (oldVersion < 4) {
+      // Update existing test data to use Edwardsville Tigers
+      try {
+        // Force update to Edwardsville Tigers for any remaining test data
+        
+        // Update all games with test school names to use Edwardsville Tigers
+        await db.execute(
+          'UPDATE games SET home_team = ? WHERE home_team = ? OR home_team = ? OR home_team = ? OR home_team LIKE ?',
+          ['Edwardsville Tigers', 'Test School Eagles', 'Default School Eagles', 'Central High School Eagles', '%Test%']
+        );
+        
+        // Update users table as well
+        await db.execute(
+          'UPDATE users SET school_name = ?, mascot = ? WHERE scheduler_type = ? AND (school_name LIKE ? OR school_name = ? OR school_name = ?)',
+          ['Edwardsville', 'Tigers', 'Athletic Director', '%Test%', 'Default School', 'Central High School']
+        );
+        
+      } catch (e) {
+        print('Could not update test data to Edwardsville Tigers: $e');
+      }
+    }
+    
+    if (oldVersion < 5) {
+      // Migrate Athletic Director school information from SharedPreferences to database
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final schoolName = prefs.getString('ad_school_name');
+        final mascot = prefs.getString('ad_mascot');
+        final setupCompleted = prefs.getBool('ad_setup_completed') ?? false;
+        
+        if (schoolName != null && mascot != null) {
+          // Update any Athletic Director users with the school information
+          await db.execute(
+            'UPDATE users SET school_name = ?, mascot = ?, setup_completed = ? WHERE scheduler_type = ?',
+            [schoolName, mascot, setupCompleted ? 1 : 0, 'Athletic Director']
+          );
+          
+          // Clean up the SharedPreferences entries since they're now in the database
+          await prefs.remove('ad_school_name');
+          await prefs.remove('ad_mascot');
+          await prefs.remove('ad_setup_completed');
+          
+          print('Successfully migrated AD school info from SharedPreferences to database');
+        }
+      } catch (e) {
+        print('Could not migrate AD school info from SharedPreferences: $e');
+      }
+    }
+    
+    if (oldVersion < 6) {
+      // Add user sessions table
+      await db.execute('''
+        CREATE TABLE user_sessions (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL,
+          user_type TEXT NOT NULL,
+          email TEXT NOT NULL,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      ''');
+      
+      // Add indexes for user sessions
+      await db.execute('CREATE INDEX idx_user_sessions_user_id ON user_sessions(user_id)');
+      await db.execute('CREATE INDEX idx_user_sessions_created_at ON user_sessions(created_at)');
     }
   }
 
@@ -279,6 +387,7 @@ class DatabaseHelper {
         officials_hired INTEGER DEFAULT 0,
         game_fee TEXT,
         opponent TEXT,
+        home_team TEXT,
         hire_automatically BOOLEAN DEFAULT FALSE,
         method TEXT,
         status TEXT DEFAULT 'Unpublished',
@@ -419,6 +528,7 @@ class DatabaseHelper {
         sport_id INTEGER REFERENCES sports(id),
         certification_level TEXT,
         years_experience INTEGER,
+        competition_levels TEXT,
         is_primary BOOLEAN DEFAULT FALSE,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(official_id, sport_id)
@@ -450,6 +560,17 @@ class DatabaseHelper {
       )
     ''');
 
+    // User sessions table (for authentication state)
+    await db.execute('''
+      CREATE TABLE user_sessions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        user_type TEXT NOT NULL,
+        email TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    ''');
+
     // Create indexes for better performance
     await _createIndexes(db);
     
@@ -477,6 +598,10 @@ class DatabaseHelper {
     await db.execute('CREATE INDEX idx_official_sports_sport_id ON official_sports(sport_id)');
     await db.execute('CREATE INDEX idx_official_notifications_official_id ON official_notifications(official_id)');
     await db.execute('CREATE INDEX idx_official_settings_official_id ON official_settings(official_id)');
+    
+    // Indexes for user sessions
+    await db.execute('CREATE INDEX idx_user_sessions_user_id ON user_sessions(user_id)');
+    await db.execute('CREATE INDEX idx_user_sessions_created_at ON user_sessions(created_at)');
   }
 
   Future<void> _insertDefaultSports(Database db) async {
@@ -801,11 +926,9 @@ class DatabaseHelper {
   }
 
   Future<void> _migrateSettings(Transaction txn, SharedPreferences prefs) async {
+    // Only migrate business-related settings, not UI preferences
     final settings = <String, dynamic>{
-      'showAwayGames': prefs.getBool('showAwayGames'),
-      'showFullyCoveredGames': prefs.getBool('showFullyCoveredGames'),
       'scheduleFilters': prefs.getString('scheduleFilters'),
-      'dont_ask_create_template': prefs.getBool('dont_ask_create_template'),
     };
 
     for (var entry in settings.entries) {
@@ -834,6 +957,14 @@ class DatabaseHelper {
           });
         }
       }
+    }
+    
+    // Clean up only the business settings that were migrated from SharedPreferences
+    try {
+      await prefs.remove('scheduleFilters');
+      // UI preferences (showAwayGames, showFullyCoveredGames, etc.) stay in SharedPreferences
+    } catch (e) {
+      debugPrint('Could not clean up SharedPreferences settings: $e');
     }
   }
 

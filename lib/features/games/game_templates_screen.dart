@@ -621,10 +621,10 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen> with RouteAwa
             ),
           ),
           const SizedBox(height: 8),
-          _buildDetailRow('Method', _getMethodDisplayName(template.method)),
-          
           if (template.method == 'use_list' && template.officialsListName?.isNotEmpty == true)
-            _buildDetailRow('Officials List', template.officialsListName!),
+            _buildDetailRow('Method', 'Use Saved List: ${template.officialsListName}')
+          else
+            _buildDetailRow('Method', _getMethodDisplayName(template.method)),
           
           if ((template.method == 'standard' || template.method == 'advanced') && 
               template.selectedOfficials?.isNotEmpty == true) ...[

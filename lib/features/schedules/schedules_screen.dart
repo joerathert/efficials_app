@@ -531,7 +531,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                                     Navigator.pushNamed(
                                             context, '/select_sport')
                                         .then((result) {
-                                      if (result == true) {
+                                      if (result != null) {
                                         _loadSchedules();
                                       }
                                     });
@@ -908,7 +908,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                                     Navigator.pushNamed(
                                             context, '/select_sport')
                                         .then((result) {
-                                      if (result == true) {
+                                      if (result != null) {
                                         _loadSchedules();
                                       }
                                     });

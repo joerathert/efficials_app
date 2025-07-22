@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../shared/theme.dart';
+import '../../shared/services/repositories/user_repository.dart';
+import '../../shared/services/user_session_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -26,31 +28,54 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _loadSettings() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      schedulerType = prefs.getString('schedulerType');
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final sessionService = UserSessionService.instance;
+      
+      // Load UI preferences from SharedPreferences
       showAwayGames = prefs.getBool('showAwayGames') ?? true;
       showFullyCoveredGames = prefs.getBool('showFullyCoveredGames') ?? true;
-      dontAskCreateTemplate =
-          prefs.getBool('dont_ask_create_template') ?? false;
+      dontAskCreateTemplate = prefs.getBool('dont_ask_create_template') ?? false;
       defaultDarkMode = prefs.getBool('default_dark_mode') ?? false;
       defaultMethod = prefs.getString('defaultMethod');
       defaultChoice = prefs.getBool('defaultChoice') ?? false;
+      
+      // Load user profile data from database
+      final userId = await sessionService.getCurrentUserId();
+      if (userId != null) {
+        final userRepo = UserRepository();
+        final user = await userRepo.getUserById(userId);
+        if (user != null) {
+          schedulerType = user.schedulerType;
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading settings: $e');
+    }
+    
+    setState(() {
       isLoading = false;
     });
   }
 
   Future<void> _saveSettings() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('showAwayGames', showAwayGames);
-    await prefs.setBool('showFullyCoveredGames', showFullyCoveredGames);
-    await prefs.setBool('dont_ask_create_template', dontAskCreateTemplate);
-    await prefs.setBool('default_dark_mode', defaultDarkMode);
-    await prefs.setBool('defaultChoice', defaultChoice);
-    if (defaultChoice) {
-      await prefs.setString('defaultMethod', defaultMethod ?? '');
-    } else {
-      await prefs.remove('defaultMethod');
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      
+      // Save UI preferences to SharedPreferences
+      await prefs.setBool('showAwayGames', showAwayGames);
+      await prefs.setBool('showFullyCoveredGames', showFullyCoveredGames);
+      await prefs.setBool('dont_ask_create_template', dontAskCreateTemplate);
+      await prefs.setBool('default_dark_mode', defaultDarkMode);
+      await prefs.setBool('defaultChoice', defaultChoice);
+      
+      if (defaultChoice && defaultMethod != null && defaultMethod!.isNotEmpty) {
+        await prefs.setString('defaultMethod', defaultMethod!);
+      } else {
+        await prefs.remove('defaultMethod');
+      }
+    } catch (e) {
+      debugPrint('Error saving settings: $e');
     }
   }
 
@@ -299,15 +324,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                   ),
                   onTap: () async {
-                    final prefs = await SharedPreferences.getInstance();
-                    await prefs.clear();
-                    if (mounted) {
-                      // ignore: use_build_context_synchronously
-                      Navigator.pushNamedAndRemoveUntil(
-                        context,
-                        '/welcome',
-                        (route) => false,
-                      );
+                    try {
+                      final sessionService = UserSessionService.instance;
+                      await sessionService.clearSession();
+                      
+                      final prefs = await SharedPreferences.getInstance();
+                      await prefs.clear();
+                      
+                      if (mounted) {
+                        // ignore: use_build_context_synchronously
+                        Navigator.pushNamedAndRemoveUntil(
+                          context,
+                          '/welcome',
+                          (route) => false,
+                        );
+                      }
+                    } catch (e) {
+                      debugPrint('Error during logout: $e');
                     }
                   },
                 ),

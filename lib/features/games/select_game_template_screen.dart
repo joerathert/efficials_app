@@ -49,14 +49,41 @@ class _SelectGameTemplateScreenState extends State<SelectGameTemplateScreen> {
       final currentSelection = selectedTemplateId;
       
       // Use GameService to get templates from database
-      final templatesData = sport != null 
-          ? await _gameService.getTemplatesBySport(sport!)
-          : await _gameService.getTemplates();
+      print('DEBUG SelectGameTemplate - Sport filter: $sport');
+      // Temporarily disable sport filtering to test
+      final templatesData = await _gameService.getTemplates();
+      // TODO: Re-enable sport filtering after debugging
+      // final templatesData = sport != null 
+      //     ? await _gameService.getTemplatesBySport(sport!)
+      //     : await _gameService.getTemplates();
+      
+      print('DEBUG SelectGameTemplate - Retrieved ${templatesData.length} templates');
+      for (var template in templatesData) {
+        print('DEBUG Template: ${template['name']} - Sport: ${template['sport']}');
+      }
       
       setState(() {
         templates.clear();
         // Convert Map data to GameTemplate objects
-        templates = templatesData.map((templateData) => GameTemplate.fromJson(templateData)).toList();
+        var allTemplates = templatesData.map((templateData) => GameTemplate.fromJson(templateData)).toList();
+        
+        // Apply sport filtering manually if sport is specified and valid
+        if (sport != null && sport != 'Unknown' && sport!.isNotEmpty) {
+          templates = allTemplates.where((template) => 
+            template.includeSport && template.sport == sport).toList();
+          print('DEBUG SelectGameTemplate - After sport filtering: ${templates.length} templates');
+        } else {
+          // If sport is unknown/null, show all templates
+          templates = allTemplates;
+          print('DEBUG SelectGameTemplate - No sport filtering applied, showing all ${templates.length} templates');
+        }
+        
+        // Add the "Create new template" option
+        templates.add(GameTemplate(
+          id: '0',
+          name: '+ Create new template',
+          includeSport: false,
+        ));
         
         // Try to restore the previous selection if it still exists
         if (currentSelection != null && templates.any((t) => t.id == currentSelection)) {
@@ -115,14 +142,17 @@ class _SelectGameTemplateScreenState extends State<SelectGameTemplateScreen> {
 
     if (selectedTemplateId == '0') {
       if (mounted) {
-        Navigator.pushReplacementNamed(
+        Navigator.pushNamed(
           context,
           '/create_game_template',
           arguments: {
             'scheduleName': scheduleName,
             'sport': sport,
           },
-        );
+        ).then((result) {
+          // Refresh templates after creation
+          _fetchTemplates();
+        });
       }
     } else {
       final selectedTemplate =

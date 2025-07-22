@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 import '../models/database_models.dart';
 import 'repositories/game_repository.dart';
 import 'repositories/game_template_repository.dart';
@@ -33,7 +35,8 @@ class GameService {
       final defaultUser = User(
         schedulerType: 'Athletic Director',
         setupCompleted: true,
-        schoolName: 'Default School',
+        schoolName: 'Edwardsville',
+        mascot: 'Tigers',
       );
       final userId = await _userRepository.createUser(defaultUser);
       debugPrint('Created default user with ID: $userId');
@@ -94,6 +97,28 @@ class GameService {
     }
   }
 
+  // Get a single game by ID
+  Future<Map<String, dynamic>?> getGameById(int gameId) async {
+    try {
+      final game = await _gameRepository.getGameById(gameId);
+      return game != null ? _gameToMap(game) : null;
+    } catch (e) {
+      debugPrint('Error getting game by ID: $e');
+      return null;
+    }
+  }
+
+  // Get a single game by ID with officials selection data reconstructed
+  Future<Map<String, dynamic>?> getGameByIdWithOfficials(int gameId) async {
+    try {
+      final game = await _gameRepository.getGameById(gameId);
+      return game != null ? await _gameToMapWithOfficials(game) : null;
+    } catch (e) {
+      debugPrint('Error fetching game with officials: $e');
+      return null;
+    }
+  }
+
   // Create a new game
   Future<Map<String, dynamic>?> createGame(Map<String, dynamic> gameData) async {
     try {
@@ -120,6 +145,17 @@ class GameService {
         locationId = await _getLocationId(gameData['location']);
       }
 
+      // Get Athletic Director's school information for home team from database
+      String? homeTeam;
+      try {
+        final currentUser = await _userRepository.getCurrentUser();
+        if (currentUser != null && currentUser.schoolName != null && currentUser.mascot != null) {
+          homeTeam = '${currentUser.schoolName} ${currentUser.mascot}';
+        }
+      } catch (e) {
+        debugPrint('Error getting AD school info from database: $e');
+      }
+
       final game = Game(
         scheduleId: scheduleId,
         sportId: sportId,
@@ -134,6 +170,7 @@ class GameService {
         officialsHired: gameData['officialsHired'] ?? 0,
         gameFee: gameData['gameFee'],
         opponent: gameData['opponent'],
+        homeTeam: homeTeam,
         hireAutomatically: gameData['hireAutomatically'] ?? false,
         method: gameData['method'],
         status: gameData['status'] ?? 'Unpublished',
@@ -193,6 +230,7 @@ class GameService {
         levelOfCompetition: gameData['levelOfCompetition'],
         gender: gameData['gender'],
         officialsRequired: gameData['officialsRequired'],
+        officialsHired: gameData['officialsHired'],
         gameFee: gameData['gameFee'],
         opponent: gameData['opponent'],
         hireAutomatically: gameData['hireAutomatically'],
@@ -208,6 +246,17 @@ class GameService {
     } catch (e) {
       debugPrint('Error updating game: $e');
       return null;
+    }
+  }
+
+  // Update officials hired count only
+  Future<bool> updateOfficialsHired(int gameId, int officialsHired) async {
+    try {
+      await _gameRepository.updateOfficialsHired(gameId, officialsHired);
+      return true;
+    } catch (e) {
+      debugPrint('Error updating officials hired count: $e');
+      return false;
     }
   }
 
@@ -252,7 +301,10 @@ class GameService {
       final userId = await _getCurrentUserId();
       final templates = await _templateRepository.getTemplatesByUser(userId);
       
-      return templates.map((template) => _templateToMap(template)).toList();
+      // Fix templates that have officialsListId but no officialsListName due to JOIN issues
+      final fixedTemplates = await _fixTemplatesWithMissingListNames(templates);
+      
+      return fixedTemplates.map((template) => _templateToMap(template)).toList();
     } catch (e) {
       debugPrint('Error getting templates: $e');
       return [];
@@ -298,6 +350,12 @@ class GameService {
         locationId = await _getLocationId(templateData['location']);
       }
 
+      // Get officials list ID if provided by name
+      int? officialsListId = templateData['officialsListId'];
+      if (officialsListId == null && templateData['officialsListName'] != null) {
+        officialsListId = await _getOfficialsListId(templateData['officialsListName']);
+      }
+
       final template = GameTemplate(
         name: templateData['name'],
         sportId: sportId,
@@ -314,7 +372,7 @@ class GameService {
         opponent: templateData['opponent'],
         hireAutomatically: templateData['hireAutomatically'] ?? false,
         method: templateData['method'],
-        officialsListId: templateData['officialsListId'],
+        officialsListId: officialsListId,
         includeScheduleName: templateData['includeScheduleName'] ?? false,
         includeSport: templateData['includeSport'] ?? false,
         includeDate: templateData['includeDate'] ?? false,
@@ -335,7 +393,53 @@ class GameService {
       final templateId = await _templateRepository.createGameTemplate(template);
       final createdTemplate = await _templateRepository.getTemplateById(templateId);
       
-      return createdTemplate != null ? _templateToMap(createdTemplate) : null;
+      if (createdTemplate != null) {
+        // Manually set the officialsListName if it was provided in templateData
+        // This bypasses the database JOIN issue since lists are stored in SharedPreferences
+        if (templateData['officialsListName'] != null) {
+          final templateWithName = GameTemplate(
+            id: createdTemplate.id,
+            name: createdTemplate.name,
+            sportId: createdTemplate.sportId,
+            userId: createdTemplate.userId,
+            scheduleName: createdTemplate.scheduleName,
+            date: createdTemplate.date,
+            time: createdTemplate.time,
+            locationId: createdTemplate.locationId,
+            isAwayGame: createdTemplate.isAwayGame,
+            levelOfCompetition: createdTemplate.levelOfCompetition,
+            gender: createdTemplate.gender,
+            officialsRequired: createdTemplate.officialsRequired,
+            gameFee: createdTemplate.gameFee,
+            opponent: createdTemplate.opponent,
+            hireAutomatically: createdTemplate.hireAutomatically,
+            method: createdTemplate.method,
+            officialsListId: createdTemplate.officialsListId,
+            selectedOfficials: createdTemplate.selectedOfficials,
+            includeScheduleName: createdTemplate.includeScheduleName,
+            includeSport: createdTemplate.includeSport,
+            includeDate: createdTemplate.includeDate,
+            includeTime: createdTemplate.includeTime,
+            includeLocation: createdTemplate.includeLocation,
+            includeIsAwayGame: createdTemplate.includeIsAwayGame,
+            includeLevelOfCompetition: createdTemplate.includeLevelOfCompetition,
+            includeGender: createdTemplate.includeGender,
+            includeOfficialsRequired: createdTemplate.includeOfficialsRequired,
+            includeGameFee: createdTemplate.includeGameFee,
+            includeOpponent: createdTemplate.includeOpponent,
+            includeHireAutomatically: createdTemplate.includeHireAutomatically,
+            includeSelectedOfficials: createdTemplate.includeSelectedOfficials,
+            includeOfficialsList: createdTemplate.includeOfficialsList,
+            createdAt: createdTemplate.createdAt,
+            sportName: createdTemplate.sportName,
+            locationName: createdTemplate.locationName,
+            officialsListName: templateData['officialsListName'] as String?, // Set manually
+          );
+          return _templateToMap(templateWithName);
+        }
+        return _templateToMap(createdTemplate);
+      }
+      return null;
     } catch (e) {
       debugPrint('Error creating template: $e');
       return null;
@@ -484,6 +588,31 @@ class GameService {
     return location.id;
   }
 
+  // Get officials list ID by name from SharedPreferences
+  Future<int?> _getOfficialsListId(String listName) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final String? listsJson = prefs.getString('saved_lists');
+      
+      if (listsJson == null || listsJson.isEmpty) {
+        return null;
+      }
+      
+      final List<dynamic> lists = jsonDecode(listsJson);
+      
+      for (final list in lists) {
+        if (list['name'] == listName && list['id'] != null) {
+          return list['id'] as int;
+        }
+      }
+      
+      return null;
+    } catch (e) {
+      debugPrint('Error getting officials list ID: $e');
+      return null;
+    }
+  }
+
   // Convert Game model to Map for UI
   Map<String, dynamic> _gameToMap(Game game) {
     return {
@@ -506,6 +635,141 @@ class GameService {
       'createdAt': game.createdAt,
       'updatedAt': game.updatedAt,
     };
+  }
+
+  // Enhanced version that includes officials selection data
+  Future<Map<String, dynamic>> _gameToMapWithOfficials(Game game) async {
+    final gameMap = _gameToMap(game);
+    
+    // Try to reconstruct officials selection data based on method
+    if (game.method != null) {
+      try {
+        if (game.method == 'use_list') {
+          // For use_list method, try to find the most likely list that was used
+          final prefs = await SharedPreferences.getInstance();
+          final String? listsJson = prefs.getString('saved_lists');
+          if (listsJson != null && listsJson.isNotEmpty) {
+            final List<Map<String, dynamic>> savedLists = 
+                List<Map<String, dynamic>>.from(jsonDecode(listsJson));
+            
+            // Try to find the most appropriate list
+            Map<String, dynamic>? bestList;
+            
+            // Look for lists that match the sport and have enough officials
+            for (var list in savedLists) {
+              final officials = List<Map<String, dynamic>>.from(list['officials'] ?? []);
+              
+              // Check if the list has enough officials for this game
+              if (officials.length >= (game.officialsRequired ?? 1)) {
+                // TODO: In a future update, we could also check if the sport matches
+                bestList = list;
+                break;
+              }
+            }
+            
+            // Fallback to first available list if none match criteria
+            bestList ??= savedLists.isNotEmpty ? savedLists.first : null;
+            
+            if (bestList != null) {
+              gameMap['selectedListName'] = bestList['name'];
+              gameMap['selectedOfficials'] = List<Map<String, dynamic>>.from(
+                bestList['officials'] ?? []
+              );
+            }
+          }
+        } else if (game.method == 'advanced') {
+          // For advanced method, we'd need the actual lists configuration
+          // This would require storing selectedLists in the database
+          gameMap['selectedLists'] = [];
+        } else if (game.method == 'manual') {
+          // For manual method, we could load officials from game_officials relationship
+          gameMap['selectedOfficials'] = [];
+        }
+      } catch (e) {
+        debugPrint('Error reconstructing officials data: $e');
+      }
+    }
+    
+    // Ensure these fields exist (even if empty) to prevent null errors
+    gameMap['selectedOfficials'] ??= <Map<String, dynamic>>[];
+    gameMap['selectedLists'] ??= <Map<String, dynamic>>[];
+    
+    return gameMap;
+  }
+
+  // Fix templates that have officialsListId but missing officialsListName
+  Future<List<GameTemplate>> _fixTemplatesWithMissingListNames(List<GameTemplate> templates) async {
+    try {
+      // Load officials lists from SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      final String? listsJson = prefs.getString('saved_lists');
+      
+      if (listsJson == null || listsJson.isEmpty) {
+        return templates; // No lists to fix with
+      }
+      
+      final List<dynamic> lists = jsonDecode(listsJson);
+      final Map<int, String> listIdToName = {};
+      
+      // Create a mapping of list ID to list name
+      for (final list in lists) {
+        if (list['id'] != null && list['name'] != null) {
+          listIdToName[list['id'] as int] = list['name'] as String;
+        }
+      }
+      
+      // Fix templates with missing list names
+      return templates.map((template) {
+        if (template.officialsListId != null && 
+            (template.officialsListName == null || template.officialsListName == 'null')) {
+          final listName = listIdToName[template.officialsListId!];
+          if (listName != null) {
+            return GameTemplate(
+              id: template.id,
+              name: template.name,
+              sportId: template.sportId,
+              userId: template.userId,
+              scheduleName: template.scheduleName,
+              date: template.date,
+              time: template.time,
+              locationId: template.locationId,
+              isAwayGame: template.isAwayGame,
+              levelOfCompetition: template.levelOfCompetition,
+              gender: template.gender,
+              officialsRequired: template.officialsRequired,
+              gameFee: template.gameFee,
+              opponent: template.opponent,
+              hireAutomatically: template.hireAutomatically,
+              method: template.method,
+              officialsListId: template.officialsListId,
+              selectedOfficials: template.selectedOfficials,
+              includeScheduleName: template.includeScheduleName,
+              includeSport: template.includeSport,
+              includeDate: template.includeDate,
+              includeTime: template.includeTime,
+              includeLocation: template.includeLocation,
+              includeIsAwayGame: template.includeIsAwayGame,
+              includeLevelOfCompetition: template.includeLevelOfCompetition,
+              includeGender: template.includeGender,
+              includeOfficialsRequired: template.includeOfficialsRequired,
+              includeGameFee: template.includeGameFee,
+              includeOpponent: template.includeOpponent,
+              includeHireAutomatically: template.includeHireAutomatically,
+              includeSelectedOfficials: template.includeSelectedOfficials,
+              includeOfficialsList: template.includeOfficialsList,
+              createdAt: template.createdAt,
+              sportName: template.sportName,
+              locationName: template.locationName,
+              officialsListName: listName, // Fix the missing name
+            );
+          }
+        }
+        return template; // Return unchanged if no fix needed
+      }).toList();
+    } catch (e) {
+      debugPrint('Error fixing template list names: $e');
+      return templates; // Return original templates if fixing fails
+    }
   }
 
   // Convert GameTemplate model to Map for UI

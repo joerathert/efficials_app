@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
 import '../../shared/theme.dart';
+import '../../shared/services/repositories/game_assignment_repository.dart';
+import '../../shared/services/repositories/official_repository.dart';
+import '../../shared/services/user_session_service.dart';
+import '../../shared/models/database_models.dart';
 
 class OfficialGamesScreen extends StatefulWidget {
   const OfficialGamesScreen({super.key});
@@ -14,82 +18,97 @@ class _OfficialGamesScreenState extends State<OfficialGamesScreen> {
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
   String _selectedFilter = 'All';
+  
+  // Repositories
+  final GameAssignmentRepository _assignmentRepo = GameAssignmentRepository();
+  final OfficialRepository _officialRepo = OfficialRepository();
+  
+  // State
+  List<GameAssignment> games = [];
+  bool _isLoading = true;
+  Official? _currentOfficial;
+  
+  @override
+  void initState() {
+    super.initState();
+    _loadGames();
+  }
+  
+  Future<void> _loadGames() async {
+    try {
+      setState(() {
+        _isLoading = true;
+      });
+      
+      // Get current user session
+      final userSession = UserSessionService.instance;
+      final userId = await userSession.getCurrentUserId();
+      final userType = await userSession.getCurrentUserType();
+      
+      if (userId == null || userType != 'official') {
+        return;
+      }
+      
+      // Get the official record
+      _currentOfficial = await _officialRepo.getOfficialByOfficialUserId(userId);
+      
+      if (_currentOfficial == null) {
+        return;
+      }
+      
+      // Load all assignments for this official
+      final assignments = await _assignmentRepo.getAssignmentsForOfficial(_currentOfficial!.id!);
+      
+      if (mounted) {
+        setState(() {
+          games = assignments;
+        });
+      }
+    } catch (e) {
+      print('Error loading games: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
 
-  // Mock data for demonstration
-  final List<Map<String, dynamic>> games = [
-    {
-      'id': 1,
-      'sport': 'Football',
-      'date': DateTime.now().add(const Duration(days: 1)),
-      'time': '7:00 PM',
-      'school': 'Madison vs Jefferson',
-      'location': 'Madison High School',
-      'status': 'confirmed',
-      'fee': 60.0,
-      'position': 'Referee',
-    },
-    {
-      'id': 2,
-      'sport': 'Basketball',
-      'date': DateTime.now().add(const Duration(days: 2)),
-      'time': '1:00 PM',
-      'school': 'Adams vs Wilson',
-      'location': 'Adams High School',
-      'status': 'confirmed',
-      'fee': 45.0,
-      'position': 'Umpire',
-    },
-    {
-      'id': 3,
-      'sport': 'Basketball',
-      'date': DateTime.now().subtract(const Duration(days: 1)),
-      'time': '6:30 PM',
-      'school': 'Central vs North',
-      'location': 'Central High School',
-      'status': 'completed',
-      'fee': 45.0,
-      'position': 'Referee',
-    },
-    {
-      'id': 4,
-      'sport': 'Football',
-      'date': DateTime.now().subtract(const Duration(days: 7)),
-      'time': '7:00 PM',
-      'school': 'East vs West',
-      'location': 'East High School',
-      'status': 'completed',
-      'fee': 60.0,
-      'position': 'Referee',
-    },
-  ];
-
-  List<Map<String, dynamic>> get filteredGames {
-    List<Map<String, dynamic>> filtered = games;
+  List<GameAssignment> get filteredGames {
+    List<GameAssignment> filtered = games;
 
     // Filter by status
     if (_selectedFilter == 'Upcoming') {
-      filtered = filtered.where((game) => 
-        game['date'].isAfter(DateTime.now()) || 
-        game['status'] == 'confirmed'
+      filtered = filtered.where((assignment) => 
+        (assignment.gameDate?.isAfter(DateTime.now()) ?? false) || 
+        assignment.status == 'accepted'
       ).toList();
     } else if (_selectedFilter == 'Completed') {
-      filtered = filtered.where((game) => game['status'] == 'completed').toList();
+      filtered = filtered.where((assignment) => assignment.status == 'completed').toList();
     }
 
     // Filter by selected day if any
     if (_selectedDay != null) {
-      filtered = filtered.where((game) =>
-        isSameDay(game['date'], _selectedDay)
+      filtered = filtered.where((assignment) =>
+        assignment.gameDate != null && isSameDay(assignment.gameDate!, _selectedDay)
       ).toList();
     }
 
-    // Sort by date
-    filtered.sort((a, b) => b['date'].compareTo(a['date']));
+    // Sort by date (newest first)
+    filtered.sort((a, b) {
+      final dateA = a.gameDate ?? DateTime(1970);
+      final dateB = b.gameDate ?? DateTime(1970);
+      return dateB.compareTo(dateA);
+    });
     return filtered;
   }
 
   List<DateTime> get gameDays {
-    return games.map((game) => game['date'] as DateTime).toList();
+    return games
+        .where((assignment) => assignment.gameDate != null)
+        .map((assignment) => assignment.gameDate!)
+        .toList();
   }
 
   @override
@@ -259,14 +278,18 @@ class _OfficialGamesScreenState extends State<OfficialGamesScreen> {
                     ),
                     const SizedBox(height: 12),
                     Expanded(
-                      child: filteredGames.isEmpty
-                          ? _buildEmptyState()
-                          : ListView.builder(
-                              itemCount: filteredGames.length,
-                              itemBuilder: (context, index) {
-                                return _buildGameCard(filteredGames[index]);
-                              },
-                            ),
+                      child: _isLoading
+                          ? const Center(
+                              child: CircularProgressIndicator(color: efficialsYellow),
+                            )
+                          : filteredGames.isEmpty
+                              ? _buildEmptyState()
+                              : ListView.builder(
+                                  itemCount: filteredGames.length,
+                                  itemBuilder: (context, index) {
+                                    return _buildGameCard(filteredGames[index]);
+                                  },
+                                ),
                     ),
                   ],
                 ),
@@ -278,9 +301,17 @@ class _OfficialGamesScreenState extends State<OfficialGamesScreen> {
     );
   }
 
-  Widget _buildGameCard(Map<String, dynamic> game) {
-    final isUpcoming = game['date'].isAfter(DateTime.now());
-    final statusColor = game['status'] == 'completed' ? Colors.green : efficialsYellow;
+  Widget _buildGameCard(GameAssignment assignment) {
+    final gameDate = assignment.gameDate;
+    final isUpcoming = gameDate?.isAfter(DateTime.now()) ?? false;
+    final statusColor = assignment.status == 'completed' ? Colors.green : efficialsYellow;
+    
+    final sportName = assignment.sportName ?? 'Sport';
+    final locationName = assignment.locationName ?? 'TBD';
+    final fee = assignment.feeAmount ?? 0.0;
+    
+    final dateString = gameDate != null ? _formatDate(gameDate) : 'TBD';
+    final timeString = assignment.gameTime != null ? _formatTime(assignment.gameTime!) : 'TBD';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -299,7 +330,7 @@ class _OfficialGamesScreenState extends State<OfficialGamesScreen> {
               Row(
                 children: [
                   Text(
-                    game['sport'],
+                    sportName,
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
@@ -314,7 +345,7 @@ class _OfficialGamesScreenState extends State<OfficialGamesScreen> {
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
-                      game['status'].toString().toUpperCase(),
+                      assignment.status.toUpperCase(),
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
@@ -325,7 +356,7 @@ class _OfficialGamesScreenState extends State<OfficialGamesScreen> {
                 ],
               ),
               Text(
-                '\$${game['fee']}',
+                '\$${fee.toStringAsFixed(2)}',
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
@@ -336,7 +367,7 @@ class _OfficialGamesScreenState extends State<OfficialGamesScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            game['school'],
+            _formatAssignmentTitle(assignment),
             style: const TextStyle(
               fontSize: 14,
               color: Colors.white,
@@ -349,7 +380,7 @@ class _OfficialGamesScreenState extends State<OfficialGamesScreen> {
               Icon(Icons.schedule, size: 14, color: Colors.grey[400]),
               const SizedBox(width: 4),
               Text(
-                '${_formatDate(game['date'])} at ${game['time']}',
+                '$dateString at $timeString',
                 style: TextStyle(
                   fontSize: 12,
                   color: Colors.grey[400],
@@ -364,7 +395,7 @@ class _OfficialGamesScreenState extends State<OfficialGamesScreen> {
               const SizedBox(width: 4),
               Expanded(
                 child: Text(
-                  game['location'],
+                  locationName,
                   style: TextStyle(
                     fontSize: 12,
                     color: Colors.grey[400],
@@ -379,7 +410,7 @@ class _OfficialGamesScreenState extends State<OfficialGamesScreen> {
               Icon(Icons.person, size: 14, color: Colors.grey[400]),
               const SizedBox(width: 4),
               Text(
-                'Position: ${game['position']}',
+                'Position: ${assignment.position ?? 'Official'}',
                 style: TextStyle(
                   fontSize: 12,
                   color: Colors.grey[400],
@@ -464,5 +495,27 @@ class _OfficialGamesScreenState extends State<OfficialGamesScreen> {
     const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     
     return '${weekdays[date.weekday % 7]}, ${months[date.month - 1]} ${date.day}';
+  }
+  
+  String _formatTime(DateTime time) {
+    final hour = time.hour;
+    final minute = time.minute;
+    final period = hour >= 12 ? 'PM' : 'AM';
+    final displayHour = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
+    
+    return '$displayHour:${minute.toString().padLeft(2, '0')} $period';
+  }
+  
+  String _formatAssignmentTitle(GameAssignment assignment) {
+    final opponent = assignment.opponent;
+    final homeTeam = assignment.homeTeam;
+    
+    if (opponent != null && homeTeam != null) {
+      return '$opponent @ $homeTeam';
+    } else if (opponent != null) {
+      return opponent;
+    } else {
+      return 'TBD';
+    }
   }
 }

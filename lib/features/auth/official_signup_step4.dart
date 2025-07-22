@@ -112,10 +112,10 @@ class _OfficialSignUpStep4State extends State<OfficialSignUpStep4> {
           ),
         );
 
-        // Navigate to a success screen or login
+        // Navigate to Official home screen
         Navigator.pushNamedAndRemoveUntil(
           context,
-          '/welcome',
+          '/official_home',
           (route) => false,
         );
       }

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../shared/theme.dart';
+import '../../shared/services/repositories/user_repository.dart';
+import '../../shared/services/repositories/sport_repository.dart';
+import '../../shared/services/user_session_service.dart';
+import '../../shared/models/database_models.dart';
 
 class AssignerSportDefaultsScreen extends StatefulWidget {
   const AssignerSportDefaultsScreen({super.key});
@@ -50,27 +53,41 @@ class _AssignerSportDefaultsScreenState extends State<AssignerSportDefaultsScree
   }
 
   Future<void> _loadDefaultsAndSport() async {
-    final prefs = await SharedPreferences.getInstance();
-    sport = prefs.getString('assigner_sport');
-    
-    if (sport != null) {
-      final defaultsKey = 'assigner_sport_defaults_${sport!.toLowerCase()}';
-      final defaultGender = prefs.getString('${defaultsKey}_gender');
-      final defaultOfficials = prefs.getString('${defaultsKey}_officials');
-      final defaultGameFee = prefs.getString('${defaultsKey}_game_fee');
-      final defaultCompetitionLevel = prefs.getString('${defaultsKey}_competition_level');
+    try {
+      final sessionService = UserSessionService.instance;
+      final userId = await sessionService.getCurrentUserId();
       
-      setState(() {
-        selectedGender = defaultGender;
-        selectedOfficials = defaultOfficials;
-        selectedGameFee = defaultGameFee;
-        selectedCompetitionLevel = defaultCompetitionLevel;
-        if (defaultGameFee != null) {
-          _gameFeeController.text = defaultGameFee;
+      if (userId != null) {
+        final userRepo = UserRepository();
+        final user = await userRepo.getUserById(userId);
+        sport = user?.sport;
+        
+        if (sport != null) {
+          final sportRepo = SportRepository();
+          final sportDefaults = await sportRepo.getSportDefaultsByUserAndSport(userId, sport!);
+          
+          setState(() {
+            selectedGender = sportDefaults?.gender;
+            selectedOfficials = sportDefaults?.officialsRequired?.toString();
+            selectedGameFee = sportDefaults?.gameFee;
+            selectedCompetitionLevel = sportDefaults?.levelOfCompetition;
+            if (selectedGameFee != null) {
+              _gameFeeController.text = selectedGameFee!;
+            }
+            isLoading = false;
+          });
+        } else {
+          setState(() {
+            isLoading = false;
+          });
         }
-        isLoading = false;
-      });
-    } else {
+      } else {
+        setState(() {
+          isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading sport defaults: $e');
       setState(() {
         isLoading = false;
       });
@@ -78,32 +95,53 @@ class _AssignerSportDefaultsScreenState extends State<AssignerSportDefaultsScree
   }
 
   Future<void> _saveDefaults() async {
-    final prefs = await SharedPreferences.getInstance();
-    
-    if (sport != null) {
-      final defaultsKey = 'assigner_sport_defaults_${sport!.toLowerCase()}';
+    try {
+      final sessionService = UserSessionService.instance;
+      final userId = await sessionService.getCurrentUserId();
       
-      if (selectedGender != null) {
-        await prefs.setString('${defaultsKey}_gender', selectedGender!);
+      if (userId != null && sport != null) {
+        final sportRepo = SportRepository();
+        
+        // Create or update sport defaults
+        final sportDefaults = SportDefaults(
+          userId: userId,
+          sportName: sport!,
+          gender: selectedGender,
+          officialsRequired: selectedOfficials != null ? int.tryParse(selectedOfficials!) : null,
+          gameFee: _gameFeeController.text.isNotEmpty ? _gameFeeController.text : null,
+          levelOfCompetition: selectedCompetitionLevel,
+        );
+        
+        await sportRepo.saveSportDefaults(sportDefaults);
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Defaults saved successfully',
+                style: TextStyle(color: efficialsBlack, fontWeight: FontWeight.w600),
+              ),
+              backgroundColor: efficialsYellow,
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('No user found. Please log in again.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
-      if (selectedOfficials != null) {
-        await prefs.setString('${defaultsKey}_officials', selectedOfficials!);
-      }
-      if (_gameFeeController.text.isNotEmpty) {
-        await prefs.setString('${defaultsKey}_game_fee', _gameFeeController.text);
-      }
-      if (selectedCompetitionLevel != null) {
-        await prefs.setString('${defaultsKey}_competition_level', selectedCompetitionLevel!);
-      }
-      
+    } catch (e) {
+      debugPrint('Error saving sport defaults: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text(
-              'Defaults saved successfully',
-              style: TextStyle(color: efficialsBlack, fontWeight: FontWeight.w600),
-            ),
-            backgroundColor: efficialsYellow,
+            content: Text('Error saving defaults. Please try again.'),
+            backgroundColor: Colors.red,
           ),
         );
       }
@@ -111,41 +149,173 @@ class _AssignerSportDefaultsScreenState extends State<AssignerSportDefaultsScree
   }
 
   Future<void> _clearDefaults() async {
-    final prefs = await SharedPreferences.getInstance();
-    
-    if (sport != null) {
-      final defaultsKey = 'assigner_sport_defaults_${sport!.toLowerCase()}';
-      await prefs.remove('${defaultsKey}_gender');
-      await prefs.remove('${defaultsKey}_officials');
-      await prefs.remove('${defaultsKey}_game_fee');
-      await prefs.remove('${defaultsKey}_competition_level');
+    try {
+      final sessionService = UserSessionService.instance;
+      final userId = await sessionService.getCurrentUserId();
       
-      setState(() {
-        selectedGender = null;
-        selectedOfficials = null;
-        selectedGameFee = null;
-        selectedCompetitionLevel = null;
-        _gameFeeController.clear();
-      });
-      
+      if (userId != null && sport != null) {
+        final sportRepo = SportRepository();
+        await sportRepo.deleteSportDefaults(userId, sport!);
+        
+        setState(() {
+          selectedGender = null;
+          selectedOfficials = null;
+          selectedGameFee = null;
+          selectedCompetitionLevel = null;
+          _gameFeeController.clear();
+        });
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Defaults cleared successfully',
+                style: TextStyle(color: efficialsBlack, fontWeight: FontWeight.w600),
+              ),
+              backgroundColor: efficialsYellow,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Error clearing sport defaults: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text(
-              'Defaults cleared',
-              style: TextStyle(color: efficialsBlack, fontWeight: FontWeight.w600),
-            ),
-            backgroundColor: efficialsYellow,
+            content: Text('Error clearing defaults. Please try again.'),
+            backgroundColor: Colors.red,
           ),
         );
       }
     }
   }
 
-  @override
-  void dispose() {
-    _gameFeeController.dispose();
-    super.dispose();
+  Widget _buildDropdownSection(String title, String? value, List<String> options, Function(String?) onChanged) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: darkSurface,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: primaryTextColor,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              decoration: BoxDecoration(
+                color: darkSurface,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey.shade300),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: value,
+                  hint: Text('Select $title'),
+                  items: options.map((String option) {
+                    return DropdownMenuItem<String>(
+                      value: option,
+                      child: Text(
+                        option,
+                        style: const TextStyle(
+                          color: primaryTextColor,
+                          fontSize: 16,
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                  onChanged: onChanged,
+                  isExpanded: true,
+                  dropdownColor: darkSurface,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTextFieldSection(String title, TextEditingController controller) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: darkSurface,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: primaryTextColor,
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              onChanged: (value) {
+                setState(() {
+                  selectedGameFee = value.isNotEmpty ? value : null;
+                });
+              },
+              decoration: InputDecoration(
+                hintText: 'Enter $title',
+                filled: true,
+                fillColor: darkSurface,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: efficialsYellow, width: 2),
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              ),
+              style: const TextStyle(
+                color: primaryTextColor,
+                fontSize: 16,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -153,202 +323,125 @@ class _AssignerSportDefaultsScreenState extends State<AssignerSportDefaultsScree
     return Scaffold(
       backgroundColor: darkBackground,
       appBar: AppBar(
-        backgroundColor: efficialsBlack,
-        title: const Text('Game Defaults', style: appBarTextStyle),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: efficialsWhite),
-          onPressed: () => Navigator.pop(context),
+        title: Text(
+          sport != null ? '$sport Defaults' : 'Sport Defaults',
+          style: const TextStyle(
+            color: primaryTextColor,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
         ),
+        backgroundColor: darkBackground,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: primaryTextColor),
       ),
       body: isLoading
-          ? const Center(child: CircularProgressIndicator(color: efficialsYellow))
-          : SingleChildScrollView(
-              child: Padding(
-                padding: const EdgeInsets.all(20.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: efficialsBlue.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: efficialsBlue.withOpacity(0.3)),
+          ? const Center(child: CircularProgressIndicator())
+          : sport == null
+              ? const Center(
+                  child: Text(
+                    'No sport selected',
+                    style: TextStyle(
+                      color: primaryTextColor,
+                      fontSize: 18,
+                    ),
+                  ),
+                )
+              : SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 16),
+                      _buildDropdownSection(
+                        'Gender',
+                        selectedGender,
+                        genderOptions,
+                        (value) {
+                          setState(() {
+                            selectedGender = value;
+                          });
+                        },
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const Icon(Icons.info_outline, color: efficialsBlue, size: 20),
-                              const SizedBox(width: 8),
-                              const Text(
-                                'Game Defaults',
-                                style: TextStyle(
-                                  color: efficialsBlue,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
+                      _buildDropdownSection(
+                        'Number of Officials',
+                        selectedOfficials,
+                        officialsOptions,
+                        (value) {
+                          setState(() {
+                            selectedOfficials = value;
+                          });
+                        },
+                      ),
+                      _buildTextFieldSection('Game Fee', _gameFeeController),
+                      _buildDropdownSection(
+                        'Competition Level',
+                        selectedCompetitionLevel,
+                        competitionLevels,
+                        (value) {
+                          setState(() {
+                            selectedCompetitionLevel = value;
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 32),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: _saveDefaults,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: efficialsYellow,
+                                  foregroundColor: efficialsBlack,
+                                  padding: const EdgeInsets.symmetric(vertical: 16),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                                child: const Text(
+                                  'Save Defaults',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                               ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          const Text(
-                            'Set default values for games. These will be pre-filled when creating new games.',
-                            style: TextStyle(
-                              color: secondaryTextColor,
-                              fontSize: 14,
                             ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 30),
-                    
-                    // Competition Level Selection
-                    const Text(
-                      'Default Competition Level',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: primaryTextColor,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
-                      decoration: textFieldDecoration('Select default competition level'),
-                      value: selectedCompetitionLevel,
-                      hint: const Text('Select competition level', style: TextStyle(color: efficialsGray)),
-                      dropdownColor: darkSurface,
-                      style: const TextStyle(color: primaryTextColor),
-                      onChanged: (value) {
-                        setState(() {
-                          selectedCompetitionLevel = value;
-                        });
-                      },
-                      items: competitionLevels.map((level) => DropdownMenuItem(
-                        value: level,
-                        child: Text(level, style: const TextStyle(color: primaryTextColor)),
-                      )).toList(),
-                    ),
-                    const SizedBox(height: 24),
-                    
-                    // Gender Selection
-                    const Text(
-                      'Default Gender',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: primaryTextColor,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
-                      decoration: textFieldDecoration('Select default gender'),
-                      value: selectedGender,
-                      hint: const Text('Select gender', style: TextStyle(color: efficialsGray)),
-                      dropdownColor: darkSurface,
-                      style: const TextStyle(color: primaryTextColor),
-                      onChanged: (value) {
-                        setState(() {
-                          selectedGender = value;
-                        });
-                      },
-                      items: genderOptions.map((gender) => DropdownMenuItem(
-                        value: gender,
-                        child: Text(gender, style: const TextStyle(color: primaryTextColor)),
-                      )).toList(),
-                    ),
-                    const SizedBox(height: 24),
-                    
-                    // Officials Required
-                    const Text(
-                      'Default Number of Officials',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: primaryTextColor,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
-                      decoration: textFieldDecoration('Select default officials count'),
-                      value: selectedOfficials,
-                      hint: const Text('Select officials count', style: TextStyle(color: efficialsGray)),
-                      dropdownColor: darkSurface,
-                      style: const TextStyle(color: primaryTextColor),
-                      onChanged: (value) {
-                        setState(() {
-                          selectedOfficials = value;
-                        });
-                      },
-                      items: officialsOptions.map((count) => DropdownMenuItem(
-                        value: count,
-                        child: Text(count, style: const TextStyle(color: primaryTextColor)),
-                      )).toList(),
-                    ),
-                    const SizedBox(height: 24),
-                    
-                    // Game Fee
-                    const Text(
-                      'Default Game Fee (per official)',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: primaryTextColor,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: _gameFeeController,
-                      style: textFieldTextStyle,
-                      decoration: textFieldDecoration('Enter default game fee (\$)'),
-                      keyboardType: TextInputType.number,
-                    ),
-                    const SizedBox(height: 40),
-                    
-                    // Action Buttons
-                    Row(
-                      children: [
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: _saveDefaults,
-                            style: elevatedButtonStyle(),
-                            child: const Text(
-                              'Save Defaults',
-                              style: signInButtonTextStyle,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: _clearDefaults,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.red,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: _clearDefaults,
+                                style: OutlinedButton.styleFrom(
+                                  side: const BorderSide(color: efficialsYellow),
+                                  foregroundColor: efficialsYellow,
+                                  padding: const EdgeInsets.symmetric(vertical: 16),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                                child: const Text(
+                                  'Clear Defaults',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
                               ),
                             ),
-                            child: const Text(
-                              'Clear Defaults',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
+                          ],
                         ),
-                      ],
-                    ),
-                  ],
+                      ),
+                      const SizedBox(height: 32),
+                    ],
+                  ),
                 ),
-              ),
-            ),
     );
+  }
+
+  @override
+  void dispose() {
+    _gameFeeController.dispose();
+    super.dispose();
   }
 }

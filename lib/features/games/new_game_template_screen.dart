@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'game_template.dart';
 import '../../shared/theme.dart';
+import '../../shared/services/game_service.dart';
 
 class NewGameTemplateScreen extends StatefulWidget {
   final Map<String, dynamic> gameData;
@@ -39,11 +40,15 @@ class _NewGameTemplateScreenState extends State<NewGameTemplateScreen> {
   bool includeSelectedOfficials = true;
 
   final TextEditingController _nameController = TextEditingController();
+  final GameService _gameService = GameService();
 
   @override
   void initState() {
     super.initState();
     // Debug print to inspect gameData
+    print('DEBUG Template initState - Starting initialization');
+    print('DEBUG Template initState - gameData keys: ${widget.gameData.keys.toList()}');
+    print('DEBUG Template initState - Raw gameData: ${widget.gameData}');
 
     sport = widget.gameData['sport'] as String;
     // Handle the time field, which may be a String in "hour:minute" format
@@ -97,6 +102,11 @@ class _NewGameTemplateScreenState extends State<NewGameTemplateScreen> {
 
     // Debug prints to verify values
 
+    // Debug: Check what data we have
+    print('DEBUG Template Creation - method: $method');
+    print('DEBUG Template Creation - selectedListName: $selectedListName');
+    print('DEBUG Template Creation - selectedOfficials: $selectedOfficials');
+
     // Compute the display string for officials
     if (method == 'use_list' && selectedListName != null) {
       officialsDisplay = 'List Used ($selectedListName)';
@@ -110,53 +120,105 @@ class _NewGameTemplateScreenState extends State<NewGameTemplateScreen> {
   }
 
   Future<void> _saveTemplate() async {
-  if (_nameController.text.isEmpty) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Please enter a name for the template')),
-    );
-    return;
+    if (_nameController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a name for the template')),
+      );
+      return;
+    }
+
+    // Debug: Check what we're about to save
+    print('DEBUG Template Save - method: $method');
+    print('DEBUG Template Save - selectedListName: $selectedListName');
+    print('DEBUG Template Save - includeOfficialsList: $includeOfficialsList');
+    print('DEBUG Template Save - About to save template to database');
+
+    // Get officials list ID if we have a list name
+    int? officialsListId;
+    if (selectedListName != null && selectedListName!.isNotEmpty) {
+      print('DEBUG Template Save - Looking up list ID for: $selectedListName');
+      officialsListId = await _getOfficialsListId(selectedListName!);
+      print('DEBUG Template Save - Found list ID: $officialsListId');
+    }
+
+    // Prepare template data for database
+    final templateData = {
+      'name': _nameController.text,
+      'sport': sport,
+      'includeSport': includeSport,
+      'time': time,
+      'includeTime': includeTime,
+      'location': location,
+      'includeLocation': includeLocation,
+      'levelOfCompetition': levelOfCompetition,
+      'includeLevelOfCompetition': includeLevelOfCompetition,
+      'gender': gender,
+      'includeGender': includeGender,
+      'officialsRequired': officialsRequired,
+      'includeOfficialsRequired': includeOfficialsRequired,
+      'gameFee': gameFee,
+      'includeGameFee': includeGameFee,
+      'hireAutomatically': hireAutomatically,
+      'includeHireAutomatically': includeHireAutomatically,
+      'officialsListId': officialsListId,  // Save the ID for database reference
+      'officialsListName': selectedListName,  // Also save the name directly
+      'includeOfficialsList': includeOfficialsList,
+      'method': method,
+      'selectedOfficials': selectedOfficials?.map((name) => {'name': name}).toList(),
+      'includeSelectedOfficials': includeSelectedOfficials,
+    };
+
+    try {
+      // Save template to database
+      final result = await _gameService.createTemplate(templateData);
+      
+      if (result != null) {
+        print('DEBUG Template Save - Successfully saved to database with ID: ${result['id']}');
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Template saved successfully!')),
+          );
+          Navigator.pop(context, true);
+        }
+      } else {
+        print('DEBUG Template Save - Failed to save to database (template name might already exist)');
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Failed to save template. Template name might already exist.')),
+          );
+        }
+      }
+    } catch (e) {
+      print('DEBUG Template Save - Error saving to database: $e');
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Error saving template. Please try again.')),
+        );
+      }
+    }
   }
 
-  final template = GameTemplate(
-    id: DateTime.now().millisecondsSinceEpoch.toString(), // Generate unique ID
-    name: _nameController.text,
-    sport: sport,
-    includeSport: includeSport,
-    time: time,
-    includeTime: includeTime,
-    location: location,
-    includeLocation: includeLocation,
-    levelOfCompetition: levelOfCompetition,
-    includeLevelOfCompetition: includeLevelOfCompetition,
-    gender: gender,
-    includeGender: includeGender,
-    officialsRequired: officialsRequired,
-    includeOfficialsRequired: includeOfficialsRequired,
-    gameFee: gameFee,
-    includeGameFee: includeGameFee,
-    hireAutomatically: hireAutomatically,
-    includeHireAutomatically: includeHireAutomatically,
-    officialsListName: selectedListName,
-    includeOfficialsList: includeOfficialsList,
-    method: method,
-    selectedOfficials: selectedOfficials?.map((name) => {'name': name}).toList(),
-    includeSelectedOfficials: includeSelectedOfficials,
-  );
-
-  final prefs = await SharedPreferences.getInstance();
-  final String? templatesJson = prefs.getString('game_templates');
-  List<GameTemplate> templates = [];
-  if (templatesJson != null && templatesJson.isNotEmpty) {
-    final List<dynamic> decoded = jsonDecode(templatesJson);
-    templates = decoded.map((json) => GameTemplate.fromJson(json)).toList();
+  Future<int?> _getOfficialsListId(String listName) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final String? listsJson = prefs.getString('saved_lists');
+      
+      if (listsJson != null && listsJson.isNotEmpty) {
+        final List<dynamic> lists = jsonDecode(listsJson);
+        for (final list in lists) {
+          if (list['name'] == listName) {
+            return list['id'] as int?;
+          }
+        }
+      }
+    } catch (e) {
+      print('DEBUG Template Save - Error looking up list ID: $e');
+    }
+    return null;
   }
-  templates.add(template);
-  await prefs.setString('game_templates', jsonEncode(templates.map((t) => t.toJson()).toList()));
-
-  if (mounted) {
-    Navigator.pop(context, true);
-  }
-}
 
   @override
   void dispose() {
@@ -167,9 +229,11 @@ class _NewGameTemplateScreenState extends State<NewGameTemplateScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: darkBackground,
       appBar: AppBar(
         backgroundColor: efficialsBlack,
         title: const Text('New Game Template', style: appBarTextStyle),
+        iconTheme: const IconThemeData(color: efficialsWhite),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
@@ -179,9 +243,10 @@ class _NewGameTemplateScreenState extends State<NewGameTemplateScreen> {
             TextField(
               controller: _nameController,
               decoration: textFieldDecoration('Template Name'),
+              style: textFieldTextStyle,
             ),
             const SizedBox(height: 20),
-            const Text('Select fields to include in the template:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const Text('Select fields to include in the template:', style: headlineStyle),
             const SizedBox(height: 10),
             _buildFieldRow('Sport', sport, (value) => setState(() => includeSport = value!)),
             if (time != null) _buildFieldRow('Time', time!.format(context), (value) => setState(() => includeTime = value!)),
@@ -192,6 +257,7 @@ class _NewGameTemplateScreenState extends State<NewGameTemplateScreen> {
             if (gameFee != null) _buildFieldRow('Game Fee', '\$${double.parse(gameFee!).toStringAsFixed(2)}', (value) => setState(() => includeGameFee = value!)),
             if (hireAutomatically != null) _buildFieldRow('Hire Automatically', hireAutomatically! ? 'Yes' : 'No', (value) => setState(() => includeHireAutomatically = value!)),
             if (officialsDisplay != 'None') _buildFieldRow('Selected Officials', officialsDisplay, (value) => setState(() => includeSelectedOfficials = value!)),
+            if (method == 'use_list' && selectedListName != null) _buildFieldRow('Officials List', 'Use Saved List: $selectedListName', (value) => setState(() => includeOfficialsList = value!)),
             const SizedBox(height: 20),
             Center(
               child: ElevatedButton(
@@ -207,24 +273,46 @@ class _NewGameTemplateScreenState extends State<NewGameTemplateScreen> {
   }
 
   Widget _buildFieldRow(String label, String value, Function(bool?) onChanged) {
-    return Row(
-      children: [
-        Checkbox(
-          value: label == 'Sport' ? includeSport :
-                label == 'Time' ? includeTime :
-                label == 'Location' ? includeLocation :
-                label == 'Level of Competition' ? includeLevelOfCompetition :
-                label == 'Gender' ? includeGender :
-                label == 'Officials Required' ? includeOfficialsRequired :
-                label == 'Game Fee' ? includeGameFee :
-                label == 'Hire Automatically' ? includeHireAutomatically :
-                label == 'Selected Officials' ? includeSelectedOfficials :
-                false,
-          onChanged: onChanged,
-          activeColor: efficialsBlue,
-        ),
-        Expanded(child: Text('$label: $value')),
-      ],
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        children: [
+          Checkbox(
+            value: label == 'Sport' ? includeSport :
+                  label == 'Time' ? includeTime :
+                  label == 'Location' ? includeLocation :
+                  label == 'Level of Competition' ? includeLevelOfCompetition :
+                  label == 'Gender' ? includeGender :
+                  label == 'Officials Required' ? includeOfficialsRequired :
+                  label == 'Game Fee' ? includeGameFee :
+                  label == 'Hire Automatically' ? includeHireAutomatically :
+                  label == 'Selected Officials' ? includeSelectedOfficials :
+                  label == 'Officials List' ? includeOfficialsList :
+                  false,
+            onChanged: onChanged,
+            activeColor: efficialsYellow,
+            checkColor: efficialsBlack,
+            fillColor: WidgetStateProperty.resolveWith<Color>((Set<WidgetState> states) {
+              if (states.contains(WidgetState.selected)) {
+                return efficialsYellow;
+              }
+              return darkSurface;
+            }),
+            side: WidgetStateBorderSide.resolveWith((Set<WidgetState> states) {
+              if (states.contains(WidgetState.selected)) {
+                return const BorderSide(color: efficialsYellow, width: 2);
+              }
+              return BorderSide(color: efficialsGray.withOpacity(0.5), width: 1.5);
+            }),
+          ),
+          Expanded(
+            child: Text(
+              '$label: $value',
+              style: homeTextStyle,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

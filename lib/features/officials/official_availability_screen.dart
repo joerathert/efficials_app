@@ -219,68 +219,70 @@ class _OfficialAvailabilityScreenState extends State<OfficialAvailabilityScreen>
             Expanded(
               child: Container(
                 margin: const EdgeInsets.symmetric(horizontal: 20),
-                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: darkSurface,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'General Preferences',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: efficialsYellow,
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'General Preferences',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: efficialsYellow,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    SwitchListTile(
-                      title: const Text('Generally Available', style: TextStyle(color: Colors.white)),
-                      subtitle: const Text('Accept assignments when available', style: TextStyle(color: Colors.grey)),
-                      value: _isGenerallyAvailable,
-                      onChanged: (value) {
-                        setState(() {
-                          _isGenerallyAvailable = value;
-                        });
-                      },
-                      activeColor: efficialsYellow,
-                    ),
-                    SwitchListTile(
-                      title: const Text('Weekday Games', style: TextStyle(color: Colors.white)),
-                      subtitle: const Text('Monday - Friday games', style: TextStyle(color: Colors.grey)),
-                      value: _weekdayAvailability,
-                      onChanged: (value) {
-                        setState(() {
-                          _weekdayAvailability = value;
-                        });
-                      },
-                      activeColor: efficialsYellow,
-                    ),
-                    SwitchListTile(
-                      title: const Text('Weekend Games', style: TextStyle(color: Colors.white)),
-                      subtitle: const Text('Saturday - Sunday games', style: TextStyle(color: Colors.grey)),
-                      value: _weekendAvailability,
-                      onChanged: (value) {
-                        setState(() {
-                          _weekendAvailability = value;
-                        });
-                      },
-                      activeColor: efficialsYellow,
-                    ),
-                    SwitchListTile(
-                      title: const Text('Evening Games', style: TextStyle(color: Colors.white)),
-                      subtitle: const Text('Games after 6:00 PM', style: TextStyle(color: Colors.grey)),
-                      value: _eveningAvailability,
-                      onChanged: (value) {
-                        setState(() {
-                          _eveningAvailability = value;
-                        });
-                      },
-                      activeColor: efficialsYellow,
-                    ),
-                  ],
+                      const SizedBox(height: 16),
+                      SwitchListTile(
+                        title: const Text('Generally Available', style: TextStyle(color: Colors.white)),
+                        subtitle: const Text('Accept assignments when available', style: TextStyle(color: Colors.grey)),
+                        value: _isGenerallyAvailable,
+                        onChanged: (value) {
+                          setState(() {
+                            _isGenerallyAvailable = value;
+                          });
+                        },
+                        activeColor: efficialsYellow,
+                      ),
+                      SwitchListTile(
+                        title: const Text('Weekday Games', style: TextStyle(color: Colors.white)),
+                        subtitle: const Text('Monday - Friday games', style: TextStyle(color: Colors.grey)),
+                        value: _weekdayAvailability,
+                        onChanged: (value) {
+                          setState(() {
+                            _weekdayAvailability = value;
+                          });
+                        },
+                        activeColor: efficialsYellow,
+                      ),
+                      SwitchListTile(
+                        title: const Text('Weekend Games', style: TextStyle(color: Colors.white)),
+                        subtitle: const Text('Saturday - Sunday games', style: TextStyle(color: Colors.grey)),
+                        value: _weekendAvailability,
+                        onChanged: (value) {
+                          setState(() {
+                            _weekendAvailability = value;
+                          });
+                        },
+                        activeColor: efficialsYellow,
+                      ),
+                      SwitchListTile(
+                        title: const Text('Evening Games', style: TextStyle(color: Colors.white)),
+                        subtitle: const Text('Games after 6:00 PM', style: TextStyle(color: Colors.grey)),
+                        value: _eveningAvailability,
+                        onChanged: (value) {
+                          setState(() {
+                            _eveningAvailability = value;
+                          });
+                        },
+                        activeColor: efficialsYellow,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../shared/theme.dart';
 import '../../shared/utils/utils.dart';
+import '../../shared/services/user_session_service.dart';
+import '../../shared/services/repositories/user_repository.dart';
 
 class AssignerHomeScreen extends StatefulWidget {
   const AssignerHomeScreen({super.key});
@@ -22,20 +24,39 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen> {
   }
 
   Future<void> _checkAssignerSetup() async {
-    final prefs = await SharedPreferences.getInstance();
-    final setupCompleted = prefs.getBool('assigner_setup_completed') ?? false;
-    final savedSport = prefs.getString('assigner_sport');
-    final savedLeagueName = prefs.getString('league_name');
+    try {
+      // Get current user from database instead of SharedPreferences
+      final currentUser = await UserSessionService.instance.getCurrentSchedulerUser();
+      
+      if (currentUser == null) {
+        // No user logged in, redirect to login
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          Navigator.pushReplacementNamed(context, '/welcome');
+        });
+        return;
+      }
 
-    setState(() {
-      sport = savedSport;
-      leagueName = savedLeagueName ?? 'League';
-      isLoading = false;
-    });
+      // Check if user setup is completed in database
+      final setupCompleted = currentUser.setupCompleted;
 
-    if (!setupCompleted) {
+      setState(() {
+        sport = currentUser.sport;
+        leagueName = currentUser.leagueName ?? 'League';
+        isLoading = false;
+      });
+
+      if (!setupCompleted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          Navigator.pushReplacementNamed(context, '/assigner_sport_selection');
+        });
+      }
+    } catch (e) {
+      // Handle error
+      setState(() {
+        isLoading = false;
+      });
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        Navigator.pushReplacementNamed(context, '/assigner_sport_selection');
+        Navigator.pushReplacementNamed(context, '/welcome');
       });
     }
   }
@@ -123,6 +144,16 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen> {
               onTap: () {
                 Navigator.pop(context);
                 Navigator.pushNamed(context, '/assigner_sport_defaults');
+              },
+            ),
+            const Divider(color: Colors.grey),
+            ListTile(
+              leading: const Icon(Icons.logout, color: Colors.red),
+              title: const Text('Logout',
+                  style: TextStyle(color: Colors.red)),
+              onTap: () {
+                Navigator.pop(context);
+                _handleLogout();
               },
             ),
           ],
@@ -305,6 +336,46 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  void _handleLogout() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: darkSurface,
+          title: const Text(
+            'Logout',
+            style: TextStyle(color: primaryTextColor),
+          ),
+          content: const Text(
+            'Are you sure you want to logout?',
+            style: TextStyle(color: primaryTextColor),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel', style: TextStyle(color: secondaryTextColor)),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.pop(context); // Close dialog
+                
+                // Clear user session
+                await UserSessionService.instance.clearSession();
+                
+                Navigator.pushNamedAndRemoveUntil(
+                  context,
+                  '/welcome',
+                  (route) => false,
+                ); // Go to welcome screen and clear navigation stack
+              },
+              child: const Text('Logout', style: TextStyle(color: Colors.red)),
+            ),
+          ],
+        );
+      },
     );
   }
 }
