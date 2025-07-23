@@ -54,8 +54,11 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
       print('selectedLists: ${args['selectedLists']}');
       print('selectedOfficials: ${args['selectedOfficials']}');
       print('isAwayGame: ${args['isAwayGame']}');
+      print('sport: ${args['sport']}');
+      print('sportName: ${args['sportName']}');
+      print('All args keys: ${args.keys.toList()}');
       print('==============================');
-      sport = args['sport'] as String? ?? 'Unknown';
+      sport = args['sport'] as String? ?? args['sportName'] as String? ?? 'Unknown';
       scheduleName = args['scheduleName'] as String? ?? 'Unnamed';
       location = args['location'] as String? ?? 'Not set';
       selectedDate = args['date'] != null

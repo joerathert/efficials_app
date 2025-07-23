@@ -165,6 +165,9 @@ class _AthleticDirectorHomeScreenState
   Future<void> _fetchGames() async {
     try {
       debugPrint('Fetching games from database...');
+      // Initialize schedule filters first to avoid filtering out all games
+      await _initializeScheduleFilters();
+      
       // Try to get games from database first
       final publishedGamesData = await _gameService.getFilteredGames(
         showAwayGames: showAwayGames,
@@ -197,8 +200,6 @@ class _AthleticDirectorHomeScreenState
       // Fallback to SharedPreferences if database fails
       await _fetchGamesFromPrefs();
     }
-
-    await _initializeScheduleFilters();
   }
 
   Future<void> _fetchGamesFromPrefs() async {

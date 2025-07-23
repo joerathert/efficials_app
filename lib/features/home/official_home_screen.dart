@@ -99,6 +99,12 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
         _currentOfficial!.id!
       );
       
+      // Debug: Check what sports are being returned
+      print('DEBUG: Available games loaded: ${available.length}');
+      for (var game in available.take(3)) {
+        print('DEBUG: Game sport_name: ${game['sport_name']}, opponent: ${game['opponent']}');
+      }
+      
       // Transform the data to include scheduler field
       final transformedAvailable = available.map((game) {
         final firstName = game['first_name'] ?? '';
