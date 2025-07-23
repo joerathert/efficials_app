@@ -132,8 +132,9 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
           'cityState': 'Chicago, IL', // TODO: Replace with actual address from officials table
           'distance': 10.0 + (row['id'] as int) * 2.5, // TODO: Calculate actual distance
           'yearsExperience': row['years_experience'] ?? 0,
-          'ihsaRegistered': certLevel == 'IHSA Registered',
-          'ihsaRecognized': certLevel == 'IHSA Recognized', 
+          // Hierarchical IHSA certification flags - higher levels include lower levels
+          'ihsaRegistered': certLevel == 'IHSA Registered' || certLevel == 'IHSA Recognized' || certLevel == 'IHSA Certified',
+          'ihsaRecognized': certLevel == 'IHSA Recognized' || certLevel == 'IHSA Certified', 
           'ihsaCertified': certLevel == 'IHSA Certified',
           'level': competitionLevels.isNotEmpty ? competitionLevels.first : 'Varsity',
           'competitionLevels': competitionLevels,
@@ -144,10 +145,34 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
       if (filterSettings != null) {
         final locationData = filterSettings!['locationData'] as Map<String, dynamic>?;
         final isAwayGame = args['isAwayGame'] as bool? ?? false;
+        Map<String, dynamic>? defaultLocationData = locationData;
 
-        if (!isAwayGame && locationData != null) {
+        // If no game location is provided, use AD's school address as default
+        if (!isAwayGame && locationData == null) {
+          try {
+            // Get current AD's school address from database
+            final adResult = await db.query(
+              'users', 
+              columns: ['school_address', 'school_name'],
+              where: 'scheduler_type = ? AND school_address IS NOT NULL',
+              whereArgs: ['athletic_director'],
+              limit: 1
+            );
+            
+            if (adResult.isNotEmpty && adResult.first['school_address'] != null) {
+              defaultLocationData = {
+                'name': adResult.first['school_name'] ?? 'School Location',
+                'address': adResult.first['school_address'],
+              };
+            }
+          } catch (e) {
+            print('Could not load AD school address: $e');
+          }
+        }
+
+        if (!isAwayGame && (locationData != null || defaultLocationData != null)) {
           // TODO: Replace with geolocation API call when implemented
-          // For now, use hardcoded distances; later, calculate from locationData['address'] to official['address']
+          // For now, use hardcoded distances; later, calculate from locationData['address'] or defaultLocationData['address'] to official['address']
         }
 
         newOfficials = newOfficials.where((official) {

@@ -7,6 +7,7 @@ class User {
   final bool setupCompleted;
   final String? schoolName;
   final String? mascot;
+  final String? schoolAddress;
   final String? teamName;
   final String? sport;
   final String? grade;
@@ -26,6 +27,7 @@ class User {
     this.setupCompleted = false,
     this.schoolName,
     this.mascot,
+    this.schoolAddress,
     this.teamName,
     this.sport,
     this.grade,
@@ -47,6 +49,7 @@ class User {
       'setup_completed': setupCompleted ? 1 : 0,
       'school_name': schoolName,
       'mascot': mascot,
+      'school_address': schoolAddress,
       'team_name': teamName,
       'sport': sport,
       'grade': grade,
@@ -69,6 +72,7 @@ class User {
       setupCompleted: (map['setup_completed'] ?? 0) == 1,
       schoolName: map['school_name'],
       mascot: map['mascot'],
+      schoolAddress: map['school_address'],
       teamName: map['team_name'],
       sport: map['sport'],
       grade: map['grade'],
@@ -768,6 +772,8 @@ class GameAssignment {
   final DateTime? respondedAt;
   final String? responseNotes;
   final double? feeAmount;
+  final DateTime? backedOutAt;
+  final String? backOutReason;
   
   // Additional fields from JOIN queries
   DateTime? _gameDate;
@@ -798,6 +804,8 @@ class GameAssignment {
     this.respondedAt,
     this.responseNotes,
     this.feeAmount,
+    this.backedOutAt,
+    this.backOutReason,
   }) : assignedAt = assignedAt ?? DateTime.now();
 
   Map<String, dynamic> toMap() {
@@ -812,6 +820,8 @@ class GameAssignment {
       'responded_at': respondedAt?.toIso8601String(),
       'response_notes': responseNotes,
       'fee_amount': feeAmount,
+      'backed_out_at': backedOutAt?.toIso8601String(),
+      'back_out_reason': backOutReason,
     };
   }
 
@@ -827,6 +837,8 @@ class GameAssignment {
       respondedAt: map['responded_at'] != null ? DateTime.parse(map['responded_at']) : null,
       responseNotes: map['response_notes'],
       feeAmount: map['fee_amount']?.toDouble(),
+      backedOutAt: map['backed_out_at'] != null ? DateTime.parse(map['backed_out_at']) : null,
+      backOutReason: map['back_out_reason'],
     );
     
     // Add additional fields from JOIN queries if they exist

@@ -245,6 +245,7 @@ class _DatabaseTestScreenState extends State<DatabaseTestScreen> {
           setupCompleted: true,
           schoolName: 'Edwardsville',
           mascot: 'Tigers',
+          schoolAddress: '6161 Center Grove Road, Edwardsville, IL 62025',
         ),
         User(
           schedulerType: 'assigner',

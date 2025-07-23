@@ -5,6 +5,7 @@ import '../../shared/services/repositories/game_assignment_repository.dart';
 import '../../shared/services/repositories/official_repository.dart';
 import '../../shared/services/user_session_service.dart';
 import '../../shared/models/database_models.dart';
+import '../../shared/widgets/back_out_dialog.dart';
 
 class OfficialGamesScreen extends StatefulWidget {
   const OfficialGamesScreen({super.key});
@@ -304,6 +305,7 @@ class _OfficialGamesScreenState extends State<OfficialGamesScreen> {
   Widget _buildGameCard(GameAssignment assignment) {
     final gameDate = assignment.gameDate;
     final isUpcoming = gameDate?.isAfter(DateTime.now()) ?? false;
+    final isConfirmed = assignment.status == 'accepted';
     final statusColor = assignment.status == 'completed' ? Colors.green : efficialsYellow;
     
     final sportName = assignment.sportName ?? 'Sport';
@@ -434,7 +436,7 @@ class _OfficialGamesScreenState extends State<OfficialGamesScreen> {
                     child: const Text('View Details'),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 8),
                 Expanded(
                   child: ElevatedButton(
                     onPressed: () {
@@ -447,6 +449,19 @@ class _OfficialGamesScreenState extends State<OfficialGamesScreen> {
                     child: const Text('Directions'),
                   ),
                 ),
+                if (isConfirmed) ...[
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => _showBackOutDialog(assignment),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.red,
+                        side: const BorderSide(color: Colors.red),
+                      ),
+                      child: const Text('Back Out'),
+                    ),
+                  ),
+                ],
               ],
             ),
           ],
@@ -517,5 +532,44 @@ class _OfficialGamesScreenState extends State<OfficialGamesScreen> {
     } else {
       return 'TBD';
     }
+  }
+
+  void _showBackOutDialog(GameAssignment assignment) {
+    final sportName = assignment.sportName ?? 'Sport';
+    final opponent = assignment.opponent;
+    final homeTeam = assignment.homeTeam;
+    final gameDate = assignment.gameDate;
+    final gameTime = assignment.gameTime;
+    final locationName = assignment.locationName ?? 'TBD';
+    
+    String gameTitle = _formatAssignmentTitle(assignment);
+    String dateString = gameDate != null ? _formatDate(gameDate) : 'TBD';
+    String timeString = gameTime != null ? _formatTime(gameTime) : 'TBD';
+    
+    final gameSummary = '$sportName: $gameTitle\n$dateString at $timeString\n$locationName';
+
+    showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return BackOutDialog(
+          gameSummary: gameSummary,
+          onConfirmBackOut: (String reason) => _handleBackOut(assignment, reason),
+        );
+      },
+    ).then((result) {
+      if (result == true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Successfully backed out of game'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        _loadGames(); // Reload games to reflect the change
+      }
+    });
+  }
+
+  Future<void> _handleBackOut(GameAssignment assignment, String reason) async {
+    await _assignmentRepo.backOutOfGame(assignment.id!, reason);
   }
 }

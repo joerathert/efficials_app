@@ -16,6 +16,7 @@ class _AthleticDirectorSetupScreenState
     extends State<AthleticDirectorSetupScreen> {
   final TextEditingController _schoolNameController = TextEditingController();
   final TextEditingController _mascotController = TextEditingController();
+  final TextEditingController _schoolAddressController = TextEditingController();
 
   void _handleContinue() async {
     // Use default values if fields are empty to allow quick testing
@@ -25,6 +26,9 @@ class _AthleticDirectorSetupScreenState
     final mascot = _mascotController.text.trim().isEmpty
         ? 'Tigers'
         : _mascotController.text.trim();
+    final schoolAddress = _schoolAddressController.text.trim().isEmpty
+        ? '6161 Center Grove Road, Edwardsville, IL 62025'
+        : _schoolAddressController.text.trim();
 
     try {
       // Get current user from session
@@ -44,6 +48,7 @@ class _AthleticDirectorSetupScreenState
             setupCompleted: true,
             schoolName: schoolName,
             mascot: mascot,
+            schoolAddress: schoolAddress,
             teamName: currentUser.teamName,
             sport: currentUser.sport,
             grade: currentUser.grade,
@@ -178,6 +183,32 @@ class _AthleticDirectorSetupScreenState
                             textFieldDecoration('Enter your school mascot'),
                         textCapitalization: TextCapitalization.words,
                       ),
+                      const SizedBox(height: 24),
+                      const Text(
+                        'School Address',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: primaryTextColor,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'This address will be used as the default location when filtering officials by distance',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: secondaryTextColor,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: _schoolAddressController,
+                        decoration:
+                            textFieldDecoration('e.g., 6161 Center Grove Road, Edwardsville, IL 62025'),
+                        textCapitalization: TextCapitalization.words,
+                        maxLines: 2,
+                      ),
                     ],
                   ),
                 ),
@@ -202,6 +233,7 @@ class _AthleticDirectorSetupScreenState
   void dispose() {
     _schoolNameController.dispose();
     _mascotController.dispose();
+    _schoolAddressController.dispose();
     super.dispose();
   }
 }

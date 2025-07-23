@@ -24,7 +24,7 @@ class DatabaseHelper {
     
     return await openDatabase(
       path,
-      version: 6,
+      version: 8,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -260,6 +260,17 @@ class DatabaseHelper {
       await db.execute('CREATE INDEX idx_user_sessions_user_id ON user_sessions(user_id)');
       await db.execute('CREATE INDEX idx_user_sessions_created_at ON user_sessions(created_at)');
     }
+    
+    if (oldVersion < 7) {
+      // Add back out functionality columns to game_assignments table
+      await db.execute('ALTER TABLE game_assignments ADD COLUMN backed_out_at DATETIME');
+      await db.execute('ALTER TABLE game_assignments ADD COLUMN back_out_reason TEXT');
+    }
+    
+    if (oldVersion < 8) {
+      // Add school_address column to users table
+      await db.execute('ALTER TABLE users ADD COLUMN school_address TEXT');
+    }
   }
 
   Future<void> _createTables(Database db) async {
@@ -271,6 +282,7 @@ class DatabaseHelper {
         setup_completed BOOLEAN DEFAULT FALSE,
         school_name TEXT,
         mascot TEXT,
+        school_address TEXT,
         team_name TEXT,
         sport TEXT,
         grade TEXT,
@@ -501,6 +513,8 @@ class DatabaseHelper {
         responded_at DATETIME,
         response_notes TEXT,
         fee_amount DECIMAL(10,2),
+        backed_out_at DATETIME,
+        back_out_reason TEXT,
         UNIQUE(game_id, official_id)
       )
     ''');

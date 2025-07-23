@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../shared/theme.dart';
+import '../../shared/services/database_helper.dart';
 
 class FilterSettingsScreen extends StatefulWidget {
   const FilterSettingsScreen({super.key});
@@ -24,6 +25,36 @@ class _FilterSettingsScreenState extends State<FilterSettingsScreen> {
     'Adult': false,
   };
   final _radiusController = TextEditingController();
+  String? defaultLocationName;
+  String? defaultLocationAddress;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDefaultLocation();
+  }
+
+  Future<void> _loadDefaultLocation() async {
+    try {
+      final db = await DatabaseHelper().database;
+      final adResult = await db.query(
+        'users', 
+        columns: ['school_address', 'school_name'],
+        where: 'scheduler_type = ? AND school_address IS NOT NULL',
+        whereArgs: ['athletic_director'],
+        limit: 1
+      );
+      
+      if (adResult.isNotEmpty && adResult.first['school_address'] != null) {
+        setState(() {
+          defaultLocationName = adResult.first['school_name'] as String?;
+          defaultLocationAddress = adResult.first['school_address'] as String?;
+        });
+      }
+    } catch (e) {
+      print('Could not load AD school address: $e');
+    }
+  }
 
   @override
   void dispose() {
@@ -207,10 +238,23 @@ class _FilterSettingsScreenState extends State<FilterSettingsScreen> {
                         ),
                       ] else ...[
                         Text(
-                          'Game Location: ${locationData?['name'] ?? 'Not set'}',
-                          style: const TextStyle(
-                              fontSize: 16, color: Colors.white),
+                          locationData != null 
+                            ? 'Game Location: ${locationData!['name']}'
+                            : defaultLocationName != null
+                              ? 'Game Location: $defaultLocationName'
+                              : 'Distance measured from your school\'s address',
+                          style: TextStyle(
+                              fontSize: locationData == null && defaultLocationName == null ? 14 : 16, 
+                              color: Colors.white),
                         ),
+                        if (locationData == null && defaultLocationAddress != null) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            'Using school address: ${defaultLocationAddress}',
+                            style: const TextStyle(
+                                fontSize: 12, color: secondaryTextColor, fontStyle: FontStyle.italic),
+                          ),
+                        ],
                         const SizedBox(height: 12),
                         TextField(
                           controller: _radiusController,

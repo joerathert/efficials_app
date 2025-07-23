@@ -259,6 +259,15 @@ class _AdditionalGameInfoCondensedScreenState
                     decoration: textFieldDecoration('Opponent'),
                     keyboardType: TextInputType.text,
                   ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'This name will be displayed to officials to help them identify the opponent',
+                    style: TextStyle(
+                      color: Colors.grey[400],
+                      fontSize: 12,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
                   const SizedBox(height: 20),
                   if (!_isAwayGame)
                     Row(

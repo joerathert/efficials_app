@@ -6,6 +6,7 @@ import '../../shared/theme.dart';
 import 'game_template.dart';
 import '../../shared/services/repositories/sport_repository.dart';
 import '../../shared/services/game_service.dart';
+import '../../shared/services/location_service.dart';
 
 class CreateGameTemplateScreen extends StatefulWidget {
   const CreateGameTemplateScreen({super.key});
@@ -36,6 +37,7 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
   bool isCreatingFromScratch = false; // Track if creating from scratch
   final SportRepository _sportRepository = SportRepository();
   final GameService _gameService = GameService();
+  final LocationService _locationService = LocationService();
 
   // Toggle states for including fields in the template
   bool includeSport = true;
@@ -219,29 +221,26 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
   }
 
   Future<void> _fetchLocations() async {
-    final prefs = await SharedPreferences.getInstance();
-    final String? locationsJson = prefs.getString('saved_locations');
-    setState(() {
-      locations = [];
-      try {
-        if (locationsJson != null && locationsJson.isNotEmpty) {
-          locations.addAll(
-              List<Map<String, dynamic>>.from(jsonDecode(locationsJson)));
+    try {
+      final fetchedLocations = await _locationService.getLocations();
+      setState(() {
+        locations = List<Map<String, dynamic>>.from(fetchedLocations);
+        locations.add({'name': '+ Create new location', 'id': 0}); // Add create option
+        
+        // Validate current location selection
+        if (location != null && 
+            !locations.any((loc) => loc['name'] == location && loc['id'] != 0)) {
+          location = null; // Clear invalid location
         }
-      } catch (e) {
-        // Handle JSON parsing error silently
-      }
-      locations
-          .add({'name': '+ Create new location', 'id': 0}); // Add create option
-      
-      // Validate current location selection
-      if (location != null && 
-          !locations.any((loc) => loc['name'] == location && loc['id'] != 0)) {
-        location = null; // Clear invalid location
-      }
-      
-      isLoadingLocations = false;
-    });
+        
+        isLoadingLocations = false;
+      });
+    } catch (e) {
+      setState(() {
+        locations = [{'name': '+ Create new location', 'id': 0}];
+        isLoadingLocations = false;
+      });
+    }
   }
 
   Future<void> _fetchSports() async {
@@ -259,9 +258,8 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
   }
 
   Future<void> _saveLocations() async {
-    final prefs = await SharedPreferences.getInstance();
-    final locationsToSave = locations.where((loc) => loc['id'] != 0).toList();
-    await prefs.setString('saved_locations', jsonEncode(locationsToSave));
+    // Locations are now saved directly through LocationService
+    // This method is kept for compatibility but no longer needed
   }
 
   Future<void> _selectTime(BuildContext context) async {
@@ -788,24 +786,14 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                                     if (newValue == '+ Create new location') {
                                       Navigator.pushNamed(
                                               context, '/add_new_location')
-                                          .then((result) {
+                                          .then((result) async {
                                         if (result != null) {
                                           final newLoc =
                                               result as Map<String, dynamic>;
+                                          // Refresh locations from database
+                                          await _fetchLocations();
                                           setState(() {
-                                            locations
-                                                .insert(locations.length - 1, {
-                                              'name': newLoc['name'],
-                                              'address': newLoc['address'],
-                                              'city': newLoc['city'],
-                                              'state': newLoc['state'],
-                                              'zip': newLoc['zip'],
-                                              'id': newLoc['id'] ??
-                                                  DateTime.now()
-                                                      .millisecondsSinceEpoch,
-                                            });
                                             location = newLoc['name'];
-                                            _saveLocations();
                                           });
                                         }
                                       });

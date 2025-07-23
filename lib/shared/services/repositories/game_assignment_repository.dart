@@ -105,6 +105,37 @@ class GameAssignmentRepository extends BaseRepository {
     
     return await createAssignment(assignment);
   }
+
+  // Claim a game (create accepted assignment and increment officials_hired)
+  Future<int> claimGame(int gameId, int officialId, double? feeAmount) async {
+    try {
+      // Start a transaction to ensure consistency
+      final assignment = GameAssignment(
+        gameId: gameId,
+        officialId: officialId,
+        status: 'accepted',
+        assignedBy: officialId, // Official is claiming the game
+        assignedAt: DateTime.now(),
+        respondedAt: DateTime.now(),
+        feeAmount: feeAmount,
+      );
+      
+      // Create the assignment
+      final assignmentId = await createAssignment(assignment);
+      
+      // Increment the officials_hired count for the game
+      await rawQuery('''
+        UPDATE games 
+        SET officials_hired = officials_hired + 1 
+        WHERE id = ?
+      ''', [gameId]);
+      
+      return assignmentId;
+    } catch (e) {
+      print('Error claiming game: $e');
+      throw Exception('Failed to claim game: ${e.toString()}');
+    }
+  }
   
   // Withdraw interest in a game
   Future<int> withdrawInterest(int gameId, int officialId) async {
@@ -154,5 +185,40 @@ class GameAssignmentRepository extends BaseRepository {
     ''', [gameId]);
     
     return results.isNotEmpty ? results.first : null;
+  }
+
+  // Back out of a game (for confirmed assignments)
+  Future<int> backOutOfGame(int assignmentId, String reason) async {
+    try {
+      final data = {
+        'status': 'backed_out',
+        'backed_out_at': DateTime.now().toIso8601String(),
+        'back_out_reason': reason,
+      };
+      
+      final result = await update('game_assignments', data, 'id = ?', [assignmentId]);
+      
+      // Decrease the officials_hired count for the game to allow position to be refilled
+      final assignment = await rawQuery('''
+        SELECT game_id FROM game_assignments WHERE id = ?
+      ''', [assignmentId]);
+      
+      if (assignment.isNotEmpty) {
+        final gameId = assignment.first['game_id'];
+        await rawQuery('''
+          UPDATE games 
+          SET officials_hired = CASE 
+            WHEN officials_hired > 0 THEN officials_hired - 1 
+            ELSE 0 
+          END 
+          WHERE id = ?
+        ''', [gameId]);
+      }
+      
+      return result;
+    } catch (e) {
+      print('Error backing out of game: $e');
+      throw Exception('Failed to back out of game: ${e.toString()}');
+    }
   }
 }

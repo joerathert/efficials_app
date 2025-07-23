@@ -141,6 +141,7 @@ class MigrationService {
       await prefs.remove('game_templates');
       await prefs.remove('saved_lists');
       await prefs.remove('ad_published_games');
+      await prefs.remove('ad_unpublished_games');
       await prefs.remove('coach_published_games');
       await prefs.remove('assigner_published_games');
       

@@ -640,14 +640,23 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                 ),
               ),
               ElevatedButton(
-                onPressed: () => _showExpressInterestDialog(game),
+                onPressed: () => game['hire_automatically'] == 1 
+                    ? _showClaimGameDialog(game)
+                    : _showExpressInterestDialog(game),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: efficialsYellow,
-                  foregroundColor: efficialsBlack,
+                  backgroundColor: game['hire_automatically'] == 1 
+                      ? Colors.green 
+                      : efficialsYellow,
+                  foregroundColor: game['hire_automatically'] == 1 
+                      ? Colors.white 
+                      : efficialsBlack,
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   minimumSize: Size.zero,
                 ),
-                child: const Text('Express Interest', style: TextStyle(fontSize: 12)),
+                child: Text(
+                  game['hire_automatically'] == 1 ? 'Claim Game' : 'Express Interest', 
+                  style: const TextStyle(fontSize: 12)
+                ),
               ),
             ],
           ),
@@ -1268,7 +1277,7 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                               Icon(Icons.attach_money, size: 16, color: Colors.green[400]),
                               const SizedBox(width: 4),
                               Text(
-                                '\$${fee.toStringAsFixed(2)}',
+                                '${fee.toStringAsFixed(2)}',
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
@@ -1302,12 +1311,18 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
     ));
   }
 
-  void _navigateToGameDetails(GameAssignment assignment) {
-    Navigator.pushNamed(
+  void _navigateToGameDetails(GameAssignment assignment) async {
+    final result = await Navigator.pushNamed(
       context,
       '/official_game_details', 
       arguments: assignment,
     );
+    
+    // If the user backed out of the game, refresh the data
+    if (result == true) {
+      // Show a subtle loading indicator while refreshing
+      await _loadData();
+    }
   }
 
   void _showExpressInterestDialog(Map<String, dynamic> game) {
@@ -1368,12 +1383,17 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
             ],
           ),
           actions: [
-            TextButton(
+            OutlinedButton(
               onPressed: () => Navigator.pop(context),
-              child: Text(
-                'Cancel',
-                style: TextStyle(color: Colors.grey[400]),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.grey[400],
+                side: BorderSide(color: Colors.grey[600]!),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               ),
+              child: const Text('Cancel'),
             ),
             ElevatedButton(
               onPressed: () {
@@ -1387,8 +1407,94 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               ),
               child: const Text('Express Interest'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showClaimGameDialog(Map<String, dynamic> game) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: darkSurface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              Icon(Icons.sports, color: Colors.green, size: 24),
+              const SizedBox(width: 8),
+              const Text(
+                'Claim Game',
+                style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Are you sure you want to claim this game?',
+                style: TextStyle(color: Colors.grey[300], fontSize: 16),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.green.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.green.withOpacity(0.3)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.check_circle, color: Colors.green[300], size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'You will be assigned to this game and the Scheduler will be notified.',
+                        style: TextStyle(color: Colors.green[300], fontSize: 14),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            OutlinedButton(
+              onPressed: () => Navigator.pop(context),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.grey[400],
+                side: BorderSide(color: Colors.grey[600]!),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              ),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                print('DEBUG: Claim Game button pressed');
+                Navigator.pop(context);
+                _claimGame(game);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              ),
+              child: const Text('Claim Game'),
             ),
           ],
         );
@@ -1491,6 +1597,93 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Failed to express interest. Please try again.'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
+
+  void _claimGame(Map<String, dynamic> game) async {
+    final gameId = game['game_id'] ?? game['id'];
+    final officialId = _currentOfficial!.id!;
+    final feeAmount = _parseDoubleFromString(game['game_fee']);
+    
+    print('DEBUG: Claim Game called for game: $game');
+    print('DEBUG: Game ID: $gameId, Official ID: $officialId');
+    print('DEBUG: Available games before: ${availableGames.length}');
+    print('DEBUG: Accepted games before: ${acceptedGames.length}');
+    
+    // Immediately update the UI state for responsive UX
+    setState(() {
+      // Remove from available games
+      final removedCount = availableGames.length;
+      availableGames.removeWhere((availableGame) => 
+        availableGame['id'] == game['id'] || 
+        (availableGame['game_id'] == game['game_id'] && game['game_id'] != null)
+      );
+      print('DEBUG: Removed ${removedCount - availableGames.length} games from available');
+      
+      // Create a GameAssignment object for accepted list using fromMap
+      final acceptedAssignmentMap = {
+        'id': null, // Will be set by database
+        'game_id': gameId,
+        'official_id': officialId,
+        'status': 'accepted',
+        'assigned_by': officialId, // Official is claiming the game
+        'assigned_at': DateTime.now().toIso8601String(),
+        'responded_at': DateTime.now().toIso8601String(),
+        'fee_amount': feeAmount,
+        // Additional fields from game data
+        'date': game['date'],
+        'time': game['time'],
+        'sport_name': game['sport_name'],
+        'opponent': game['opponent'],
+        'location_name': game['location_name'],
+      };
+      
+      final acceptedAssignment = GameAssignment.fromMap(acceptedAssignmentMap);
+      
+      // Add to accepted games (at the beginning for most recent)
+      acceptedGames.insert(0, acceptedAssignment);
+      
+      print('DEBUG: Available games after: ${availableGames.length}');
+      print('DEBUG: Accepted games after: ${acceptedGames.length}');
+    });
+    
+    // Show immediate feedback
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Successfully claimed ${game['sport_name']} game!'),
+        backgroundColor: Colors.green,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+    
+    // Persist to database in the background
+    try {
+      await _assignmentRepo.claimGame(gameId, officialId, feeAmount);
+      print('Successfully persisted game claim to database');
+    } catch (e) {
+      print('Error persisting game claim: $e');
+      
+      // Revert UI changes if database operation failed
+      setState(() {
+        // Add the game back to available games
+        availableGames.add(game);
+        
+        // Remove from accepted games
+        acceptedGames.removeWhere((assignment) => 
+          assignment.gameId == gameId && assignment.officialId == officialId
+        );
+      });
+      
+      // Show error message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to claim game. Please try again.'),
             backgroundColor: Colors.red,
             duration: const Duration(seconds: 3),
           ),
@@ -1607,4 +1800,5 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
       return 'TBD';
     }
   }
+
 }

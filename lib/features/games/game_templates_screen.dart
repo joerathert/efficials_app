@@ -433,16 +433,18 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen> with RouteAwa
                                                           mainAxisSize: MainAxisSize.min,
                                                           children: [
                                                             IconButton(
-                                                              onPressed: () {
-                                                                Navigator.pushNamed(
+                                                              onPressed: () async {
+                                                                final result = await Navigator.pushNamed(
                                                                   context,
-                                                                  '/sport_templates',
+                                                                  '/create_game_template',
                                                                   arguments: {
-                                                                    'sport': sport,
-                                                                    'selectedTemplate': template.id,
-                                                                    'editMode': true,
+                                                                    'template': template,
                                                                   },
                                                                 );
+                                                                if (result != null) {
+                                                                  // Template was updated, refresh the list
+                                                                  await _fetchTemplates();
+                                                                }
                                                               },
                                                               icon: const Icon(
                                                                 Icons.edit,

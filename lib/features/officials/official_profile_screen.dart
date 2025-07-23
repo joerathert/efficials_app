@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../shared/theme.dart';
+import '../../shared/services/user_session_service.dart';
 
 class OfficialProfileScreen extends StatefulWidget {
   const OfficialProfileScreen({super.key});
@@ -9,7 +11,11 @@ class OfficialProfileScreen extends StatefulWidget {
 }
 
 class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
-  // Mock profile data
+  Map<String, dynamic>? otherOfficialData;
+  bool isViewingOwnProfile = true;
+  bool showCareerStatistics = true;
+  
+  // Mock profile data for current user
   final Map<String, dynamic> profileData = {
     'name': 'John Smith',
     'email': 'john.smith@email.com',
@@ -18,15 +24,16 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
     'experienceYears': 8,
     'primarySport': 'Football',
     'certificationLevel': 'IHSA Certified',
-    'bio': 'Experienced high school sports official with a passion for fair play and athletic development.',
     'ratePerGame': 60.0,
     'maxTravelDistance': 25,
     'joinedDate': DateTime(2023, 3, 15),
     'totalGames': 47,
-    'rating': 4.8,
+    'schedulerEndorsements': 0,
+    'officialEndorsements': 0,
     'profileVerified': true,
     'emailVerified': true,
     'phoneVerified': false,
+    'showCareerStats': true,
   };
 
   final List<Map<String, dynamic>> sports = [
@@ -44,6 +51,23 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
   };
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    
+    // Check if arguments were passed (viewing another official's profile)
+    final args = ModalRoute.of(context)?.settings.arguments;
+    if (args != null && args is Map<String, dynamic>) {
+      otherOfficialData = args;
+      isViewingOwnProfile = false;
+      // Get the show career stats preference from the other official's data
+      showCareerStatistics = otherOfficialData!['showCareerStats'] ?? false;
+    }
+  }
+
+  Map<String, dynamic> get currentProfileData => 
+      isViewingOwnProfile ? profileData : otherOfficialData!;
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: darkBackground,
@@ -57,13 +81,23 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
               _buildProfileHeader(),
               const SizedBox(height: 24),
 
-              // Verification Status
-              _buildVerificationStatus(),
-              const SizedBox(height: 24),
+              // Verification Status (only for own profile)
+              if (isViewingOwnProfile) ...[
+                _buildVerificationStatus(),
+                const SizedBox(height: 24),
+              ],
 
-              // Stats
-              _buildStatsSection(),
-              const SizedBox(height: 24),
+              // Stats (show if own profile or if other official allows it)
+              if (isViewingOwnProfile || showCareerStatistics) ...[
+                _buildStatsSection(),
+                const SizedBox(height: 24),
+              ],
+
+              // Career Statistics Toggle (only for own profile)
+              if (isViewingOwnProfile) ...[  
+                _buildCareerStatsToggle(),
+                const SizedBox(height: 24),
+              ],
 
               // Sports & Certifications
               _buildSportsSection(),
@@ -73,16 +107,18 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
               _buildContactSection(),
               const SizedBox(height: 24),
 
-              // Preferences
-              _buildPreferencesSection(),
-              const SizedBox(height: 24),
-
-              // Notification Settings
-              _buildNotificationSettings(),
-              const SizedBox(height: 24),
-
-              // Account Actions
-              _buildAccountActions(),
+              // Preferences (only for own profile)
+              if (isViewingOwnProfile) ...[
+                _buildPreferencesSection(),
+                const SizedBox(height: 24),
+                
+                // Notification Settings
+                _buildNotificationSettings(),
+                const SizedBox(height: 24),
+                
+                // Account Actions
+                _buildAccountActions(),
+              ],
             ],
           ),
         ),
@@ -127,7 +163,7 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      profileData['name'],
+                      currentProfileData['name'],
                       style: const TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.bold,
@@ -136,22 +172,48 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '${profileData['experienceYears']} years experience',
+                      '${currentProfileData['experienceYears']} years experience',
                       style: TextStyle(
                         fontSize: 14,
                         color: Colors.grey[400],
                       ),
                     ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Row(
+                            children: [
+                              Icon(Icons.school, size: 16, color: Colors.grey[400]),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Scheduler Endorsements: ${currentProfileData['schedulerEndorsements'] ?? 0}',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey[400],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 4),
                     Row(
                       children: [
-                        Icon(Icons.star, size: 16, color: Colors.amber),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${profileData['rating']} rating',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey[400],
+                        Expanded(
+                          child: Row(
+                            children: [
+                              Icon(Icons.people, size: 16, color: Colors.grey[400]),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Official Endorsements: ${currentProfileData['officialEndorsements'] ?? 0}',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey[400],
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
@@ -159,26 +221,24 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
                   ],
                 ),
               ),
-              // Edit button
-              IconButton(
-                onPressed: () {
-                  // TODO: Navigate to edit profile
-                },
-                icon: const Icon(Icons.edit, color: efficialsYellow),
-              ),
+              // Edit button (only show for own profile) or Endorse button (for other profiles)
+              if (isViewingOwnProfile)
+                IconButton(
+                  onPressed: () {
+                    // TODO: Navigate to edit profile
+                  },
+                  icon: const Icon(Icons.edit, color: efficialsYellow),
+                )
+              else
+                IconButton(
+                  onPressed: () {
+                    _showEndorsementDialog();
+                  },
+                  icon: const Icon(Icons.thumb_up, color: efficialsYellow),
+                  tooltip: 'Endorse this official',
+                ),
             ],
           ),
-          if (profileData['bio'] != null) ...[
-            const SizedBox(height: 16),
-            Text(
-              profileData['bio'],
-              style: const TextStyle(
-                fontSize: 14,
-                color: Colors.white,
-                height: 1.4,
-              ),
-            ),
-          ],
         ],
       ),
     );
@@ -293,13 +353,13 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
           Row(
             children: [
               Expanded(
-                child: _buildStatItem('Total Games', '${profileData['totalGames']}'),
+                child: _buildStatItem('Total Games', '${currentProfileData['totalGames'] ?? 0}'),
               ),
               Expanded(
                 child: _buildStatItem('This Season', '12'),
               ),
               Expanded(
-                child: _buildStatItem('Average Rating', '${profileData['rating']}'),
+                child: _buildStatItem('Experience', '${currentProfileData['experienceYears'] ?? 0} years'),
               ),
             ],
           ),
@@ -307,7 +367,7 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
           Row(
             children: [
               Expanded(
-                child: _buildStatItem('Member Since', '${profileData['joinedDate'].year}'),
+                child: _buildStatItem('Member Since', '${(currentProfileData['joinedDate'] as DateTime?)?.year ?? DateTime.now().year}'),
               ),
               Expanded(
                 child: _buildStatItem('Sports', '${sports.length}'),
@@ -367,12 +427,13 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
                   color: efficialsYellow,
                 ),
               ),
-              TextButton(
-                onPressed: () {
-                  // TODO: Edit sports
-                },
-                child: const Text('Edit', style: TextStyle(color: efficialsYellow)),
-              ),
+              if (isViewingOwnProfile)
+                TextButton(
+                  onPressed: () {
+                    // TODO: Edit sports
+                  },
+                  child: const Text('Edit', style: TextStyle(color: efficialsYellow)),
+                ),
             ],
           ),
           const SizedBox(height: 12),
@@ -469,24 +530,25 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
                   color: efficialsYellow,
                 ),
               ),
-              TextButton(
-                onPressed: () {
-                  // TODO: Edit contact info
-                },
-                child: const Text('Edit', style: TextStyle(color: efficialsYellow)),
-              ),
+              if (isViewingOwnProfile)
+                TextButton(
+                  onPressed: () {
+                    // TODO: Edit contact info
+                  },
+                  child: const Text('Edit', style: TextStyle(color: efficialsYellow)),
+                ),
             ],
           ),
           const SizedBox(height: 12),
-          _buildContactItem(Icons.email, 'Email', profileData['email']),
-          _buildContactItem(Icons.phone, 'Phone', profileData['phone']),
-          _buildContactItem(Icons.location_on, 'Location', profileData['location']),
+          _buildContactItem(Icons.email, 'Email', currentProfileData['email'], isClickable: true),
+          _buildContactItem(Icons.phone, 'Phone', currentProfileData['phone'], isClickable: true),
+          _buildContactItem(Icons.location_on, 'Location', currentProfileData['location'], isClickable: false),
         ],
       ),
     );
   }
 
-  Widget _buildContactItem(IconData icon, String label, String value) {
+  Widget _buildContactItem(IconData icon, String label, String value, {bool isClickable = false}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
@@ -504,11 +566,15 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
                     color: Colors.grey[400],
                   ),
                 ),
-                Text(
-                  value,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: Colors.white,
+                GestureDetector(
+                  onTap: isClickable && !isViewingOwnProfile ? () => _handleContactTap(label, value) : null,
+                  child: Text(
+                    value,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: isClickable && !isViewingOwnProfile ? efficialsYellow : Colors.white,
+                      decoration: isClickable && !isViewingOwnProfile ? TextDecoration.underline : null,
+                    ),
                   ),
                 ),
               ],
@@ -540,15 +606,15 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
           const SizedBox(height: 12),
           _buildPreferenceItem(
             'Rate per Game',
-            '\$${profileData['ratePerGame'].toStringAsFixed(0)}',
+            '\$${(currentProfileData['ratePerGame'] as double?)?.toStringAsFixed(0) ?? '0'}',
           ),
           _buildPreferenceItem(
             'Max Travel Distance',
-            '${profileData['maxTravelDistance']} miles',
+            '${currentProfileData['maxTravelDistance'] ?? 0} miles',
           ),
           _buildPreferenceItem(
             'Primary Sport',
-            profileData['primarySport'],
+            currentProfileData['primarySport'] ?? 'N/A',
           ),
         ],
       ),
@@ -711,5 +777,117 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
         ],
       ),
     );
+  }
+
+  Widget _buildCareerStatsToggle() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: darkSurface,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: SwitchListTile(
+        title: const Text(
+          'Show Career Statistics',
+          style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        subtitle: const Text(
+          'Allow other officials to see your career statistics',
+          style: TextStyle(color: Colors.grey),
+        ),
+        value: profileData['showCareerStats'] ?? true,
+        onChanged: (value) {
+          setState(() {
+            profileData['showCareerStats'] = value;
+          });
+          // TODO: Save this preference to the database
+        },
+        activeColor: efficialsYellow,
+        contentPadding: EdgeInsets.zero,
+      ),
+    );
+  }
+
+  void _showEndorsementDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: darkSurface,
+        title: const Text(
+          'Endorse Official',
+          style: TextStyle(color: efficialsYellow),
+        ),
+        content: Text(
+          'Do you want to endorse ${currentProfileData['name']}? This will add to their endorsement count and cannot be undone.',
+          style: const TextStyle(color: Colors.white),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _handleEndorsement();
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: efficialsYellow),
+            child: const Text('Endorse', style: TextStyle(color: efficialsBlack)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _handleEndorsement() {
+    // TODO: Implement actual endorsement logic with backend
+    // For now, show a success message
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Endorsement submitted successfully!'),
+        backgroundColor: Colors.green,
+      ),
+    );
+    
+    // In a real implementation, you would:
+    // 1. Determine if current user is a scheduler or official
+    // 2. Send endorsement to backend/database
+    // 3. Update the profile data to reflect new endorsement count
+    // 4. Prevent duplicate endorsements from same user
+  }
+
+  void _handleContactTap(String label, String value) async {
+    try {
+      Uri uri;
+      if (label == 'Phone') {
+        uri = Uri(scheme: 'sms', path: value);
+      } else if (label == 'Email') {
+        uri = Uri(scheme: 'mailto', path: value);
+      } else {
+        return;
+      }
+      
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Could not launch ${label.toLowerCase()}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error opening ${label.toLowerCase()}: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 }

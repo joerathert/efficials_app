@@ -56,12 +56,12 @@ class _CreateNewListScreenState extends State<CreateNewListScreen> {
       context,
       '/name_list',
       arguments: {
-        'sport': selectedSport,
+        ...args, // Pass through all original arguments first
+        'sport': selectedSport, // Override with the selected sport
         'existingLists': existingLists,
         'locationData': args['locationData'],
         'isAwayGame': args['isAwayGame'] ?? false,
         'fromGameCreation': isFromGameCreation,
-        ...args, // Pass through all original arguments
       },
     ).then((result) {
       if (result != null) {
