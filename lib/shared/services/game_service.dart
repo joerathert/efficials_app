@@ -122,16 +122,42 @@ class GameService {
   // Create a new game
   Future<Map<String, dynamic>?> createGame(Map<String, dynamic> gameData) async {
     try {
-      debugPrint('Creating game with data: $gameData');
+      
+      // DUPLICATE PREVENTION: Check if a similar game already exists
       final userId = await _getCurrentUserId();
+      
+      // Check for potential duplicates within the last 2 minutes
+      final recentGames = await _gameRepository.getGamesByUser(userId);
+      final now = DateTime.now();
+      final twoMinutesAgo = now.subtract(const Duration(minutes: 2));
+      
+      final potentialDuplicate = recentGames.where((game) {
+        if (game.createdAt.isBefore(twoMinutesAgo)) return false;
+        
+        // Check if key fields match (opponent, date, sport)
+        final sameOpponent = (game.opponent?.trim() ?? '') == (gameData['opponent']?.toString().trim() ?? '');
+        final sameDate = game.date?.toIso8601String().split('T')[0] == 
+                        (gameData['date'] as DateTime?)?.toIso8601String().split('T')[0];
+        final sameSport = (game.sportName?.trim() ?? '') == (gameData['sport']?.toString().trim() ?? '');
+        
+        // Additional check for schedule if both have it
+        bool sameSchedule = true;
+        if (game.scheduleName != null && gameData['scheduleName'] != null) {
+          sameSchedule = (game.scheduleName?.trim() ?? '') == (gameData['scheduleName']?.toString().trim() ?? '');
+        }
+        
+        return sameOpponent && sameDate && sameSport && sameSchedule;
+      }).toList();
+      
+      if (potentialDuplicate.isNotEmpty) {
+        return _gameToMap(potentialDuplicate.first);
+      }
       
       // Get sport ID
       final sportId = await _getSportId(gameData['sport']);
       if (sportId == null) {
-        debugPrint('Sport not found: ${gameData['sport']}');
         return null;
       }
-      debugPrint('Found sport ID: $sportId for sport: ${gameData['sport']}');
 
       // Get schedule ID if provided
       int? scheduleId;
@@ -145,7 +171,7 @@ class GameService {
         locationId = await _getLocationId(gameData['location']);
       }
 
-      // Get Athletic Director's school information for home team from database
+      // Get Athletic Director's school information for home team
       String? homeTeam;
       try {
         final currentUser = await _userRepository.getCurrentUser();
@@ -153,7 +179,12 @@ class GameService {
           homeTeam = '${currentUser.schoolName} ${currentUser.mascot}';
         }
       } catch (e) {
-        debugPrint('Error getting AD school info from database: $e');
+        debugPrint('Error getting AD school info: $e');
+      }
+      
+      // Ensure homeTeam is never null or empty
+      if (homeTeam == null || homeTeam.trim().isEmpty || homeTeam.toLowerCase() == 'null') {
+        homeTeam = 'Home Team';
       }
 
       final game = Game(
@@ -179,16 +210,9 @@ class GameService {
       );
 
       final gameId = await _gameRepository.createGame(game);
-      debugPrint('Game created with database ID: $gameId');
       final createdGame = await _gameRepository.getGameById(gameId);
       
-      if (createdGame != null) {
-        debugPrint('Successfully retrieved created game from database');
-        return _gameToMap(createdGame);
-      } else {
-        debugPrint('Failed to retrieve created game from database');
-        return null;
-      }
+      return createdGame != null ? _gameToMap(createdGame) : null;
     } catch (e) {
       debugPrint('Error creating game: $e');
       return null;
@@ -204,7 +228,6 @@ class GameService {
       // Get sport ID
       final sportId = await _getSportId(gameData['sport']);
       if (sportId == null) {
-        debugPrint('Sport not found: ${gameData['sport']}');
         return null;
       }
 
@@ -467,7 +490,6 @@ class GameService {
         await _templateRepository.deleteGameTemplate(template.id!);
       }
       
-      debugPrint('Cleared ${templates.length} templates for user $userId');
       return true;
     } catch (e) {
       debugPrint('Error clearing templates: $e');
@@ -493,7 +515,6 @@ class GameService {
       // Get sport ID
       final sportId = await _getSportId(data['sport']);
       if (sportId == null) {
-        debugPrint('Sport not found: ${data['sport']}');
         return false;
       }
 
@@ -551,7 +572,9 @@ class GameService {
   Future<Map<String, dynamic>?> createGameFromTemplate(int templateId) async {
     try {
       final template = await _templateRepository.getTemplateById(templateId);
-      if (template == null) return null;
+      if (template == null) {
+        return null;
+      }
 
       final gameData = await _templateRepository.createGameFromTemplate(template);
       return await createGame(gameData);
@@ -602,7 +625,7 @@ class GameService {
       
       for (final list in lists) {
         if (list['name'] == listName && list['id'] != null) {
-          return list['id'] as int;
+          return (list['id'] as int?) ?? 0;
         }
       }
       
@@ -629,6 +652,7 @@ class GameService {
       'officialsHired': game.officialsHired,
       'gameFee': game.gameFee,
       'opponent': game.opponent,
+      'homeTeam': game.homeTeam,
       'hireAutomatically': game.hireAutomatically,
       'method': game.method,
       'status': game.status,

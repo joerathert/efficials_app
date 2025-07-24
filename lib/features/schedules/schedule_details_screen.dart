@@ -903,6 +903,7 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                           'scheduleId': scheduleId,
                           'date': _selectedDay,
                           'fromScheduleDetails': true,
+                          'sport': sport ?? _inferSportFromScheduleName(scheduleName ?? '') ?? 'Football',
                           'template': template, // Pass the associated template
                         },
                       ).then((_) {

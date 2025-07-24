@@ -116,6 +116,29 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
       
       if (mounted) {
         setState(() {
+          // Sort accepted games by date and time (earliest first)
+          accepted.sort((a, b) {
+            final aDate = a.gameDate;
+            final bDate = b.gameDate;
+            
+            if (aDate == null && bDate == null) return 0;
+            if (aDate == null) return 1;
+            if (bDate == null) return -1;
+            
+            final dateComparison = aDate.compareTo(bDate);
+            if (dateComparison != 0) return dateComparison;
+            
+            // If dates are the same, compare times
+            final aTime = a.gameTime;
+            final bTime = b.gameTime;
+            
+            if (aTime == null && bTime == null) return 0;
+            if (aTime == null) return 1;
+            if (bTime == null) return -1;
+            
+            return aTime.compareTo(bTime);
+          });
+          
           acceptedGames = accepted;
           pendingGames = pending;
           // Convert to mutable list to allow removeWhere operations
@@ -1651,8 +1674,31 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
       
       final acceptedAssignment = GameAssignment.fromMap(acceptedAssignmentMap);
       
-      // Add to accepted games (at the beginning for most recent)
-      acceptedGames.insert(0, acceptedAssignment);
+      // Add to accepted games and sort by date/time
+      acceptedGames.add(acceptedAssignment);
+      
+      // Sort accepted games by date and time (earliest first)
+      acceptedGames.sort((a, b) {
+        final aDate = a.gameDate;
+        final bDate = b.gameDate;
+        
+        if (aDate == null && bDate == null) return 0;
+        if (aDate == null) return 1;
+        if (bDate == null) return -1;
+        
+        final dateComparison = aDate.compareTo(bDate);
+        if (dateComparison != 0) return dateComparison;
+        
+        // If dates are the same, compare times
+        final aTime = a.gameTime;
+        final bTime = b.gameTime;
+        
+        if (aTime == null && bTime == null) return 0;
+        if (aTime == null) return 1;
+        if (bTime == null) return -1;
+        
+        return aTime.compareTo(bTime);
+      });
       
       print('DEBUG: Available games after: ${availableGames.length}');
       print('DEBUG: Accepted games after: ${acceptedGames.length}');

@@ -331,7 +331,7 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
       'id': existingLists.isEmpty
           ? 1
           : (existingLists
-                  .map((list) => list['id'] as int)
+                  .map((list) => (list['id'] as int?) ?? 0)
                   .reduce((a, b) => a > b ? a : b) +
               1),
     };

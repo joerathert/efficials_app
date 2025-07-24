@@ -58,6 +58,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
       final gameCount = item['gameCount'] as int;
       
       final scheduleName = schedule['name'] as String;
+      final scheduleId = schedule['id'] as int;
       final sport = schedule['sport'] as String? ?? 'Unknown';
       
       scheduleNameSet.add(scheduleName);
@@ -89,6 +90,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
         'sport': sport,
         'gender': gender,
         'scheduleName': scheduleName,
+        'scheduleId': scheduleId,
         'gameCount': gameCount,
       };
     }
@@ -361,6 +363,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
               mainAxisSize: MainAxisSize.min,
               children: schedules.map((schedule) {
                 final scheduleName = schedule['scheduleName'] as String? ?? 'Unknown';
+                final scheduleId = schedule['scheduleId'] as int? ?? scheduleName.hashCode;
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 8),
                   child: Material(
@@ -374,7 +377,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                           '/schedule_details',
                           arguments: {
                             'scheduleName': scheduleName,
-                            'scheduleId': scheduleName.hashCode,
+                            'scheduleId': scheduleId,
                           },
                         ).then((result) {
                           if (result == true) {
@@ -636,9 +639,9 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                                             onTap: () {
                                               // If there's only one schedule in the group, navigate directly to it
                                               if (schedules.length == 1) {
-                                                final scheduleName = schedules
-                                                        .first['scheduleName']
-                                                    as String? ?? 'Unknown';
+                                                final schedule = schedules.first;
+                                                final scheduleName = schedule['scheduleName'] as String? ?? 'Unknown';
+                                                final scheduleId = schedule['scheduleId'] as int? ?? scheduleName.hashCode;
                                                 Navigator.pushNamed(
                                                   context,
                                                   '/schedule_details',
@@ -646,7 +649,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                                                     'scheduleName':
                                                         scheduleName,
                                                     'scheduleId':
-                                                        scheduleName.hashCode,
+                                                        scheduleId,
                                                   },
                                                 ).then((result) {
                                                   if (result == true) {

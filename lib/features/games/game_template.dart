@@ -136,7 +136,7 @@ class GameTemplate {
             selectedOfficials = List<Map<String, dynamic>>.from(officialsList);
           } else if (officialsList.first is String) {
             // Format: ["John Doe", "Jane Smith"]
-            selectedOfficials = officialsList.map((name) => {'name': name as String}).toList();
+            selectedOfficials = officialsList.map((name) => {'name': (name as String?) ?? 'Unknown Official'}).toList();
           } else {
             selectedOfficials = null;
           }

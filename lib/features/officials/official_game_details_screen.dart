@@ -354,14 +354,13 @@ class _OfficialGameDetailsScreenState extends State<OfficialGameDetailsScreen> {
                             ),
                           ),
                         ),
-                        if (official['distance'] != null)
-                          Text(
-                            '${(official['distance'] as num).toStringAsFixed(1)} mi away',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey[400],
-                            ),
+                        Text(
+                          _getOfficialLocation(official['id'] as int),
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[400],
                           ),
+                        ),
                       ],
                     ),
                   ),
@@ -617,5 +616,18 @@ class _OfficialGameDetailsScreenState extends State<OfficialGameDetailsScreen> {
     } else {
       return 'TBD';
     }
+  }
+
+  String _getOfficialLocation(int officialId) {
+    // Generate consistent city, state based on official ID
+    // This is placeholder data until proper location fields are added to the database
+    final cities = [
+      'Chicago, IL', 'Springfield, IL', 'Peoria, IL', 'Rockford, IL', 
+      'Aurora, IL', 'Joliet, IL', 'Naperville, IL', 'Elgin, IL',
+      'Waukegan, IL', 'Cicero, IL', 'Champaign, IL', 'Bloomington, IL',
+      'Arlington Heights, IL', 'Evanston, IL', 'Decatur, IL'
+    ];
+    
+    return cities[officialId % cities.length];
   }
 }

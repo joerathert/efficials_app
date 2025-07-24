@@ -9,6 +9,7 @@ import '../../shared/services/migration_service.dart';
 import '../../shared/services/repositories/user_repository.dart';
 import '../../shared/services/database_helper.dart';
 import '../../shared/models/database_models.dart';
+import '../../shared/utils/database_cleanup.dart';
 
 class DatabaseTestScreen extends StatefulWidget {
   const DatabaseTestScreen({super.key});
@@ -88,6 +89,232 @@ class _DatabaseTestScreenState extends State<DatabaseTestScreen> {
         testResult = 'Migration error: $e';
         isLoading = false;
       });
+    }
+  }
+
+  Future<void> _cleanupDuplicateGames() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Cleanup Duplicate Games'),
+        content: const Text('This will remove duplicate games and fix missing home team information. This action cannot be undone. Continue?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Cleanup'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      setState(() {
+        isLoading = true;
+        testResult = 'Cleaning up duplicate games...';
+      });
+
+      try {
+        // First, let's check what duplicates exist
+        final duplicates = await DatabaseCleanup.findPotentialDuplicates();
+        
+        if (duplicates.isEmpty) {
+          setState(() {
+            testResult = 'No duplicate games found.';
+            isLoading = false;
+          });
+          return;
+        }
+
+        // Show the duplicates found
+        StringBuffer result = StringBuffer();
+        result.writeln('Found ${duplicates.length} sets of potential duplicates:');
+        for (var duplicate in duplicates) {
+          result.writeln('- ${duplicate['opponent']} on ${duplicate['date']} (${duplicate['count']} copies)');
+        }
+        result.writeln('\nPerforming cleanup...');
+        
+        // Perform the cleanup
+        await DatabaseCleanup.cleanupDuplicateGames();
+        
+        result.writeln('Cleanup completed successfully!');
+        
+        setState(() {
+          testResult = result.toString();
+          isLoading = false;
+        });
+        
+        // Reload migration status
+        await _loadMigrationStatus();
+        
+      } catch (e) {
+        setState(() {
+          testResult = 'Error during cleanup: $e';
+          isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _showRecentGames() async {
+    setState(() {
+      isLoading = true;
+      testResult = 'Loading recent games...';
+    });
+
+    try {
+      print('DEBUG: Starting to fetch recent games...');
+      final recentGames = await DatabaseCleanup.getRecentGamesWithDetails();
+      print('DEBUG: Fetched ${recentGames.length} recent games');
+      
+      StringBuffer result = StringBuffer();
+      result.writeln('=== RECENT GAMES (Last Hour) ===');
+      result.writeln('Found ${recentGames.length} games:\n');
+      
+      for (int i = 0; i < recentGames.length; i++) {
+        final game = recentGames[i];
+        result.writeln('${i + 1}. Game ID: ${game['id']}');
+        result.writeln('   Sport: ${game['sport_name']}');
+        result.writeln('   Opponent: "${game['opponent']}"');
+        result.writeln('   Home Team: "${game['home_team']}"');
+        result.writeln('   Date: ${game['date']}');
+        result.writeln('   Time: ${game['time']}');
+        result.writeln('   Status: ${game['status']}');
+        result.writeln('   Location: ${game['location_name']}');
+        result.writeln('   Posted by: ${game['first_name']} ${game['last_name']}');
+        result.writeln('   Created: ${game['created_at']}');
+        result.writeln('');
+      }
+      
+      // Check for potential duplicates
+      final duplicates = <String, List<Map<String, dynamic>>>{};
+      for (final game in recentGames) {
+        final key = '${game['opponent']}_${game['date']}_${game['time']}_${game['sport_name']}';
+        duplicates[key] ??= [];
+        duplicates[key]!.add(game);
+      }
+      
+      final actualDuplicates = duplicates.entries.where((entry) => entry.value.length > 1).toList();
+      if (actualDuplicates.isNotEmpty) {
+        result.writeln('⚠️ POTENTIAL DUPLICATES DETECTED:');
+        for (final duplicate in actualDuplicates) {
+          result.writeln('- ${duplicate.value.length} games with same opponent/date/time:');
+          for (final game in duplicate.value) {
+            result.writeln('  ID ${game['id']}: opponent="${game['opponent']}", home_team="${game['home_team']}"');
+          }
+        }
+      } else {
+        result.writeln('✅ No duplicates detected in recent games.');
+      }
+      
+      setState(() {
+        testResult = result.toString();
+        isLoading = false;
+      });
+      
+    } catch (e) {
+      setState(() {
+        testResult = 'Error loading recent games: $e';
+        isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _showAllGames() async {
+    setState(() {
+      isLoading = true;
+      testResult = 'Loading all games...';
+    });
+
+    try {
+      print('DEBUG: Starting to fetch all games...');
+      final db = await DatabaseHelper().database;
+      
+      final allGames = await db.rawQuery('''
+        SELECT g.id, g.opponent, g.home_team, g.date, g.time, g.status, 
+               g.created_at, s.name as sport_name
+        FROM games g
+        LEFT JOIN sports s ON g.sport_id = s.id
+        ORDER BY g.created_at DESC
+        LIMIT 20
+      ''');
+      
+      print('DEBUG: Fetched ${allGames.length} games');
+      
+      StringBuffer result = StringBuffer();
+      result.writeln('=== ALL GAMES (Last 20) ===');
+      result.writeln('Found ${allGames.length} games:\n');
+      
+      for (int i = 0; i < allGames.length; i++) {
+        final game = allGames[i];
+        result.writeln('${i + 1}. ID: ${game['id']}');
+        result.writeln('   Sport: ${game['sport_name']}');
+        result.writeln('   Opponent: "${game['opponent']}"');
+        result.writeln('   Home Team: "${game['home_team']}"');
+        result.writeln('   Status: ${game['status']}');
+        result.writeln('   Created: ${game['created_at']}');
+        result.writeln('');
+      }
+      
+      setState(() {
+        testResult = result.toString();
+        isLoading = false;
+      });
+      
+    } catch (e) {
+      print('DEBUG: Error in _showAllGames: $e');
+      setState(() {
+        testResult = 'Error loading games: $e';
+        isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _removeNullHomeTeamGames() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Remove Invalid Games'),
+        content: const Text('This will remove games that have null or empty home team values. These games appear as duplicates to officials. Continue?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      setState(() {
+        isLoading = true;
+        testResult = 'Removing games with null home team...';
+      });
+
+      try {
+        await DatabaseCleanup.removeGamesWithNullHomeTeam();
+        
+        setState(() {
+          testResult = 'Successfully removed games with null home team. Check the console for details.';
+          isLoading = false;
+        });
+        
+        // Reload migration status
+        await _loadMigrationStatus();
+        
+      } catch (e) {
+        setState(() {
+          testResult = 'Error removing games: $e';
+          isLoading = false;
+        });
+      }
     }
   }
 
@@ -691,6 +918,54 @@ All users have password: test123''';
               foregroundColor: Colors.white,
             ),
             child: const Text('Debug Interest Issue'),
+          ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: _cleanupDuplicateGames,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.purple,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Cleanup Duplicate Games'),
+          ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: _showRecentGames,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.teal,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Show Recent Games (Debug)'),
+          ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: _showAllGames,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.indigo,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Show All Games (Simple)'),
+          ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: _removeNullHomeTeamGames,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Remove Games with Null Home Team'),
           ),
         ),
         const SizedBox(height: 12),

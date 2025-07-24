@@ -371,6 +371,10 @@ class Game {
        updatedAt = updatedAt ?? DateTime.now();
 
   Map<String, dynamic> toMap() {
+    // Debug logging to track null homeTeam values
+    if (homeTeam == null || homeTeam!.trim().isEmpty) {
+    }
+    
     return {
       'id': id,
       'schedule_id': scheduleId,
@@ -398,7 +402,7 @@ class Game {
   factory Game.fromMap(Map<String, dynamic> map) {
     TimeOfDay? gameTime;
     if (map['time'] != null) {
-      final timeParts = (map['time'] as String).split(':');
+      final timeParts = ((map['time'] as String?) ?? '0:0').split(':');
       if (timeParts.length == 2) {
         gameTime = TimeOfDay(
           hour: int.parse(timeParts[0]),
@@ -406,15 +410,22 @@ class Game {
         );
       }
     }
+    
+    // Enhanced debug logging to track homeTeam issue
+    final homeTeamFromMap = map['home_team'];
+    print('🔍 Game.fromMap() DEBUG:');
+    print('   Game ID: ${map['id']}');
+    print('   Opponent: "${map['opponent']}"');
+    print('   All map keys: ${map.keys.toList()}');
 
-    return Game(
+    final game = Game(
       id: map['id']?.toInt(),
       scheduleId: map['schedule_id']?.toInt(),
       sportId: map['sport_id']?.toInt() ?? 0,
       locationId: map['location_id']?.toInt(),
       userId: map['user_id']?.toInt() ?? 0,
       date: map['date'] != null ? 
-        (map['date'] is DateTime ? map['date'] as DateTime : DateTime.parse(map['date'] as String)) : null,
+        (map['date'] is DateTime ? map['date'] as DateTime : DateTime.parse((map['date'] as String?) ?? DateTime.now().toIso8601String())) : null,
       time: gameTime,
       isAway: (map['is_away'] ?? 0) == 1,
       levelOfCompetition: map['level_of_competition'],
@@ -423,7 +434,7 @@ class Game {
       officialsHired: map['officials_hired']?.toInt() ?? 0,
       gameFee: map['game_fee'],
       opponent: map['opponent'],
-      homeTeam: map['home_team'],
+      homeTeam: homeTeamFromMap,
       hireAutomatically: (map['hire_automatically'] ?? 0) == 1,
       method: map['method'],
       status: map['status'] ?? 'Unpublished',
@@ -433,6 +444,10 @@ class Game {
       sportName: map['sport_name'],
       locationName: map['location_name'],
     );
+    
+    print('🔍 End Game.fromMap() DEBUG');
+    
+    return game;
   }
 
   Game copyWith({
@@ -611,7 +626,7 @@ class GameTemplate {
   factory GameTemplate.fromMap(Map<String, dynamic> map) {
     TimeOfDay? gameTime;
     if (map['time'] != null) {
-      final timeParts = (map['time'] as String).split(':');
+      final timeParts = ((map['time'] as String?) ?? '0:0').split(':');
       if (timeParts.length == 2) {
         gameTime = TimeOfDay(
           hour: int.parse(timeParts[0]),
@@ -627,7 +642,7 @@ class GameTemplate {
       userId: map['user_id']?.toInt() ?? 0,
       scheduleName: map['schedule_name'],
       date: map['date'] != null ? 
-        (map['date'] is DateTime ? map['date'] as DateTime : DateTime.parse(map['date'] as String)) : null,
+        (map['date'] is DateTime ? map['date'] as DateTime : DateTime.parse((map['date'] as String?) ?? DateTime.now().toIso8601String())) : null,
       time: gameTime,
       locationId: map['location_id']?.toInt(),
       isAwayGame: (map['is_away_game'] ?? 0) == 1,

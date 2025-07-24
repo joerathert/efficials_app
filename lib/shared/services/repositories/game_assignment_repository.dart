@@ -40,7 +40,7 @@ class GameAssignmentRepository extends BaseRepository {
   // Get available games for an official (games that match their sports/criteria but aren't assigned yet)
   Future<List<Map<String, dynamic>>> getAvailableGamesForOfficial(int officialId) async {
     final results = await rawQuery('''
-      SELECT g.*, l.name as location_name, l.address as location_address,
+      SELECT DISTINCT g.*, l.name as location_name, l.address as location_address,
              s.name as sport_name, u.first_name, u.last_name,
              'available' as assignment_status
       FROM games g

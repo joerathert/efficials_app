@@ -7,7 +7,8 @@ class GameRepository extends BaseRepository {
 
   // Create a new game
   Future<int> createGame(Game game) async {
-    return await insert(tableName, game.toMap());
+    final gameMap = game.toMap();
+    return await insert(tableName, gameMap);
   }
 
   // Update an existing game
@@ -35,7 +36,11 @@ class GameRepository extends BaseRepository {
   // Get game by ID with joined data
   Future<Game?> getGameById(int gameId) async {
     final results = await rawQuery('''
-      SELECT g.*, 
+      SELECT g.id, g.schedule_id, g.sport_id, g.location_id, g.user_id,
+             g.date, g.time, g.is_away, g.level_of_competition, g.gender,
+             g.officials_required, g.officials_hired, g.game_fee, g.opponent,
+             g.home_team, g.hire_automatically, g.method, g.status,
+             g.created_at, g.updated_at,
              s.name as schedule_name,
              sp.name as sport_name,
              l.name as location_name
@@ -67,7 +72,11 @@ class GameRepository extends BaseRepository {
     }
 
     final results = await rawQuery('''
-      SELECT g.*, 
+      SELECT g.id, g.schedule_id, g.sport_id, g.location_id, g.user_id,
+             g.date, g.time, g.is_away, g.level_of_competition, g.gender,
+             g.officials_required, g.officials_hired, g.game_fee, g.opponent,
+             g.home_team, g.hire_automatically, g.method, g.status,
+             g.created_at, g.updated_at,
              s.name as schedule_name,
              sp.name as sport_name,
              l.name as location_name

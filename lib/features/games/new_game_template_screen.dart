@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
-import 'game_template.dart';
+import '../../shared/models/database_models.dart';
 import '../../shared/theme.dart';
 import '../../shared/services/game_service.dart';
 
@@ -45,12 +45,11 @@ class _NewGameTemplateScreenState extends State<NewGameTemplateScreen> {
   @override
   void initState() {
     super.initState();
-    // Debug print to inspect gameData
-    print('DEBUG Template initState - Starting initialization');
-    print('DEBUG Template initState - gameData keys: ${widget.gameData.keys.toList()}');
-    print('DEBUG Template initState - Raw gameData: ${widget.gameData}');
-
-    sport = widget.gameData['sport'] as String;
+    // Check multiple possible sport field names
+    sport = (widget.gameData['sport'] as String?) ?? 
+            (widget.gameData['sportName'] as String?) ?? 
+            (widget.gameData['sport_name'] as String?) ?? 
+            'Baseball'; // Default fallback
     // Handle the time field, which may be a String in "hour:minute" format
     if (widget.gameData['time'] != null) {
       if (widget.gameData['time'] is String) {
@@ -97,15 +96,9 @@ class _NewGameTemplateScreenState extends State<NewGameTemplateScreen> {
     selectedListName = widget.gameData['selectedListName'] as String?;
     method = widget.gameData['method'] as String?;
     selectedOfficials = widget.gameData['selectedOfficials'] != null
-        ? List<String>.from(widget.gameData['selectedOfficials'].map((official) => official['name'] as String))
+        ? List<String>.from(widget.gameData['selectedOfficials'].map((official) => (official['name'] as String?) ?? 'Unknown Official'))
         : null;
 
-    // Debug prints to verify values
-
-    // Debug: Check what data we have
-    print('DEBUG Template Creation - method: $method');
-    print('DEBUG Template Creation - selectedListName: $selectedListName');
-    print('DEBUG Template Creation - selectedOfficials: $selectedOfficials');
 
     // Compute the display string for officials
     if (method == 'use_list' && selectedListName != null) {
@@ -127,18 +120,10 @@ class _NewGameTemplateScreenState extends State<NewGameTemplateScreen> {
       return;
     }
 
-    // Debug: Check what we're about to save
-    print('DEBUG Template Save - method: $method');
-    print('DEBUG Template Save - selectedListName: $selectedListName');
-    print('DEBUG Template Save - includeOfficialsList: $includeOfficialsList');
-    print('DEBUG Template Save - About to save template to database');
-
     // Get officials list ID if we have a list name
     int? officialsListId;
     if (selectedListName != null && selectedListName!.isNotEmpty) {
-      print('DEBUG Template Save - Looking up list ID for: $selectedListName');
       officialsListId = await _getOfficialsListId(selectedListName!);
-      print('DEBUG Template Save - Found list ID: $officialsListId');
     }
 
     // Prepare template data for database
@@ -173,8 +158,6 @@ class _NewGameTemplateScreenState extends State<NewGameTemplateScreen> {
       final result = await _gameService.createTemplate(templateData);
       
       if (result != null) {
-        print('DEBUG Template Save - Successfully saved to database with ID: ${result['id']}');
-        
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Template saved successfully!')),
@@ -182,8 +165,6 @@ class _NewGameTemplateScreenState extends State<NewGameTemplateScreen> {
           Navigator.pop(context, true);
         }
       } else {
-        print('DEBUG Template Save - Failed to save to database (template name might already exist)');
-        
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Failed to save template. Template name might already exist.')),
@@ -191,7 +172,6 @@ class _NewGameTemplateScreenState extends State<NewGameTemplateScreen> {
         }
       }
     } catch (e) {
-      print('DEBUG Template Save - Error saving to database: $e');
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -210,12 +190,12 @@ class _NewGameTemplateScreenState extends State<NewGameTemplateScreen> {
         final List<dynamic> lists = jsonDecode(listsJson);
         for (final list in lists) {
           if (list['name'] == listName) {
-            return list['id'] as int?;
+            return (list['id'] as int?) ?? 0;
           }
         }
       }
     } catch (e) {
-      print('DEBUG Template Save - Error looking up list ID: $e');
+      // Error looking up list ID
     }
     return null;
   }
@@ -256,8 +236,11 @@ class _NewGameTemplateScreenState extends State<NewGameTemplateScreen> {
             if (officialsRequired != null) _buildFieldRow('Officials Required', officialsRequired.toString(), (value) => setState(() => includeOfficialsRequired = value!)),
             if (gameFee != null) _buildFieldRow('Game Fee', '\$${double.parse(gameFee!).toStringAsFixed(2)}', (value) => setState(() => includeGameFee = value!)),
             if (hireAutomatically != null) _buildFieldRow('Hire Automatically', hireAutomatically! ? 'Yes' : 'No', (value) => setState(() => includeHireAutomatically = value!)),
-            if (officialsDisplay != 'None') _buildFieldRow('Selected Officials', officialsDisplay, (value) => setState(() => includeSelectedOfficials = value!)),
-            if (method == 'use_list' && selectedListName != null) _buildFieldRow('Officials List', 'Use Saved List: $selectedListName', (value) => setState(() => includeOfficialsList = value!)),
+            // Show Officials List for use_list method, or Selected Officials for other methods
+            if (method == 'use_list' && selectedListName != null) 
+              _buildFieldRow('Officials List', 'Use Saved List: $selectedListName', (value) => setState(() => includeOfficialsList = value!))
+            else if (officialsDisplay != 'None' && method != 'use_list') 
+              _buildFieldRow('Selected Officials', officialsDisplay, (value) => setState(() => includeSelectedOfficials = value!)),
             const SizedBox(height: 20),
             Center(
               child: ElevatedButton(

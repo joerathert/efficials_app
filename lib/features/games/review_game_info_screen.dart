@@ -25,6 +25,7 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
   String? teamName;
   bool isUsingTemplate = false;
   bool isAssignerFlow = false;
+  bool _isPublishing = false; // Add loading state to prevent duplicate submissions
   final GameService _gameService = GameService();
 
   @override
@@ -151,17 +152,25 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
   }
 
   Future<void> _publishGame() async {
-    if (!isAwayGame &&
-        !(args['hireAutomatically'] == true) &&
-        (args['selectedOfficials'] == null ||
-            (args['selectedOfficials'] as List).isEmpty)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text(
-                'Please select at least one official for non-away games.')),
-      );
-      return;
-    }
+    // Prevent multiple simultaneous calls
+    if (_isPublishing) return;
+    
+    setState(() {
+      _isPublishing = true;
+    });
+    
+    try {
+      if (!isAwayGame &&
+          !(args['hireAutomatically'] == true) &&
+          (args['selectedOfficials'] == null ||
+              (args['selectedOfficials'] as List).isEmpty)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text(
+                  'Please select at least one official for non-away games.')),
+        );
+        return;
+      }
 
     final gameData = Map<String, dynamic>.from(args);
     gameData['id'] = gameData['id'] ?? DateTime.now().millisecondsSinceEpoch;
@@ -285,10 +294,26 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
       }
       _navigateBack();
     }
+    } finally {
+      // Always reset the publishing state
+      if (mounted) {
+        setState(() {
+          _isPublishing = false;
+        });
+      }
+    }
   }
 
   Future<void> _publishLater() async {
-    final gameData = Map<String, dynamic>.from(args);
+    // Prevent multiple simultaneous calls
+    if (_isPublishing) return;
+    
+    setState(() {
+      _isPublishing = true;
+    });
+    
+    try {
+      final gameData = Map<String, dynamic>.from(args);
     gameData['id'] = gameData['id'] ?? DateTime.now().millisecondsSinceEpoch;
     gameData['createdAt'] = DateTime.now().toIso8601String();
     gameData['status'] = 'Unpublished';
@@ -401,6 +426,14 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
         );
       }
       _navigateBack();
+    }
+    } finally {
+      // Always reset the publishing state
+      if (mounted) {
+        setState(() {
+          _isPublishing = false;
+        });
+      }
     }
   }
 
@@ -791,17 +824,33 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
                 ),
               ] else ...[
                 ElevatedButton(
-                  onPressed: _publishGame,
+                  onPressed: _isPublishing ? null : _publishGame,
                   style: elevatedButtonStyle(),
-                  child:
-                      const Text('Publish Game', style: signInButtonTextStyle),
+                  child: _isPublishing 
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
+                      : const Text('Publish Game', style: signInButtonTextStyle),
                 ),
                 const SizedBox(height: 10),
                 ElevatedButton(
-                  onPressed: _publishLater,
+                  onPressed: _isPublishing ? null : _publishLater,
                   style: elevatedButtonStyle(),
-                  child:
-                      const Text('Publish Later', style: signInButtonTextStyle),
+                  child: _isPublishing 
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
+                      : const Text('Publish Later', style: signInButtonTextStyle),
                 ),
               ],
             ],

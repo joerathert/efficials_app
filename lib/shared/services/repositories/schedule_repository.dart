@@ -37,6 +37,7 @@ class ScheduleRepository extends BaseRepository {
     ''', [scheduleId]);
 
     if (results.isEmpty) return null;
+    
     return Schedule.fromMap(results.first);
   }
 

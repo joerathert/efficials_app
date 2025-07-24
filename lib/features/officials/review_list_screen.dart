@@ -98,7 +98,9 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
       'name': listName,
       'sport': sport,
       'officials': selectedOfficialsData,
-      'id': existingLists.isEmpty ? 1 : (existingLists.map((list) => list['id'] as int).reduce((a, b) => a > b ? a : b) + 1),
+      'id': existingLists.isEmpty ? 1 : (existingLists
+          .map((list) => (list['id'] as int?) ?? 0)
+          .reduce((a, b) => a > b ? a : b) + 1),
     };
 
     // Check for duplicate names

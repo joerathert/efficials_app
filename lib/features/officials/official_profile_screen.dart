@@ -14,6 +14,7 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
   Map<String, dynamic>? otherOfficialData;
   bool isViewingOwnProfile = true;
   bool showCareerStatistics = true;
+  bool hasEndorsedThisOfficial = false; // Track if current user has endorsed this official
   
   // Mock profile data for current user
   final Map<String, dynamic> profileData = {
@@ -182,36 +183,44 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
                     Row(
                       children: [
                         Expanded(
-                          child: Row(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Icon(Icons.school, size: 16, color: Colors.grey[400]),
-                              const SizedBox(width: 4),
                               Text(
-                                'Scheduler Endorsements: ${currentProfileData['schedulerEndorsements'] ?? 0}',
+                                'Endorsements',
                                 style: TextStyle(
                                   fontSize: 14,
-                                  color: Colors.grey[400],
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.grey[300],
                                 ),
                               ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Row(
-                            children: [
-                              Icon(Icons.people, size: 16, color: Colors.grey[400]),
-                              const SizedBox(width: 4),
-                              Text(
-                                'Official Endorsements: ${currentProfileData['officialEndorsements'] ?? 0}',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.grey[400],
-                                ),
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  Icon(Icons.thumb_up, size: 14, color: Colors.grey[400]),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'Schedulers: ${currentProfileData['schedulerEndorsements'] ?? 0}',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: Colors.grey[400],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 2),
+                              Row(
+                                children: [
+                                  Icon(Icons.thumb_up, size: 14, color: Colors.grey[400]),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'Officials: ${currentProfileData['officialEndorsements'] ?? 0}',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: Colors.grey[400],
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
@@ -232,10 +241,17 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
               else
                 IconButton(
                   onPressed: () {
-                    _showEndorsementDialog();
+                    if (hasEndorsedThisOfficial) {
+                      _showRemoveEndorsementDialog();
+                    } else {
+                      _showEndorsementDialog();
+                    }
                   },
-                  icon: const Icon(Icons.thumb_up, color: efficialsYellow),
-                  tooltip: 'Endorse this official',
+                  icon: Icon(
+                    hasEndorsedThisOfficial ? Icons.thumb_up : Icons.thumb_up_outlined,
+                    color: hasEndorsedThisOfficial ? efficialsYellow : Colors.grey[400],
+                  ),
+                  tooltip: hasEndorsedThisOfficial ? 'Already endorsed' : 'Endorse this official',
                 ),
             ],
           ),
@@ -813,12 +829,14 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: darkSurface,
-        title: const Text(
-          'Endorse Official',
-          style: TextStyle(color: efficialsYellow),
+        title: const Center(
+          child: Text(
+            'Endorse Official',
+            style: TextStyle(color: efficialsYellow),
+          ),
         ),
         content: Text(
-          'Do you want to endorse ${currentProfileData['name']}? This will add to their endorsement count and cannot be undone.',
+          'Do you want to endorse ${currentProfileData['name']}? This will add to their endorsement count.',
           style: const TextStyle(color: Colors.white),
         ),
         actions: [
@@ -829,7 +847,7 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              _handleEndorsement();
+              _handleEndorsement(isRemoving: false);
             },
             style: ElevatedButton.styleFrom(backgroundColor: efficialsYellow),
             child: const Text('Endorse', style: TextStyle(color: efficialsBlack)),
@@ -839,21 +857,69 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
     );
   }
 
-  void _handleEndorsement() {
+  void _showRemoveEndorsementDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: darkSurface,
+        title: const Center(
+          child: Text(
+            'Remove Endorsement',
+            style: TextStyle(color: efficialsYellow),
+          ),
+        ),
+        content: Text(
+          'Do you want to remove your endorsement of ${currentProfileData['name']}? This will decrease their endorsement count.',
+          style: const TextStyle(color: Colors.white),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _handleEndorsement(isRemoving: true);
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Remove', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _handleEndorsement({required bool isRemoving}) {
     // TODO: Implement actual endorsement logic with backend
-    // For now, show a success message
+    // For now, show a success message and update local state
+    setState(() {
+      hasEndorsedThisOfficial = !isRemoving;
+      // Simulate incrementing/decrementing the endorsement count
+      // In real implementation, this would come from the backend response
+      if (otherOfficialData != null) {
+        // Assuming current user is an official for demo - in real app, check user type
+        int currentCount = otherOfficialData!['officialEndorsements'] ?? 0;
+        if (isRemoving) {
+          otherOfficialData!['officialEndorsements'] = currentCount > 0 ? currentCount - 1 : 0;
+        } else {
+          otherOfficialData!['officialEndorsements'] = currentCount + 1;
+        }
+      }
+    });
+    
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Endorsement submitted successfully!'),
-        backgroundColor: Colors.green,
+      SnackBar(
+        content: Text(isRemoving ? 'Endorsement removed successfully!' : 'Endorsement submitted successfully!'),
+        backgroundColor: isRemoving ? Colors.orange : Colors.green,
       ),
     );
     
     // In a real implementation, you would:
     // 1. Determine if current user is a scheduler or official
-    // 2. Send endorsement to backend/database
+    // 2. Send endorsement/removal to backend/database
     // 3. Update the profile data to reflect new endorsement count
-    // 4. Prevent duplicate endorsements from same user
+    // 4. Handle endorsement state management properly
   }
 
   void _handleContactTap(String label, String value) async {

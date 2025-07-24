@@ -145,6 +145,14 @@ class MigrationService {
       await prefs.remove('coach_published_games');
       await prefs.remove('assigner_published_games');
       
+      // Clear all schedule template associations
+      final allKeys = prefs.getKeys();
+      for (final key in allKeys) {
+        if (key.startsWith('schedule_template_')) {
+          await prefs.remove(key);
+        }
+      }
+      
       await prefs.setBool('database_migration_completed', false);
       debugPrint('Database reset completed');
     } catch (e) {
@@ -163,6 +171,14 @@ class MigrationService {
       // Clear templates from SharedPreferences
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove('game_templates');
+      
+      // Clear all schedule template associations
+      final allKeys = prefs.getKeys();
+      for (final key in allKeys) {
+        if (key.startsWith('schedule_template_')) {
+          await prefs.remove(key);
+        }
+      }
       
       debugPrint('Templates cleared successfully (officials preserved)');
     } catch (e) {

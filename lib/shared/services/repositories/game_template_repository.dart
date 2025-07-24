@@ -153,17 +153,13 @@ class GameTemplateRepository extends BaseRepository {
   // Create game from template
   Future<Map<String, dynamic>> createGameFromTemplate(GameTemplate template) async {
     final gameData = <String, dynamic>{
-      'sport_id': template.sportId,
-      'user_id': template.userId,
+      'sport': template.sportName ?? 'Basketball', // Use sport name, not ID
       'status': 'Unpublished',
-      'created_at': DateTime.now().toIso8601String(),
-      'updated_at': DateTime.now().toIso8601String(),
     };
 
     // Add fields based on template includes
     if (template.includeScheduleName && template.scheduleName != null) {
-      // Note: Would need to look up or create schedule
-      gameData['schedule_name'] = template.scheduleName;
+      gameData['scheduleName'] = template.scheduleName;
     }
 
     if (template.includeDate && template.date != null) {
@@ -174,16 +170,16 @@ class GameTemplateRepository extends BaseRepository {
       gameData['time'] = template.time != null ? '${template.time!.hour.toString().padLeft(2, '0')}:${template.time!.minute.toString().padLeft(2, '0')}' : null;
     }
 
-    if (template.includeLocation && template.locationId != null) {
-      gameData['location_id'] = template.locationId;
+    if (template.includeLocation && template.locationName != null) {
+      gameData['location'] = template.locationName; // Use location name, not ID
     }
 
     if (template.includeIsAwayGame) {
-      gameData['is_away'] = template.isAwayGame;
+      gameData['isAway'] = template.isAwayGame;
     }
 
     if (template.includeLevelOfCompetition && template.levelOfCompetition != null) {
-      gameData['level_of_competition'] = template.levelOfCompetition;
+      gameData['levelOfCompetition'] = template.levelOfCompetition;
     }
 
     if (template.includeGender && template.gender != null) {
@@ -191,11 +187,11 @@ class GameTemplateRepository extends BaseRepository {
     }
 
     if (template.includeOfficialsRequired && template.officialsRequired != null) {
-      gameData['officials_required'] = template.officialsRequired;
+      gameData['officialsRequired'] = template.officialsRequired;
     }
 
     if (template.includeGameFee && template.gameFee != null) {
-      gameData['game_fee'] = template.gameFee;
+      gameData['gameFee'] = template.gameFee;
     }
 
     if (template.includeOpponent && template.opponent != null) {
@@ -203,7 +199,12 @@ class GameTemplateRepository extends BaseRepository {
     }
 
     if (template.includeHireAutomatically) {
-      gameData['hire_automatically'] = template.hireAutomatically;
+      gameData['hireAutomatically'] = template.hireAutomatically;
+    }
+
+    // Always include the method if it exists
+    if (template.method != null) {
+      gameData['method'] = template.method;
     }
 
     return gameData;
