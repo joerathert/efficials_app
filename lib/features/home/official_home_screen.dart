@@ -4,9 +4,12 @@ import '../officials/official_games_screen.dart';
 import '../officials/official_assignments_screen.dart';
 import '../officials/official_availability_screen.dart';
 import '../officials/official_profile_screen.dart';
+import '../crews/crew_dashboard_screen.dart';
+import '../crews/crew_invitations_screen.dart';
 import '../../shared/services/user_session_service.dart';
 import '../../shared/services/repositories/game_assignment_repository.dart';
 import '../../shared/services/repositories/official_repository.dart';
+import '../../shared/services/repositories/crew_repository.dart';
 import '../../shared/models/database_models.dart';
 
 class OfficialHomeScreen extends StatefulWidget {
@@ -22,6 +25,7 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
   // Repositories
   final GameAssignmentRepository _assignmentRepo = GameAssignmentRepository();
   final OfficialRepository _officialRepo = OfficialRepository();
+  final CrewRepository _crewRepo = CrewRepository();
   
   // State variables
   String officialName = "";
@@ -30,6 +34,7 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
   List<GameAssignment> pendingGames = [];
   bool _isLoading = true;
   Official? _currentOfficial;
+  int _pendingInvitationsCount = 0;
   
   @override
   void initState() {
@@ -66,6 +71,9 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
       
       // Load assignments
       await _loadAssignments();
+      
+      // Load pending invitations count
+      await _loadInvitationsCount();
       
     } catch (e) {
       print('Error loading data: $e');
@@ -147,6 +155,21 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
       }
     } catch (e) {
       print('Error loading assignments: $e');
+    }
+  }
+
+  Future<void> _loadInvitationsCount() async {
+    try {
+      if (_currentOfficial?.id != null) {
+        final invitations = await _crewRepo.getPendingInvitations(_currentOfficial!.id!);
+        if (mounted) {
+          setState(() {
+            _pendingInvitationsCount = invitations.length;
+          });
+        }
+      }
+    } catch (e) {
+      print('Error loading invitations count: $e');
     }
   }
 
@@ -255,6 +278,7 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                   children: [
                     _buildWelcomeHeader(),
                     _buildStatsCards(),
+                    _buildCrewManagementCard(),
                   ],
                 ),
               ),
@@ -1851,6 +1875,120 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
     } else {
       return 'TBD';
     }
+  }
+
+  Widget _buildCrewManagementCard() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+      child: Card(
+        color: efficialsBlack,
+        elevation: 4,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: InkWell(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const CrewDashboardScreen(),
+              ),
+            ).then((_) => _loadInvitationsCount()); // Refresh count when returning
+          },
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  efficialsYellow.withOpacity(0.1),
+                  efficialsYellow.withOpacity(0.05),
+                ],
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: efficialsYellow,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.groups,
+                    color: efficialsBlack,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Crew Management',
+                        style: TextStyle(
+                          color: efficialsWhite,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Create or join crews to work games together',
+                        style: TextStyle(
+                          color: Colors.grey[400],
+                          fontSize: 14,
+                        ),
+                      ),
+                      if (_pendingInvitationsCount > 0) ...[
+                        const SizedBox(height: 8),
+                        GestureDetector(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const CrewInvitationsScreen(),
+                              ),
+                            ).then((_) => _loadInvitationsCount()); // Refresh count when returning
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.red.withOpacity(0.8),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              '$_pendingInvitationsCount pending invitation${_pendingInvitationsCount == 1 ? '' : 's'}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.arrow_forward_ios,
+                  color: Colors.grey[500],
+                  size: 16,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
 }

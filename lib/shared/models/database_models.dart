@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
 
 // User model
 class User {
@@ -1271,6 +1272,479 @@ class OfficialEndorsement {
       endorserUserId: map['endorser_user_id']?.toInt() ?? 0,
       endorserType: map['endorser_type'] ?? '',
       createdAt: DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
+    );
+  }
+}
+
+// Crew Type model
+class CrewType {
+  final int? id;
+  final int sportId;
+  final String levelOfCompetition;
+  final int requiredOfficials;
+  final String? description;
+  final DateTime createdAt;
+
+  // Joined data
+  final String? sportName;
+
+  CrewType({
+    this.id,
+    required this.sportId,
+    required this.levelOfCompetition,
+    required this.requiredOfficials,
+    this.description,
+    DateTime? createdAt,
+    this.sportName,
+  }) : createdAt = createdAt ?? DateTime.now();
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'sport_id': sportId,
+      'level_of_competition': levelOfCompetition,
+      'required_officials': requiredOfficials,
+      'description': description,
+      'created_at': createdAt.toIso8601String(),
+    };
+  }
+
+  factory CrewType.fromMap(Map<String, dynamic> map) {
+    return CrewType(
+      id: map['id']?.toInt(),
+      sportId: map['sport_id']?.toInt() ?? 0,
+      levelOfCompetition: map['level_of_competition'] ?? '',
+      requiredOfficials: map['required_officials']?.toInt() ?? 0,
+      description: map['description'],
+      createdAt: DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
+      sportName: map['sport_name'],
+    );
+  }
+}
+
+// Crew model
+class Crew {
+  final int? id;
+  final String name;
+  final int crewTypeId;
+  final int crewChiefId;
+  final int createdBy;
+  final bool isActive;
+  final String paymentMethod;
+  final double? crewFeePerGame;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+
+  // Joined data
+  final String? sportName;
+  final String? levelOfCompetition;
+  final int? requiredOfficials;
+  final String? crewChiefName;
+  final List<CrewMember>? members;
+  final List<String>? competitionLevels;
+
+  Crew({
+    this.id,
+    required this.name,
+    required this.crewTypeId,
+    required this.crewChiefId,
+    required this.createdBy,
+    this.isActive = true,
+    this.paymentMethod = 'equal_split',
+    this.crewFeePerGame,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    this.sportName,
+    this.levelOfCompetition,
+    this.requiredOfficials,
+    this.crewChiefName,
+    this.members,
+    this.competitionLevels,
+  }) : createdAt = createdAt ?? DateTime.now(),
+       updatedAt = updatedAt ?? DateTime.now();
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'name': name,
+      'crew_type_id': crewTypeId,
+      'crew_chief_id': crewChiefId,
+      'created_by': createdBy,
+      'is_active': isActive ? 1 : 0,
+      'payment_method': paymentMethod,
+      'crew_fee_per_game': crewFeePerGame,
+      'competition_levels': competitionLevels != null ? jsonEncode(competitionLevels) : '[]',
+      'created_at': createdAt.toIso8601String(),
+      'updated_at': updatedAt.toIso8601String(),
+    };
+  }
+
+  factory Crew.fromMap(Map<String, dynamic> map) {
+    return Crew(
+      id: map['id']?.toInt(),
+      name: map['name'] ?? '',
+      crewTypeId: map['crew_type_id']?.toInt() ?? 0,
+      crewChiefId: map['crew_chief_id']?.toInt() ?? 0,
+      createdBy: map['created_by']?.toInt() ?? 0,
+      isActive: (map['is_active'] ?? 1) == 1,
+      paymentMethod: map['payment_method'] ?? 'equal_split',
+      crewFeePerGame: map['crew_fee_per_game']?.toDouble(),
+      createdAt: DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
+      updatedAt: DateTime.parse(map['updated_at'] ?? DateTime.now().toIso8601String()),
+      sportName: map['sport_name'],
+      levelOfCompetition: map['level_of_competition'],
+      requiredOfficials: map['required_officials']?.toInt(),
+      crewChiefName: map['crew_chief_name'],
+      competitionLevels: map['competition_levels'] != null 
+          ? List<String>.from(jsonDecode(map['competition_levels'] ?? '[]'))
+          : null,
+    );
+  }
+
+  // Computed properties
+  bool get isFullyStaffed => members != null && members!.length == requiredOfficials;
+  bool get canBeHired => isActive && isFullyStaffed;
+}
+
+// Crew Member model
+class CrewMember {
+  final int? id;
+  final int crewId;
+  final int officialId;
+  final String position;
+  final String? gamePosition;
+  final DateTime joinedAt;
+  final String status;
+
+  // Joined data
+  final String? officialName;
+  final String? phone;
+  final String? email;
+
+  CrewMember({
+    this.id,
+    required this.crewId,
+    required this.officialId,
+    this.position = 'member',
+    this.gamePosition,
+    DateTime? joinedAt,
+    this.status = 'active',
+    this.officialName,
+    this.phone,
+    this.email,
+  }) : joinedAt = joinedAt ?? DateTime.now();
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'crew_id': crewId,
+      'official_id': officialId,
+      'position': position,
+      'game_position': gamePosition,
+      'joined_at': joinedAt.toIso8601String(),
+      'status': status,
+    };
+  }
+
+  factory CrewMember.fromMap(Map<String, dynamic> map) {
+    return CrewMember(
+      id: map['id']?.toInt(),
+      crewId: map['crew_id']?.toInt() ?? 0,
+      officialId: map['official_id']?.toInt() ?? 0,
+      position: map['position'] ?? 'member',
+      gamePosition: map['game_position'],
+      joinedAt: DateTime.parse(map['joined_at'] ?? DateTime.now().toIso8601String()),
+      status: map['status'] ?? 'active',
+      officialName: map['official_name'],
+      phone: map['phone'],
+      email: map['email'],
+    );
+  }
+}
+
+// Crew Availability model
+class CrewAvailability {
+  final int? id;
+  final int crewId;
+  final DateTime date;
+  final TimeOfDay? startTime;
+  final TimeOfDay? endTime;
+  final String status;
+  final String? notes;
+  final int setBy;
+  final DateTime createdAt;
+
+  CrewAvailability({
+    this.id,
+    required this.crewId,
+    required this.date,
+    this.startTime,
+    this.endTime,
+    this.status = 'available',
+    this.notes,
+    required this.setBy,
+    DateTime? createdAt,
+  }) : createdAt = createdAt ?? DateTime.now();
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'crew_id': crewId,
+      'date': date.toIso8601String().split('T')[0],
+      'start_time': startTime != null ? '${startTime!.hour}:${startTime!.minute}' : null,
+      'end_time': endTime != null ? '${endTime!.hour}:${endTime!.minute}' : null,
+      'status': status,
+      'notes': notes,
+      'set_by': setBy,
+      'created_at': createdAt.toIso8601String(),
+    };
+  }
+
+  factory CrewAvailability.fromMap(Map<String, dynamic> map) {
+    TimeOfDay? parseTime(String? timeStr) {
+      if (timeStr == null || timeStr.isEmpty) return null;
+      final parts = timeStr.split(':');
+      if (parts.length == 2) {
+        return TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+      }
+      return null;
+    }
+
+    return CrewAvailability(
+      id: map['id']?.toInt(),
+      crewId: map['crew_id']?.toInt() ?? 0,
+      date: DateTime.parse(map['date'] ?? DateTime.now().toIso8601String()),
+      startTime: parseTime(map['start_time']),
+      endTime: parseTime(map['end_time']),
+      status: map['status'] ?? 'available',
+      notes: map['notes'],
+      setBy: map['set_by']?.toInt() ?? 0,
+      createdAt: DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
+    );
+  }
+}
+
+// Crew Assignment model
+class CrewAssignment {
+  final int? id;
+  final int gameId;
+  final int crewId;
+  final int assignedBy;
+  final int crewChiefId;
+  final String status;
+  final DateTime assignedAt;
+  final DateTime? respondedAt;
+  final String? responseNotes;
+  final double? totalFeeAmount;
+  final String paymentMethod;
+  final bool crewChiefResponseRequired;
+
+  // Joined game data
+  final DateTime? gameDate;
+  final TimeOfDay? gameTime;
+  final String? opponent;
+  final String? homeTeam;
+  final String? locationName;
+  final String? sportName;
+
+  // Crew data
+  final String? crewName;
+  final String? crewChiefName;
+  final List<CrewMember>? crewMembers;
+
+  CrewAssignment({
+    this.id,
+    required this.gameId,
+    required this.crewId,
+    required this.assignedBy,
+    required this.crewChiefId,
+    this.status = 'pending',
+    DateTime? assignedAt,
+    this.respondedAt,
+    this.responseNotes,
+    this.totalFeeAmount,
+    this.paymentMethod = 'equal_split',
+    this.crewChiefResponseRequired = true,
+    this.gameDate,
+    this.gameTime,
+    this.opponent,
+    this.homeTeam,
+    this.locationName,
+    this.sportName,
+    this.crewName,
+    this.crewChiefName,
+    this.crewMembers,
+  }) : assignedAt = assignedAt ?? DateTime.now();
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'game_id': gameId,
+      'crew_id': crewId,
+      'assigned_by': assignedBy,
+      'crew_chief_id': crewChiefId,
+      'status': status,
+      'assigned_at': assignedAt.toIso8601String(),
+      'responded_at': respondedAt?.toIso8601String(),
+      'response_notes': responseNotes,
+      'total_fee_amount': totalFeeAmount,
+      'payment_method': paymentMethod,
+      'crew_chief_response_required': crewChiefResponseRequired ? 1 : 0,
+    };
+  }
+
+  factory CrewAssignment.fromMap(Map<String, dynamic> map) {
+    TimeOfDay? gameTime;
+    if (map['time'] != null) {
+      final timeParts = ((map['time'] as String?) ?? '0:0').split(':');
+      if (timeParts.length == 2) {
+        gameTime = TimeOfDay(
+          hour: int.parse(timeParts[0]),
+          minute: int.parse(timeParts[1]),
+        );
+      }
+    }
+
+    return CrewAssignment(
+      id: map['id']?.toInt(),
+      gameId: map['game_id']?.toInt() ?? 0,
+      crewId: map['crew_id']?.toInt() ?? 0,
+      assignedBy: map['assigned_by']?.toInt() ?? 0,
+      crewChiefId: map['crew_chief_id']?.toInt() ?? 0,
+      status: map['status'] ?? 'pending',
+      assignedAt: DateTime.parse(map['assigned_at'] ?? DateTime.now().toIso8601String()),
+      respondedAt: map['responded_at'] != null ? DateTime.parse(map['responded_at']) : null,
+      responseNotes: map['response_notes'],
+      totalFeeAmount: map['total_fee_amount']?.toDouble(),
+      paymentMethod: map['payment_method'] ?? 'equal_split',
+      crewChiefResponseRequired: (map['crew_chief_response_required'] ?? 1) == 1,
+      gameDate: map['date'] != null ? DateTime.parse(map['date']) : null,
+      gameTime: gameTime,
+      opponent: map['opponent'],
+      homeTeam: map['home_team'],
+      locationName: map['location_name'],
+      sportName: map['sport_name'],
+      crewName: map['crew_name'],
+      crewChiefName: map['crew_chief_name'],
+    );
+  }
+}
+
+// Payment Distribution model
+class PaymentDistribution {
+  final int? id;
+  final int crewAssignmentId;
+  final int officialId;
+  final double amount;
+  final String? notes;
+  final int createdBy;
+  final DateTime createdAt;
+
+  PaymentDistribution({
+    this.id,
+    required this.crewAssignmentId,
+    required this.officialId,
+    required this.amount,
+    this.notes,
+    required this.createdBy,
+    DateTime? createdAt,
+  }) : createdAt = createdAt ?? DateTime.now();
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'crew_assignment_id': crewAssignmentId,
+      'official_id': officialId,
+      'amount': amount,
+      'notes': notes,
+      'created_by': createdBy,
+      'created_at': createdAt.toIso8601String(),
+    };
+  }
+
+  factory PaymentDistribution.fromMap(Map<String, dynamic> map) {
+    return PaymentDistribution(
+      id: map['id']?.toInt(),
+      crewAssignmentId: map['crew_assignment_id']?.toInt() ?? 0,
+      officialId: map['official_id']?.toInt() ?? 0,
+      amount: map['amount']?.toDouble() ?? 0.0,
+      notes: map['notes'],
+      createdBy: map['created_by']?.toInt() ?? 0,
+      createdAt: DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
+    );
+  }
+}
+
+// Crew Invitation model
+class CrewInvitation {
+  final int? id;
+  final int crewId;
+  final int invitedOfficialId;
+  final int invitedBy;
+  final String status;
+  final DateTime invitedAt;
+  final DateTime? respondedAt;
+  final String? responseNotes;
+  final String position;
+  final String? gamePosition;
+  
+  // Additional fields populated from joins
+  final String? crewName;
+  final String? invitedOfficialName;
+  final String? inviterName;
+  final String? sportName;
+  final String? levelOfCompetition;
+
+  CrewInvitation({
+    this.id,
+    required this.crewId,
+    required this.invitedOfficialId,
+    required this.invitedBy,
+    this.status = 'pending',
+    DateTime? invitedAt,
+    this.respondedAt,
+    this.responseNotes,
+    this.position = 'member',
+    this.gamePosition,
+    this.crewName,
+    this.invitedOfficialName,
+    this.inviterName,
+    this.sportName,
+    this.levelOfCompetition,
+  }) : invitedAt = invitedAt ?? DateTime.now();
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'crew_id': crewId,
+      'invited_official_id': invitedOfficialId,
+      'invited_by': invitedBy,
+      'status': status,
+      'invited_at': invitedAt.toIso8601String(),
+      'responded_at': respondedAt?.toIso8601String(),
+      'response_notes': responseNotes,
+      'position': position,
+      'game_position': gamePosition,
+    };
+  }
+
+  factory CrewInvitation.fromMap(Map<String, dynamic> map) {
+    return CrewInvitation(
+      id: map['id']?.toInt(),
+      crewId: map['crew_id']?.toInt() ?? 0,
+      invitedOfficialId: map['invited_official_id']?.toInt() ?? 0,
+      invitedBy: map['invited_by']?.toInt() ?? 0,
+      status: map['status'] ?? 'pending',
+      invitedAt: DateTime.parse(map['invited_at'] ?? DateTime.now().toIso8601String()),
+      respondedAt: map['responded_at'] != null ? DateTime.parse(map['responded_at']) : null,
+      responseNotes: map['response_notes'],
+      position: map['position'] ?? 'member',
+      gamePosition: map['game_position'],
+      crewName: map['crew_name'],
+      invitedOfficialName: map['invited_official_name'],
+      inviterName: map['inviter_name'],
+      sportName: map['sport_name'],
+      levelOfCompetition: map['level_of_competition'],
     );
   }
 }

@@ -204,6 +204,17 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
       final dbResult = await _gameService.createGame(gameData);
       if (dbResult != null) {
         debugPrint('Game saved to database successfully with ID: ${dbResult['id']}');
+        
+        // Save advanced selection data for later reconstruction
+        if (gameData['method'] == 'advanced' && gameData['selectedLists'] != null) {
+          final prefs = await SharedPreferences.getInstance();
+          final advancedData = {
+            'selectedLists': gameData['selectedLists'],
+            'selectedOfficials': gameData['selectedOfficials'] ?? [],
+          };
+          await prefs.setString('recent_advanced_selection_${dbResult['id']}', jsonEncode(advancedData));
+          debugPrint('Saved advanced selection data for game ${dbResult['id']}');
+        }
       } else {
         debugPrint('Failed to save game to database - result was null');
       }
@@ -212,35 +223,7 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
       // Continue with SharedPreferences as fallback
     }
 
-    // Convert data for SharedPreferences storage
-    if (gameData['date'] != null) {
-      gameData['date'] = (gameData['date'] as DateTime).toIso8601String();
-    }
-    if (gameData['time'] != null) {
-      final time = gameData['time'] as TimeOfDay;
-      gameData['time'] = '${time.hour}:${time.minute}';
-    }
-
-    final prefs = await SharedPreferences.getInstance();
-
-    // Determine which storage key to use based on user role
-    String publishedGamesKey;
-    if (isCoachScheduler == true) {
-      publishedGamesKey = 'coach_published_games';
-    } else if (isAssignerFlow == true) {
-      publishedGamesKey = 'assigner_published_games';
-    } else {
-      publishedGamesKey = 'ad_published_games';
-    }
-
-    final String? gamesJson = prefs.getString(publishedGamesKey);
-    List<Map<String, dynamic>> publishedGames = [];
-    if (gamesJson != null && gamesJson.isNotEmpty) {
-      publishedGames = List<Map<String, dynamic>>.from(jsonDecode(gamesJson));
-    }
-
-    publishedGames.add(gameData);
-    await prefs.setString(publishedGamesKey, jsonEncode(publishedGames));
+    // Database storage is now the primary method - no longer saving to SharedPreferences to avoid duplicates
 
     // Don't show template dialog if game was created using a template or is away game
     bool? shouldCreateTemplate = false;
@@ -255,11 +238,21 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
         print('DEBUG Review Game - method: ${gameData['method']}');
         print('DEBUG Review Game - selectedListName: ${gameData['selectedListName']}');
         
+        // Prepare data for template creation (convert DateTime and TimeOfDay to strings)
+        final templateData = Map<String, dynamic>.from(gameData);
+        if (templateData['date'] != null) {
+          templateData['date'] = (templateData['date'] as DateTime).toIso8601String();
+        }
+        if (templateData['time'] != null) {
+          final time = templateData['time'] as TimeOfDay;
+          templateData['time'] = '${time.hour}:${time.minute}';
+        }
+        
         print('DEBUG Review Game - About to navigate to /new_game_template');
         Navigator.pushNamed(
           context,
           '/new_game_template',
-          arguments: gameData,
+          arguments: templateData,
         ).then((result) {
           print('DEBUG Review Game - Returned from template creation with result: $result');
           if (result == true && mounted) {
@@ -509,14 +502,43 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
   Future<void> _publishUpdate() async {
     final gameData = Map<String, dynamic>.from(args);
 
-    if (gameData['date'] != null) {
+    // Convert all DateTime objects to strings for JSON encoding
+    if (gameData['date'] != null && gameData['date'] is DateTime) {
       gameData['date'] = (gameData['date'] as DateTime).toIso8601String();
     }
-    if (gameData['time'] != null) {
+    if (gameData['time'] != null && gameData['time'] is TimeOfDay) {
       final time = gameData['time'] as TimeOfDay;
       gameData['time'] = '${time.hour}:${time.minute}';
     }
+    if (gameData['createdAt'] != null && gameData['createdAt'] is DateTime) {
+      gameData['createdAt'] = (gameData['createdAt'] as DateTime).toIso8601String();
+    }
+    if (gameData['updatedAt'] != null && gameData['updatedAt'] is DateTime) {
+      gameData['updatedAt'] = (gameData['updatedAt'] as DateTime).toIso8601String();
+    }
     gameData['status'] = 'Published';
+
+    // Update the database first
+    try {
+      if (gameData['id'] != null) {
+        final gameId = gameData['id'] as int;
+        await _gameService.updateGame(gameId, gameData);
+        debugPrint('Game updated in database successfully with ID: $gameId');
+        
+        // Update advanced selection data cache if it's an advanced method game
+        if (gameData['method'] == 'advanced' && gameData['selectedLists'] != null) {
+          final prefs = await SharedPreferences.getInstance();
+          final advancedData = {
+            'selectedLists': gameData['selectedLists'],
+            'selectedOfficials': gameData['selectedOfficials'] ?? [],
+          };
+          await prefs.setString('recent_advanced_selection_$gameId', jsonEncode(advancedData));
+          debugPrint('Updated advanced selection data for game $gameId');
+        }
+      }
+    } catch (e) {
+      debugPrint('Error updating game in database: $e');
+    }
 
     final prefs = await SharedPreferences.getInstance();
     final String? gamesJson = prefs.getString('ad_published_games');

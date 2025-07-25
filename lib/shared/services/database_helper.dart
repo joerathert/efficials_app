@@ -24,7 +24,7 @@ class DatabaseHelper {
     
     return await openDatabase(
       path,
-      version: 10,
+      version: 13,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -330,6 +330,21 @@ class DatabaseHelper {
       await db.execute('CREATE INDEX idx_endorsements_endorsed_official_id ON official_endorsements(endorsed_official_id)');
       await db.execute('CREATE INDEX idx_endorsements_endorser_user_id ON official_endorsements(endorser_user_id)');
       await db.execute('CREATE INDEX idx_endorsements_endorser_type ON official_endorsements(endorser_type)');
+    }
+    
+    if (oldVersion < 11) {
+      // Add crew system tables
+      await _addCrewSystemTables(db);
+    }
+    
+    if (oldVersion < 12) {
+      // Add crew invitations table
+      await _addCrewInvitationsTable(db);
+    }
+    
+    if (oldVersion < 13) {
+      // Add competition levels to crews
+      await _addCrewCompetitionLevels(db);
     }
   }
 
@@ -1090,6 +1105,185 @@ class DatabaseHelper {
     } catch (e) {
       debugPrint('Could not clean up SharedPreferences settings: $e');
     }
+  }
+
+  Future<void> _addCrewSystemTables(Database db) async {
+    // Create crew_types table with default data
+    await db.execute('''
+      CREATE TABLE crew_types (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        sport_id INTEGER REFERENCES sports(id),
+        level_of_competition TEXT NOT NULL,
+        required_officials INTEGER NOT NULL,
+        description TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(sport_id, level_of_competition)
+      )
+    ''');
+
+    // Create crews table
+    await db.execute('''
+      CREATE TABLE crews (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        crew_type_id INTEGER REFERENCES crew_types(id),
+        crew_chief_id INTEGER REFERENCES officials(id),
+        created_by INTEGER REFERENCES users(id),
+        is_active BOOLEAN DEFAULT TRUE,
+        payment_method TEXT DEFAULT 'equal_split',
+        crew_fee_per_game DECIMAL(10,2),
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    ''');
+
+    // Create crew_members table
+    await db.execute('''
+      CREATE TABLE crew_members (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        crew_id INTEGER REFERENCES crews(id),
+        official_id INTEGER REFERENCES officials(id),
+        position TEXT DEFAULT 'member',
+        game_position TEXT,
+        joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        status TEXT DEFAULT 'active',
+        UNIQUE(crew_id, official_id)
+      )
+    ''');
+
+    // Create crew_availability table
+    await db.execute('''
+      CREATE TABLE crew_availability (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        crew_id INTEGER REFERENCES crews(id),
+        date DATE NOT NULL,
+        start_time TIME,
+        end_time TIME,
+        status TEXT DEFAULT 'available',
+        notes TEXT,
+        set_by INTEGER REFERENCES officials(id),
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(crew_id, date)
+      )
+    ''');
+
+    // Create crew_assignments table
+    await db.execute('''
+      CREATE TABLE crew_assignments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        game_id INTEGER REFERENCES games(id),
+        crew_id INTEGER REFERENCES crews(id),
+        assigned_by INTEGER REFERENCES users(id),
+        crew_chief_id INTEGER REFERENCES officials(id),
+        status TEXT DEFAULT 'pending',
+        assigned_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        responded_at DATETIME,
+        response_notes TEXT,
+        total_fee_amount DECIMAL(10,2),
+        payment_method TEXT DEFAULT 'equal_split',
+        crew_chief_response_required BOOLEAN DEFAULT TRUE,
+        UNIQUE(game_id, crew_id)
+      )
+    ''');
+
+    // Create crew_payment_distributions table
+    await db.execute('''
+      CREATE TABLE crew_payment_distributions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        crew_assignment_id INTEGER REFERENCES crew_assignments(id),
+        official_id INTEGER REFERENCES officials(id),
+        amount DECIMAL(10,2),
+        notes TEXT,
+        created_by INTEGER REFERENCES officials(id),
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    ''');
+
+    // Create indexes for performance
+    await _createCrewIndexes(db);
+
+    // Insert default crew types
+    await _insertDefaultCrewTypes(db);
+    
+    print('✅ Crew system tables added successfully');
+  }
+
+  Future<void> _createCrewIndexes(Database db) async {
+    await db.execute('CREATE INDEX idx_crew_types_sport_level ON crew_types(sport_id, level_of_competition)');
+    await db.execute('CREATE INDEX idx_crews_crew_chief ON crews(crew_chief_id)');
+    await db.execute('CREATE INDEX idx_crews_active ON crews(is_active)');
+    await db.execute('CREATE INDEX idx_crew_members_crew_id ON crew_members(crew_id)');
+    await db.execute('CREATE INDEX idx_crew_members_official_id ON crew_members(official_id)');
+    await db.execute('CREATE INDEX idx_crew_availability_crew_date ON crew_availability(crew_id, date)');
+    await db.execute('CREATE INDEX idx_crew_assignments_game_id ON crew_assignments(game_id)');
+    await db.execute('CREATE INDEX idx_crew_assignments_crew_chief ON crew_assignments(crew_chief_id)');
+    await db.execute('CREATE INDEX idx_crew_assignments_status ON crew_assignments(status)');
+    await db.execute('CREATE INDEX idx_crew_payments_assignment ON crew_payment_distributions(crew_assignment_id)');
+  }
+
+  Future<void> _insertDefaultCrewTypes(Database db) async {
+    // Get sport IDs
+    final sportsQuery = await db.query('sports', columns: ['id', 'name']);
+    final sportMap = Map.fromIterable(sportsQuery, 
+      key: (s) => s['name'], 
+      value: (s) => s['id']
+    );
+
+    final defaultCrewTypes = [
+      {'sport': 'Football', 'level': 'Varsity', 'officials': 5, 'desc': 'Varsity Football - 5 Officials (Referee, Umpire, Head Linesman, Line Judge, Back Judge)'},
+      {'sport': 'Football', 'level': 'Underclass', 'officials': 4, 'desc': 'JV/Freshman Football - 4 Officials'},
+      {'sport': 'Baseball', 'level': 'All', 'officials': 2, 'desc': 'All Baseball Levels - 2 Officials (Home Plate, Base Umpire)'},
+      {'sport': 'Basketball', 'level': 'Varsity', 'officials': 3, 'desc': 'Varsity Basketball - 3 Officials'},
+      {'sport': 'Basketball', 'level': 'JV', 'officials': 3, 'desc': 'JV Basketball - 3 Officials'},
+      {'sport': 'Basketball', 'level': 'Other', 'officials': 2, 'desc': 'Freshman/Middle School Basketball - 2 Officials'},
+    ];
+
+    for (final crewType in defaultCrewTypes) {
+      final sportId = sportMap[crewType['sport']];
+      if (sportId != null) {
+        await db.insert('crew_types', {
+          'sport_id': sportId,
+          'level_of_competition': crewType['level'],
+          'required_officials': crewType['officials'],
+          'description': crewType['desc'],
+        });
+      }
+    }
+    
+    print('✅ Default crew types inserted successfully');
+  }
+
+  Future<void> _addCrewInvitationsTable(Database db) async {
+    // Create crew_invitations table
+    await db.execute('''
+      CREATE TABLE crew_invitations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        crew_id INTEGER REFERENCES crews(id),
+        invited_official_id INTEGER REFERENCES officials(id),
+        invited_by INTEGER REFERENCES officials(id),
+        status TEXT DEFAULT 'pending',
+        invited_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        responded_at DATETIME,
+        response_notes TEXT,
+        position TEXT DEFAULT 'member',
+        game_position TEXT,
+        UNIQUE(crew_id, invited_official_id)
+      )
+    ''');
+    
+    // Create indexes for performance
+    await db.execute('CREATE INDEX idx_crew_invitations_crew_id ON crew_invitations(crew_id)');
+    await db.execute('CREATE INDEX idx_crew_invitations_invited_official_id ON crew_invitations(invited_official_id)');
+    await db.execute('CREATE INDEX idx_crew_invitations_status ON crew_invitations(status)');
+    
+    print('✅ Crew invitations table created successfully');
+  }
+
+  Future<void> _addCrewCompetitionLevels(Database db) async {
+    // Add competition_levels column to crews table
+    await db.execute('''
+      ALTER TABLE crews ADD COLUMN competition_levels TEXT DEFAULT '[]'
+    ''');
   }
 
   // Utility methods

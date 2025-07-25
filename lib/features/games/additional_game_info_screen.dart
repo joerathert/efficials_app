@@ -405,6 +405,8 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
                         const SizedBox(height: 20),
                         TextField(
                           controller: _gameFeeController,
+                          enabled: true,
+                          autofocus: false,
                           decoration:
                               textFieldDecoration('Game Fee per Official').copyWith(
                             prefixText: '\$',
@@ -424,6 +426,8 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
                       ],
                       TextField(
                         controller: _opponentController,
+                        enabled: true,
+                        autofocus: false,
                         decoration: textFieldDecoration('Opponent'),
                         style: const TextStyle(color: Colors.white, fontSize: 16),
                         keyboardType: TextInputType.text,

@@ -223,6 +223,24 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
               );
             }
           }
+        } else if (_defaultMethod == 'hire_crew') {
+          Navigator.pushNamed(
+            context,
+            '/select_crew',
+            arguments: <String, dynamic>{
+              ...args,
+              'sport': sport,
+              'listName': listName,
+              'listId': listId,
+              'method': 'hire_crew',
+              'locationData': args['locationData'],
+              'isAwayGame': args['isAwayGame'] ?? false,
+              'template': template,
+              'fromScheduleDetails':
+                  args['fromScheduleDetails'] ?? false,
+              'scheduleId': args['scheduleId'],
+            },
+          );
         } else if (_defaultMethod == 'use_list') {
           Navigator.pushNamed(
             context,
@@ -423,6 +441,36 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
                           padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 32),
                         ),
                         child: const Text('Use List', style: signInButtonTextStyle),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: 200,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          _saveDefaultChoice('hire_crew');
+                          Navigator.pushNamed(
+                            context,
+                            '/select_crew',
+                            arguments: <String, dynamic>{
+                              ...args,
+                              'sport': sport,
+                              'listName': listName,
+                              'listId': listId,
+                              'method': 'hire_crew',
+                              'locationData': args['locationData'],
+                              'isAwayGame': args['isAwayGame'] ?? false,
+                              'template': template,
+                              'fromScheduleDetails':
+                                  args['fromScheduleDetails'] ?? false,
+                              'scheduleId': args['scheduleId'],
+                            },
+                          );
+                        },
+                        style: elevatedButtonStyle(
+                          padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 32),
+                        ),
+                        child: const Text('Hire a Crew', style: signInButtonTextStyle),
                       ),
                     ),
                     const SizedBox(height: 20),

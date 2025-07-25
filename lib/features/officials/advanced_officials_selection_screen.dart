@@ -25,6 +25,32 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
     _fetchLists();
   }
 
+  // Store args for use after lists are loaded
+  Map<String, dynamic>? _routeArgs;
+
+  void _restoreSelectedLists(List<dynamic> existingLists) {
+    setState(() {
+      selectedLists.clear();
+      for (var listData in existingLists) {
+        if (listData is Map<String, dynamic>) {
+          // Find the corresponding list from saved lists to get full data
+          final fullList = lists.firstWhere(
+            (l) => l['name'] == listData['name'],
+            orElse: () => {'name': 'Unknown List', 'id': -1, 'officials': []},
+          );
+          
+          selectedLists.add({
+            'name': listData['name'],
+            'id': fullList['id'],
+            'officials': fullList['officials'] ?? [],
+            'minOfficials': listData['minOfficials'] ?? 0,
+            'maxOfficials': listData['maxOfficials'] ?? 0,
+          });
+        }
+      }
+    });
+  }
+
   Future<void> _fetchLists() async {
     final prefs = await SharedPreferences.getInstance();
     final String? listsJson = prefs.getString('saved_lists');
@@ -41,6 +67,17 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
       }
       isLoading = false;
     });
+    
+    // After lists are loaded, check if we need to restore selected lists
+    if (_routeArgs != null) {
+      final isEdit = _routeArgs!['isEdit'] as bool? ?? false;
+      if (isEdit && _routeArgs!['selectedLists'] != null) {
+        final existingLists = _routeArgs!['selectedLists'] as List<dynamic>;
+        if (existingLists.isNotEmpty) {
+          _restoreSelectedLists(existingLists);
+        }
+      }
+    }
   }
 
   void _addList(String listName) {
@@ -58,6 +95,119 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
     setState(() {
       selectedLists.removeAt(index);
     });
+  }
+
+  Future<void> _saveUpdatedListToPreferences(String listName, List<Map<String, dynamic>> updatedOfficials) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final String? listsJson = prefs.getString('saved_lists');
+      
+      if (listsJson != null && listsJson.isNotEmpty) {
+        List<Map<String, dynamic>> savedLists = List<Map<String, dynamic>>.from(jsonDecode(listsJson));
+        
+        // Find and update the specific list
+        for (int i = 0; i < savedLists.length; i++) {
+          if (savedLists[i]['name'] == listName) {
+            savedLists[i]['officials'] = updatedOfficials;
+            break;
+          }
+        }
+        
+        // Save back to SharedPreferences
+        await prefs.setString('saved_lists', jsonEncode(savedLists));
+        
+        // Update the local lists data
+        setState(() {
+          for (int i = 0; i < lists.length; i++) {
+            if (lists[i]['name'] == listName) {
+              lists[i]['officials'] = updatedOfficials;
+              break;
+            }
+          }
+        });
+        
+        debugPrint('Updated list "$listName" with ${updatedOfficials.length} officials');
+      }
+    } catch (e) {
+      debugPrint('Error saving updated list: $e');
+    }
+  }
+
+  void _showListOfficials(int listIndex) {
+    final list = selectedLists[listIndex];
+    final officials = (list['officials'] as List<dynamic>?)?.cast<Map<String, dynamic>>() ?? [];
+    
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          backgroundColor: darkSurface,
+          title: Text(
+            'Officials in "${list['name']}"',
+            style: const TextStyle(color: efficialsYellow, fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          content: SizedBox(
+            width: double.maxFinite,
+            height: 400,
+            child: officials.isEmpty
+                ? const Text('No officials in this list.', style: TextStyle(color: Colors.white))
+                : ListView.builder(
+                    itemCount: officials.length,
+                    itemBuilder: (context, index) {
+                      final official = officials[index];
+                      return CheckboxListTile(
+                        title: Text(
+                          official['name'] ?? 'Unknown Official',
+                          style: const TextStyle(color: Colors.white),
+                        ),
+                        subtitle: Text(
+                          'Distance: ${(official['distance'] as num?)?.toStringAsFixed(1) ?? '0.0'} mi',
+                          style: const TextStyle(color: Colors.grey),
+                        ),
+                        value: true, // Initially all are checked since they're in the list
+                        activeColor: Colors.green,
+                        checkColor: Colors.white,
+                        onChanged: (bool? value) {
+                          if (value == false) {
+                            // Remove the official from the list
+                            setDialogState(() {
+                              officials.removeAt(index);
+                            });
+                            // Update the main state
+                            setState(() {
+                              selectedLists[listIndex]['officials'] = officials;
+                            });
+                          }
+                        },
+                      );
+                    },
+                  ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () async {
+                // Save the updated list back to SharedPreferences
+                await _saveUpdatedListToPreferences(list['name'], officials);
+                Navigator.pop(context);
+                
+                // Show confirmation
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Changes to "${list['name']}" saved successfully'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              },
+              child: const Text('Save Changes', style: TextStyle(color: efficialsYellow)),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _updateMinOfficials(int index, String value) {
@@ -118,6 +268,7 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
         'method': 'advanced',
         'selectedLists': selectedLists.map((list) => {
           'name': list['name'],
+          'id': list['id'],
           'minOfficials': list['minOfficials'],
           'maxOfficials': list['maxOfficials'],
         }).toList(),
@@ -128,6 +279,7 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
   @override
   Widget build(BuildContext context) {
     final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+    _routeArgs = args; // Store args for later use
     totalRequiredOfficials = int.tryParse(args['officialsRequired'].toString()) ?? 0;
 
     final dropdownItems = lists.isNotEmpty
@@ -277,6 +429,9 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
                                     decoration: textFieldDecoration('Minimum Officials'),
                                     keyboardType: TextInputType.number,
                                     style: const TextStyle(color: primaryTextColor),
+                                    controller: TextEditingController(
+                                      text: list['minOfficials']?.toString() ?? '',
+                                    ),
                                     onChanged: (value) => _updateMinOfficials(index, value),
                                   ),
                                   const SizedBox(height: 10),
@@ -284,7 +439,29 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
                                     decoration: textFieldDecoration('Maximum Officials'),
                                     keyboardType: TextInputType.number,
                                     style: const TextStyle(color: primaryTextColor),
+                                    controller: TextEditingController(
+                                      text: list['maxOfficials']?.toString() ?? '',
+                                    ),
                                     onChanged: (value) => _updateMaxOfficials(index, value),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  ElevatedButton.icon(
+                                    onPressed: () => _showListOfficials(index),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: efficialsYellow,
+                                      foregroundColor: efficialsBlack,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                    ),
+                                    icon: const Icon(Icons.people, color: efficialsBlack),
+                                    label: Text(
+                                      'View Officials (${(list['officials'] as List?)?.length ?? 0})',
+                                      style: const TextStyle(
+                                        color: efficialsBlack,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
                                   ),
                                 ],
                               ),

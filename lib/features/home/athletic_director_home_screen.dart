@@ -932,6 +932,7 @@ class _AthleticDirectorHomeScreenState
                     child: Padding(
                       padding: const EdgeInsets.only(bottom: 16),
                       child: FloatingActionButton.extended(
+                        heroTag: "fab_use_template",
                         onPressed: () {
                           setState(() {
                             isFabExpanded = false;
@@ -954,6 +955,7 @@ class _AthleticDirectorHomeScreenState
                     child: Padding(
                       padding: const EdgeInsets.only(bottom: 16),
                       child: FloatingActionButton.extended(
+                        heroTag: "fab_start_scratch",
                         onPressed: () {
                           setState(() {
                             isFabExpanded = false;
@@ -970,6 +972,7 @@ class _AthleticDirectorHomeScreenState
                   ),
                 ),
                 FloatingActionButton(
+                  heroTag: "fab_main",
                   onPressed: () {
                     setState(() {
                       isFabExpanded = !isFabExpanded;

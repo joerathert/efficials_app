@@ -702,9 +702,22 @@ class GameService {
             }
           }
         } else if (game.method == 'advanced') {
-          // For advanced method, we'd need the actual lists configuration
-          // This would require storing selectedLists in the database
-          gameMap['selectedLists'] = [];
+          // For advanced method, try to reconstruct from the most recent creation
+          // Check SharedPreferences for recently used advanced selection data
+          final prefs = await SharedPreferences.getInstance();
+          final String? recentAdvancedData = prefs.getString('recent_advanced_selection_${game.id}');
+          if (recentAdvancedData != null) {
+            try {
+              final data = jsonDecode(recentAdvancedData);
+              gameMap['selectedLists'] = data['selectedLists'] ?? [];
+              gameMap['selectedOfficials'] = data['selectedOfficials'] ?? [];
+            } catch (e) {
+              debugPrint('Error parsing recent advanced selection data: $e');
+              gameMap['selectedLists'] = [];
+            }
+          } else {
+            gameMap['selectedLists'] = [];
+          }
         } else if (game.method == 'manual') {
           // For manual method, we could load officials from game_officials relationship
           gameMap['selectedOfficials'] = [];

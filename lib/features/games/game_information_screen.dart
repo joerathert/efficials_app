@@ -714,7 +714,7 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
       );
     }
 
-    if (args['method'] == 'advanced' && args['selectedLists'] != null) {
+    if (args['method'] == 'advanced' && selectedLists.isNotEmpty) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: selectedLists.map((list) => Padding(
@@ -722,7 +722,7 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
           child: GestureDetector(
             onTap: () => _showListOfficials(list['name']),
             child: Text(
-              '${list['name']}: Min ${list['minOfficials']}, Max ${list['maxOfficials']}',
+              '${list['name']} (${list['maxOfficials']} max, ${list['minOfficials']} min)',
               style: const TextStyle(
                 fontSize: 16,
                 color: efficialsYellow,

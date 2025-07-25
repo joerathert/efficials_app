@@ -39,8 +39,20 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
 
   void _handleEditOfficials(Map<String, dynamic> args) {
     final method = args['method'] as String? ?? 'standard';
-    final selectedOfficials =
-        args['selectedOfficials'] as List<Map<String, dynamic>>? ?? [];
+    
+    // Safely convert selectedOfficials from List<dynamic> to List<Map<String, dynamic>>
+    List<Map<String, dynamic>> selectedOfficials = [];
+    if (args['selectedOfficials'] != null) {
+      final officialsRaw = args['selectedOfficials'] as List<dynamic>;
+      selectedOfficials = officialsRaw.map((official) {
+        if (official is Map<String, dynamic>) {
+          return official;
+        } else if (official is Map) {
+          return Map<String, dynamic>.from(official);
+        }
+        return <String, dynamic>{'name': 'Unknown Official'};
+      }).toList();
+    }
 
     String route;
     Map<String, dynamic> routeArgs = {
@@ -53,7 +65,20 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
     switch (method) {
       case 'advanced':
         route = '/advanced_officials_selection';
-        routeArgs['selectedLists'] = args['selectedLists'] ?? [];
+        // Safely convert selectedLists from List<dynamic> to List<Map<String, dynamic>>
+        List<Map<String, dynamic>> selectedLists = [];
+        if (args['selectedLists'] != null) {
+          final listsRaw = args['selectedLists'] as List<dynamic>;
+          selectedLists = listsRaw.map((list) {
+            if (list is Map<String, dynamic>) {
+              return list;
+            } else if (list is Map) {
+              return Map<String, dynamic>.from(list);
+            }
+            return <String, dynamic>{'name': 'Unknown List'};
+          }).toList();
+        }
+        routeArgs['selectedLists'] = selectedLists;
         break;
       case 'use_list':
         route = '/lists_of_officials';

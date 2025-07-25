@@ -72,6 +72,10 @@ import 'features/locations/edit_location_screen.dart';
 // Debug screens
 import 'features/debug/database_test_screen.dart';
 
+// Crew screens
+import 'features/crews/select_crew_screen.dart';
+import 'features/crews/filter_crews_screen.dart';
+
 // Shared
 import 'shared/theme.dart';
 
@@ -210,6 +214,8 @@ class EfficialsApp extends StatelessWidget {
         '/database_test': (context) => const DatabaseTestScreen(),
         '/official_game_details': (context) => const OfficialGameDetailsScreen(),
         '/official_profile': (context) => const OfficialProfileScreen(),
+        '/select_crew': (context) => const SelectCrewScreen(),
+        '/filter_crews_settings': (context) => const FilterCrewsScreen(),
       },
     );
   }
