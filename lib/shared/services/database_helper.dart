@@ -24,7 +24,7 @@ class DatabaseHelper {
     
     return await openDatabase(
       path,
-      version: 8,
+      version: 10,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -271,6 +271,66 @@ class DatabaseHelper {
       // Add school_address column to users table
       await db.execute('ALTER TABLE users ADD COLUMN school_address TEXT');
     }
+    
+    if (oldVersion < 9) {
+      // Add follow-through rate tracking functionality
+      
+      // Add follow-through rate fields to officials table
+      await db.execute('ALTER TABLE officials ADD COLUMN follow_through_rate DECIMAL(5,2) DEFAULT 100.0');
+      await db.execute('ALTER TABLE officials ADD COLUMN total_accepted_games INTEGER DEFAULT 0');
+      await db.execute('ALTER TABLE officials ADD COLUMN total_backed_out_games INTEGER DEFAULT 0');
+      
+      // Create table to track back-out notifications and excuses
+      await db.execute('''
+        CREATE TABLE official_backout_notifications (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          assignment_id INTEGER REFERENCES game_assignments(id),
+          official_id INTEGER REFERENCES officials(id),
+          scheduler_id INTEGER REFERENCES users(id),
+          game_id INTEGER REFERENCES games(id),
+          backed_out_at DATETIME NOT NULL,
+          back_out_reason TEXT NOT NULL,
+          excused_at DATETIME,
+          excused_by INTEGER REFERENCES users(id),
+          excuse_reason TEXT,
+          notification_sent_at DATETIME,
+          notification_read_at DATETIME,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(assignment_id)
+        )
+      ''');
+      
+      // Create indexes for performance
+      await db.execute('CREATE INDEX idx_backout_notifications_official_id ON official_backout_notifications(official_id)');
+      await db.execute('CREATE INDEX idx_backout_notifications_scheduler_id ON official_backout_notifications(scheduler_id)');
+      await db.execute('CREATE INDEX idx_backout_notifications_assignment_id ON official_backout_notifications(assignment_id)');
+      await db.execute('CREATE INDEX idx_backout_notifications_excused_at ON official_backout_notifications(excused_at)');
+      
+      // Add excuse-related columns to game_assignments table
+      await db.execute('ALTER TABLE game_assignments ADD COLUMN excused_backout BOOLEAN DEFAULT FALSE');
+      await db.execute('ALTER TABLE game_assignments ADD COLUMN excused_at DATETIME');
+      await db.execute('ALTER TABLE game_assignments ADD COLUMN excused_by INTEGER REFERENCES users(id)');
+      await db.execute('ALTER TABLE game_assignments ADD COLUMN excuse_reason TEXT');
+    }
+    
+    if (oldVersion < 10) {
+      // Add endorsement functionality
+      await db.execute('''
+        CREATE TABLE official_endorsements (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          endorsed_official_id INTEGER REFERENCES officials(id),
+          endorser_user_id INTEGER NOT NULL,
+          endorser_type TEXT NOT NULL CHECK (endorser_type IN ('scheduler', 'official')),
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(endorsed_official_id, endorser_user_id)
+        )
+      ''');
+      
+      // Create indexes for performance
+      await db.execute('CREATE INDEX idx_endorsements_endorsed_official_id ON official_endorsements(endorsed_official_id)');
+      await db.execute('CREATE INDEX idx_endorsements_endorser_user_id ON official_endorsements(endorser_user_id)');
+      await db.execute('CREATE INDEX idx_endorsements_endorser_type ON official_endorsements(endorser_type)');
+    }
   }
 
   Future<void> _createTables(Database db) async {
@@ -359,6 +419,9 @@ class DatabaseHelper {
         experience_years INTEGER,
         certification_level TEXT,
         is_user_account BOOLEAN DEFAULT FALSE,
+        follow_through_rate DECIMAL(5,2) DEFAULT 100.0,
+        total_accepted_games INTEGER DEFAULT 0,
+        total_backed_out_games INTEGER DEFAULT 0,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     ''');
@@ -515,6 +578,10 @@ class DatabaseHelper {
         fee_amount DECIMAL(10,2),
         backed_out_at DATETIME,
         back_out_reason TEXT,
+        excused_backout BOOLEAN DEFAULT FALSE,
+        excused_at DATETIME,
+        excused_by INTEGER REFERENCES users(id),
+        excuse_reason TEXT,
         UNIQUE(game_id, official_id)
       )
     ''');
@@ -585,6 +652,26 @@ class DatabaseHelper {
       )
     ''');
 
+    // Official backout notifications table for follow-through rate tracking
+    await db.execute('''
+      CREATE TABLE official_backout_notifications (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        assignment_id INTEGER REFERENCES game_assignments(id),
+        official_id INTEGER REFERENCES officials(id),
+        scheduler_id INTEGER REFERENCES users(id),
+        game_id INTEGER REFERENCES games(id),
+        backed_out_at DATETIME NOT NULL,
+        back_out_reason TEXT NOT NULL,
+        excused_at DATETIME,
+        excused_by INTEGER REFERENCES users(id),
+        excuse_reason TEXT,
+        notification_sent_at DATETIME,
+        notification_read_at DATETIME,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(assignment_id)
+      )
+    ''');
+
     // Create indexes for better performance
     await _createIndexes(db);
     
@@ -616,6 +703,29 @@ class DatabaseHelper {
     // Indexes for user sessions
     await db.execute('CREATE INDEX idx_user_sessions_user_id ON user_sessions(user_id)');
     await db.execute('CREATE INDEX idx_user_sessions_created_at ON user_sessions(created_at)');
+    
+    // Indexes for follow-through rate tracking
+    await db.execute('CREATE INDEX idx_backout_notifications_official_id ON official_backout_notifications(official_id)');
+    await db.execute('CREATE INDEX idx_backout_notifications_scheduler_id ON official_backout_notifications(scheduler_id)');
+    await db.execute('CREATE INDEX idx_backout_notifications_assignment_id ON official_backout_notifications(assignment_id)');
+    await db.execute('CREATE INDEX idx_backout_notifications_excused_at ON official_backout_notifications(excused_at)');
+    
+    // Official endorsements table
+    await db.execute('''
+      CREATE TABLE official_endorsements (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        endorsed_official_id INTEGER REFERENCES officials(id),
+        endorser_user_id INTEGER NOT NULL,
+        endorser_type TEXT NOT NULL CHECK (endorser_type IN ('scheduler', 'official')),
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(endorsed_official_id, endorser_user_id)
+      )
+    ''');
+    
+    // Create indexes for performance
+    await db.execute('CREATE INDEX idx_endorsements_endorsed_official_id ON official_endorsements(endorsed_official_id)');
+    await db.execute('CREATE INDEX idx_endorsements_endorser_user_id ON official_endorsements(endorser_user_id)');
+    await db.execute('CREATE INDEX idx_endorsements_endorser_type ON official_endorsements(endorser_type)');
   }
 
   Future<void> _insertDefaultSports(Database db) async {

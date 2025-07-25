@@ -77,9 +77,30 @@ class GameAssignmentRepository extends BaseRepository {
       data['response_notes'] = responseNotes;
     }
     
-    return await update('game_assignments', data, 'id = ?', [assignmentId]);
+    final result = await update('game_assignments', data, 'id = ?', [assignmentId]);
+    
+    // If status is 'accepted', increment the official's accepted games count
+    if (status == 'accepted') {
+      final assignment = await rawQuery('''
+        SELECT official_id FROM game_assignments WHERE id = ?
+      ''', [assignmentId]);
+      
+      if (assignment.isNotEmpty) {
+        final officialId = assignment.first['official_id'];
+        await rawQuery('''
+          UPDATE officials 
+          SET total_accepted_games = total_accepted_games + 1
+          WHERE id = ?
+        ''', [officialId]);
+        
+        // Recalculate follow-through rate
+        await _updateOfficialFollowThroughRate(officialId);
+      }
+    }
+    
+    return result;
   }
-  
+
   // Get assignment by game and official
   Future<GameAssignment?> getAssignmentByGameAndOfficial(int gameId, int officialId) async {
     final results = await query(
@@ -129,6 +150,16 @@ class GameAssignmentRepository extends BaseRepository {
         SET officials_hired = officials_hired + 1 
         WHERE id = ?
       ''', [gameId]);
+      
+      // Increment official's accepted games count
+      await rawQuery('''
+        UPDATE officials 
+        SET total_accepted_games = total_accepted_games + 1
+        WHERE id = ?
+      ''', [officialId]);
+      
+      // Recalculate follow-through rate (though it should stay the same since no backouts yet)
+      await _updateOfficialFollowThroughRate(officialId);
       
       return assignmentId;
     } catch (e) {
@@ -190,30 +221,67 @@ class GameAssignmentRepository extends BaseRepository {
   // Back out of a game (for confirmed assignments)
   Future<int> backOutOfGame(int assignmentId, String reason) async {
     try {
+      // Get assignment details before updating
+      final assignmentDetails = await rawQuery('''
+        SELECT ga.*, g.user_id as scheduler_id, g.sport_id, g.date, g.time, g.opponent, g.home_team,
+               o.id as official_id, o.name as official_name, s.name as sport_name
+        FROM game_assignments ga
+        JOIN games g ON ga.game_id = g.id
+        JOIN officials o ON ga.official_id = o.id
+        LEFT JOIN sports s ON g.sport_id = s.id
+        WHERE ga.id = ?
+      ''', [assignmentId]);
+      
+      if (assignmentDetails.isEmpty) {
+        throw Exception('Assignment not found');
+      }
+      
+      final assignment = assignmentDetails.first;
+      final gameId = assignment['game_id'];
+      final officialId = assignment['official_id'];
+      final schedulerId = assignment['scheduler_id'];
+      final backedOutAt = DateTime.now();
+      
+      // Update the assignment status
       final data = {
         'status': 'backed_out',
-        'backed_out_at': DateTime.now().toIso8601String(),
+        'backed_out_at': backedOutAt.toIso8601String(),
         'back_out_reason': reason,
       };
       
       final result = await update('game_assignments', data, 'id = ?', [assignmentId]);
       
-      // Decrease the officials_hired count for the game to allow position to be refilled
-      final assignment = await rawQuery('''
-        SELECT game_id FROM game_assignments WHERE id = ?
-      ''', [assignmentId]);
+      // Create backout notification
+      await insert('official_backout_notifications', {
+        'assignment_id': assignmentId,
+        'official_id': officialId,
+        'scheduler_id': schedulerId,
+        'game_id': gameId,
+        'backed_out_at': backedOutAt.toIso8601String(),
+        'back_out_reason': reason,
+        'notification_sent_at': DateTime.now().toIso8601String(),
+        'created_at': DateTime.now().toIso8601String(),
+      });
       
-      if (assignment.isNotEmpty) {
-        final gameId = assignment.first['game_id'];
-        await rawQuery('''
-          UPDATE games 
-          SET officials_hired = CASE 
-            WHEN officials_hired > 0 THEN officials_hired - 1 
-            ELSE 0 
-          END 
-          WHERE id = ?
-        ''', [gameId]);
-      }
+      // Update official's stats (increase backed out games count)
+      await rawQuery('''
+        UPDATE officials 
+        SET total_backed_out_games = total_backed_out_games + 1
+        WHERE id = ?
+      ''', [officialId]);
+      
+      // Recalculate follow-through rate
+      await _updateOfficialFollowThroughRate(officialId);
+      
+      // Decrease the officials_hired count for the game to allow position to be refilled
+      await rawQuery('''
+        UPDATE games 
+        SET officials_hired = CASE 
+          WHEN officials_hired > 0 THEN officials_hired - 1 
+          ELSE 0 
+        END 
+        WHERE id = ?
+      ''', [gameId]);
       
       return result;
     } catch (e) {
@@ -221,4 +289,127 @@ class GameAssignmentRepository extends BaseRepository {
       throw Exception('Failed to back out of game: ${e.toString()}');
     }
   }
+  
+  // Helper method to update official's follow-through rate
+  Future<void> _updateOfficialFollowThroughRate(int officialId) async {
+    // Get current stats
+    final stats = await rawQuery('''
+      SELECT total_accepted_games, total_backed_out_games 
+      FROM officials 
+      WHERE id = ?
+    ''', [officialId]);
+    
+    if (stats.isNotEmpty) {
+      final totalAccepted = stats.first['total_accepted_games'] ?? 0;
+      final totalBackedOut = stats.first['total_backed_out_games'] ?? 0;
+      
+      // Calculate follow-through rate: (accepted - backed_out) / accepted * 100
+      // If no games accepted yet, rate stays at 100%
+      double followThroughRate = 100.0;
+      if (totalAccepted > 0) {
+        final successfulGames = totalAccepted - totalBackedOut;
+        followThroughRate = (successfulGames / totalAccepted) * 100.0;
+        
+        // Ensure rate is between 0 and 100
+        followThroughRate = followThroughRate.clamp(0.0, 100.0);
+      }
+      
+      await rawQuery('''
+        UPDATE officials 
+        SET follow_through_rate = ?
+        WHERE id = ?
+      ''', [followThroughRate, officialId]);
+    }
+  }
+  
+  // Get pending backout notifications for a scheduler
+  Future<List<Map<String, dynamic>>> getPendingBackoutNotifications(int schedulerId) async {
+    return await rawQuery('''
+      SELECT obn.*, o.name as official_name, s.name as sport_name,
+             g.date, g.time, g.opponent, g.home_team
+      FROM official_backout_notifications obn
+      JOIN officials o ON obn.official_id = o.id
+      JOIN games g ON obn.game_id = g.id
+      LEFT JOIN sports s ON g.sport_id = s.id
+      WHERE obn.scheduler_id = ? AND obn.excused_at IS NULL
+      ORDER BY obn.backed_out_at DESC
+    ''', [schedulerId]);
+  }
+  
+  // Excuse an official's backout
+  Future<int> excuseOfficialBackout(int notificationId, int excusedBy, String excuseReason) async {
+    try {
+      final excusedAt = DateTime.now();
+      
+      // Get the notification details
+      final notification = await rawQuery('''
+        SELECT * FROM official_backout_notifications WHERE id = ?
+      ''', [notificationId]);
+      
+      if (notification.isEmpty) {
+        throw Exception('Notification not found');
+      }
+      
+      final officialId = notification.first['official_id'];
+      final assignmentId = notification.first['assignment_id'];
+      
+      // Update the notification as excused
+      await update('official_backout_notifications', {
+        'excused_at': excusedAt.toIso8601String(),
+        'excused_by': excusedBy,
+        'excuse_reason': excuseReason,
+      }, 'id = ?', [notificationId]);
+      
+      // Update the game assignment to mark as excused
+      await update('game_assignments', {
+        'excused_backout': 1,
+        'excused_at': excusedAt.toIso8601String(),
+        'excused_by': excusedBy,
+        'excuse_reason': excuseReason,
+      }, 'id = ?', [assignmentId]);
+      
+      // Decrease the official's backed out games count
+      await rawQuery('''
+        UPDATE officials 
+        SET total_backed_out_games = CASE 
+          WHEN total_backed_out_games > 0 THEN total_backed_out_games - 1 
+          ELSE 0 
+        END 
+        WHERE id = ?
+      ''', [officialId]);
+      
+      // Recalculate follow-through rate
+      await _updateOfficialFollowThroughRate(officialId);
+      
+      return 1;
+    } catch (e) {
+      print('Error excusing official backout: $e');
+      throw Exception('Failed to excuse official backout: ${e.toString()}');
+    }
+  }
+  
+  // Mark notification as read
+  Future<int> markNotificationAsRead(int notificationId) async {
+    return await update('official_backout_notifications', {
+      'notification_read_at': DateTime.now().toIso8601String(),
+    }, 'id = ?', [notificationId]);
+  }
+  
+  // Get backout notification by ID
+  Future<Map<String, dynamic>?> getBackoutNotification(int notificationId) async {
+    final results = await rawQuery('''
+      SELECT obn.*, o.name as official_name, s.name as sport_name,
+             g.date, g.time, g.opponent, g.home_team, g.location_id,
+             l.name as location_name
+      FROM official_backout_notifications obn
+      JOIN officials o ON obn.official_id = o.id
+      JOIN games g ON obn.game_id = g.id
+      LEFT JOIN sports s ON g.sport_id = s.id
+      LEFT JOIN locations l ON g.location_id = l.id
+      WHERE obn.id = ?
+    ''', [notificationId]);
+    
+    return results.isNotEmpty ? results.first : null;
+  }
+
 }

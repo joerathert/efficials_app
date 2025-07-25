@@ -94,7 +94,7 @@ class AthleticDirectorHomeScreen extends StatefulWidget {
 }
 
 class _AthleticDirectorHomeScreenState
-    extends State<AthleticDirectorHomeScreen> {
+    extends State<AthleticDirectorHomeScreen> with WidgetsBindingObserver {
   List<Game> publishedGames = [];
   List<String> existingSchedules = [];
   bool isLoading = true;
@@ -112,14 +112,23 @@ class _AthleticDirectorHomeScreenState
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _fetchGames();
     _loadFilters();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     scrollController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _fetchGames(); // Refresh data on app resume/hot restart
+    }
   }
 
   @override

@@ -70,16 +70,15 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
     Navigator.pushNamed(context, route, arguments: routeArgs).then((result) {
       if (result != null) {
         final updatedArgs = result as Map<String, dynamic>;
-        Navigator.pushReplacementNamed(
-          context,
-          '/review_game_info',
-          arguments: {
-            ...updatedArgs,
-            'isEdit': true,
-            'isFromGameInfo': args['isFromGameInfo'] ?? false,
-            'template': template, // Pass the GameTemplate object
-          },
-        );
+        final finalArgs = {
+          ...updatedArgs,
+          'isEdit': true,
+          'isFromGameInfo': args['isFromGameInfo'] ?? false,
+          'template': template, // Pass the GameTemplate object
+        };
+        
+        // Return the data instead of navigating directly
+        Navigator.pop(context, finalArgs);
       }
     });
   }

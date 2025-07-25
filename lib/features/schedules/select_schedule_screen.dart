@@ -36,11 +36,15 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
       
       // Get the arguments from the current route
       final args = ModalRoute.of(context)!.settings.arguments;
+      
+      print('DEBUG SelectSchedule - didChangeDependencies called');
+      print('DEBUG SelectSchedule - args: $args');
 
       // Handle the case when args is a Map (coming from HomeScreen with a template)
       if (args is Map<String, dynamic>?) {
         if (args != null && args.containsKey('template')) {
           template = args['template'] as GameTemplate?;
+          print('DEBUG SelectSchedule - template loaded: ${template?.name}');
         }
       }
       

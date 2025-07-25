@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../shared/theme.dart';
 import '../../shared/services/user_session_service.dart';
+import '../../shared/services/repositories/official_repository.dart';
+import '../../shared/services/repositories/endorsement_repository.dart';
+import '../../shared/models/database_models.dart';
 
 class OfficialProfileScreen extends StatefulWidget {
   const OfficialProfileScreen({super.key});
@@ -15,27 +18,16 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
   bool isViewingOwnProfile = true;
   bool showCareerStatistics = true;
   bool hasEndorsedThisOfficial = false; // Track if current user has endorsed this official
+  bool isCurrentUserScheduler = false; // Track if current user is a scheduler
+  bool _isLoading = true;
+  Official? _currentOfficial;
   
-  // Mock profile data for current user
-  final Map<String, dynamic> profileData = {
-    'name': 'John Smith',
-    'email': 'john.smith@email.com',
-    'phone': '(555) 123-4567',
-    'location': 'Chicago, IL',
-    'experienceYears': 8,
-    'primarySport': 'Football',
-    'certificationLevel': 'IHSA Certified',
-    'ratePerGame': 60.0,
-    'maxTravelDistance': 25,
-    'joinedDate': DateTime(2023, 3, 15),
-    'totalGames': 47,
-    'schedulerEndorsements': 0,
-    'officialEndorsements': 0,
-    'profileVerified': true,
-    'emailVerified': true,
-    'phoneVerified': false,
-    'showCareerStats': true,
-  };
+  // Repositories
+  final OfficialRepository _officialRepo = OfficialRepository();
+  final EndorsementRepository _endorsementRepo = EndorsementRepository();
+  
+  // Profile data will be loaded from the database
+  Map<String, dynamic> profileData = {};
 
   final List<Map<String, dynamic>> sports = [
     {'name': 'Football', 'level': 'IHSA Certified', 'years': 8, 'isPrimary': true},
@@ -52,6 +44,12 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
   };
 
   @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     
@@ -62,6 +60,124 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
       isViewingOwnProfile = false;
       // Get the show career stats preference from the other official's data
       showCareerStatistics = otherOfficialData!['showCareerStats'] ?? false;
+      
+      // Load endorsement data for the other profile
+      _loadOtherProfileEndorsementData();
+    }
+    
+    // Check if current user is a scheduler
+    _checkCurrentUserType();
+  }
+  
+  Future<void> _loadOtherProfileEndorsementData() async {
+    if (otherOfficialData == null) return;
+    
+    try {
+      final officialId = otherOfficialData!['id'];
+      if (officialId != null) {
+        // Get endorsement counts for the other official
+        final endorsementCounts = await _endorsementRepo.getEndorsementCounts(officialId);
+        
+        // Update the other official's data with real endorsement counts
+        setState(() {
+          otherOfficialData!['schedulerEndorsements'] = endorsementCounts['schedulerEndorsements'] ?? 0;
+          otherOfficialData!['officialEndorsements'] = endorsementCounts['officialEndorsements'] ?? 0;
+        });
+        
+        // Check if current user has endorsed this official
+        final userSession = UserSessionService.instance;
+        final currentUserId = await userSession.getCurrentUserId();
+        if (currentUserId != null) {
+          final hasEndorsed = await _endorsementRepo.hasUserEndorsedOfficial(
+            endorsedOfficialId: officialId,
+            endorserUserId: currentUserId,
+          );
+          
+          setState(() {
+            hasEndorsedThisOfficial = hasEndorsed;
+          });
+        }
+      }
+    } catch (e) {
+      print('Error loading other profile endorsement data: $e');
+    }
+  }
+  
+  Future<void> _loadData() async {
+    if (!isViewingOwnProfile) return; // Don't load if viewing another profile
+    
+    try {
+      setState(() {
+        _isLoading = true;
+      });
+      
+      // Get current user session
+      final userSession = UserSessionService.instance;
+      final userId = await userSession.getCurrentUserId();
+      final userType = await userSession.getCurrentUserType();
+      
+      if (userId == null || userType != 'official') {
+        // Handle error - redirect to login or show error
+        return;
+      }
+      
+      // Get the official record
+      _currentOfficial = await _officialRepo.getOfficialByOfficialUserId(userId);
+      
+      if (_currentOfficial == null) {
+        // Handle error - no official record found
+        return;
+      }
+      
+      // Get endorsement counts from the database
+      final endorsementCounts = await _endorsementRepo.getEndorsementCounts(_currentOfficial!.id!);
+      
+      // Populate profile data from the database
+      profileData = {
+        'name': _currentOfficial!.name ?? 'Unknown Official',
+        'email': _currentOfficial!.email ?? 'No email',
+        'phone': _currentOfficial!.phone ?? 'No phone',
+        'location': 'No location', // Not available in Official model - could be stored in settings
+        'experienceYears': _currentOfficial!.experienceYears ?? 0,
+        'primarySport': _currentOfficial!.sportName ?? 'N/A', // Use sportName from joined data
+        'certificationLevel': _currentOfficial!.certificationLevel ?? 'N/A',
+        'ratePerGame': 0.0, // Not available in Official model - could be stored in settings
+        'maxTravelDistance': 0, // Not available in Official model - could be stored in settings
+        'joinedDate': _currentOfficial!.createdAt ?? DateTime.now(),
+        'totalGames': _currentOfficial!.totalAcceptedGames ?? 0,
+        'schedulerEndorsements': endorsementCounts['schedulerEndorsements'] ?? 0,
+        'officialEndorsements': endorsementCounts['officialEndorsements'] ?? 0,
+        'profileVerified': false, // These are in OfficialUser model, not Official
+        'emailVerified': false, // These are in OfficialUser model, not Official
+        'phoneVerified': false, // These are in OfficialUser model, not Official
+        'showCareerStats': true, // Default to true for now
+        'followThroughRate': _currentOfficial!.followThroughRate ?? 100.0,
+      };
+      
+    } catch (e) {
+      print('Error loading official profile data: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+  
+  Future<void> _checkCurrentUserType() async {
+    try {
+      final userSession = UserSessionService.instance;
+      final userType = await userSession.getCurrentUserType();
+      setState(() {
+        isCurrentUserScheduler = userType == 'scheduler';
+      });
+    } catch (e) {
+      print('Error checking user type: $e');
+      // Default to false if error occurs
+      setState(() {
+        isCurrentUserScheduler = false;
+      });
     }
   }
 
@@ -70,8 +186,34 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading && isViewingOwnProfile) {
+      return Scaffold(
+        backgroundColor: darkBackground,
+        body: const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(color: efficialsYellow),
+              SizedBox(height: 16),
+              Text(
+                'Loading your profile...',
+                style: TextStyle(color: Colors.grey, fontSize: 16),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    
     return Scaffold(
       backgroundColor: darkBackground,
+      appBar: !isViewingOwnProfile 
+          ? AppBar(
+              backgroundColor: efficialsBlack,
+              iconTheme: const IconThemeData(color: efficialsWhite),
+              elevation: 0,
+            )
+          : null,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
@@ -148,7 +290,7 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
                 ),
                 child: Center(
                   child: Text(
-                    profileData['name'].split(' ').map((n) => n[0]).join(),
+                    currentProfileData['name']?.split(' ').map((n) => n[0]).join() ?? 'U',
                     style: const TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
@@ -389,7 +531,7 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
                 child: _buildStatItem('Sports', '${sports.length}'),
               ),
               Expanded(
-                child: _buildStatItem('Response Rate', '96%'),
+                child: _buildStatItem('Follow-Through', '${(currentProfileData['followThroughRate'] ?? 100.0).toStringAsFixed(1)}%', isHighlighted: !isViewingOwnProfile && isCurrentUserScheduler),
               ),
             ],
           ),
@@ -398,27 +540,38 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
     );
   }
 
-  Widget _buildStatItem(String label, String value) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: efficialsYellow,
+  Widget _buildStatItem(String label, String value, {bool isHighlighted = false}) {
+    return Container(
+      decoration: isHighlighted 
+          ? BoxDecoration(
+              color: efficialsYellow.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: efficialsYellow.withOpacity(0.3), width: 1),
+            )
+          : null,
+      padding: isHighlighted ? const EdgeInsets.all(8) : null,
+      child: Column(
+        children: [
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: isHighlighted ? efficialsYellow : efficialsYellow,
+            ),
           ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey[400],
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              color: isHighlighted ? efficialsYellow.withOpacity(0.8) : Colors.grey[400],
+              fontWeight: isHighlighted ? FontWeight.w500 : FontWeight.normal,
+            ),
+            textAlign: TextAlign.center,
           ),
-          textAlign: TextAlign.center,
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -890,36 +1043,82 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
     );
   }
 
-  void _handleEndorsement({required bool isRemoving}) {
-    // TODO: Implement actual endorsement logic with backend
-    // For now, show a success message and update local state
-    setState(() {
-      hasEndorsedThisOfficial = !isRemoving;
-      // Simulate incrementing/decrementing the endorsement count
-      // In real implementation, this would come from the backend response
-      if (otherOfficialData != null) {
-        // Assuming current user is an official for demo - in real app, check user type
-        int currentCount = otherOfficialData!['officialEndorsements'] ?? 0;
-        if (isRemoving) {
-          otherOfficialData!['officialEndorsements'] = currentCount > 0 ? currentCount - 1 : 0;
-        } else {
-          otherOfficialData!['officialEndorsements'] = currentCount + 1;
-        }
+  void _handleEndorsement({required bool isRemoving}) async {
+    if (otherOfficialData == null) return;
+    
+    try {
+      final userSession = UserSessionService.instance;
+      final currentUserId = await userSession.getCurrentUserId();
+      final officialId = otherOfficialData!['id'];
+      
+      if (currentUserId == null || officialId == null) {
+        throw Exception('User not logged in or invalid official ID');
       }
-    });
-    
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(isRemoving ? 'Endorsement removed successfully!' : 'Endorsement submitted successfully!'),
-        backgroundColor: isRemoving ? Colors.orange : Colors.green,
-      ),
-    );
-    
-    // In a real implementation, you would:
-    // 1. Determine if current user is a scheduler or official
-    // 2. Send endorsement/removal to backend/database
-    // 3. Update the profile data to reflect new endorsement count
-    // 4. Handle endorsement state management properly
+      
+      if (isRemoving) {
+        // Remove endorsement from database
+        await _endorsementRepo.removeEndorsement(
+          endorsedOfficialId: officialId,
+          endorserUserId: currentUserId,
+        );
+      } else {
+        // Add endorsement to database
+        final endorserType = isCurrentUserScheduler ? 'scheduler' : 'official';
+        await _endorsementRepo.addEndorsement(
+          endorsedOfficialId: officialId,
+          endorserUserId: currentUserId,
+          endorserType: endorserType,
+        );
+      }
+      
+      // Update UI state
+      setState(() {
+        hasEndorsedThisOfficial = !isRemoving;
+        
+        // Update the appropriate endorsement count based on current user type
+        if (isCurrentUserScheduler) {
+          // Current user is a scheduler - update scheduler endorsements
+          int currentCount = otherOfficialData!['schedulerEndorsements'] ?? 0;
+          if (isRemoving) {
+            otherOfficialData!['schedulerEndorsements'] = currentCount > 0 ? currentCount - 1 : 0;
+          } else {
+            otherOfficialData!['schedulerEndorsements'] = currentCount + 1;
+          }
+        } else {
+          // Current user is an official - update official endorsements
+          int currentCount = otherOfficialData!['officialEndorsements'] ?? 0;
+          if (isRemoving) {
+            otherOfficialData!['officialEndorsements'] = currentCount > 0 ? currentCount - 1 : 0;
+          } else {
+            otherOfficialData!['officialEndorsements'] = currentCount + 1;
+          }
+        }
+      });
+      
+      String endorserType = isCurrentUserScheduler ? 'Scheduler' : 'Official';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(isRemoving 
+              ? '$endorserType endorsement removed successfully!' 
+              : '$endorserType endorsement submitted successfully!'),
+          backgroundColor: isRemoving ? Colors.orange : Colors.green,
+        ),
+      );
+      
+    } catch (e) {
+      print('Error handling endorsement: $e');
+      
+      // Show error message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to ${isRemoving ? 'remove' : 'add'} endorsement. Please try again.'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
   }
 
   void _handleContactTap(String label, String value) async {

@@ -105,8 +105,21 @@ class _NewGameTemplateScreenState extends State<NewGameTemplateScreen> {
       officialsDisplay = 'List Used ($selectedListName)';
     } else if (method == 'standard' && selectedOfficials != null && selectedOfficials!.isNotEmpty) {
       officialsDisplay = 'Standard (${selectedOfficials!.join(', ')})';
-    } else if (method == 'advanced' && selectedOfficials != null && selectedOfficials!.isNotEmpty) {
-      officialsDisplay = 'Advanced (${selectedOfficials!.join(', ')})';
+    } else if (method == 'advanced') {
+      // Check if we have selectedLists data for advanced method
+      final selectedLists = widget.gameData['selectedLists'] as List<dynamic>?;
+      if (selectedLists != null && selectedLists.isNotEmpty) {
+        final listConstraints = selectedLists.map((list) {
+          final listMap = list as Map<String, dynamic>;
+          return '${listMap['name']} - Max ${listMap['maxOfficials']} Min ${listMap['minOfficials']}';
+        }).join(', ');
+        officialsDisplay = 'Advanced ($listConstraints)';
+      } else if (selectedOfficials != null && selectedOfficials!.isNotEmpty) {
+        // Fallback to showing selected officials if selectedLists not available
+        officialsDisplay = 'Advanced (${selectedOfficials!.join(', ')})';
+      } else {
+        officialsDisplay = 'Advanced (No constraints set)';
+      }
     } else {
       officialsDisplay = 'None';
     }

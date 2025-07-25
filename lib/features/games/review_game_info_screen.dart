@@ -26,29 +26,35 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
   bool isUsingTemplate = false;
   bool isAssignerFlow = false;
   bool _isPublishing = false; // Add loading state to prevent duplicate submissions
+  bool _hasInitialized = false; // Track if we've already initialized to prevent overwriting
   final GameService _gameService = GameService();
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final newArgs =
-        ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
-    setState(() {
-      args = Map<String, dynamic>.from(newArgs);
-      originalArgs = Map<String, dynamic>.from(newArgs);
-      isEditMode = newArgs['isEdit'] == true;
-      isFromGameInfo = newArgs['isFromGameInfo'] == true;
-      isAwayGame = newArgs['isAway'] == true;
-      fromScheduleDetails = newArgs['fromScheduleDetails'] == true;
-      scheduleId = newArgs['scheduleId'] as int?;
-      isUsingTemplate = newArgs['template'] != null;
-      isAssignerFlow = newArgs['isAssignerFlow'] == true;
-      if (args['officialsRequired'] != null) {
-        args['officialsRequired'] =
-            int.tryParse(args['officialsRequired'].toString()) ?? 0;
-      }
-    });
-    _loadSchedulerType();
+    
+    // Only initialize once to prevent overwriting state updates from edit flows
+    if (!_hasInitialized) {
+      final newArgs =
+          ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+      setState(() {
+        args = Map<String, dynamic>.from(newArgs);
+        originalArgs = Map<String, dynamic>.from(newArgs);
+        isEditMode = newArgs['isEdit'] == true;
+        isFromGameInfo = newArgs['isFromGameInfo'] == true;
+        isAwayGame = newArgs['isAway'] == true;
+        fromScheduleDetails = newArgs['fromScheduleDetails'] == true;
+        scheduleId = newArgs['scheduleId'] as int?;
+        isUsingTemplate = newArgs['template'] != null;
+        isAssignerFlow = newArgs['isAssignerFlow'] == true;
+        if (args['officialsRequired'] != null) {
+          args['officialsRequired'] =
+              int.tryParse(args['officialsRequired'].toString()) ?? 0;
+        }
+        _hasInitialized = true;
+      });
+      _loadSchedulerType();
+    }
   }
 
   @override
@@ -56,6 +62,7 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
     super.initState();
     args = {};
     originalArgs = {};
+    _hasInitialized = false;
   }
 
   Future<bool?> _showCreateTemplateDialog() async {
@@ -701,12 +708,19 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
                             }).then((result) {
                           if (result != null &&
                               result is Map<String, dynamic>) {
+                            print('DEBUG Review Game - Edit navigation returned with result:');
+                            print('  method: ${result['method']}');
+                            print('  selectedListName: ${result['selectedListName']}');
+                            print('  selectedOfficials count: ${(result['selectedOfficials'] as List?)?.length ?? 0}');
+                            
                             setState(() {
                               args = result;
                               fromScheduleDetails =
                                   result['fromScheduleDetails'] == true;
                               scheduleId = result['scheduleId'] as int?;
-                                  // Args updated
+                              print('DEBUG Review Game - Updated args in setState:');
+                              print('  args[method]: ${args['method']}');
+                              print('  args[selectedListName]: ${args['selectedListName']}');
                             });
                           }
                         }),
@@ -758,14 +772,19 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
                         const Text('No officials needed for away games.',
                             style: TextStyle(fontSize: 16, color: Colors.grey))
                       else if (args['method'] == 'use_list' &&
-                          args['selectedListName'] != null)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 4),
-                          child: Text(
-                            'List Used: ${args['selectedListName']}',
-                            style: const TextStyle(fontSize: 16, color: Colors.white),
-                          ),
-                        )
+                          args['selectedListName'] != null) ...[
+                        Builder(builder: (context) {
+                          print('DEBUG Review Game - Rendering list name: ${args['selectedListName']}');
+                          print('DEBUG Review Game - Method: ${args['method']}');
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            child: Text(
+                              'List Used: ${args['selectedListName']}',
+                              style: const TextStyle(fontSize: 16, color: Colors.white),
+                            ),
+                          );
+                        }),
+                      ]
                       else if (args['selectedOfficials'] == null ||
                           (args['selectedOfficials'] as List).isEmpty)
                         const Text('No officials selected.',

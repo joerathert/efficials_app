@@ -247,6 +247,9 @@ class Official {
   final int? experienceYears;
   final String? certificationLevel;
   final bool isUserAccount;
+  final double followThroughRate;
+  final int totalAcceptedGames;
+  final int totalBackedOutGames;
   final DateTime createdAt;
 
   // Joined data
@@ -267,6 +270,9 @@ class Official {
     this.experienceYears,
     this.certificationLevel,
     this.isUserAccount = false,
+    this.followThroughRate = 100.0,
+    this.totalAcceptedGames = 0,
+    this.totalBackedOutGames = 0,
     DateTime? createdAt,
     this.sportName,
   }) : createdAt = createdAt ?? DateTime.now();
@@ -287,6 +293,9 @@ class Official {
       'experience_years': experienceYears,
       'certification_level': certificationLevel,
       'is_user_account': isUserAccount ? 1 : 0,
+      'follow_through_rate': followThroughRate,
+      'total_accepted_games': totalAcceptedGames,
+      'total_backed_out_games': totalBackedOutGames,
       'created_at': createdAt.toIso8601String(),
     };
   }
@@ -307,6 +316,9 @@ class Official {
       experienceYears: map['experience_years']?.toInt(),
       certificationLevel: map['certification_level'],
       isUserAccount: (map['is_user_account'] ?? 0) == 1,
+      followThroughRate: (map['follow_through_rate'] ?? 100.0).toDouble(),
+      totalAcceptedGames: map['total_accepted_games']?.toInt() ?? 0,
+      totalBackedOutGames: map['total_backed_out_games']?.toInt() ?? 0,
       createdAt: DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
       sportName: map['sport_name'],
     );
@@ -789,6 +801,10 @@ class GameAssignment {
   final double? feeAmount;
   final DateTime? backedOutAt;
   final String? backOutReason;
+  final bool excusedBackout;
+  final DateTime? excusedAt;
+  final int? excusedBy;
+  final String? excuseReason;
   
   // Additional fields from JOIN queries
   DateTime? _gameDate;
@@ -821,6 +837,10 @@ class GameAssignment {
     this.feeAmount,
     this.backedOutAt,
     this.backOutReason,
+    this.excusedBackout = false,
+    this.excusedAt,
+    this.excusedBy,
+    this.excuseReason,
   }) : assignedAt = assignedAt ?? DateTime.now();
 
   Map<String, dynamic> toMap() {
@@ -837,6 +857,10 @@ class GameAssignment {
       'fee_amount': feeAmount,
       'backed_out_at': backedOutAt?.toIso8601String(),
       'back_out_reason': backOutReason,
+      'excused_backout': excusedBackout ? 1 : 0,
+      'excused_at': excusedAt?.toIso8601String(),
+      'excused_by': excusedBy,
+      'excuse_reason': excuseReason,
     };
   }
 
@@ -854,6 +878,10 @@ class GameAssignment {
       feeAmount: map['fee_amount']?.toDouble(),
       backedOutAt: map['backed_out_at'] != null ? DateTime.parse(map['backed_out_at']) : null,
       backOutReason: map['back_out_reason'],
+      excusedBackout: (map['excused_backout'] ?? 0) == 1,
+      excusedAt: map['excused_at'] != null ? DateTime.parse(map['excused_at']) : null,
+      excusedBy: map['excused_by']?.toInt(),
+      excuseReason: map['excuse_reason'],
     );
     
     // Add additional fields from JOIN queries if they exist
@@ -1073,6 +1101,95 @@ class OfficialSetting {
   }
 }
 
+// Official Backout Notification model
+class OfficialBackoutNotification {
+  final int? id;
+  final int assignmentId;
+  final int officialId;
+  final int schedulerId;
+  final int gameId;
+  final DateTime backedOutAt;
+  final String backOutReason;
+  final DateTime? excusedAt;
+  final int? excusedBy;
+  final String? excuseReason;
+  final DateTime? notificationSentAt;
+  final DateTime? notificationReadAt;
+  final DateTime createdAt;
+
+  // Joined data for display
+  final String? officialName;
+  final String? gameSport;
+  final String? gameOpponent;
+  final String? gameDate;
+  final String? gameTime;
+
+  OfficialBackoutNotification({
+    this.id,
+    required this.assignmentId,
+    required this.officialId,
+    required this.schedulerId,
+    required this.gameId,
+    required this.backedOutAt,
+    required this.backOutReason,
+    this.excusedAt,
+    this.excusedBy,
+    this.excuseReason,
+    this.notificationSentAt,
+    this.notificationReadAt,
+    DateTime? createdAt,
+    this.officialName,
+    this.gameSport,
+    this.gameOpponent,
+    this.gameDate,
+    this.gameTime,
+  }) : createdAt = createdAt ?? DateTime.now();
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'assignment_id': assignmentId,
+      'official_id': officialId,
+      'scheduler_id': schedulerId,
+      'game_id': gameId,
+      'backed_out_at': backedOutAt.toIso8601String(),
+      'back_out_reason': backOutReason,
+      'excused_at': excusedAt?.toIso8601String(),
+      'excused_by': excusedBy,
+      'excuse_reason': excuseReason,
+      'notification_sent_at': notificationSentAt?.toIso8601String(),
+      'notification_read_at': notificationReadAt?.toIso8601String(),
+      'created_at': createdAt.toIso8601String(),
+    };
+  }
+
+  factory OfficialBackoutNotification.fromMap(Map<String, dynamic> map) {
+    return OfficialBackoutNotification(
+      id: map['id']?.toInt(),
+      assignmentId: map['assignment_id']?.toInt() ?? 0,
+      officialId: map['official_id']?.toInt() ?? 0,
+      schedulerId: map['scheduler_id']?.toInt() ?? 0,
+      gameId: map['game_id']?.toInt() ?? 0,
+      backedOutAt: DateTime.parse(map['backed_out_at'] ?? DateTime.now().toIso8601String()),
+      backOutReason: map['back_out_reason'] ?? '',
+      excusedAt: map['excused_at'] != null ? DateTime.parse(map['excused_at']) : null,
+      excusedBy: map['excused_by']?.toInt(),
+      excuseReason: map['excuse_reason'],
+      notificationSentAt: map['notification_sent_at'] != null ? DateTime.parse(map['notification_sent_at']) : null,
+      notificationReadAt: map['notification_read_at'] != null ? DateTime.parse(map['notification_read_at']) : null,
+      createdAt: DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
+      officialName: map['official_name'],
+      gameSport: map['game_sport'],
+      gameOpponent: map['game_opponent'],
+      gameDate: map['game_date'],
+      gameTime: map['game_time'],
+    );
+  }
+
+  bool get isExcused => excusedAt != null;
+  bool get hasBeenRead => notificationReadAt != null;
+}
+
 // Sport Defaults model
 class SportDefaults {
   final int? id;
@@ -1117,6 +1234,43 @@ class SportDefaults {
       officialsRequired: map['officials_required']?.toInt(),
       gameFee: map['game_fee'],
       levelOfCompetition: map['level_of_competition'],
+    );
+  }
+}
+
+// Official Endorsement model
+class OfficialEndorsement {
+  final int? id;
+  final int endorsedOfficialId;
+  final int endorserUserId;
+  final String endorserType; // 'scheduler' or 'official'
+  final DateTime createdAt;
+
+  OfficialEndorsement({
+    this.id,
+    required this.endorsedOfficialId,
+    required this.endorserUserId,
+    required this.endorserType,
+    DateTime? createdAt,
+  }) : createdAt = createdAt ?? DateTime.now();
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'endorsed_official_id': endorsedOfficialId,
+      'endorser_user_id': endorserUserId,
+      'endorser_type': endorserType,
+      'created_at': createdAt.toIso8601String(),
+    };
+  }
+
+  factory OfficialEndorsement.fromMap(Map<String, dynamic> map) {
+    return OfficialEndorsement(
+      id: map['id']?.toInt(),
+      endorsedOfficialId: map['endorsed_official_id']?.toInt() ?? 0,
+      endorserUserId: map['endorser_user_id']?.toInt() ?? 0,
+      endorserType: map['endorser_type'] ?? '',
+      createdAt: DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
     );
   }
 }

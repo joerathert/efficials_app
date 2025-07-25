@@ -37,7 +37,12 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
       setState(() {
         isFromGameCreation = args['fromGameCreation'] == true;
       });
-      if (lists.length <= 2 && lists[0]['name'] == 'No saved lists') {
+      
+      // Handle new list creation from review_list_screen
+      if (args['newListCreated'] != null) {
+        final newListData = args['newListCreated'] as Map<String, dynamic>;
+        _handleNewListFromReview(newListData);
+      } else if (lists.length <= 2 && lists[0]['name'] == 'No saved lists') {
         _fetchLists();
       }
     }
@@ -540,5 +545,24 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
     });
     await _saveLists();
     await _fetchLists();
+  }
+
+  Future<void> _handleNewListFromReview(Map<String, dynamic> newListData) async {
+    await _fetchLists(); // Refresh the lists from SharedPreferences
+    
+    setState(() {
+      selectedList = newListData['listName'] as String;
+    });
+    
+    // Show success message
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Your list was created successfully!'),
+          backgroundColor: darkSurface,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
   }
 }

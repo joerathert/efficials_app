@@ -16,13 +16,23 @@ class _FilterSettingsScreenState extends State<FilterSettingsScreen> {
   bool ihsaCertified = false;
   final _yearsController = TextEditingController();
   final Map<String, bool> competitionLevels = {
-    'Grade School': false,
-    'Middle School': false,
-    'Underclass': false,
-    'JV': false,
-    'Varsity': false,
+    'Grade School (6U-11U)': false,
+    'Middle School (11U-14U)': false,
+    'Underclass (15U-16U)': false,
+    'JV (16U-17U)': false,
+    'Varsity (17U-18U)': false,
     'College': false,
     'Adult': false,
+  };
+  
+  final Map<String, String> levelMapping = {
+    'Grade School (6U-11U)': 'Grade School',
+    'Middle School (11U-14U)': 'Middle School',
+    'Underclass (15U-16U)': 'Underclass',
+    'JV (16U-17U)': 'JV',
+    'Varsity (17U-18U)': 'Varsity',
+    'College': 'College',
+    'Adult': 'Adult',
   };
   final _radiusController = TextEditingController();
   String? defaultLocationName;
@@ -303,7 +313,7 @@ class _FilterSettingsScreenState extends State<FilterSettingsScreen> {
                     }
                     final selectedLevels = competitionLevels.entries
                         .where((entry) => entry.value)
-                        .map((entry) => entry.key)
+                        .map((entry) => levelMapping[entry.key]!)
                         .toList();
                     Navigator.pop(
                       context,

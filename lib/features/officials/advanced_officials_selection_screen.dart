@@ -50,7 +50,6 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
         'name': listName,
         'id': selectedList['id'],
         'officials': selectedList['officials'] ?? [],
-        // Remove default min/max values to use hints instead
       });
     });
   }
@@ -107,7 +106,7 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
     List<Map<String, dynamic>> selectedOfficials = [];
     for (var list in selectedLists) {
       final officials = (list['officials'] as List<dynamic>?)?.cast<Map<String, dynamic>>() ?? [];
-      selectedOfficials.addAll(officials); // Notify all officials from each list
+      selectedOfficials.addAll(officials);
     }
 
     Navigator.pushNamed(
@@ -137,7 +136,9 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
               value: list['name'] as String,
               child: Text(
                 list['name'] as String,
-                style: list['name'] == 'No saved lists' ? const TextStyle(color: Colors.red) : null,
+                style: list['name'] == 'No saved lists' 
+                  ? const TextStyle(color: Colors.red) 
+                  : const TextStyle(color: primaryTextColor),
               ),
             );
           }).toList()
@@ -150,130 +151,296 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: efficialsBlue,
+        backgroundColor: efficialsBlack,
+        title: const Icon(
+          Icons.sports,
+          color: efficialsYellow,
+          size: 32,
+        ),
+        elevation: 0,
+        centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, size: 36, color: Colors.white),
+          icon: const Icon(Icons.arrow_back, color: efficialsWhite),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
-          'Advanced Officials Selection',
-          style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
-        ),
       ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 600),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text(
-                    'Select at least two lists and set constraints for officials.',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    'Total officials required: $totalRequiredOfficials',
-                    style: const TextStyle(fontSize: 16, color: Colors.black),
-                  ),
-                  const SizedBox(height: 20),
-                  if (isLoading)
-                    const Center(child: CircularProgressIndicator())
-                  else if (selectedLists.isEmpty) ...[
-                    DropdownButtonFormField<String>(
-                      decoration: textFieldDecoration('Select First List'),
-                      value: null,
-                      onChanged: (newValue) {
-                        if (newValue != null && newValue != 'No saved lists' && !selectedLists.any((l) => l['name'] == newValue)) {
-                          _addList(newValue);
-                        }
-                      },
-                      items: dropdownItems,
-                    ),
-                  ],
-                  ...selectedLists.asMap().entries.map((entry) {
-                    final index = entry.key;
-                    final list = entry.value;
-                    return Card(
-                      margin: const EdgeInsets.symmetric(vertical: 8),
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  list['name'] as String,
-                                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.delete, color: Colors.red),
-                                  onPressed: () => _removeList(index),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 10),
-                            TextField(
-                              decoration: textFieldDecoration('Minimum Officials'),
-                              keyboardType: TextInputType.number,
-                              onChanged: (value) => _updateMinOfficials(index, value),
-                            ),
-                            const SizedBox(height: 10),
-                            TextField(
-                              decoration: textFieldDecoration('Maximum Officials'),
-                              keyboardType: TextInputType.number,
-                              onChanged: (value) => _updateMaxOfficials(index, value),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  }),
-                  if (selectedLists.isNotEmpty) ...[
-                    const SizedBox(height: 20),
-                    ElevatedButton(
-                      onPressed: () {
-                        showDialog(
-                          context: context,
-                          builder: (context) => AlertDialog(
-                            title: const Text('Add Another List'),
-                            content: DropdownButtonFormField<String>(
-                              decoration: textFieldDecoration('Select List'),
+      backgroundColor: darkBackground,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Advanced Officials Selection',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: primaryTextColor,
+                ),
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                'Select at least two lists and set constraints for officials.',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: secondaryTextColor,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'Total officials required: $totalRequiredOfficials',
+                style: const TextStyle(fontSize: 16, color: primaryTextColor),
+              ),
+              const SizedBox(height: 20),
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      if (isLoading)
+                        const Center(child: CircularProgressIndicator())
+                      else if (selectedLists.isEmpty) ...[
+                        Container(
+                          decoration: BoxDecoration(
+                            color: darkSurface,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.3),
+                                spreadRadius: 1,
+                                blurRadius: 3,
+                                offset: const Offset(0, 1),
+                              ),
+                            ],
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: DropdownButtonFormField<String>(
+                              decoration: textFieldDecoration('Select First List'),
+                              dropdownColor: darkSurface,
+                              style: const TextStyle(color: primaryTextColor),
                               value: null,
                               onChanged: (newValue) {
                                 if (newValue != null && newValue != 'No saved lists' && !selectedLists.any((l) => l['name'] == newValue)) {
                                   _addList(newValue);
-                                  Navigator.pop(context);
                                 }
                               },
                               items: dropdownItems,
                             ),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(context),
-                                child: const Text('Cancel', style: TextStyle(color: efficialsBlue)),
+                          ),
+                        ),
+                      ],
+                      ...selectedLists.asMap().entries.map((entry) {
+                        final index = entry.key;
+                        final list = entry.value;
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12.0),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: darkSurface,
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.3),
+                                  spreadRadius: 1,
+                                  blurRadius: 3,
+                                  offset: const Offset(0, 1),
+                                ),
+                              ],
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                children: [
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        list['name'] as String,
+                                        style: const TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                          color: primaryTextColor,
+                                        ),
+                                      ),
+                                      IconButton(
+                                        icon: Icon(
+                                          Icons.delete_outline,
+                                          color: Colors.red.shade600,
+                                        ),
+                                        onPressed: () => _removeList(index),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 10),
+                                  TextField(
+                                    decoration: textFieldDecoration('Minimum Officials'),
+                                    keyboardType: TextInputType.number,
+                                    style: const TextStyle(color: primaryTextColor),
+                                    onChanged: (value) => _updateMinOfficials(index, value),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  TextField(
+                                    decoration: textFieldDecoration('Maximum Officials'),
+                                    keyboardType: TextInputType.number,
+                                    style: const TextStyle(color: primaryTextColor),
+                                    onChanged: (value) => _updateMaxOfficials(index, value),
+                                  ),
+                                ],
                               ),
-                            ],
+                            ),
                           ),
                         );
-                      },
-                      style: elevatedButtonStyle(),
-                      child: const Text('Add Another List', style: signInButtonTextStyle),
-                    ),
-                    const SizedBox(height: 20),
-                  ],
-                  ElevatedButton(
-                    onPressed: selectedLists.length >= 2 ? _handleContinue : null,
-                    style: elevatedButtonStyle(),
-                    child: const Text('Continue', style: signInButtonTextStyle),
+                      }),
+                      if (selectedLists.isNotEmpty) ...[
+                        const SizedBox(height: 20),
+                        Center(
+                          child: Container(
+                            width: 250,
+                            child: ElevatedButton.icon(
+                              onPressed: () {
+                                String? selectedValue;
+                                showDialog(
+                                  context: context,
+                                  builder: (context) => StatefulBuilder(
+                                    builder: (context, setDialogState) => AlertDialog(
+                                      backgroundColor: darkSurface,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                        side: const BorderSide(
+                                          color: efficialsYellow,
+                                          width: 2,
+                                        ),
+                                      ),
+                                      title: const Text(
+                                        'Add Another List',
+                                        style: TextStyle(
+                                          color: primaryTextColor,
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      content: Container(
+                                        decoration: BoxDecoration(
+                                          color: darkBackground,
+                                          borderRadius: BorderRadius.circular(8),
+                                          border: Border.all(
+                                            color: efficialsYellow.withOpacity(0.3),
+                                            width: 1,
+                                          ),
+                                        ),
+                                        child: Padding(
+                                          padding: const EdgeInsets.all(12),
+                                          child: DropdownButtonFormField<String>(
+                                            decoration: textFieldDecoration('Select List'),
+                                            dropdownColor: darkSurface,
+                                            style: const TextStyle(color: primaryTextColor),
+                                            value: selectedValue,
+                                            onChanged: (newValue) {
+                                              setDialogState(() {
+                                                selectedValue = newValue;
+                                              });
+                                            },
+                                            items: dropdownItems,
+                                          ),
+                                        ),
+                                      ),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () => Navigator.pop(context),
+                                          style: TextButton.styleFrom(
+                                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                          ),
+                                          child: const Text(
+                                            'Cancel',
+                                            style: TextStyle(
+                                              color: secondaryTextColor,
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ),
+                                        ElevatedButton(
+                                          onPressed: selectedValue != null && 
+                                                    selectedValue != 'No saved lists' && 
+                                                    !selectedLists.any((l) => l['name'] == selectedValue)
+                                              ? () {
+                                                  _addList(selectedValue!);
+                                                  Navigator.pop(context);
+                                                }
+                                              : null,
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: efficialsYellow,
+                                            foregroundColor: efficialsBlack,
+                                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(8),
+                                            ),
+                                          ),
+                                          child: const Text(
+                                            'Add List',
+                                            style: TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: efficialsYellow,
+                                foregroundColor: efficialsBlack,
+                                padding: const EdgeInsets.symmetric(
+                                    vertical: 15, horizontal: 32),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                              icon: const Icon(Icons.add, color: efficialsBlack),
+                              label: const Text(
+                                'Add Another List',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                      ],
+                      Center(
+                        child: Container(
+                          width: 250,
+                          child: ElevatedButton(
+                            onPressed: selectedLists.length >= 2 ? _handleContinue : null,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: selectedLists.length >= 2 ? efficialsYellow : efficialsGray,
+                              foregroundColor: efficialsBlack,
+                              padding: const EdgeInsets.symmetric(
+                                  vertical: 15, horizontal: 32),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            child: const Text(
+                              'Continue',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
-            ),
+            ],
           ),
         ),
       ),

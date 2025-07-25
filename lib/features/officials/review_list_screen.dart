@@ -120,12 +120,26 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
     await prefs.setString('saved_lists', jsonEncode(existingLists));
 
     if (mounted) {
-      // Return the new list data to the previous screen
-      Navigator.pop(context, {
-        'listName': listName,
-        'sport': sport,
-        'officials': selectedOfficialsData,
-      });
+      // Get the arguments to check if we're coming from game creation
+      final arguments = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+      final fromGameCreation = arguments['fromGameCreation'] == true;
+      
+      if (fromGameCreation) {
+        // For game creation, just pop back with the list data
+        // This preserves the navigation stack so the green arrow works properly
+        Navigator.pop(context, {
+          'listName': listName,
+          'sport': sport,
+          'officials': selectedOfficialsData,
+        });
+      } else {
+        // Regular pop for non-game creation flows
+        Navigator.pop(context, {
+          'listName': listName,
+          'sport': sport,
+          'officials': selectedOfficialsData,
+        });
+      }
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

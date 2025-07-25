@@ -20,7 +20,8 @@
       "Bash(grep -r \"INSERT INTO games\\|insert.*games\" /mnt/c/Users/Efficials/efficials_app/lib --include=\"*.dart\")",
       "Bash(grep -r \"_gameRepository\\.createGame\\|GameRepository.*createGame\" /mnt/c/Users/Efficials/efficials_app/lib --include=\"*.dart\")",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(q)"
     ],
     "deny": []
   }

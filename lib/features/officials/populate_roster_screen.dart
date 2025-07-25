@@ -29,6 +29,30 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
   bool isNavigating = false;
   final TextEditingController _listNameController = TextEditingController();
 
+  // Map specific age groups to their broader categories for official matching
+  final Map<String, List<String>> ageGroupToCategoryMapping = {
+    '6U': ['Grade School'],
+    '7U': ['Grade School'],
+    '8U': ['Grade School'],
+    '9U': ['Grade School'],
+    '10U': ['Grade School'],
+    '11U': ['Grade School', 'Middle School'],
+    '12U': ['Middle School'],
+    '13U': ['Middle School'],
+    '14U': ['Middle School'],
+    '15U': ['Underclass'],
+    '16U': ['Underclass', 'JV'],
+    '17U': ['JV', 'Varsity'],
+    '18U': ['Varsity'],
+    'Grade School': ['Grade School'],
+    'Middle School': ['Middle School'],
+    'Underclass': ['Underclass'],
+    'JV': ['JV'],
+    'Varsity': ['Varsity'],
+    'College': ['College'],
+    'Adult': ['Adult'],
+  };
+
   @override
   void initState() {
     super.initState();
@@ -212,12 +236,22 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
           if (selectedLevels.isNotEmpty) {
             final officialLevels = official['competitionLevels'] as List<String>? ?? [];
             bool hasMatchingLevel = false;
-            for (String level in selectedLevels) {
-              if (officialLevels.contains(level)) {
-                hasMatchingLevel = true;
-                break;
+            
+            for (String selectedLevel in selectedLevels) {
+              // Get the categories that officials might have for this game level
+              final categoriesToMatch = ageGroupToCategoryMapping[selectedLevel] ?? [selectedLevel];
+              
+              // Check if official has any of the matching categories
+              for (String category in categoriesToMatch) {
+                if (officialLevels.contains(category)) {
+                  hasMatchingLevel = true;
+                  break;
+                }
               }
+              
+              if (hasMatchingLevel) break;
             }
+            
             if (!hasMatchingLevel) {
               matches = false;
             }

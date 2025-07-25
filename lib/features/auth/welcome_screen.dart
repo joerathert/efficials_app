@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../shared/theme.dart';
 import '../../shared/services/repositories/user_repository.dart';
 import '../../shared/services/database_helper.dart';
@@ -56,6 +57,18 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
           userType: 'scheduler',
           email: user.email!,
         );
+        
+        // CRITICAL: Also update SharedPreferences for backwards compatibility
+        final prefs = await SharedPreferences.getInstance();
+        String schedulerTypeForPrefs = user.schedulerType;
+        // Convert database format to SharedPreferences format
+        if (schedulerTypeForPrefs == 'athletic_director') {
+          schedulerTypeForPrefs = 'Athletic Director';
+        }
+        await prefs.setString('schedulerType', schedulerTypeForPrefs);
+        
+        print('DEBUG WelcomeScreen - Set schedulerType in SharedPreferences: $schedulerTypeForPrefs');
+        print('DEBUG WelcomeScreen - Database user.schedulerType: ${user.schedulerType}');
         
         _navigateToSchedulerHome(user.schedulerType);
         return;

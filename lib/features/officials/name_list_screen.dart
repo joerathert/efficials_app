@@ -86,9 +86,6 @@ class _NameListScreenState extends State<NameListScreen> {
                       decoration: textFieldDecoration('Ex. Varsity $sport Officials'),
                       textAlign: TextAlign.left,
                       style: const TextStyle(fontSize: 18, color: Colors.white),
-                      enableSuggestions: false,
-                      autocorrect: false,
-                      showCursor: true,
                     ),
                   ],
                 ),
@@ -125,10 +122,23 @@ class _NameListScreenState extends State<NameListScreen> {
                       arguments: {
                         'sport': sport, 
                         'listName': name,
-                        ...args, // Pass through all original arguments including game creation context
+                        'fromGameCreation': true, // Ensure this flag is set
+                        // Only pass through necessary game creation context, exclude selectedOfficials
+                        'gameId': args['gameId'],
+                        'method': args['method'],
+                        'isEdit': args['isEdit'],
+                        'scheduleName': args['scheduleName'],
+                        'gameDate': args['gameDate'],
+                        'gameTime': args['gameTime'],
+                        'opponent': args['opponent'],
+                        'gameLocation': args['gameLocation'],
+                        'isAwayGame': args['isAwayGame'],
+                        'locationData': args['locationData'],
+                        // Explicitly exclude selectedOfficials to start with clean slate
                       },
                     ).then((result) {
-                      if (result != null) {
+                      if (result != null && mounted) {
+                        // Pass the result back to the lists screen
                         Navigator.pop(context, result);
                       }
                     });

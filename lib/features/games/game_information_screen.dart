@@ -536,6 +536,100 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
     return assignment?.id ?? 0;
   }
 
+  void _navigateToOfficialProfile(String officialName) async {
+    try {
+      // Find the official ID by name from either selectedOfficials or confirmedOfficialsFromDB
+      int? officialId;
+      
+      // Check selectedOfficials first
+      for (var official in selectedOfficials) {
+        if (official['name'] == officialName) {
+          officialId = official['id'] as int?;
+          break;
+        }
+      }
+      
+      // If not found, check confirmedOfficialsFromDB
+      if (officialId == null) {
+        for (var official in confirmedOfficialsFromDB) {
+          if (official['name'] == officialName) {
+            officialId = official['id'] as int?;
+            break;
+          }
+        }
+      }
+      
+      if (officialId != null) {
+        // Get official data from repository including follow through rate
+        final officialRepo = _gameAssignmentRepo;
+        final officialData = await officialRepo.rawQuery('''
+          SELECT o.*, 
+                 COALESCE(o.follow_through_rate, 100.0) as followThroughRate,
+                 o.total_accepted_games,
+                 o.total_backed_out_games,
+                 o.experience_years as experienceYears,
+                 o.phone,
+                 o.email,
+                 1 as showCareerStats
+          FROM officials o 
+          WHERE o.id = ?
+        ''', [officialId]);
+        
+        if (officialData.isNotEmpty && mounted) {
+          final official = officialData.first;
+          
+          // Create profile data compatible with OfficialProfileScreen
+          final profileData = {
+            'id': official['id'],
+            'name': official['name'],
+            'email': official['email'] ?? 'N/A',
+            'phone': official['phone'] ?? 'N/A',
+            'location': 'N/A', // Not available in officials table
+            'experienceYears': official['experienceYears'] ?? 0,
+            'primarySport': 'N/A', // Would need to query from official_sports
+            'certificationLevel': official['certification_level'] ?? 'N/A',
+            'ratePerGame': 0.0, // Not available in current schema
+            'maxTravelDistance': 0, // Not available in current schema
+            'joinedDate': DateTime.now(), // Would use created_at if available
+            'totalGames': official['total_accepted_games'] ?? 0,
+            'schedulerEndorsements': 0, // Not implemented yet
+            'officialEndorsements': 0, // Not implemented yet
+            'profileVerified': false,
+            'emailVerified': false,
+            'phoneVerified': false,
+            'showCareerStats': true, // Always show for scheduler view
+            'followThroughRate': official['followThroughRate'] ?? 100.0,
+          };
+          
+          Navigator.pushNamed(
+            context,
+            '/official_profile',
+            arguments: profileData,
+          );
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Official profile not found')),
+            );
+          }
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Official ID not found')),
+          );
+        }
+      }
+    } catch (e) {
+      print('Error navigating to official profile: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Error loading official profile')),
+        );
+      }
+    }
+  }
+
   void _showListOfficials(String listName) async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -726,22 +820,9 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
 
     final requiredOfficials = officialsRequired ?? 0;
     
-    // Combine manually selected officials and database confirmed officials (avoiding duplicates)
-    final confirmedOfficialNames = <String>{};
-    
-    // Add manually selected officials (from game creation)
-    confirmedOfficialNames.addAll(
-      selectedOfficials
-          .take(officialsHired)
-          .map((official) => official['name'] as String)
-    );
-    
-    // Add database confirmed officials (from express interest)
-    confirmedOfficialNames.addAll(
-      confirmedOfficialsFromDB.map((official) => official['name'] as String)
-    );
-    
-    final confirmedOfficials = confirmedOfficialNames.toList();
+    // Only show database confirmed officials (actual claims/assignments)
+    // Do NOT include selectedOfficials as those are just pre-selected during game creation
+    final confirmedOfficials = confirmedOfficialsFromDB.map((official) => official['name'] as String).toList();
 
     return Scaffold(
       backgroundColor: darkBackground,
@@ -968,9 +1049,7 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                               padding: const EdgeInsets.symmetric(vertical: 2),
                               child: GestureDetector(
                                 onTap: () {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('Official profiles not implemented yet')),
-                                  );
+                                  _navigateToOfficialProfile(name);
                                 },
                                 child: Text(
                                   name,
