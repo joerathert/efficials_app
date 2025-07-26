@@ -1,9 +1,8 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:sqflite/sqflite.dart';
 import '../../shared/theme.dart';
-import '../../shared/services/database_helper.dart';
+import '../../shared/services/repositories/official_repository.dart';
+import '../../shared/services/repositories/list_repository.dart';
+import '../../shared/models/database_models.dart';
 
 class PopulateRosterScreen extends StatefulWidget {
   const PopulateRosterScreen({super.key});
@@ -110,12 +109,12 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
     setState(() => isLoading = true);
     
     try {
-      final db = await DatabaseHelper().database;
+      final officialRepository = OfficialRepository();
       final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>? ?? {'sport': 'Football'};
       final sport = args['sport'] as String? ?? 'Football';
       
       // Get sport_id for the requested sport
-      final sportResult = await db.query('sports', where: 'name = ?', whereArgs: [sport]);
+      final sportResult = await officialRepository.rawQuery('SELECT id FROM sports WHERE name = ?', [sport]);
       if (sportResult.isEmpty) {
         setState(() {
           officials = [];
@@ -127,149 +126,21 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
       }
       final sportId = sportResult.first['id'] as int;
       
-      // Query officials with their sport certifications
-      final query = '''
-        SELECT DISTINCT 
-          o.id,
-          o.name,
-          o.email,
-          o.phone,
-          os.certification_level,
-          os.years_experience,
-          os.competition_levels,
-          os.is_primary
-        FROM officials o
-        JOIN official_sports os ON o.id = os.official_id
-        WHERE os.sport_id = ?
-      ''';
+      // Use the repository method with filters
+      List<Map<String, dynamic>> newOfficials = await officialRepository.getOfficialsBySport(sportId, filters: filterSettings);
       
-      final results = await db.rawQuery(query, [sportId]);
-      
-      List<Map<String, dynamic>> newOfficials = results.map((row) {
-        // Parse certification level to determine IHSA flags
-        final certLevel = row['certification_level'] as String? ?? '';
-        final competitionLevels = (row['competition_levels'] as String? ?? '').split(',');
-        
-        return {
-          'id': row['id'],
-          'name': row['name'],
-          'cityState': 'Chicago, IL', // TODO: Replace with actual address from officials table
-          'distance': 10.0 + (row['id'] as int) * 2.5, // TODO: Calculate actual distance
-          'yearsExperience': row['years_experience'] ?? 0,
-          // Hierarchical IHSA certification flags - higher levels include lower levels
-          'ihsaRegistered': certLevel == 'IHSA Registered' || certLevel == 'IHSA Recognized' || certLevel == 'IHSA Certified',
-          'ihsaRecognized': certLevel == 'IHSA Recognized' || certLevel == 'IHSA Certified', 
-          'ihsaCertified': certLevel == 'IHSA Certified',
-          'level': competitionLevels.isNotEmpty ? competitionLevels.first : 'Varsity',
-          'competitionLevels': competitionLevels,
-          'sports': [sport], // Single sport for this query
-        };
-      }).toList();
-      
+      // Apply additional distance filtering for away games if needed
       if (filterSettings != null) {
-        final locationData = filterSettings!['locationData'] as Map<String, dynamic>?;
         final isAwayGame = args['isAwayGame'] as bool? ?? false;
-        Map<String, dynamic>? defaultLocationData = locationData;
-
-        // If no game location is provided, use AD's school address as default
-        if (!isAwayGame && locationData == null) {
-          try {
-            // Get current AD's school address from database
-            final adResult = await db.query(
-              'users', 
-              columns: ['school_address', 'school_name'],
-              where: 'scheduler_type = ? AND school_address IS NOT NULL',
-              whereArgs: ['athletic_director'],
-              limit: 1
-            );
-            
-            if (adResult.isNotEmpty && adResult.first['school_address'] != null) {
-              defaultLocationData = {
-                'name': adResult.first['school_name'] ?? 'School Location',
-                'address': adResult.first['school_address'],
-              };
-            }
-          } catch (e) {
-            print('Could not load AD school address: $e');
-          }
+        
+        if (!isAwayGame && filterSettings!['radius'] != null) {
+          newOfficials = newOfficials.where((official) {
+            return filterSettings!['radius'] >= (official['distance'] ?? double.infinity);
+          }).toList();
         }
-
-        if (!isAwayGame && (locationData != null || defaultLocationData != null)) {
-          // TODO: Replace with geolocation API call when implemented
-          // For now, use hardcoded distances; later, calculate from locationData['address'] or defaultLocationData['address'] to official['address']
-        }
-
-        newOfficials = newOfficials.where((official) {
-          bool matches = true;
-          
-          // Check IHSA certifications (hierarchical - higher levels include lower levels)
-          final wantsRegistered = filterSettings!['ihsaRegistered'] ?? false;
-          final wantsRecognized = filterSettings!['ihsaRecognized'] ?? false;
-          final wantsCertified = filterSettings!['ihsaCertified'] ?? false;
-          
-          final isRegistered = official['ihsaRegistered'] ?? false;
-          final isRecognized = official['ihsaRecognized'] ?? false;
-          final isCertified = official['ihsaCertified'] ?? false;
-          
-          // If they want Registered: accept Registered, Recognized, or Certified
-          if (wantsRegistered && !(isRegistered || isRecognized || isCertified)) {
-            matches = false;
-          }
-          
-          // If they want Recognized: accept Recognized or Certified (not just Registered)
-          if (wantsRecognized && !(isRecognized || isCertified)) {
-            matches = false;
-          }
-          
-          // If they want Certified: only accept Certified
-          if (wantsCertified && !isCertified) {
-            matches = false;
-          }
-          
-          // Check minimum years experience
-          if ((filterSettings!['minYears'] ?? 0) > (official['yearsExperience'] ?? 0)) {
-            matches = false;
-          }
-          
-          // Check competition levels - official must match at least one selected level
-          final selectedLevels = filterSettings!['levels'] as List<String>? ?? [];
-          if (selectedLevels.isNotEmpty) {
-            final officialLevels = official['competitionLevels'] as List<String>? ?? [];
-            bool hasMatchingLevel = false;
-            
-            for (String selectedLevel in selectedLevels) {
-              // Get the categories that officials might have for this game level
-              final categoriesToMatch = ageGroupToCategoryMapping[selectedLevel] ?? [selectedLevel];
-              
-              // Check if official has any of the matching categories
-              for (String category in categoriesToMatch) {
-                if (officialLevels.contains(category)) {
-                  hasMatchingLevel = true;
-                  break;
-                }
-              }
-              
-              if (hasMatchingLevel) break;
-            }
-            
-            if (!hasMatchingLevel) {
-              matches = false;
-            }
-          }
-          
-          // Check distance radius
-          if (!isAwayGame &&
-              filterSettings!['radius'] != null &&
-              filterSettings!['radius'] < (official['distance'] ?? double.infinity)) {
-            matches = false;
-          }
-          
-          return matches;
-        }).toList();
       }
       
       setState(() {
-        // Replace officials with the filtered results
         officials = List.from(newOfficials);
         filteredOfficials = List.from(newOfficials);
         filteredOfficialsWithoutSearch = List.from(newOfficials);
@@ -345,58 +216,66 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
   }
 
   void _saveList(String name) async {
-    final selected =
-        officials.where((o) => selectedOfficials[o['id']] ?? false).toList();
-    final args =
-        ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
-    final sport = args['sport'] as String? ?? 'Football';
-
-    final prefs = await SharedPreferences.getInstance();
-    final String? listsJson = prefs.getString('saved_lists');
-    List<Map<String, dynamic>> existingLists = [];
-    if (listsJson != null && listsJson.isNotEmpty) {
-      existingLists = List<Map<String, dynamic>>.from(jsonDecode(listsJson));
-    }
-
-    final newList = {
-      'name': name,
-      'sport': sport,
-      'officials': selected,
-      'id': existingLists.isEmpty
-          ? 1
-          : (existingLists
-                  .map((list) => (list['id'] as int?) ?? 0)
-                  .reduce((a, b) => a > b ? a : b) +
-              1),
-    };
-
-    if (existingLists.any((list) => list['name'] == name)) {
+    try {
+      final selected = officials.where((o) => selectedOfficials[o['id']] ?? false).toList();
+      final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+      final sport = args['sport'] as String? ?? 'Football';
+      
+      final listRepository = ListRepository();
+      
+      // Check if list name already exists
+      final userResult = await listRepository.rawQuery('SELECT id FROM users WHERE scheduler_type IS NOT NULL LIMIT 1');
+      if (userResult.isEmpty) {
+        throw Exception('No user found');
+      }
+      final userId = userResult.first['id'] as int;
+      
+      final nameExists = await listRepository.listNameExists(name, userId);
+      if (nameExists) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('A list with this name already exists!')),
+          );
+        }
+        return;
+      }
+      
+      // Convert selected officials to Official objects
+      final selectedOfficialsObjects = selected.map((officialData) => Official(
+        id: officialData['id'],
+        name: officialData['name'],
+        email: officialData['email'],
+        phone: officialData['phone'],
+        userId: userId, // Required field
+      )).toList();
+      
+      // Create the list
+      await listRepository.createList(name, sport, selectedOfficialsObjects);
+      
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('A list with this name already exists!')),
+          const SnackBar(
+            content: Text('List created!'), 
+            duration: Duration(seconds: 2)
+          ),
         );
       }
-      return;
+      setState(() => showSaveListButton = false);
+      
+    } catch (e) {
+      print('Error saving list: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error saving list: $e')),
+        );
+      }
     }
-
-    existingLists.add(newList);
-    await prefs.setString('saved_lists', jsonEncode(existingLists));
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('List created!'), duration: Duration(seconds: 2)),
-      );
-    }
-    setState(() => showSaveListButton = false);
   }
 
   @override
   Widget build(BuildContext context) {
     final args =
         ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
-    final sport = args['sport'] as String? ?? 'Football';
-    final listName = args['listName'] as String?;
     final int selectedCount =
         selectedOfficials.values.where((selected) => selected).length;
 

@@ -139,6 +139,28 @@ class ScheduleService {
     }
   }
 
+  // Update schedule name only
+  Future<Map<String, dynamic>?> updateScheduleName(int scheduleId, String newName) async {
+    try {
+      // Get the existing schedule
+      final existingSchedule = await _scheduleRepository.getScheduleById(scheduleId);
+      if (existingSchedule == null) {
+        debugPrint('Schedule with ID $scheduleId not found');
+        return null;
+      }
+
+      // Update with new name, keeping the same sport
+      return await updateSchedule(
+        scheduleId: scheduleId,
+        name: newName,
+        sportName: existingSchedule.sportName ?? 'Unknown',
+      );
+    } catch (e) {
+      debugPrint('Error updating schedule name: $e');
+      return null;
+    }
+  }
+
   // Delete a schedule
   Future<bool> deleteSchedule(int scheduleId) async {
     try {

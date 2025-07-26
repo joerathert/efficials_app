@@ -1,30 +1,122 @@
 import '../../models/database_models.dart';
 import 'base_repository.dart';
 import '../user_session_service.dart';
+import 'dart:convert';
 
 class UserRepository extends BaseRepository {
   static const String tableName = 'users';
   static const String settingsTableName = 'user_settings';
 
+  // User cache for performance
+  final Map<int, User> _userCache = {};
+
+  // Clear cache method
+  void _clearCache() {
+    _userCache.clear();
+  }
+
+  // Clear specific user from cache
+  void _clearUserFromCache(int userId) {
+    _userCache.remove(userId);
+  }
+
   // Create a new user
   Future<int> createUser(User user) async {
-    return await insert(tableName, user.toMap());
+    // Validate required fields
+    if (user.schedulerType.isEmpty) {
+      throw ArgumentError('schedulerType cannot be empty');
+    }
+
+    // Check for duplicate email if provided
+    if (user.email != null && user.email!.isNotEmpty) {
+      final existingUser = await _getUserByEmail(user.email!);
+      if (existingUser != null) {
+        throw ArgumentError('User with email ${user.email} already exists');
+      }
+    }
+
+    final userId = await insert(tableName, user.toMap());
+    
+    // Cache the new user with the generated ID
+    if (userId > 0) {
+      final userWithId = User(
+        id: userId,
+        schedulerType: user.schedulerType,
+        setupCompleted: user.setupCompleted,
+        schoolName: user.schoolName,
+        mascot: user.mascot,
+        schoolAddress: user.schoolAddress,
+        teamName: user.teamName,
+        sport: user.sport,
+        grade: user.grade,
+        gender: user.gender,
+        leagueName: user.leagueName,
+        userType: user.userType,
+        email: user.email,
+        passwordHash: user.passwordHash,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        phone: user.phone,
+        createdAt: user.createdAt,
+      );
+      _userCache[userId] = userWithId;
+    }
+    
+    return userId;
+  }
+
+  // Helper method to get user by email
+  Future<User?> _getUserByEmail(String email) async {
+    final results = await query(
+      tableName,
+      where: 'email = ?',
+      whereArgs: [email],
+      limit: 1,
+    );
+
+    if (results.isEmpty) return null;
+    return User.fromMap(results.first);
   }
 
   // Update an existing user
   Future<int> updateUser(User user) async {
     if (user.id == null) throw ArgumentError('User ID cannot be null for update');
     
-    return await update(
+    // Validate required fields
+    if (user.schedulerType.isEmpty) {
+      throw ArgumentError('schedulerType cannot be empty');
+    }
+
+    // Check for duplicate email if provided and different from current
+    if (user.email != null && user.email!.isNotEmpty) {
+      final existingUser = await _getUserByEmail(user.email!);
+      if (existingUser != null && existingUser.id != user.id) {
+        throw ArgumentError('User with email ${user.email} already exists');
+      }
+    }
+    
+    final result = await update(
       tableName,
       user.toMap(),
       'id = ?',
       [user.id],
     );
+    
+    // Update cache
+    if (result > 0) {
+      _userCache[user.id!] = user;
+    }
+    
+    return result;
   }
 
-  // Get user by ID
+  // Get user by ID with caching
   Future<User?> getUserById(int userId) async {
+    // Check cache first
+    if (_userCache.containsKey(userId)) {
+      return _userCache[userId];
+    }
+
     final results = await query(
       tableName,
       where: 'id = ?',
@@ -32,7 +124,12 @@ class UserRepository extends BaseRepository {
     );
 
     if (results.isEmpty) return null;
-    return User.fromMap(results.first);
+    
+    final user = User.fromMap(results.first);
+    // Cache the user
+    _userCache[userId] = user;
+    
+    return user;
   }
 
   // Get current user (from session)
@@ -129,11 +226,55 @@ class UserRepository extends BaseRepository {
     return value.toLowerCase() == 'true' || value == '1';
   }
 
+  // Set boolean setting
+  Future<void> setBoolSetting(int userId, String key, bool value) async {
+    await setSetting(userId, key, value.toString());
+  }
+
   // Get integer setting
   Future<int?> getIntSetting(int userId, String key) async {
     final value = await getSetting(userId, key);
     if (value == null) return null;
     return int.tryParse(value);
+  }
+
+  // Get JSON setting (for complex objects like scheduleFilters)
+  Future<Map<String, dynamic>?> getJsonSetting(int userId, String key) async {
+    final value = await getSetting(userId, key);
+    if (value == null) return null;
+    try {
+      return jsonDecode(value) as Map<String, dynamic>;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // Get double setting
+  Future<double?> getDoubleSetting(int userId, String key) async {
+    final value = await getSetting(userId, key);
+    if (value == null) return null;
+    return double.tryParse(value);
+  }
+
+  // Get list setting
+  Future<List<dynamic>?> getListSetting(int userId, String key) async {
+    final value = await getSetting(userId, key);
+    if (value == null) return null;
+    try {
+      return jsonDecode(value) as List<dynamic>;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // Set JSON setting
+  Future<void> setJsonSetting(int userId, String key, Map<String, dynamic> value) async {
+    await setSetting(userId, key, jsonEncode(value));
+  }
+
+  // Set list setting
+  Future<void> setListSetting(int userId, String key, List<dynamic> value) async {
+    await setSetting(userId, key, jsonEncode(value));
   }
 
   // Get all settings for a user
@@ -171,11 +312,20 @@ class UserRepository extends BaseRepository {
     );
   }
 
-  // Bulk set settings
-  Future<void> bulkSetSettings(int userId, Map<String, String> settings) async {
-    final db = await database;
+  // Batch insert settings using new batch functionality
+  Future<List<int>> batchInsertSettings(int userId, Map<String, String> settings) async {
+    final settingsData = settings.entries.map((entry) => {
+      'user_id': userId,
+      'key': entry.key,
+      'value': entry.value,
+    }).toList();
     
-    await db.transaction((txn) async {
+    return await batchInsert(settingsTableName, settingsData);
+  }
+
+  // Bulk set settings using new transaction wrapper
+  Future<void> bulkSetSettings(int userId, Map<String, String> settings) async {
+    await withTransaction((txn) async {
       for (var entry in settings.entries) {
         final existing = await txn.query(
           settingsTableName,
@@ -216,11 +366,9 @@ class UserRepository extends BaseRepository {
     };
   }
 
-  // Delete user and all related data
+  // Delete user and all related data using new transaction wrapper
   Future<void> deleteUserCompletely(int userId) async {
-    final db = await database;
-    
-    await db.transaction((txn) async {
+    await withTransaction((txn) async {
       // Delete user settings
       await txn.delete(settingsTableName, where: 'user_id = ?', whereArgs: [userId]);
       
@@ -263,5 +411,8 @@ class UserRepository extends BaseRepository {
       // Finally delete the user
       await txn.delete(tableName, where: 'id = ?', whereArgs: [userId]);
     });
+    
+    // Clear user from cache
+    _clearUserFromCache(userId);
   }
 }

@@ -1,11 +1,11 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:table_calendar/table_calendar.dart';
 import '../../shared/theme.dart';
-import '../games/game_template.dart'; // Import the GameTemplate model
+import '../../shared/models/database_models.dart';
 import '../../shared/services/schedule_service.dart';
 import '../../shared/services/game_service.dart';
+import '../../shared/services/repositories/template_repository.dart';
+import '../../shared/services/repositories/user_repository.dart';
 
 class ScheduleDetailsScreen extends StatefulWidget {
   const ScheduleDetailsScreen({super.key});
@@ -27,6 +27,8 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
   String? associatedTemplateName; // Store the associated template name
   final ScheduleService _scheduleService = ScheduleService();
   final GameService _gameService = GameService();
+  final TemplateRepository _templateRepository = TemplateRepository();
+  final UserRepository _userRepository = UserRepository();
 
   @override
   void didChangeDependencies() {
@@ -58,7 +60,7 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
         }
       } catch (e) {
         // If database fails, sport will remain null and we'll fall back to the old method
-        print('Failed to load schedule details: $e');
+        debugPrint('Failed to load schedule details: $e');
       }
     }
   }
@@ -75,16 +77,16 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
       inferredSport = _inferSportFromScheduleName(scheduleName ?? '');
     }
     
-    if (inferredSport != null && inferredSport.isNotEmpty && inferredSport != 'Unknown') {
+    if (inferredSport.isNotEmpty && inferredSport != 'Unknown') {
       try {
         // Update the schedule in the database with the inferred sport
         // This is a simplified approach - you might want to implement updateScheduleSport in ScheduleService
         setState(() {
           sport = inferredSport;
         });
-        print('Inferred sport for schedule: $inferredSport');
+        debugPrint('Inferred sport for schedule: $inferredSport');
       } catch (e) {
-        print('Failed to update schedule sport: $e');
+        debugPrint('Failed to update schedule sport: $e');
       }
     } else {
       setState(() {
@@ -111,21 +113,16 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
 
   Future<void> _fetchGames() async {
     try {
-      // Load games from database (primary source)
-      final allGames = await _gameService.getGames();
+      // Use GameService exclusively to get games for this schedule
+      final scheduleGames = scheduleName != null 
+          ? await _gameService.getGamesByScheduleName(scheduleName!)
+          : <Map<String, dynamic>>[];
       
       setState(() {
         games.clear();
+        games = scheduleGames;
         
-        // Filter games for this schedule that have dates
-        games = allGames.where((game) {
-          final matchesSchedule = game['scheduleName'] == scheduleName;
-          final hasDate = game['date'] != null;
-          return matchesSchedule && hasDate;
-        }).toList();
-        
-        // Games from database should already have correct DateTime objects,
-        // but ensure consistency for any string dates/times
+        // Ensure DateTime and TimeOfDay objects are properly parsed
         for (var game in games) {
           if (game['date'] != null && game['date'] is String) {
             game['date'] = DateTime.parse(game['date'] as String);
@@ -142,10 +139,27 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
         if (games.isNotEmpty) {
           games.sort(
               (a, b) => (a['date'] as DateTime).compareTo(b['date'] as DateTime));
-          _focusedDay = games.first['date'] as DateTime;
-          // Auto-select the first day with games and show its games
-          _selectedDay = _focusedDay;
-          _selectedDayGames = _getGamesForDay(_selectedDay!);
+          
+          // Find the next upcoming game (today or later)
+          final now = DateTime.now();
+          final today = DateTime(now.year, now.month, now.day);
+          
+          DateTime? nextGameDate;
+          for (var game in games) {
+            final gameDate = game['date'] as DateTime;
+            final gameDateOnly = DateTime(gameDate.year, gameDate.month, gameDate.day);
+            if (gameDateOnly.isAtSameMomentAs(today) || gameDateOnly.isAfter(today)) {
+              nextGameDate = gameDate;
+              break;
+            }
+          }
+          
+          // Focus on the month containing the next upcoming game, or first game if all are past
+          _focusedDay = nextGameDate ?? games.first['date'] as DateTime;
+          
+          // Don't auto-select any date - let user manually select
+          _selectedDay = null;
+          _selectedDayGames = [];
         } else {
           _focusedDay = DateTime.now();
         }
@@ -154,97 +168,47 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
       });
     } catch (e) {
       debugPrint('Error loading games from database: $e');
-      
-      // Fallback to SharedPreferences if database fails
-      await _fetchGamesFromSharedPreferences();
-    }
-  }
-
-  Future<void> _fetchGamesFromSharedPreferences() async {
-    final prefs = await SharedPreferences.getInstance();
-    final String? unpublishedGamesJson =
-        prefs.getString('ad_unpublished_games');
-    final String? publishedGamesJson = prefs.getString('ad_published_games');
-    List<Map<String, dynamic>> allGames = [];
-
-    setState(() {
-      games.clear();
-      try {
-        if (unpublishedGamesJson != null && unpublishedGamesJson.isNotEmpty) {
-          final unpublished =
-              List<Map<String, dynamic>>.from(jsonDecode(unpublishedGamesJson));
-          allGames.addAll(unpublished);
-        }
-        if (publishedGamesJson != null && publishedGamesJson.isNotEmpty) {
-          final published =
-              List<Map<String, dynamic>>.from(jsonDecode(publishedGamesJson));
-          allGames.addAll(published);
-        }
-
-        games = allGames.where((game) {
-          final matchesSchedule = game['scheduleName'] == scheduleName;
-          final hasDate = game['date'] != null;
-          return matchesSchedule && hasDate;
-        }).toList();
-
-        for (var game in games) {
-          if (game['date'] != null) {
-            game['date'] = DateTime.parse(game['date'] as String);
-          }
-          if (game['time'] != null) {
-            final timeParts = (game['time'] as String).split(':');
-            game['time'] = TimeOfDay(
-              hour: int.parse(timeParts[0]),
-              minute: int.parse(timeParts[1]),
-            );
-          }
-        }
-
-        if (games.isNotEmpty) {
-          games.sort(
-              (a, b) => (a['date'] as DateTime).compareTo(b['date'] as DateTime));
-          _focusedDay = games.first['date'] as DateTime;
-          // Auto-select the first day with games and show its games
-          _selectedDay = _focusedDay;
-          _selectedDayGames = _getGamesForDay(_selectedDay!);
-        } else {
-          _focusedDay = DateTime.now();
-        }
-
-        isLoading = false;
-      } catch (e) {
-        // Handle any parsing errors
+      setState(() {
         games.clear();
         _focusedDay = DateTime.now();
         isLoading = false;
-      }
-    });
+      });
+    }
   }
+
 
   Future<void> _loadAssociatedTemplate() async {
     if (scheduleName == null) return;
-    final prefs = await SharedPreferences.getInstance();
-    final String? templateJson =
-        prefs.getString('schedule_template_${scheduleName!.toLowerCase()}');
-    if (templateJson != null) {
-      final templateData = jsonDecode(templateJson) as Map<String, dynamic>;
-      setState(() {
-        associatedTemplateName = templateData['name'] as String?;
-      });
+    try {
+      final user = await _userRepository.getCurrentUser();
+      if (user?.id != null) {
+        final templateName = await _templateRepository.getByScheduleName(user!.id!, scheduleName!);
+        setState(() {
+          associatedTemplateName = templateName;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading associated template: $e');
     }
   }
 
   Future<void> _removeAssociatedTemplate() async {
     if (scheduleName == null) return;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('schedule_template_${scheduleName!.toLowerCase()}');
-    setState(() {
-      associatedTemplateName = null;
-    });
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Template association removed')),
-      );
+    try {
+      final user = await _userRepository.getCurrentUser();
+      if (user?.id != null) {
+        await _templateRepository.removeAssociation(user!.id!, scheduleName!);
+        setState(() {
+          associatedTemplateName = null;
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Template association removed')),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Error removing associated template: $e');
     }
   }
 
@@ -312,70 +276,51 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
   }
 
   Future<void> _updateScheduleName(String newName) async {
-    if (scheduleName == null) return;
+    if (scheduleName == null || scheduleId == null) return;
 
-    final oldName = scheduleName!;
-    final prefs = await SharedPreferences.getInstance();
-
-    // Update published games
-    final String? publishedGamesJson = prefs.getString('ad_published_games');
-    if (publishedGamesJson != null && publishedGamesJson.isNotEmpty) {
-      try {
-        List<Map<String, dynamic>> publishedGames =
-            List<Map<String, dynamic>>.from(jsonDecode(publishedGamesJson));
-        for (var game in publishedGames) {
-          if (game['scheduleName'] == oldName) {
-            game['scheduleName'] = newName;
-          }
+    try {
+      final oldName = scheduleName!;
+      
+      // Update schedule name using ScheduleService
+      final updatedSchedule = await _scheduleService.updateScheduleName(scheduleId!, newName);
+      
+      if (updatedSchedule != null) {
+        // Update template association if it exists
+        final user = await _userRepository.getCurrentUser();
+        if (user?.id != null && associatedTemplateName != null) {
+          await _templateRepository.updateScheduleName(user!.id!, oldName, newName);
         }
-        await prefs.setString('ad_published_games', jsonEncode(publishedGames));
-      } catch (e) {
-        // Handle JSON decoding error
+
+        // Update the current state
+        setState(() {
+          scheduleName = newName;
+        });
+
+        // Show success message
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Schedule renamed to "$newName"')),
+          );
+        }
+
+        // Refresh the games to reflect the new name
+        await _fetchGames();
+        await _loadScheduleDetails();
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Failed to update schedule name')),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Error updating schedule name: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Error updating schedule name')),
+        );
       }
     }
-
-    // Update unpublished games
-    final String? unpublishedGamesJson =
-        prefs.getString('ad_unpublished_games');
-    if (unpublishedGamesJson != null && unpublishedGamesJson.isNotEmpty) {
-      try {
-        List<Map<String, dynamic>> unpublishedGames =
-            List<Map<String, dynamic>>.from(jsonDecode(unpublishedGamesJson));
-        for (var game in unpublishedGames) {
-          if (game['scheduleName'] == oldName) {
-            game['scheduleName'] = newName;
-          }
-        }
-        await prefs.setString(
-            'ad_unpublished_games', jsonEncode(unpublishedGames));
-      } catch (e) {
-        // Handle JSON decoding error
-      }
-    }
-
-    // Update associated template if it exists
-    final String? templateJson =
-        prefs.getString('schedule_template_${oldName.toLowerCase()}');
-    if (templateJson != null) {
-      await prefs.remove('schedule_template_${oldName.toLowerCase()}');
-      await prefs.setString(
-          'schedule_template_${newName.toLowerCase()}', templateJson);
-    }
-
-    // Update the current state
-    setState(() {
-      scheduleName = newName;
-    });
-
-    // Show success message
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Schedule renamed to "$newName"')),
-      );
-    }
-
-    // Refresh the games to reflect the new name
-    _fetchGames();
   }
 
   List<Map<String, dynamic>> _getGamesForDay(DateTime day) {
@@ -944,27 +889,31 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                 ? null
                 : () async {
                     // Check for an associated template
-                    final prefs = await SharedPreferences.getInstance();
-                    final String? templateJson = prefs.getString(
-                        'schedule_template_${scheduleName!.toLowerCase()}');
                     GameTemplate? template;
-                    if (templateJson != null) {
-                      final templateData =
-                          jsonDecode(templateJson) as Map<String, dynamic>;
-                      template = GameTemplate.fromJson(templateData);
+                    if (scheduleName != null) {
+                      try {
+                        final user = await _userRepository.getCurrentUser();
+                        if (user?.id != null) {
+                          final templateData = await _templateRepository.getTemplateData(user!.id!, scheduleName!);
+                          if (templateData != null) {
+                            template = GameTemplate.fromMap(templateData);
+                          }
+                        }
+                      } catch (e) {
+                        debugPrint('Error loading template for game creation: $e');
+                      }
                     }
 
                     // Navigate to the game creation flow with the template (if any)
                     if (mounted) {
                       // Check if we can skip date_time_screen
                       bool canSkipDateTime = template != null && 
-                                           template!.includeTime && 
-                                           template!.time != null && 
+                                           template.includeTime && 
+                                           template.time != null && 
                                            _selectedDay != null;
                       
                       String nextRoute = canSkipDateTime ? '/choose_location' : '/date_time';
                       
-                      // ignore: use_build_context_synchronously
                       Navigator.pushNamed(
                         context,
                         nextRoute,
@@ -972,9 +921,9 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                           'scheduleName': scheduleName,
                           'scheduleId': scheduleId,
                           'date': _selectedDay,
-                          'time': canSkipDateTime ? template!.time : null,
+                          'time': canSkipDateTime ? template.time : null,
                           'fromScheduleDetails': true,
-                          'sport': sport ?? _inferSportFromScheduleName(scheduleName ?? '') ?? 'Football',
+                          'sport': sport ?? _inferSportFromScheduleName(scheduleName ?? ''),
                           'template': template, // Pass the associated template
                         },
                       ).then((_) {

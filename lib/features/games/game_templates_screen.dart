@@ -1,12 +1,10 @@
-import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart'; // For formatting DateTime
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:intl/intl.dart';
 import 'game_template.dart';
 import '../../shared/theme.dart';
 import '../../shared/utils/utils.dart';
 import '../../shared/services/game_service.dart';
+import '../../shared/services/repositories/user_repository.dart';
 
 class GameTemplatesScreen extends StatefulWidget {
   const GameTemplatesScreen({super.key});
@@ -23,6 +21,7 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen> with RouteAwa
   String? userSport;
   String? expandedTemplateId;
   final GameService _gameService = GameService();
+  final UserRepository _userRepository = UserRepository();
 
   @override
   void initState() {
@@ -39,27 +38,18 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen> with RouteAwa
 
   Future<void> _fetchTemplates() async {
     try {
-      // Use GameService to get templates from database
-      final templatesData = await _gameService.getTemplates();
-      
-      // If database returns empty but we might have SharedPreferences data, check there too
-      if (templatesData.isEmpty) {
-        final prefs = await SharedPreferences.getInstance();
-        final String? templatesJson = prefs.getString('game_templates');
-        if (templatesJson != null && templatesJson.isNotEmpty) {
-          await _fetchTemplatesFromPrefs();
-          return;
+      // Get current user information for context and filtering
+      final currentUser = await _userRepository.getCurrentUser();
+      if (currentUser != null) {
+        schedulerType = currentUser.schedulerType;
+        // For assigners and coaches, get their sport
+        if (schedulerType == 'Assigner' || schedulerType == 'Coach') {
+          userSport = currentUser.sport ?? currentUser.leagueName;
         }
       }
       
-      // Load scheduler information (still needed for user context)
-      final prefs = await SharedPreferences.getInstance();
-      schedulerType = prefs.getString('schedulerType');
-      if (schedulerType == 'Assigner') {
-        userSport = prefs.getString('assigner_sport');
-      } else if (schedulerType == 'Coach') {
-        userSport = prefs.getString('sport');
-      }
+      // Use GameService to get templates from database
+      final templatesData = await _gameService.getTemplates();
       
       setState(() {
         templates.clear();
@@ -71,7 +61,7 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen> with RouteAwa
             .where((t) =>
                 t.includeSport && t.sport != null) // Ensure sport is not null
             .map((t) => t.sport!) // Use ! since we filtered out nulls
-          .toSet();
+          .toSet().cast<String>();
       
         // Filter sports based on scheduler type
         if (schedulerType == 'Assigner' && userSport != null) {
@@ -89,53 +79,14 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen> with RouteAwa
         isLoading = false;
       });
     } catch (e) {
-      // Fallback to SharedPreferences if database fails
-      await _fetchTemplatesFromPrefs();
+      setState(() {
+        templates = [];
+        sports = [];
+        isLoading = false;
+      });
     }
   }
 
-  Future<void> _fetchTemplatesFromPrefs() async {
-    final prefs = await SharedPreferences.getInstance();
-    final String? templatesJson = prefs.getString('game_templates');
-    
-    // Load scheduler information
-    schedulerType = prefs.getString('schedulerType');
-    if (schedulerType == 'Assigner') {
-      userSport = prefs.getString('assigner_sport');
-    } else if (schedulerType == 'Coach') {
-      userSport = prefs.getString('sport');
-    }
-    
-    setState(() {
-      templates.clear();
-      if (templatesJson != null && templatesJson.isNotEmpty) {
-        final List<dynamic> decoded = jsonDecode(templatesJson);
-        templates = decoded.map((json) => GameTemplate.fromJson(json)).toList();
-      }
-      
-      // Extract unique sports from templates, excluding null values
-      Set<String> allSports = templates
-          .where((t) =>
-              t.includeSport && t.sport != null) // Ensure sport is not null
-          .map((t) => t.sport!) // Use ! since we filtered out nulls
-          .toSet();
-      
-      // Filter sports based on scheduler type
-      if (schedulerType == 'Assigner' && userSport != null) {
-        // Assigners only see their assigned sport
-        sports = allSports.where((sport) => sport == userSport).toList();
-      } else if (schedulerType == 'Coach' && userSport != null) {
-        // Coaches only see their team's sport
-        sports = allSports.where((sport) => sport == userSport).toList();
-      } else {
-        // Athletic Directors see all sports
-        sports = allSports.toList();
-      }
-      
-      sports.sort(); // Sort alphabetically for consistency
-      isLoading = false;
-    });
-  }
 
   void _showDeleteConfirmationDialog(String templateName, GameTemplate template) {
     showDialog(
@@ -176,67 +127,66 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen> with RouteAwa
           );
         }
       } else {
-        // Fallback to SharedPreferences
-        await _deleteTemplateFromPrefs(template);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Failed to delete template')),
+          );
+        }
       }
     } catch (e) {
-      // Fallback to SharedPreferences
-      await _deleteTemplateFromPrefs(template);
-    }
-  }
-
-  Future<void> _deleteTemplateFromPrefs(GameTemplate template) async {
-    setState(() {
-      templates.removeWhere((t) => t.id == template.id);
-    });
-    await _saveTemplates();
-    await _fetchTemplates();
-    
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Template deleted successfully')),
-      );
-    }
-  }
-
-  Future<void> _saveTemplates() async {
-    final prefs = await SharedPreferences.getInstance();
-    final templatesJson = jsonEncode(templates.map((t) => t.toJson()).toList());
-    await prefs.setString('game_templates', templatesJson);
-  }
-
-  Future<void> _useTemplate(GameTemplate template) async {
-    final prefs = await SharedPreferences.getInstance();
-    final currentSchedulerType = prefs.getString('schedulerType');
-    
-    
-    // For Coaches: Skip schedule selection and use their team name
-    if (currentSchedulerType == 'Coach') {
-      final teamName = prefs.getString('team_name');
-      if (teamName != null) {
-        Navigator.pushNamed(
-          context,
-          '/date_time',
-          arguments: {
-            'sport': template.sport,
-            'template': template,
-            'scheduleName': teamName,
-          },
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error deleting template: $e')),
         );
-        return;
       }
     }
-    
-    // For Athletic Directors and Assigners: Navigate to schedule selection
-    // They need to select a schedule first before creating the game
-    Navigator.pushNamed(
-      context,
-      '/select_schedule',
-      arguments: {
-        'sport': template.sport,
-        'template': template,
-      },
-    );
+  }
+
+
+
+  Future<void> _useTemplate(GameTemplate template) async {
+    try {
+      final currentUser = await _userRepository.getCurrentUser();
+      final currentSchedulerType = currentUser?.schedulerType;
+      
+      // For Coaches: Skip schedule selection and use their team name
+      if (currentSchedulerType == 'Coach') {
+        final teamName = currentUser?.teamName;
+        if (teamName != null) {
+          Navigator.pushNamed(
+            context,
+            '/date_time',
+            arguments: {
+              'sport': template.sport,
+              'template': template,
+              'scheduleName': teamName,
+            },
+          );
+          return;
+        }
+      }
+      
+      // For Athletic Directors and Assigners: Navigate to schedule selection
+      // They need to select a schedule first before creating the game
+      Navigator.pushNamed(
+        context,
+        '/select_schedule',
+        arguments: {
+          'sport': template.sport,
+          'template': template,
+        },
+      );
+    } catch (e) {
+      // Fallback to schedule selection if we can't get user data
+      Navigator.pushNamed(
+        context,
+        '/select_schedule',
+        arguments: {
+          'sport': template.sport,
+          'template': template,
+        },
+      );
+    }
   }
 
 

@@ -71,6 +71,37 @@ class GameService {
     return await getGames(status: 'Unpublished');
   }
 
+  // Get games by schedule ID
+  Future<List<Map<String, dynamic>>> getGamesBySchedule(int scheduleId) async {
+    try {
+      final games = await _gameRepository.getGamesBySchedule(scheduleId);
+      return games.map((game) => _gameToMap(game)).toList();
+    } catch (e) {
+      debugPrint('Error getting games by schedule: $e');
+      return [];
+    }
+  }
+
+  // Get games by schedule name
+  Future<List<Map<String, dynamic>>> getGamesByScheduleName(String scheduleName) async {
+    try {
+      final userId = await _getCurrentUserId();
+      final allGames = await _gameRepository.getGamesByUser(userId);
+      
+      // Filter games for this schedule that have dates
+      final games = allGames.where((game) {
+        final matchesSchedule = game.scheduleName == scheduleName;
+        final hasDate = game.date != null;
+        return matchesSchedule && hasDate;
+      }).toList();
+
+      return games.map((game) => _gameToMap(game)).toList();
+    } catch (e) {
+      debugPrint('Error getting games by schedule name: $e');
+      return [];
+    }
+  }
+
   // Get filtered games
   Future<List<Map<String, dynamic>>> getFilteredGames({
     bool? showAwayGames,

@@ -1,8 +1,9 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../shared/theme.dart';
-import '../games/game_template.dart'; // Import the GameTemplate model
+import '../games/game_template.dart' as game_template;
+import '../../shared/models/database_models.dart';
+import '../../shared/services/repositories/location_repository.dart';
+import '../../shared/services/user_session_service.dart';
 
 class ChooseLocationScreen extends StatefulWidget {
   const ChooseLocationScreen({super.key});
@@ -16,17 +17,16 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
   List<Map<String, dynamic>> locations = [];
   bool isLoading = true;
   bool isFromEdit = false;
-  bool isFromGameInfo = false; // Added to match the error context
+  bool isFromGameInfo = false;
   bool originalIsAway = false;
   bool isAssignerFlow = false;
-  GameTemplate? template; // Store the selected template
+  game_template.GameTemplate? template;
+  final LocationRepository _locationRepository = LocationRepository();
+  final UserSessionService _sessionService = UserSessionService.instance;
 
   @override
   void initState() {
     super.initState();
-    locations = [
-      {'name': '+ Create new location', 'id': 0},
-    ];
     _fetchLocations();
   }
 
@@ -44,9 +44,9 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
 
       // Convert args['template'] from Map to GameTemplate if necessary
       template = args['template'] != null
-          ? (args['template'] is GameTemplate
-              ? args['template'] as GameTemplate?
-              : GameTemplate.fromJson(args['template'] as Map<String, dynamic>))
+          ? (args['template'] is game_template.GameTemplate
+              ? args['template'] as game_template.GameTemplate?
+              : game_template.GameTemplate.fromJson(args['template'] as Map<String, dynamic>))
           : null;
 
       if (isFromEdit && selectedLocation == null) {
@@ -88,34 +88,49 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
   }
 
   Future<void> _fetchLocations() async {
-    final prefs = await SharedPreferences.getInstance();
-    final String? locationsJson = prefs.getString('saved_locations');
-    setState(() {
-      locations = [];
-      
-      // Only add "Away Game" if not in Assigner flow
-      if (!isAssignerFlow) {
-        locations.add({'name': 'Away Game', 'id': -2});
+    try {
+      final userId = await _sessionService.getCurrentUserId();
+      if (userId == null) {
+        setState(() {
+          isLoading = false;
+        });
+        return;
       }
+
+      final dbLocations = await _locationRepository.getLocationsByUser(userId);
       
-      try {
-        if (locationsJson != null && locationsJson.isNotEmpty) {
-          locations.addAll(
-              List<Map<String, dynamic>>.from(jsonDecode(locationsJson)));
+      setState(() {
+        locations = [];
+        
+        // Only add "Away Game" if not in Assigner flow
+        if (!isAssignerFlow) {
+          locations.add({'name': 'Away Game', 'id': -2});
         }
-      } catch (e) {
-        // Handle parsing errors
-      }
-      locations.add({'name': '+ Create new location', 'id': 0});
-      isLoading = false;
-    });
+        
+        // Add locations from database
+        for (final location in dbLocations) {
+          locations.add({
+            'name': location.name,
+            'address': location.address,
+            'notes': location.notes,
+            'id': location.id,
+          });
+        }
+        
+        locations.add({'name': '+ Create new location', 'id': 0});
+        isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        locations = [
+          if (!isAssignerFlow) {'name': 'Away Game', 'id': -2},
+          {'name': '+ Create new location', 'id': 0},
+        ];
+        isLoading = false;
+      });
+    }
   }
 
-  Future<void> _saveLocations() async {
-    final prefs = await SharedPreferences.getInstance();
-    final locationsToSave = locations.where((loc) => loc['id'] > 0).toList();
-    await prefs.setString('saved_locations', jsonEncode(locationsToSave));
-  }
 
   void _showDeleteConfirmationDialog(String locationName, int locationId) {
     showDialog(
@@ -129,13 +144,25 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
             child: const Text('Cancel', style: TextStyle(color: efficialsBlue)),
           ),
           TextButton(
-            onPressed: () {
-              setState(() {
-                locations.removeWhere((loc) => loc['id'] == locationId);
-                if (selectedLocation == locationName) selectedLocation = null;
-                _saveLocations();
-              });
-              Navigator.pop(context);
+            onPressed: () async {
+              try {
+                await _locationRepository.deleteLocation(locationId);
+                setState(() {
+                  locations.removeWhere((loc) => loc['id'] == locationId);
+                  if (selectedLocation == locationName) selectedLocation = null;
+                });
+                if (mounted) Navigator.pop(context);
+              } catch (e) {
+                if (mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Error deleting location: ${e.toString()}'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
             },
             child: const Text('Delete', style: TextStyle(color: efficialsBlue)),
           ),
@@ -148,9 +175,6 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
   Widget build(BuildContext context) {
     final args =
         ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
-    final sport = args['sport'] as String? ?? 'Unknown Sport';
-    final date = args['date'] as DateTime?;
-    final time = args['time'] as TimeOfDay?;
 
     return Scaffold(
       backgroundColor: darkBackground,
@@ -227,23 +251,40 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                                 if (newValue == '+ Create new location') {
                                   Navigator.pushNamed(
                                           context, '/add_new_location')
-                                      .then((result) {
+                                      .then((result) async {
                                     if (result != null) {
                                       final newLoc =
                                           result as Map<String, dynamic>;
-                                      setState(() {
-                                        locations.insert(locations.length - 1, {
-                                          'name': newLoc['name'],
-                                          'address': newLoc['address'],
-                                          'city': newLoc['city'],
-                                          'state': newLoc['state'],
-                                          'zip': newLoc['zip'],
-                                          'id': DateTime.now()
-                                              .millisecondsSinceEpoch,
-                                        });
-                                        selectedLocation = newLoc['name'];
-                                        _saveLocations();
-                                      });
+                                      try {
+                                        final userId = await _sessionService.getCurrentUserId();
+                                        if (userId != null) {
+                                          final location = Location(
+                                            name: newLoc['name'],
+                                            address: newLoc['address'],
+                                            notes: newLoc['notes'],
+                                            userId: userId,
+                                          );
+                                          final locationId = await _locationRepository.createLocation(location);
+                                          setState(() {
+                                            locations.insert(locations.length - 1, {
+                                              'name': newLoc['name'],
+                                              'address': newLoc['address'],
+                                              'notes': newLoc['notes'],
+                                              'id': locationId,
+                                            });
+                                            selectedLocation = newLoc['name'];
+                                          });
+                                        }
+                                      } catch (e) {
+                                        if (mounted) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(
+                                              content: Text('Error creating location: ${e.toString()}'),
+                                              backgroundColor: Colors.red,
+                                            ),
+                                          );
+                                        }
+                                      }
                                     }
                                   });
                                 }
@@ -272,18 +313,44 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                       final selected = locations
                           .firstWhere((l) => l['name'] == selectedLocation);
                       Navigator.pushNamed(context, '/edit_location',
-                          arguments: {'location': selected}).then((result) {
+                          arguments: {'location': selected}).then((result) async {
                         if (result != null) {
                           final updatedLoc = result as Map<String, dynamic>;
-                          setState(() {
-                            final index = locations
-                                .indexWhere((l) => l['id'] == selected['id']);
-                            if (index != -1) {
-                              locations[index] = updatedLoc;
-                              selectedLocation = updatedLoc['name'];
-                              _saveLocations();
+                          try {
+                            final userId = await _sessionService.getCurrentUserId();
+                            if (userId != null) {
+                              final location = Location(
+                                id: selected['id'],
+                                name: updatedLoc['name'],
+                                address: updatedLoc['address'],
+                                notes: updatedLoc['notes'],
+                                userId: userId,
+                              );
+                              await _locationRepository.updateLocation(location);
+                              setState(() {
+                                final index = locations
+                                    .indexWhere((l) => l['id'] == selected['id']);
+                                if (index != -1) {
+                                  locations[index] = {
+                                    'name': updatedLoc['name'],
+                                    'address': updatedLoc['address'],
+                                    'notes': updatedLoc['notes'],
+                                    'id': selected['id'],
+                                  };
+                                  selectedLocation = updatedLoc['name'];
+                                }
+                              });
                             }
-                          });
+                          } catch (e) {
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Error updating location: ${e.toString()}'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+                          }
                         }
                       });
                     },

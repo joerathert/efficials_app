@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../shared/theme.dart';
-import 'game_template.dart'; // Import the GameTemplate model
+import 'game_template.dart';
+import '../../shared/services/repositories/template_repository.dart';
+import '../../shared/services/repositories/user_repository.dart';
 
 class DateTimeScreen extends StatefulWidget {
   const DateTimeScreen({super.key});
@@ -19,9 +21,11 @@ class _DateTimeScreenState extends State<DateTimeScreen>
   bool _isFromEdit = false;
   bool _isFromGameInfo = false;
   bool _isInitialized = false;
-  GameTemplate? template; // Store the selected template
+  GameTemplate? template;
   late final AnimationController _animationController;
   late final Animation<double> _animation;
+  final TemplateRepository _templateRepository = TemplateRepository();
+  final UserRepository _userRepository = UserRepository();
 
   @override
   void initState() {
@@ -64,11 +68,22 @@ class _DateTimeScreenState extends State<DateTimeScreen>
                     args['template'] as Map<String, dynamic>))
             : null;
 
-        // If a template is provided and includes a time, pre-fill the time
-        if (template != null &&
-            template!.includeTime &&
-            template!.time != null) {
-          _selectedTime = template!.time;
+        // If no template provided but scheduleName exists, try to load from DB
+        if (template == null && scheduleName != null) {
+          _loadTemplateFromDatabase();
+        }
+
+        // If a template is provided and includes date/time, pre-fill them
+        if (template != null) {
+          if (template!.includeDate && template!.date != null) {
+            final templateDate = template!.date!;
+            if (templateDate.isAfter(DateTime.now().subtract(const Duration(days: 1)))) {
+              _selectedDate = templateDate;
+            }
+          }
+          if (template!.includeTime && template!.time != null) {
+            _selectedTime = template!.time;
+          }
         }
       }
       _isInitialized = true;
@@ -82,7 +97,7 @@ class _DateTimeScreenState extends State<DateTimeScreen>
     final picked = await showDatePicker(
       context: context,
       initialDate: _selectedDate ?? DateTime.now(),
-      firstDate: DateTime(2000),
+      firstDate: DateTime.now(),
       lastDate: DateTime(2100),
       builder: (context, child) {
         return Theme(
@@ -110,6 +125,10 @@ class _DateTimeScreenState extends State<DateTimeScreen>
       },
     );
     if (picked != null && picked != _selectedDate) {
+      if (picked.isBefore(DateTime.now().subtract(const Duration(days: 1)))) {
+        _showValidationError('Please select a future date');
+        return;
+      }
       setState(() {
         _selectedDate = picked;
         if (_selectedTime == null) {
@@ -175,6 +194,56 @@ class _DateTimeScreenState extends State<DateTimeScreen>
         }
       });
     }
+  }
+
+  Future<void> _loadTemplateFromDatabase() async {
+    try {
+      final user = await _userRepository.getCurrentUser();
+      if (user != null && scheduleName != null) {
+        final templateData = await _templateRepository.getTemplateData(user.id!, scheduleName!);
+        if (templateData != null) {
+          setState(() {
+            template = GameTemplate.fromJson(templateData);
+            
+            if (template!.includeDate && template!.date != null) {
+              final templateDate = template!.date!;
+              if (templateDate.isAfter(DateTime.now().subtract(const Duration(days: 1)))) {
+                _selectedDate = templateDate;
+              }
+            }
+            if (template!.includeTime && template!.time != null) {
+              _selectedTime = template!.time;
+            }
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading template from database: $e');
+    }
+  }
+
+  void _showValidationError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  bool _isValidDateTime() {
+    if (_selectedDate == null || _selectedTime == null) return false;
+    
+    final selectedDateTime = DateTime(
+      _selectedDate!.year,
+      _selectedDate!.month,
+      _selectedDate!.day,
+      _selectedTime!.hour,
+      _selectedTime!.minute,
+    );
+    
+    return selectedDateTime.isAfter(DateTime.now());
   }
 
   String _formatDateTime() {
@@ -291,7 +360,7 @@ class _DateTimeScreenState extends State<DateTimeScreen>
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: ElevatedButton(
                       onPressed:
-                          (_selectedDate != null && _selectedTime != null)
+                          (_selectedDate != null && _selectedTime != null && _isValidDateTime())
                               ? () {
                                   final args = ModalRoute.of(context)!
                                       .settings
@@ -332,7 +401,7 @@ class _DateTimeScreenState extends State<DateTimeScreen>
                           fontSize: 18,
                           fontWeight: FontWeight.w600,
                           color:
-                              (_selectedDate != null && _selectedTime != null)
+                              (_selectedDate != null && _selectedTime != null && _isValidDateTime())
                                   ? efficialsBlack
                                   : efficialsBlack.withOpacity(0.5),
                         ),

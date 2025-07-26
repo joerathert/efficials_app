@@ -20,7 +20,7 @@ class CrewDetailsScreen extends StatefulWidget {
 class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
   final CrewRepository _crewRepo = CrewRepository();
   final CrewChiefService _crewChiefService = CrewChiefService();
-  
+
   List<CrewMember> _members = [];
   Map<String, dynamic> _performanceStats = {};
   bool _isLoading = true;
@@ -43,15 +43,14 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
       _currentOfficialId = await userSession.getCurrentUserId();
 
       if (_currentOfficialId != null) {
-        final isChief = await _crewChiefService.isCrewChief(_currentOfficialId!, widget.crew.id!);
+        final isChief = await _crewChiefService.isCrewChief(
+            _currentOfficialId!, widget.crew.id!);
         final members = await _crewRepo.getCrewMembers(widget.crew.id!);
-        
+
         Map<String, dynamic> stats = {};
         if (isChief) {
           stats = await _crewChiefService.getCrewPerformanceStats(
-            widget.crew.id!, 
-            _currentOfficialId!
-          );
+              widget.crew.id!, _currentOfficialId!);
         }
 
         if (mounted) {
@@ -183,7 +182,7 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: isFullyStaffed 
+                    color: isFullyStaffed
                         ? Colors.green.withOpacity(0.2)
                         : Colors.orange.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(16),
@@ -202,9 +201,11 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
             const SizedBox(height: 16),
             _buildInfoRow(Icons.sports, 'Sport', '${widget.crew.sportName}'),
             const SizedBox(height: 8),
-            _buildInfoRow(Icons.people, 'Members', '$memberCount of $requiredCount'),
+            _buildInfoRow(
+                Icons.people, 'Members', '$memberCount of $requiredCount'),
             const SizedBox(height: 8),
-            _buildInfoRow(Icons.person, 'Crew Chief', '${widget.crew.crewChiefName}'),
+            _buildInfoRow(
+                Icons.person, 'Crew Chief', '${widget.crew.crewChiefName}'),
           ],
         ),
       ),
@@ -264,7 +265,8 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
                     onPressed: () {
                       // TODO: Navigate to add member screen
                     },
-                    icon: const Icon(Icons.add, color: efficialsYellow, size: 16),
+                    icon:
+                        const Icon(Icons.add, color: efficialsYellow, size: 16),
                     label: const Text(
                       'Add',
                       style: TextStyle(color: efficialsYellow, fontSize: 12),
@@ -382,10 +384,12 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
                   child: _buildStatItem('Total Games', '$totalAssignments'),
                 ),
                 Expanded(
-                  child: _buildStatItem('Acceptance Rate', '${acceptanceRate.toStringAsFixed(1)}%'),
+                  child: _buildStatItem('Acceptance Rate',
+                      '${acceptanceRate.toStringAsFixed(1)}%'),
                 ),
                 Expanded(
-                  child: _buildStatItem('Avg Fee', '\$${avgFee.toStringAsFixed(0)}'),
+                  child: _buildStatItem(
+                      'Avg Fee', '\$${avgFee.toStringAsFixed(0)}'),
                 ),
               ],
             ),
@@ -549,16 +553,17 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
       context: context,
       builder: (context) {
         final controller = TextEditingController();
-        
+
         return StatefulBuilder(
           builder: (context, setState) {
             final canDelete = controller.text == widget.crew.name;
-            
+
             return AlertDialog(
               backgroundColor: efficialsBlack,
               title: const Text(
                 'FINAL CONFIRMATION',
-                style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                style:
+                    TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
               ),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -617,9 +622,8 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
                   ),
                 ),
                 TextButton(
-                  onPressed: canDelete 
-                      ? () => Navigator.pop(context, true)
-                      : null,
+                  onPressed:
+                      canDelete ? () => Navigator.pop(context, true) : null,
                   child: Text(
                     'DELETE CREW',
                     style: TextStyle(
@@ -647,7 +651,8 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
       await _crewRepo.deleteCrew(widget.crew.id!, _currentOfficialId!);
 
       if (mounted) {
-        Navigator.pop(context, true); // Return true to indicate crew was deleted
+        Navigator.pop(
+            context, true); // Return true to indicate crew was deleted
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Crew "${widget.crew.name}" deleted successfully'),
@@ -706,9 +711,9 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
           member.officialId,
           _currentOfficialId!,
         );
-        
+
         _loadCrewDetails(); // Refresh the details
-        
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(

@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../shared/theme.dart';
 import '../schedules/schedule_filter_screen.dart';
 import '../games/game_template.dart';
@@ -10,82 +9,10 @@ import '../../shared/utils/utils.dart';
 import '../../shared/services/game_service.dart';
 import '../../shared/services/user_session_service.dart';
 import '../../shared/services/repositories/notification_repository.dart';
+import '../../shared/services/repositories/user_repository.dart';
 import '../../shared/widgets/scheduler_bottom_navigation.dart';
+import '../../shared/models/database_models.dart';
 import 'dart:developer' as developer;
-
-class Game {
-  final int id;
-  final String? scheduleName;
-  final DateTime? date;
-  final TimeOfDay? time;
-  final String sport;
-  final int officialsRequired;
-  final int officialsHired;
-  final bool isAway;
-  final List<Map<String, dynamic>>? selectedOfficials;
-  final String? opponent;
-  final String status;
-
-  Game({
-    required this.id,
-    this.scheduleName,
-    this.date,
-    this.time,
-    required this.sport,
-    required this.officialsRequired,
-    required this.officialsHired,
-    this.isAway = false,
-    this.selectedOfficials,
-    this.opponent,
-    required this.status,
-  });
-
-  factory Game.fromJson(Map<String, dynamic> json) {
-    TimeOfDay? time;
-    if (json['time'] != null) {
-      if (json['time'] is String) {
-        final parts = (json['time'] as String).split(':');
-        time =
-            TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
-      } else if (json['time'] is TimeOfDay) {
-        time = json['time'] as TimeOfDay;
-      }
-    }
-    return Game(
-      id: json['id'] as int,
-      scheduleName: json['scheduleName'] as String?,
-      date: json['date'] != null ? 
-        (json['date'] is DateTime ? json['date'] as DateTime : DateTime.parse(json['date'] as String)) : null,
-      time: time,
-      sport: json['sport'] as String? ?? 'Unknown Sport',
-      officialsRequired:
-          int.parse(json['officialsRequired']?.toString() ?? '0'),
-      officialsHired: json['officialsHired'] as int? ?? 0,
-      isAway: json['isAway'] as bool? ?? false,
-      selectedOfficials: json['selectedOfficials'] != null
-          ? (json['selectedOfficials'] as List<dynamic>)
-              .map((e) => Map<String, dynamic>.from(e as Map))
-              .toList()
-          : null,
-      opponent: json['opponent'] as String?,
-      status: json['status'] as String? ?? 'Unpublished',
-    );
-  }
-
-  Map<String, dynamic> toJson() => {
-        'id': id,
-        'scheduleName': scheduleName,
-        'date': date?.toIso8601String(),
-        'time': time != null ? '${time!.hour}:${time!.minute}' : null,
-        'sport': sport,
-        'officialsRequired': officialsRequired,
-        'officialsHired': officialsHired,
-        'isAway': isAway,
-        'selectedOfficials': selectedOfficials,
-        'opponent': opponent,
-        'status': status,
-      };
-}
 
 class AthleticDirectorHomeScreen extends StatefulWidget {
   const AthleticDirectorHomeScreen({super.key});
@@ -111,6 +38,7 @@ class _AthleticDirectorHomeScreenState
   ScrollController scrollController = ScrollController();
   final GameService _gameService = GameService();
   final NotificationRepository _notificationRepo = NotificationRepository();
+  final UserRepository _userRepository = UserRepository();
   int _currentIndex = 0;
   int _unreadNotificationCount = 0;
 
@@ -199,11 +127,11 @@ class _AthleticDirectorHomeScreenState
       // Initialize schedule filters first to avoid filtering out all games
       await _initializeScheduleFilters();
       
-      // Try to get games from database first
+      // Get games from database
       final publishedGamesData = await _gameService.getFilteredGames(
         showAwayGames: showAwayGames,
         showFullyCoveredGames: showFullyCoveredGames,
-        scheduleFilters: scheduleFilters,
+        scheduleFilters: null, // Don't filter by schedule at database level initially
         status: 'Published',
       );
       
@@ -220,168 +148,131 @@ class _AthleticDirectorHomeScreenState
       existingSchedules = scheduleNames.toList();
       
       setState(() {
-        publishedGames = publishedGamesData.map(Game.fromJson).toList();
+        publishedGames = publishedGamesData.map(Game.fromMap).toList();
         isLoading = false;
       });
     } catch (e) {
-      // Fallback to SharedPreferences if database fails
-      await _fetchGamesFromPrefs();
-    }
-  }
-
-  Future<void> _fetchGamesFromPrefs() async {
-    final prefs = await SharedPreferences.getInstance();
-    final String? gamesJson = prefs.getString('ad_published_games');
-    final String? unpublishedGamesJson =
-        prefs.getString('ad_unpublished_games');
-
-    Set<String> scheduleNames = {};
-    if (unpublishedGamesJson != null && unpublishedGamesJson.isNotEmpty) {
-      final unpublished =
-          List<Map<String, dynamic>>.from(jsonDecode(unpublishedGamesJson));
-      for (var game in unpublished) {
-        final scheduleName = game['scheduleName'];
-        if (scheduleName != null) {
-          scheduleNames.add(scheduleName as String);
-        }
+      developer.log('Error fetching games from database: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading games: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
-    }
-    if (gamesJson != null && gamesJson.isNotEmpty) {
-      final published = List<Map<String, dynamic>>.from(jsonDecode(gamesJson));
-      for (var game in published) {
-        final scheduleName = game['scheduleName'];
-        if (scheduleName != null) {
-          scheduleNames.add(scheduleName as String);
-        }
-      }
-    }
-    existingSchedules = scheduleNames.toList();
-
-    setState(() {
-      if (gamesJson != null && gamesJson.isNotEmpty) {
-        try {
-          publishedGames =
-              List<Map<String, dynamic>>.from(jsonDecode(gamesJson))
-                  .map(Game.fromJson)
-                  .toList();
-        } catch (e) {
-          publishedGames = [];
-        }
-      } else {
+      setState(() {
         publishedGames = [];
-      }
-      isLoading = false;
-    });
+        isLoading = false;
+      });
+    }
   }
+
 
   Future<void> _loadFilters() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      showAwayGames = prefs.getBool('showAwayGames') ?? true;
-      showFullyCoveredGames = prefs.getBool('showFullyCoveredGames') ?? true;
-
-      final String? scheduleFiltersJson = prefs.getString('scheduleFilters');
+    try {
+      final currentUser = await UserSessionService.instance.getCurrentSchedulerUser();
+      if (currentUser == null) return;
+      
+      final userId = currentUser.id!;
+      
+      setState(() {
+        // Load filters from database settings
+      });
+      
+      // Load filters asynchronously
+      final awayGames = await _userRepository.getBoolSetting(userId, 'showAwayGames', defaultValue: true);
+      final fullyCovered = await _userRepository.getBoolSetting(userId, 'showFullyCoveredGames', defaultValue: true);
+      final scheduleFiltersJson = await _userRepository.getSetting(userId, 'scheduleFilters');
+      
+      Map<String, Map<String, bool>> loadedScheduleFilters = {};
       if (scheduleFiltersJson != null && scheduleFiltersJson.isNotEmpty) {
-        final Map<String, dynamic> decodedFilters =
-            jsonDecode(scheduleFiltersJson);
-        scheduleFilters = decodedFilters.map((sport, schedules) => MapEntry(
-              sport,
-              (schedules as Map<String, dynamic>).map(
-                  (schedule, selected) => MapEntry(schedule, selected as bool)),
-            ));
+        try {
+          final Map<String, dynamic> decodedFilters = jsonDecode(scheduleFiltersJson);
+          loadedScheduleFilters = decodedFilters.map((sport, schedules) => MapEntry(
+                sport,
+                (schedules as Map<String, dynamic>).map(
+                    (schedule, selected) => MapEntry(schedule, selected as bool)),
+              ));
+        } catch (e) {
+          developer.log('Error parsing schedule filters: $e');
+        }
       }
-    });
+      
+      if (mounted) {
+        setState(() {
+          showAwayGames = awayGames;
+          showFullyCoveredGames = fullyCovered;
+          scheduleFilters = loadedScheduleFilters;
+        });
+      }
+    } catch (e) {
+      developer.log('Error loading filters from database: $e');
+      // Keep default values
+    }
   }
 
   Future<void> _initializeScheduleFilters() async {
     try {
-      // Use database data instead of SharedPreferences
-      
       // Get all games (published and unpublished) from database
       final publishedGamesData = await _gameService.getPublishedGames();
       final unpublishedGamesData = await _gameService.getUnpublishedGames();
       
       List<Game> allGames = [];
-      allGames.addAll(publishedGamesData.map(Game.fromJson));
-      allGames.addAll(unpublishedGamesData.map(Game.fromJson));
+      allGames.addAll(publishedGamesData.map(Game.fromMap));
+      allGames.addAll(unpublishedGamesData.map(Game.fromMap));
       
-
       final Map<String, Map<String, bool>> newScheduleFilters = {};
       for (var game in allGames) {
         if (game.scheduleName == null) {
           continue; // Skip games without a schedule name
         }
         
-        
-        if (!newScheduleFilters.containsKey(game.sport)) {
-          newScheduleFilters[game.sport] = {};
+        final sportName = game.sportName ?? 'Unknown Sport';
+        if (!newScheduleFilters.containsKey(sportName)) {
+          newScheduleFilters[sportName] = {};
         }
-        if (!newScheduleFilters[game.sport]!.containsKey(game.scheduleName)) {
-          newScheduleFilters[game.sport]![game.scheduleName!] = true;
+        if (!newScheduleFilters[sportName]!.containsKey(game.scheduleName)) {
+          newScheduleFilters[sportName]![game.scheduleName!] = true;
         }
       }
 
+      // Only update if we found new schedules or filters are completely empty
       if (newScheduleFilters.isNotEmpty &&
           (scheduleFilters.isEmpty || _hasNewSchedules(newScheduleFilters))) {
+        
+        // Merge with existing filters to preserve user selections
+        final Map<String, Map<String, bool>> mergedFilters = Map.from(scheduleFilters);
+        
+        newScheduleFilters.forEach((sport, schedules) {
+          if (!mergedFilters.containsKey(sport)) {
+            mergedFilters[sport] = {};
+          }
+          schedules.forEach((schedule, defaultValue) {
+            if (!mergedFilters[sport]!.containsKey(schedule)) {
+              mergedFilters[sport]![schedule] = defaultValue;
+            }
+          });
+        });
+        
         setState(() {
-          scheduleFilters = newScheduleFilters;
+          scheduleFilters = mergedFilters;
         });
         await _saveFilters();
       }
     } catch (e) {
-      // Fallback to SharedPreferences approach if database fails
-      await _initializeScheduleFiltersFromPrefs();
+      developer.log('Error initializing schedule filters: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error initializing filters: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
-  // Legacy fallback method for SharedPreferences (to be phased out)
-  Future<void> _initializeScheduleFiltersFromPrefs() async {
-    final prefs = await SharedPreferences.getInstance();
-    final String? gamesJson = prefs.getString('ad_published_games');
-    final String? unpublishedGamesJson =
-        prefs.getString('ad_unpublished_games');
-
-    List<Game> allGames = [];
-    if (gamesJson != null && gamesJson.isNotEmpty) {
-      try {
-        final published =
-            List<Map<String, dynamic>>.from(jsonDecode(gamesJson));
-        allGames.addAll(published.map(Game.fromJson));
-      } catch (e) {
-        // Handle parsing errors
-      }
-    }
-    if (unpublishedGamesJson != null && unpublishedGamesJson.isNotEmpty) {
-      try {
-        final unpublished =
-            List<Map<String, dynamic>>.from(jsonDecode(unpublishedGamesJson));
-        allGames.addAll(unpublished.map(Game.fromJson));
-      } catch (e) {
-        // Handle parsing errors
-      }
-    }
-
-    final Map<String, Map<String, bool>> newScheduleFilters = {};
-    for (var game in allGames) {
-      if (game.scheduleName == null) {
-        continue; // Skip games without a schedule name
-      }
-      if (!newScheduleFilters.containsKey(game.sport)) {
-        newScheduleFilters[game.sport] = {};
-      }
-      if (!newScheduleFilters[game.sport]!.containsKey(game.scheduleName)) {
-        newScheduleFilters[game.sport]![game.scheduleName!] = true;
-      }
-    }
-
-    if (newScheduleFilters.isNotEmpty &&
-        (scheduleFilters.isEmpty || _hasNewSchedules(newScheduleFilters))) {
-      setState(() {
-        scheduleFilters = newScheduleFilters;
-      });
-      await _saveFilters();
-    }
-  }
 
   bool _hasNewSchedules(Map<String, Map<String, bool>> newFilters) {
     for (var sport in newFilters.keys) {
@@ -394,56 +285,45 @@ class _AthleticDirectorHomeScreenState
   }
 
   Future<void> _saveFilters() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('showAwayGames', showAwayGames);
-    await prefs.setBool('showFullyCoveredGames', showFullyCoveredGames);
-    await prefs.setString('scheduleFilters', jsonEncode(scheduleFilters));
+    try {
+      final currentUser = await UserSessionService.instance.getCurrentSchedulerUser();
+      if (currentUser == null) return;
+      
+      final userId = currentUser.id!;
+      
+      await _userRepository.setSetting(userId, 'showAwayGames', showAwayGames.toString());
+      await _userRepository.setSetting(userId, 'showFullyCoveredGames', showFullyCoveredGames.toString());
+      await _userRepository.setSetting(userId, 'scheduleFilters', jsonEncode(scheduleFilters));
+    } catch (e) {
+      developer.log('Error saving filters to database: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error saving filters: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   Future<Map<String, dynamic>?> _fetchGameById(int gameId) async {
     try {
-      // Try to get game from database first with officials data reconstructed
+      // Get game from database with officials data
       final game = await _gameService.getGameByIdWithOfficials(gameId);
-      if (game != null) {
-        return game;
-      }
+      return game;
     } catch (e) {
-      // Fallback to SharedPreferences if database fails
-    }
-    
-    // Fallback to SharedPreferences
-    final prefs = await SharedPreferences.getInstance();
-    final String? gamesJson = prefs.getString('ad_published_games');
-    if (gamesJson != null && gamesJson.isNotEmpty) {
-      try {
-        final List<Map<String, dynamic>> games =
-            List<Map<String, dynamic>>.from(jsonDecode(gamesJson));
-        final game =
-            games.firstWhere((g) => g['id'] == gameId, orElse: () => {});
-        if (game.isNotEmpty) {
-          if (game['date'] != null) {
-            game['date'] = DateTime.parse(game['date'] as String);
-          }
-          if (game['time'] != null) {
-            final timeParts = (game['time'] as String).split(':');
-            game['time'] = TimeOfDay(
-              hour: int.parse(timeParts[0]),
-              minute: int.parse(timeParts[1]),
-            );
-          }
-          if (game['selectedOfficials'] != null) {
-            game['selectedOfficials'] = (game['selectedOfficials']
-                    as List<dynamic>)
-                .map((official) => Map<String, dynamic>.from(official as Map))
-                .toList();
-          }
-          return game;
-        }
-      } catch (e) {
-        // Handle parsing errors
+      developer.log('Error fetching game by ID: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading game details: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
+      return null;
     }
-    return null;
   }
 
   List<Game> _filterGamesByTime(List<Game> games, bool getPastGames) {
@@ -468,32 +348,35 @@ class _AthleticDirectorHomeScreenState
         if (!getPastGames && isPastGame) return false;
       }
 
-      // Apply schedule filters - show game if filters are empty (not initialized)
-      // or if explicitly enabled in filters
+      // Apply schedule filters
       if (scheduleFilters.isEmpty) {
         return true; // Show all games when no filters are set
       }
       
-      if (scheduleFilters.containsKey(game.sport) &&
-          scheduleFilters[game.sport]!.containsKey(game.scheduleName!)) {
-        return scheduleFilters[game.sport]![game.scheduleName!]!;
+      final sportName = game.sportName ?? 'Unknown Sport';
+      
+      // Check if the game's sport/schedule combination exists in filters
+      if (scheduleFilters.containsKey(sportName) &&
+          scheduleFilters[sportName]!.containsKey(game.scheduleName!)) {
+        return scheduleFilters[sportName]![game.scheduleName!]!;
       }
       
       // If the game's sport/schedule combination is not in filters,
       // it might be a new game that wasn't included during filter initialization
-      // Try to add it to filters and show it by default
-      if (game.sport != null && game.scheduleName != null) {
-        if (!scheduleFilters.containsKey(game.sport)) {
-          scheduleFilters[game.sport] = {};
+      // Add it to filters and show it by default
+      if (sportName.isNotEmpty && game.scheduleName != null) {
+        if (!scheduleFilters.containsKey(sportName)) {
+          scheduleFilters[sportName] = {};
         }
-        if (!scheduleFilters[game.sport]!.containsKey(game.scheduleName!)) {
-          scheduleFilters[game.sport]![game.scheduleName!] = true;
-          // Save the updated filters
+        if (!scheduleFilters[sportName]!.containsKey(game.scheduleName!)) {
+          scheduleFilters[sportName]![game.scheduleName!] = true;
+          // Save the updated filters asynchronously
           _saveFilters();
         }
-        return scheduleFilters[game.sport]![game.scheduleName!]!;
+        return scheduleFilters[sportName]![game.scheduleName!]!;
       }
       
+      // If game doesn't have proper sport/schedule info, don't show it
       return false;
     }).toList();
 
@@ -1143,7 +1026,7 @@ class _AthleticDirectorHomeScreenState
     final requiredOfficials = game.officialsRequired;
     final hiredOfficials = game.officialsHired;
     final isFullyHired = hiredOfficials >= requiredOfficials;
-    final sport = game.sport;
+    final sport = game.sportName ?? 'Unknown Sport';
     final sportIcon = getSportIcon(sport);
     final isAway = game.isAway;
     final opponent = game.opponent;
@@ -1153,6 +1036,7 @@ class _AthleticDirectorHomeScreenState
     return GestureDetector(
       onTap: () async {
         final gameId = game.id;
+        if (gameId == null) return;
         final latestGame = await _fetchGameById(gameId);
         if (latestGame == null) {
           return;

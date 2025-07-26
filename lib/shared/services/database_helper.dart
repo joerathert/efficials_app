@@ -403,8 +403,8 @@ class DatabaseHelper {
       CREATE TABLE schedules (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
-        sport_id INTEGER REFERENCES sports(id),
-        user_id INTEGER REFERENCES users(id),
+        sport_id INTEGER NOT NULL REFERENCES sports(id),
+        user_id INTEGER NOT NULL REFERENCES users(id),
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(name, sport_id, user_id)
       )
@@ -451,8 +451,8 @@ class DatabaseHelper {
       CREATE TABLE official_lists (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
-        sport_id INTEGER REFERENCES sports(id),
-        user_id INTEGER REFERENCES users(id),
+        sport_id INTEGER NOT NULL REFERENCES sports(id),
+        user_id INTEGER NOT NULL REFERENCES users(id),
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     ''');
@@ -465,16 +465,16 @@ class DatabaseHelper {
       )
     ''');
 
-    // Games table
+    // Games table - Enhanced with NOT NULL constraints on key fields
     await db.execute('''
       CREATE TABLE games (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         schedule_id INTEGER REFERENCES schedules(id),
-        sport_id INTEGER REFERENCES sports(id),
+        sport_id INTEGER NOT NULL REFERENCES sports(id),
         location_id INTEGER REFERENCES locations(id),
-        user_id INTEGER REFERENCES users(id),
-        date DATE,
-        time TIME,
+        user_id INTEGER NOT NULL REFERENCES users(id),
+        date DATE NOT NULL,
+        time TIME NOT NULL,
         is_away BOOLEAN DEFAULT FALSE,
         level_of_competition TEXT,
         gender TEXT,
@@ -505,8 +505,8 @@ class DatabaseHelper {
       CREATE TABLE game_templates (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
-        sport_id INTEGER REFERENCES sports(id),
-        user_id INTEGER REFERENCES users(id),
+        sport_id INTEGER NOT NULL REFERENCES sports(id),
+        user_id INTEGER NOT NULL REFERENCES users(id),
         schedule_name TEXT,
         date DATE,
         time TIME,

@@ -3,6 +3,9 @@ import 'base_repository.dart';
 
 class LocationRepository extends BaseRepository {
   static const String tableName = 'locations';
+  
+  // Cache for user locations
+  final Map<int, List<Location>> _locationsByUserCache = {};
 
   // Create a new location
   Future<int> createLocation(Location location) async {
@@ -155,21 +158,49 @@ class LocationRepository extends BaseRepository {
 
   // Bulk create locations
   Future<List<int>> bulkCreateLocations(List<Location> locations) async {
+    // Validate all locations first
+    for (var location in locations) {
+      if (location.name.trim().isEmpty) {
+        throw ArgumentError('Location name cannot be empty');
+      }
+      if (location.address != null && location.address!.trim().isEmpty) {
+        throw ArgumentError('Location address cannot be empty if provided');
+      }
+    }
+    
     final db = await database;
     final List<int> ids = [];
+    final Set<int> affectedUsers = {};
 
     await db.transaction((txn) async {
       for (var location in locations) {
+        // Check for duplicates within this user's existing locations
+        final exists = await doesLocationExist(location.userId, location.name);
+        if (exists) {
+          throw Exception('A location with the name "${location.name}" already exists');
+        }
+        
         final id = await txn.insert(tableName, location.toMap());
         ids.add(id);
+        affectedUsers.add(location.userId);
       }
     });
+
+    // Invalidate cache for all affected users
+    for (var userId in affectedUsers) {
+      _locationsByUserCache.remove(userId);
+    }
 
     return ids;
   }
 
   // Get or create location by name
   Future<int> getOrCreateLocationByName(int userId, String name, {String? address, String? notes}) async {
+    // Validate name
+    if (name.trim().isEmpty) {
+      throw ArgumentError('Location name cannot be empty');
+    }
+    
     // First try to find existing location
     final existing = await getLocationByName(userId, name);
     if (existing != null) {
@@ -201,5 +232,20 @@ class LocationRepository extends BaseRepository {
     ''', [userId, userId, userId]);
 
     return results.first;
+  }
+  
+  // Clear all caches
+  void clearCache() {
+    _locationsByUserCache.clear();
+  }
+  
+  // Clear cache for specific user
+  void clearUserCache(int userId) {
+    _locationsByUserCache.remove(userId);
+  }
+  
+  // Check if user locations are cached
+  bool isUserLocationsCached(int userId) {
+    return _locationsByUserCache.containsKey(userId);
   }
 }

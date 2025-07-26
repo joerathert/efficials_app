@@ -1,8 +1,9 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../shared/theme.dart';
-import '../games/game_template.dart'; // Import the GameTemplate model
+import '../games/game_template.dart';
+import '../../shared/services/repositories/official_repository.dart';
+import '../../shared/services/repositories/user_repository.dart';
+import '../../shared/services/user_session_service.dart';
 
 class SelectOfficialsScreen extends StatefulWidget {
   const SelectOfficialsScreen({super.key});
@@ -17,11 +18,24 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
   GameTemplate? template; // Store the selected template
   List<Map<String, dynamic>> _selectedOfficials =
       []; // Store the selected officials
+  
+  late final OfficialRepository _officialRepository;
+  late final UserRepository _userRepository;
+  int? _currentUserId;
 
   @override
   void initState() {
     super.initState();
-    _loadDefaultChoice();
+    _officialRepository = OfficialRepository();
+    _userRepository = UserRepository();
+    _initializeUser();
+  }
+
+  Future<void> _initializeUser() async {
+    _currentUserId = await UserSessionService.instance.getCurrentUserId();
+    if (_currentUserId != null) {
+      await _loadDefaultChoice();
+    }
   }
 
   @override
@@ -65,57 +79,60 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
 
   Future<List<Map<String, dynamic>>> _fetchOfficialsFromList(
       String listName) async {
-    final prefs = await SharedPreferences.getInstance();
-    final String? listsJson = prefs.getString('saved_lists');
-    if (listsJson != null && listsJson.isNotEmpty) {
-      try {
-        final List<dynamic> lists =
-            List<Map<String, dynamic>>.from(jsonDecode(listsJson));
-        final selectedList = lists.firstWhere(
-          (list) => list['name'] == listName,
-          orElse: () => <String, dynamic>{},
-        );
-        if (selectedList.isNotEmpty && selectedList['officials'] != null) {
-          return List<Map<String, dynamic>>.from(selectedList['officials']);
-        }
-      } catch (e) {
-        // Handle parsing errors
-      }
+    if (_currentUserId == null) return [];
+    
+    try {
+      return await _officialRepository.getOfficialsFromList(listName, _currentUserId!);
+    } catch (e) {
+      // Handle database errors
+      return [];
     }
-    return [];
   }
 
   Future<void> _loadDefaultChoice() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _defaultChoice = prefs.getBool('defaultChoice') ?? false;
-      _defaultMethod = prefs.getString('defaultMethod');
-    });
+    if (_currentUserId == null) return;
+    
+    try {
+      final defaultChoice = await _userRepository.getBoolSetting(_currentUserId!, 'defaultChoice');
+      final defaultMethod = await _userRepository.getSetting(_currentUserId!, 'defaultMethod');
+      
+      setState(() {
+        _defaultChoice = defaultChoice;
+        _defaultMethod = defaultMethod;
+      });
+    } catch (e) {
+      // Handle database errors
+      setState(() {
+        _defaultChoice = false;
+        _defaultMethod = null;
+      });
+    }
   }
 
   Future<void> _saveDefaultChoice(String method) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('defaultChoice', _defaultChoice);
-    if (_defaultChoice) {
-      await prefs.setString('defaultMethod', method);
-    } else {
-      await prefs.remove('defaultMethod');
+    if (_currentUserId == null) return;
+    
+    try {
+      await _userRepository.setBoolSetting(_currentUserId!, 'defaultChoice', _defaultChoice);
+      if (_defaultChoice) {
+        await _userRepository.setSetting(_currentUserId!, 'defaultMethod', method);
+      } else {
+        await _userRepository.deleteSetting(_currentUserId!, 'defaultMethod');
+      }
+    } catch (e) {
+      // Handle database errors
     }
   }
 
   Future<int> _getAvailableListsCount() async {
-    final prefs = await SharedPreferences.getInstance();
-    final String? listsJson = prefs.getString('saved_lists');
-    if (listsJson != null && listsJson.isNotEmpty) {
-      try {
-        final List<dynamic> lists =
-            List<Map<String, dynamic>>.from(jsonDecode(listsJson));
-        return lists.length;
-      } catch (e) {
-        return 0;
-      }
+    if (_currentUserId == null) return 0;
+    
+    try {
+      return await _officialRepository.getAvailableListsCount(_currentUserId!);
+    } catch (e) {
+      // Handle database errors
+      return 0;
     }
-    return 0;
   }
 
   void _showDifferenceDialog() {

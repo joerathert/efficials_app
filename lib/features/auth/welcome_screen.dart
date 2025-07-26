@@ -1,12 +1,8 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'dart:convert';
-import 'package:crypto/crypto.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../shared/theme.dart';
-import '../../shared/services/repositories/user_repository.dart';
-import '../../shared/services/database_helper.dart';
-import '../../shared/services/user_session_service.dart';
-import '../../shared/models/database_models.dart';
+import '../../shared/services/auth_service.dart';
 
 class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({super.key});
@@ -24,83 +20,28 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
     
-    if (email.isEmpty || password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter email and password')),
-      );
-      return;
-    }
-
-    try {
-      // Hash the password for comparison
-      var bytes = utf8.encode(password);
-      var digest = sha256.convert(bytes);
-      String hashedPassword = digest.toString();
-
-      // Check for Scheduler user first
-      final userRepo = UserRepository();
-      final db = await DatabaseHelper().database;
-      
-      // Query scheduler users
-      final schedulerResults = await db.query(
-        'users',
-        where: 'email = ? AND password_hash = ?',
-        whereArgs: [email, hashedPassword],
-      );
-      
-      if (schedulerResults.isNotEmpty) {
-        final user = User.fromMap(schedulerResults.first);
-        
-        // Set user session
-        await UserSessionService.instance.setCurrentUser(
-          userId: user.id!,
-          userType: 'scheduler',
-          email: user.email!,
-        );
-        
+    final result = await AuthService.login(email, password);
+    
+    if (!mounted) return;
+    
+    if (result.success) {
+      if (result.userType == 'scheduler') {
         // CRITICAL: Also update SharedPreferences for backwards compatibility
         final prefs = await SharedPreferences.getInstance();
-        String schedulerTypeForPrefs = user.schedulerType;
+        String schedulerTypeForPrefs = result.schedulerType!;
         // Convert database format to SharedPreferences format
         if (schedulerTypeForPrefs == 'athletic_director') {
           schedulerTypeForPrefs = 'Athletic Director';
         }
         await prefs.setString('schedulerType', schedulerTypeForPrefs);
         
-        
-        _navigateToSchedulerHome(user.schedulerType);
-        return;
+        if (mounted) _navigateToSchedulerHome(result.schedulerType!);
+      } else if (result.userType == 'official') {
+        if (mounted) _navigateToOfficialHome();
       }
-      
-      // Query official users
-      final officialResults = await db.query(
-        'official_users',
-        where: 'email = ? AND password_hash = ?',
-        whereArgs: [email, hashedPassword],
-      );
-      
-      if (officialResults.isNotEmpty) {
-        final officialUser = OfficialUser.fromMap(officialResults.first);
-        
-        // Set user session
-        await UserSessionService.instance.setCurrentUser(
-          userId: officialUser.id!,
-          userType: 'official',
-          email: officialUser.email,
-        );
-        
-        _navigateToOfficialHome();
-        return;
-      }
-      
-      // No user found
+    } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Invalid email or password')),
-      );
-      
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Login error: $e')),
+        SnackBar(content: Text(result.error!)),
       );
     }
   }
@@ -270,6 +211,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                 const SizedBox(height: 30),
                 
                 // Quick Access for Testing
+                if (kDebugMode)
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(

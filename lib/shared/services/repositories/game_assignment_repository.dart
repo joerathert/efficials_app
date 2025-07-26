@@ -1,5 +1,6 @@
 import 'base_repository.dart';
 import '../../models/database_models.dart';
+import 'notification_repository.dart';
 
 class GameAssignmentRepository extends BaseRepository {
   
@@ -251,17 +252,23 @@ class GameAssignmentRepository extends BaseRepository {
       
       final result = await update('game_assignments', data, 'id = ?', [assignmentId]);
       
-      // Create backout notification
-      await insert('official_backout_notifications', {
-        'assignment_id': assignmentId,
-        'official_id': officialId,
-        'scheduler_id': schedulerId,
-        'game_id': gameId,
-        'backed_out_at': backedOutAt.toIso8601String(),
-        'back_out_reason': reason,
-        'notification_sent_at': DateTime.now().toIso8601String(),
-        'created_at': DateTime.now().toIso8601String(),
-      });
+      // Create backout notification using the proper notification system
+      final notificationRepo = NotificationRepository();
+      await notificationRepo.createBackoutNotification(
+        schedulerId: schedulerId,
+        officialName: assignment['official_name'] ?? 'Unknown Official',
+        gameSport: assignment['sport_name'] ?? 'Game',
+        gameOpponent: assignment['opponent'] ?? assignment['home_team'] ?? 'TBD',
+        gameDate: DateTime.parse(assignment['date']),
+        gameTime: assignment['time'] ?? 'TBD',
+        reason: reason,
+        additionalData: {
+          'assignment_id': assignmentId,
+          'official_id': officialId,
+          'game_id': gameId,
+          'backed_out_at': backedOutAt.toIso8601String(),
+        },
+      );
       
       // Update official's stats (increase backed out games count)
       await rawQuery('''
