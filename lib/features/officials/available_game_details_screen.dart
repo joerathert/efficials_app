@@ -22,7 +22,18 @@ class _AvailableGameDetailsScreenState extends State<AvailableGameDetailsScreen>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    assignment = ModalRoute.of(context)!.settings.arguments as GameAssignment;
+    
+    final routeArgs = ModalRoute.of(context)!.settings.arguments;
+    
+    if (routeArgs is Map<String, dynamic>) {
+      // New format with assignment and scheduler info
+      assignment = routeArgs['assignment'] as GameAssignment;
+      schedulerInfo = routeArgs['schedulerInfo'] as Map<String, dynamic>?;
+    } else {
+      // Legacy format - just the assignment
+      assignment = routeArgs as GameAssignment;
+    }
+    
     _loadGameDetails();
   }
 

@@ -590,15 +590,19 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
         // Create a basic GameAssignment with the available data
         final Map<String, dynamic> assignmentMap = {
           'id': game['id'],
-          'game_id': game['game_id'] ?? 0,
+          'game_id': game['id'], // Use the game's actual ID
           'official_id': 0, // Not relevant for available games
           'status': 'available',
           'assigned_by': 0, // Not relevant for available games
           'assigned_at': DateTime.now().toIso8601String(),
           'fee_amount': double.tryParse(game['game_fee']?.toString() ?? '0') ?? 0.0,
-          // Additional fields from the game data (use correct keys for fromMap)
-          'date': game['game_date'],
-          'time': game['game_time'],
+          // Scheduler information
+          'scheduler_first_name': game['first_name'],
+          'scheduler_last_name': game['last_name'],
+          'scheduler_user_id': game['user_id'],
+          // Additional fields from the game data (use actual field names from query)
+          'date': game['date'], // This comes from g.date in the SQL query
+          'time': game['time'], // This comes from g.time in the SQL query
           'sport_name': game['sport_name'],
           'opponent': game['opponent'],
           'home_team': game['home_team'],
@@ -610,7 +614,15 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
         Navigator.pushNamed(
           context,
           '/available_game_details',
-          arguments: gameAssignment,
+          arguments: {
+            'assignment': gameAssignment,
+            'schedulerInfo': {
+              'name': '${game['first_name'] ?? ''} ${game['last_name'] ?? ''}'.trim(),
+              'first_name': game['first_name'],
+              'last_name': game['last_name'],
+              'user_id': game['user_id'],
+            },
+          },
         );
       },
       child: Container(
