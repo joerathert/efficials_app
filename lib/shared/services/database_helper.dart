@@ -24,7 +24,7 @@ class DatabaseHelper {
     
     return await openDatabase(
       path,
-      version: 13,
+      version: 14,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -345,6 +345,11 @@ class DatabaseHelper {
     if (oldVersion < 13) {
       // Add competition levels to crews
       await _addCrewCompetitionLevels(db);
+    }
+    
+    if (oldVersion < 14) {
+      // Add missing notification tables
+      await _addMissingNotificationTables(db);
     }
   }
 
@@ -687,6 +692,37 @@ class DatabaseHelper {
       )
     ''');
 
+    // General notifications table for all notification types
+    await db.execute('''
+      CREATE TABLE notifications (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        recipient_id INTEGER NOT NULL REFERENCES users(id),
+        type TEXT NOT NULL CHECK(type IN ('backout', 'game_filling', 'official_interest', 'official_claim')),
+        title TEXT NOT NULL,
+        message TEXT NOT NULL,
+        data TEXT, -- JSON data specific to notification type
+        is_read INTEGER DEFAULT 0 CHECK(is_read IN (0, 1)),
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        read_at DATETIME
+      )
+    ''');
+
+    // Notification settings table for scheduler preferences
+    await db.execute('''
+      CREATE TABLE notification_settings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL REFERENCES users(id),
+        game_filling_notifications_enabled INTEGER DEFAULT 1 CHECK(game_filling_notifications_enabled IN (0, 1)),
+        game_filling_reminder_days TEXT DEFAULT '[14,7,3,2,1]', -- JSON array of days
+        official_interest_notifications_enabled INTEGER DEFAULT 0 CHECK(official_interest_notifications_enabled IN (0, 1)),
+        official_claim_notifications_enabled INTEGER DEFAULT 0 CHECK(official_claim_notifications_enabled IN (0, 1)),
+        backout_notifications_enabled INTEGER DEFAULT 1 CHECK(backout_notifications_enabled IN (0, 1)),
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id)
+      )
+    ''');
+
     // Create indexes for better performance
     await _createIndexes(db);
     
@@ -724,6 +760,15 @@ class DatabaseHelper {
     await db.execute('CREATE INDEX idx_backout_notifications_scheduler_id ON official_backout_notifications(scheduler_id)');
     await db.execute('CREATE INDEX idx_backout_notifications_assignment_id ON official_backout_notifications(assignment_id)');
     await db.execute('CREATE INDEX idx_backout_notifications_excused_at ON official_backout_notifications(excused_at)');
+    
+    // Indexes for general notifications
+    await db.execute('CREATE INDEX idx_notifications_recipient_id ON notifications(recipient_id)');
+    await db.execute('CREATE INDEX idx_notifications_type ON notifications(type)');
+    await db.execute('CREATE INDEX idx_notifications_is_read ON notifications(is_read)');
+    await db.execute('CREATE INDEX idx_notifications_created_at ON notifications(created_at)');
+    
+    // Indexes for notification settings
+    await db.execute('CREATE INDEX idx_notification_settings_user_id ON notification_settings(user_id)');
     
     // Official endorsements table
     await db.execute('''
@@ -1284,6 +1329,75 @@ class DatabaseHelper {
     await db.execute('''
       ALTER TABLE crews ADD COLUMN competition_levels TEXT DEFAULT '[]'
     ''');
+  }
+
+  Future<void> _addMissingNotificationTables(Database db) async {
+    try {
+      // Check if notifications table exists
+      final notificationsTableExists = await _tableExists(db, 'notifications');
+      if (!notificationsTableExists) {
+        print('Creating missing notifications table...');
+        await db.execute('''
+          CREATE TABLE notifications (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            recipient_id INTEGER NOT NULL REFERENCES users(id),
+            type TEXT NOT NULL CHECK(type IN ('backout', 'game_filling', 'official_interest', 'official_claim')),
+            title TEXT NOT NULL,
+            message TEXT NOT NULL,
+            data TEXT, -- JSON data specific to notification type
+            is_read INTEGER DEFAULT 0 CHECK(is_read IN (0, 1)),
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            read_at DATETIME
+          )
+        ''');
+
+        // Create indexes for notifications table
+        await db.execute('CREATE INDEX idx_notifications_recipient_id ON notifications(recipient_id)');
+        await db.execute('CREATE INDEX idx_notifications_type ON notifications(type)');
+        await db.execute('CREATE INDEX idx_notifications_is_read ON notifications(is_read)');
+        await db.execute('CREATE INDEX idx_notifications_created_at ON notifications(created_at)');
+        
+        print('✅ Notifications table created successfully');
+      }
+
+      // Check if notification_settings table exists
+      final notificationSettingsTableExists = await _tableExists(db, 'notification_settings');
+      if (!notificationSettingsTableExists) {
+        print('Creating missing notification_settings table...');
+        await db.execute('''
+          CREATE TABLE notification_settings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            game_filling_notifications_enabled INTEGER DEFAULT 1 CHECK(game_filling_notifications_enabled IN (0, 1)),
+            game_filling_reminder_days TEXT DEFAULT '[14,7,3,2,1]', -- JSON array of days
+            official_interest_notifications_enabled INTEGER DEFAULT 0 CHECK(official_interest_notifications_enabled IN (0, 1)),
+            official_claim_notifications_enabled INTEGER DEFAULT 0 CHECK(official_claim_notifications_enabled IN (0, 1)),
+            backout_notifications_enabled INTEGER DEFAULT 1 CHECK(backout_notifications_enabled IN (0, 1)),
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(user_id)
+          )
+        ''');
+
+        // Create indexes for notification_settings table
+        await db.execute('CREATE INDEX idx_notification_settings_user_id ON notification_settings(user_id)');
+        
+        print('✅ Notification settings table created successfully');
+      }
+      
+      print('✅ Missing notification tables migration completed');
+    } catch (e) {
+      print('❌ Error creating missing notification tables: $e');
+      rethrow;
+    }
+  }
+
+  Future<bool> _tableExists(Database db, String tableName) async {
+    final result = await db.rawQuery(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+      [tableName]
+    );
+    return result.isNotEmpty;
   }
 
   // Utility methods

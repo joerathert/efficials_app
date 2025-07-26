@@ -6,7 +6,9 @@ import '../../shared/theme.dart';
 import '../../shared/utils/utils.dart'; // For getSportIcon
 import '../../shared/services/user_session_service.dart';
 import '../../shared/services/repositories/user_repository.dart';
+import '../../shared/services/repositories/notification_repository.dart';
 import '../../shared/services/game_service.dart';
+import '../../shared/widgets/scheduler_bottom_navigation.dart';
 
 class Game {
   final int id;
@@ -97,14 +99,18 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
   List<Game> games = [];
   bool isLoading = true;
   bool isFabExpanded = false;
+  int _currentIndex = 0;
+  int _unreadNotificationCount = 0;
   
   // Service for database game operations
   final GameService _gameService = GameService();
+  final NotificationRepository _notificationRepo = NotificationRepository();
 
   @override
   void initState() {
     super.initState();
     _checkTeamSetup();
+    _loadUnreadNotificationCount();
   }
 
   Future<void> _checkTeamSetup() async {
@@ -146,6 +152,23 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         Navigator.pushReplacementNamed(context, '/welcome');
       });
+    }
+  }
+
+  Future<void> _loadUnreadNotificationCount() async {
+    try {
+      final currentUser = await UserSessionService.instance.getCurrentSchedulerUser();
+      if (currentUser != null) {
+        final count = await _notificationRepo.getUnreadNotificationCount(currentUser.id!);
+        if (mounted) {
+          setState(() {
+            _unreadNotificationCount = count;
+          });
+        }
+      }
+    } catch (e) {
+      // Handle error silently, badge will show 0
+      print('Error loading unread notification count: $e');
     }
   }
 
@@ -285,6 +308,43 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
       }
     }
     return null;
+  }
+
+  void _onBottomNavTap(int index) {
+    if (index == _currentIndex) return;
+
+    setState(() {
+      _currentIndex = index;
+    });
+
+    switch (index) {
+      case 0: // Home - stay on current screen
+        break;
+      case 1: // Officials
+        Navigator.pushNamed(context, '/lists_of_officials');
+        // Reset to home after navigation
+        setState(() {
+          _currentIndex = 0;
+        });
+        break;
+      case 2: // Locations
+        Navigator.pushNamed(context, '/locations');
+        // Reset to home after navigation
+        setState(() {
+          _currentIndex = 0;
+        });
+        break;
+      case 3: // Notifications
+        Navigator.pushNamed(context, '/backout_notifications').then((_) {
+          // Refresh notification count when returning from notifications screen
+          _loadUnreadNotificationCount();
+        });
+        // Reset to home after navigation
+        setState(() {
+          _currentIndex = 0;
+        });
+        break;
+    }
   }
 
   @override
@@ -583,6 +643,12 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
             ),
           ),
         ],
+      ),
+      bottomNavigationBar: SchedulerBottomNavigation(
+        currentIndex: _currentIndex,
+        onTap: _onBottomNavTap,
+        schedulerType: SchedulerType.coach,
+        unreadNotificationCount: _unreadNotificationCount,
       ),
     );
   }

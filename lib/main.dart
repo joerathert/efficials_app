@@ -77,6 +77,10 @@ import 'features/debug/database_test_screen.dart';
 import 'features/crews/select_crew_screen.dart';
 import 'features/crews/filter_crews_screen.dart';
 
+// Scheduler screens
+import 'features/schedulers/backout_notifications_screen.dart';
+import 'features/settings/notification_settings_screen.dart';
+
 // Shared
 import 'shared/theme.dart';
 
@@ -216,6 +220,8 @@ class EfficialsApp extends StatelessWidget {
         '/official_profile': (context) => const OfficialProfileScreen(),
         '/select_crew': (context) => const SelectCrewScreen(),
         '/filter_crews_settings': (context) => const FilterCrewsScreen(),
+        '/backout_notifications': (context) => const BackoutNotificationsScreen(),
+        '/notification_settings': (context) => const NotificationSettingsScreen(),
       },
     );
   }

@@ -25,7 +25,8 @@
       "Bash(cp:*)",
       "Bash(sed:*)",
       "Bash(git checkout:*)",
-      "Bash(/home/efficials/bin/flutter run --hot)"
+      "Bash(/home/efficials/bin/flutter run --hot)",
+      "Bash(pkill:*)"
     ],
     "deny": []
   }

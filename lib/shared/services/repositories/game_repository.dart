@@ -222,9 +222,20 @@ class GameRepository extends BaseRepository {
         if (game.scheduleName == null || game.sportName == null) return false;
         
         final sportFilters = scheduleFilters[game.sportName!];
-        if (sportFilters == null) return false;
+        if (sportFilters == null) {
+          // If sport is not in filters, show the game by default
+          // This handles cases where new sports are added but not yet in filters
+          return true;
+        }
         
-        return sportFilters[game.scheduleName!] == true;
+        final scheduleFilter = sportFilters[game.scheduleName!];
+        if (scheduleFilter == null) {
+          // If schedule is not in filters, show the game by default
+          // This handles cases where new schedules are added but not yet in filters
+          return true;
+        }
+        
+        return scheduleFilter == true;
       }).toList();
     }
 

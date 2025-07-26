@@ -9,6 +9,8 @@ import '../games/game_template.dart';
 import '../../shared/utils/utils.dart';
 import '../../shared/services/game_service.dart';
 import '../../shared/services/user_session_service.dart';
+import '../../shared/services/repositories/notification_repository.dart';
+import '../../shared/widgets/scheduler_bottom_navigation.dart';
 import 'dart:developer' as developer;
 
 class Game {
@@ -108,6 +110,9 @@ class _AthleticDirectorHomeScreenState
   static const double pullThreshold = 80.0;
   ScrollController scrollController = ScrollController();
   final GameService _gameService = GameService();
+  final NotificationRepository _notificationRepo = NotificationRepository();
+  int _currentIndex = 0;
+  int _unreadNotificationCount = 0;
 
   @override
   void initState() {
@@ -115,6 +120,7 @@ class _AthleticDirectorHomeScreenState
     WidgetsBinding.instance.addObserver(this);
     _fetchGames();
     _loadFilters();
+    _loadUnreadNotificationCount();
   }
 
   @override
@@ -153,6 +159,23 @@ class _AthleticDirectorHomeScreenState
     // Reset scroll position
     if (scrollController.hasClients) {
       scrollController.jumpTo(0);
+    }
+  }
+
+  Future<void> _loadUnreadNotificationCount() async {
+    try {
+      final currentUser = await UserSessionService.instance.getCurrentSchedulerUser();
+      if (currentUser != null) {
+        final count = await _notificationRepo.getUnreadNotificationCount(currentUser.id!);
+        if (mounted) {
+          setState(() {
+            _unreadNotificationCount = count;
+          });
+        }
+      }
+    } catch (e) {
+      // Handle error silently, badge will show 0
+      print('Error loading unread notification count: $e');
     }
   }
 
@@ -288,6 +311,8 @@ class _AthleticDirectorHomeScreenState
         if (game.scheduleName == null) {
           continue; // Skip games without a schedule name
         }
+        
+        
         if (!newScheduleFilters.containsKey(game.sport)) {
           newScheduleFilters[game.sport] = {};
         }
@@ -443,10 +468,32 @@ class _AthleticDirectorHomeScreenState
         if (!getPastGames && isPastGame) return false;
       }
 
+      // Apply schedule filters - show game if filters are empty (not initialized)
+      // or if explicitly enabled in filters
+      if (scheduleFilters.isEmpty) {
+        return true; // Show all games when no filters are set
+      }
+      
       if (scheduleFilters.containsKey(game.sport) &&
           scheduleFilters[game.sport]!.containsKey(game.scheduleName!)) {
         return scheduleFilters[game.sport]![game.scheduleName!]!;
       }
+      
+      // If the game's sport/schedule combination is not in filters,
+      // it might be a new game that wasn't included during filter initialization
+      // Try to add it to filters and show it by default
+      if (game.sport != null && game.scheduleName != null) {
+        if (!scheduleFilters.containsKey(game.sport)) {
+          scheduleFilters[game.sport] = {};
+        }
+        if (!scheduleFilters[game.sport]!.containsKey(game.scheduleName!)) {
+          scheduleFilters[game.sport]![game.scheduleName!] = true;
+          // Save the updated filters
+          _saveFilters();
+        }
+        return scheduleFilters[game.sport]![game.scheduleName!]!;
+      }
+      
       return false;
     }).toList();
 
@@ -647,6 +694,64 @@ class _AthleticDirectorHomeScreenState
           }
         },
       );
+    }
+  }
+
+  void _onBottomNavTap(int index) {
+    if (index == _currentIndex) return;
+
+    setState(() {
+      _currentIndex = index;
+    });
+
+    switch (index) {
+      case 0: // Home - stay on current screen
+        break;
+      case 1: // Schedules
+        Navigator.pushNamed(context, '/schedules').then((result) {
+          if (result == true) {
+            _fetchGames();
+          }
+        });
+        // Reset to home after navigation
+        setState(() {
+          _currentIndex = 0;
+        });
+        break;
+      case 2: // Filter
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ScheduleFilterScreen(
+              scheduleFilters: scheduleFilters,
+              showAwayGames: showAwayGames,
+              showFullyCoveredGames: showFullyCoveredGames,
+              onFiltersChanged: (updatedFilters, away, fullyCovered) {
+                setState(() {
+                  scheduleFilters = updatedFilters;
+                  showAwayGames = away;
+                  showFullyCoveredGames = fullyCovered;
+                });
+                _saveFilters();
+              },
+            ),
+          ),
+        );
+        // Reset to home after navigation
+        setState(() {
+          _currentIndex = 0;
+        });
+        break;
+      case 3: // Notifications
+        Navigator.pushNamed(context, '/backout_notifications').then((_) {
+          // Refresh notification count when returning from notifications screen
+          _loadUnreadNotificationCount();
+        });
+        // Reset to home after navigation
+        setState(() {
+          _currentIndex = 0;
+        });
+        break;
     }
   }
 
@@ -976,6 +1081,12 @@ class _AthleticDirectorHomeScreenState
           ),
         ],
       ),
+      bottomNavigationBar: SchedulerBottomNavigation(
+        currentIndex: _currentIndex,
+        onTap: _onBottomNavTap,
+        schedulerType: SchedulerType.athleticDirector,
+        unreadNotificationCount: _unreadNotificationCount,
+      ),
     );
   }
 
@@ -1001,8 +1112,6 @@ class _AthleticDirectorHomeScreenState
           // Get initial max scroll extent
           final initialMaxScrollExtent =
               scrollController.position.maxScrollExtent;
-          developer.log(
-              'Initial Target Offset: $targetOffset, Initial Max Scroll Extent: $initialMaxScrollExtent, Total Items: ${pastGames.length + upcomingGames.length}');
 
           // If maxScrollExtent is too small, delay and retry with a longer wait
           if (targetOffset > initialMaxScrollExtent) {
@@ -1012,8 +1121,6 @@ class _AthleticDirectorHomeScreenState
                     scrollController.position.maxScrollExtent;
                 targetOffset = firstUpcomingIndex *
                     estimatedTileHeight.clamp(0.0, updatedMaxScrollExtent);
-                developer.log(
-                    'Adjusted Target Offset: $targetOffset, Updated Max Scroll Extent: $updatedMaxScrollExtent, Total Items: ${pastGames.length + upcomingGames.length}');
                 scrollController
                     .jumpTo(targetOffset.clamp(0.0, updatedMaxScrollExtent));
               }

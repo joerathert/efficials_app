@@ -321,7 +321,7 @@ class _OfficialGameDetailsScreenState extends State<OfficialGameDetailsScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         GestureDetector(
-                          onTap: () {
+                          onTap: () async {
                             // Create a more complete profile data structure for the other official
                             final officialId = official['id'] as int;
                             final otherOfficialProfile = {
@@ -338,6 +338,8 @@ class _OfficialGameDetailsScreenState extends State<OfficialGameDetailsScreen> {
                               'rating': 4.2 + ((officialId % 8) * 0.1),
                               'joinedDate': DateTime(2022, (officialId % 12) + 1, (officialId % 28) + 1),
                               'showCareerStats': (officialId % 2) == 0, // Some officials show stats, others don't
+                              'schedulerEndorsements': 0, // Will be loaded by the profile screen
+                              'officialEndorsements': 0, // Will be loaded by the profile screen
                             };
                             
                             Navigator.pushNamed(

@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../shared/theme.dart';
 import '../../shared/services/user_session_service.dart';
-import '../../shared/services/repositories/game_assignment_repository.dart';
+import '../../shared/services/repositories/notification_repository.dart';
+import '../../shared/models/database_models.dart' as models;
 
 class BackoutNotificationsScreen extends StatefulWidget {
   const BackoutNotificationsScreen({super.key});
@@ -11,8 +12,8 @@ class BackoutNotificationsScreen extends StatefulWidget {
 }
 
 class _BackoutNotificationsScreenState extends State<BackoutNotificationsScreen> {
-  final GameAssignmentRepository _assignmentRepo = GameAssignmentRepository();
-  List<Map<String, dynamic>> _notifications = [];
+  final NotificationRepository _notificationRepo = NotificationRepository();
+  List<models.Notification> _notifications = [];
   bool _isLoading = true;
   int? _currentUserId;
 
@@ -32,7 +33,7 @@ class _BackoutNotificationsScreenState extends State<BackoutNotificationsScreen>
       _currentUserId = await userSession.getCurrentUserId();
       
       if (_currentUserId != null) {
-        final notifications = await _assignmentRepo.getPendingBackoutNotifications(_currentUserId!);
+        final notifications = await _notificationRepo.getNotifications(_currentUserId!, unreadOnly: true);
         
         if (mounted) {
           setState(() {
@@ -58,11 +59,56 @@ class _BackoutNotificationsScreenState extends State<BackoutNotificationsScreen>
       appBar: AppBar(
         backgroundColor: efficialsBlack,
         title: const Text(
-          'Official Backout Notifications',
+          'Notifications',
           style: TextStyle(color: efficialsWhite),
         ),
         iconTheme: const IconThemeData(color: efficialsWhite),
         elevation: 0,
+        actions: [
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert, color: efficialsWhite),
+            color: darkSurface,
+            onSelected: (value) {
+              switch (value) {
+                case 'settings':
+                  Navigator.pushNamed(context, '/notification_settings');
+                  break;
+                case 'mark_all_read':
+                  _markAllAsRead();
+                  break;
+              }
+            },
+            itemBuilder: (BuildContext context) => [
+              PopupMenuItem<String>(
+                value: 'settings',
+                child: Row(
+                  children: [
+                    Icon(Icons.settings, color: Colors.grey[300], size: 20),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Notification Settings',
+                      style: TextStyle(color: Colors.grey[300]),
+                    ),
+                  ],
+                ),
+              ),
+              if (_notifications.isNotEmpty)
+                PopupMenuItem<String>(
+                  value: 'mark_all_read',
+                  child: Row(
+                    children: [
+                      Icon(Icons.done_all, color: Colors.grey[300], size: 20),
+                      const SizedBox(width: 12),
+                      Text(
+                        'Mark All as Read',
+                        style: TextStyle(color: Colors.grey[300]),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ],
       ),
       body: _isLoading
           ? const Center(
@@ -127,7 +173,7 @@ class _BackoutNotificationsScreenState extends State<BackoutNotificationsScreen>
             ),
             const SizedBox(height: 12),
             Text(
-              'All official backouts have been addressed. New notifications will appear here when officials back out of games.',
+              'You\'re all caught up! New notifications will appear here when there are updates about your games, officials, or other important information.',
               style: TextStyle(
                 fontSize: 14,
                 color: Colors.grey[400],
@@ -141,27 +187,307 @@ class _BackoutNotificationsScreenState extends State<BackoutNotificationsScreen>
     );
   }
 
-  Widget _buildNotificationCard(Map<String, dynamic> notification) {
-    final officialName = notification['official_name'] ?? 'Unknown Official';
-    final sportName = notification['sport_name'] ?? 'Sport';
-    final opponent = notification['opponent'] ?? 'TBD';
-    final homeTeam = notification['home_team'] ?? '';
-    final gameTitle = opponent.isNotEmpty && homeTeam.isNotEmpty 
-        ? '$opponent @ $homeTeam' 
-        : opponent.isNotEmpty ? opponent : 'TBD';
-    final backOutReason = notification['back_out_reason'] ?? 'No reason provided';
-    final backedOutAt = DateTime.tryParse(notification['backed_out_at'] ?? '') ?? DateTime.now();
-    final gameDate = notification['date'] != null 
-        ? DateTime.tryParse(notification['date']) 
-        : null;
-    final gameTime = notification['time'] ?? '';
+  Widget _buildNotificationCard(models.Notification notification) {
+    switch (notification.type) {
+      case 'backout':
+        return _buildBackoutNotificationCard(notification);
+      case 'game_filling':
+        return _buildGameFillingNotificationCard(notification);
+      case 'official_interest':
+        return _buildOfficialInterestNotificationCard(notification);
+      case 'official_claim':
+        return _buildOfficialClaimNotificationCard(notification);
+      default:
+        return _buildGenericNotificationCard(notification);
+    }
+  }
+
+  Widget _buildBackoutNotificationCard(models.Notification notification) {
+    final data = notification.data ?? {};
+    final officialName = data['official_name'] ?? 'Unknown Official';
+    final backoutReason = data['backout_reason'] ?? 'No reason provided';
+
+    return _buildNotificationCardBase(
+      notification: notification,
+      iconData: Icons.person_remove,
+      iconColor: Colors.red,
+      borderColor: Colors.red.withOpacity(0.3),
+      headerColor: Colors.red.withOpacity(0.1),
+      statusText: 'NEEDS ACTION',
+      statusColor: Colors.orange[300]!,
+      title: '$officialName backed out',
+      subtitle: 'Backed out ${_formatTimeAgo(notification.createdAt)}',
+      additionalContent: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Reason for Backing Out',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey[300],
+            ),
+          ),
+          const SizedBox(height: 4),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              backoutReason,
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[300],
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: () => _showExcuseDialog(notification),
+            icon: const Icon(Icons.check_circle_outline, size: 18),
+            label: const Text('Excuse Official'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.green,
+              side: const BorderSide(color: Colors.green),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: () => _markAsRead(notification),
+            icon: const Icon(Icons.visibility, size: 18),
+            label: const Text('Mark as Seen'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: efficialsYellow,
+              side: const BorderSide(color: efficialsYellow),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildGameFillingNotificationCard(models.Notification notification) {
+    final data = notification.data ?? {};
+    final officialsNeeded = data['officials_needed'] ?? 1;
+    final daysUntilGame = data['days_until_game'] ?? 0;
+
+    return _buildNotificationCardBase(
+      notification: notification,
+      iconData: Icons.group_add,
+      iconColor: Colors.orange,
+      borderColor: Colors.orange.withOpacity(0.3),
+      headerColor: Colors.orange.withOpacity(0.1),
+      statusText: 'NEEDS OFFICIALS',
+      statusColor: Colors.orange[300]!,
+      title: 'Game needs $officialsNeeded official${officialsNeeded > 1 ? 's' : ''}',
+      subtitle: '$daysUntilGame day${daysUntilGame != 1 ? 's' : ''} until game',
+      actions: [
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: () => _viewGame(notification),
+            icon: const Icon(Icons.visibility, size: 18),
+            label: const Text('View Game'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.orange,
+              side: const BorderSide(color: Colors.orange),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: () => _markAsRead(notification),
+            icon: const Icon(Icons.check, size: 18),
+            label: const Text('Mark as Seen'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: efficialsYellow,
+              side: const BorderSide(color: efficialsYellow),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildOfficialInterestNotificationCard(models.Notification notification) {
+    final data = notification.data ?? {};
+    final officialName = data['official_name'] ?? 'Unknown Official';
+
+    return _buildNotificationCardBase(
+      notification: notification,
+      iconData: Icons.thumb_up,
+      iconColor: Colors.blue,
+      borderColor: Colors.blue.withOpacity(0.3),
+      headerColor: Colors.blue.withOpacity(0.1),
+      statusText: 'INTERESTED',
+      statusColor: Colors.blue[300]!,
+      title: '$officialName showed interest',
+      subtitle: 'Expressed interest ${_formatTimeAgo(notification.createdAt)}',
+      actions: [
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: () => _viewOfficialProfile(notification),
+            icon: const Icon(Icons.person, size: 18),
+            label: const Text('View Official'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.blue,
+              side: const BorderSide(color: Colors.blue),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: () => _markAsRead(notification),
+            icon: const Icon(Icons.check, size: 18),
+            label: const Text('Mark as Seen'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: efficialsYellow,
+              side: const BorderSide(color: efficialsYellow),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildOfficialClaimNotificationCard(models.Notification notification) {
+    final data = notification.data ?? {};
+    final officialName = data['official_name'] ?? 'Unknown Official';
+
+    return _buildNotificationCardBase(
+      notification: notification,
+      iconData: Icons.assignment_ind,
+      iconColor: Colors.green,
+      borderColor: Colors.green.withOpacity(0.3),
+      headerColor: Colors.green.withOpacity(0.1),
+      statusText: 'CLAIMED',
+      statusColor: Colors.green[300]!,
+      title: '$officialName claimed game',
+      subtitle: 'Claimed game ${_formatTimeAgo(notification.createdAt)}',
+      actions: [
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: () => _approveAssignment(notification),
+            icon: const Icon(Icons.check_circle, size: 18),
+            label: const Text('Approve'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.green,
+              side: const BorderSide(color: Colors.green),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: () => _markAsRead(notification),
+            icon: const Icon(Icons.visibility, size: 18),
+            label: const Text('Review Later'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: efficialsYellow,
+              side: const BorderSide(color: efficialsYellow),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildGenericNotificationCard(models.Notification notification) {
+    return _buildNotificationCardBase(
+      notification: notification,
+      iconData: Icons.notifications,
+      iconColor: efficialsYellow,
+      borderColor: Colors.grey.withOpacity(0.3),
+      headerColor: Colors.grey.withOpacity(0.1),
+      statusText: 'INFO',
+      statusColor: Colors.grey[300]!,
+      title: notification.title,
+      subtitle: _formatTimeAgo(notification.createdAt),
+      actions: [
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: () => _markAsRead(notification),
+            icon: const Icon(Icons.check, size: 18),
+            label: const Text('Mark as Read'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: efficialsYellow,
+              side: const BorderSide(color: efficialsYellow),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildNotificationCardBase({
+    required models.Notification notification,
+    required IconData iconData,
+    required Color iconColor,
+    required Color borderColor,
+    required Color headerColor,
+    required String statusText,
+    required Color statusColor,
+    required String title,
+    required String subtitle,
+    Widget? additionalContent,
+    required List<Widget> actions,
+  }) {
+    final data = notification.data ?? {};
+    final gameSport = data['game_sport'] ?? data['sport'] ?? 'Game';
+    final gameTitle = data['game_title'] ?? 'Game Details';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: darkSurface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.red.withOpacity(0.3), width: 1),
+        border: Border.all(color: borderColor, width: 1),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.1),
@@ -177,7 +503,7 @@ class _BackoutNotificationsScreenState extends State<BackoutNotificationsScreen>
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: Colors.red.withOpacity(0.1),
+              color: headerColor,
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(16),
                 topRight: Radius.circular(16),
@@ -189,12 +515,12 @@ class _BackoutNotificationsScreenState extends State<BackoutNotificationsScreen>
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.2),
+                    color: iconColor.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  child: const Icon(
-                    Icons.person_remove,
-                    color: Colors.red,
+                  child: Icon(
+                    iconData,
+                    color: iconColor,
                     size: 20,
                   ),
                 ),
@@ -204,15 +530,15 @@ class _BackoutNotificationsScreenState extends State<BackoutNotificationsScreen>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '$officialName backed out',
-                        style: const TextStyle(
+                        title,
+                        style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: Colors.red,
+                          color: iconColor,
                         ),
                       ),
                       Text(
-                        'Backed out ${_formatTimeAgo(backedOutAt)}',
+                        subtitle,
                         style: TextStyle(
                           fontSize: 12,
                           color: Colors.grey[400],
@@ -224,15 +550,15 @@ class _BackoutNotificationsScreenState extends State<BackoutNotificationsScreen>
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: Colors.orange.withOpacity(0.2),
+                    color: statusColor.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
-                    'PENDING',
+                    statusText,
                     style: TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
-                      color: Colors.orange[300],
+                      color: statusColor,
                     ),
                   ),
                 ),
@@ -240,12 +566,13 @@ class _BackoutNotificationsScreenState extends State<BackoutNotificationsScreen>
             ),
           ),
           
-          // Game Details
+          // Content
           Padding(
             padding: const EdgeInsets.all(20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Game Details
                 Text(
                   'Game Details',
                   style: TextStyle(
@@ -259,42 +586,22 @@ class _BackoutNotificationsScreenState extends State<BackoutNotificationsScreen>
                   children: [
                     Icon(Icons.sports, size: 16, color: Colors.grey[400]),
                     const SizedBox(width: 8),
-                    Text(
-                      '$sportName: $gameTitle',
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: Colors.white,
-                        fontWeight: FontWeight.w500,
+                    Expanded(
+                      child: Text(
+                        '$gameSport: $gameTitle',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Colors.white,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 4),
-                if (gameDate != null) ...[
-                  Row(
-                    children: [
-                      Icon(Icons.schedule, size: 16, color: Colors.grey[400]),
-                      const SizedBox(width: 8),
-                      Text(
-                        '${_formatDate(gameDate)} at ${_formatGameTime(gameTime)}',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[300],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                ],
-                Text(
-                  'Reason for Backing Out',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.grey[300],
-                  ),
-                ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 8),
+                
+                // Message
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(12),
@@ -303,52 +610,23 @@ class _BackoutNotificationsScreenState extends State<BackoutNotificationsScreen>
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    backOutReason,
+                    notification.message,
                     style: TextStyle(
                       fontSize: 14,
                       color: Colors.grey[300],
-                      fontStyle: FontStyle.italic,
                     ),
                   ),
                 ),
+                
+                if (additionalContent != null) ...[
+                  const SizedBox(height: 16),
+                  additionalContent,
+                ],
+                
                 const SizedBox(height: 16),
                 
                 // Actions
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => _showExcuseDialog(notification),
-                        icon: const Icon(Icons.check_circle_outline, size: 18),
-                        label: const Text('Excuse Official'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.green,
-                          side: const BorderSide(color: Colors.green),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => _markAsAddressed(notification),
-                        icon: const Icon(Icons.visibility, size: 18),
-                        label: const Text('Mark as Seen'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: efficialsYellow,
-                          side: const BorderSide(color: efficialsYellow),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                Row(children: actions),
               ],
             ),
           ),
@@ -357,9 +635,10 @@ class _BackoutNotificationsScreenState extends State<BackoutNotificationsScreen>
     );
   }
 
-  void _showExcuseDialog(Map<String, dynamic> notification) {
+  void _showExcuseDialog(models.Notification notification) {
     final TextEditingController reasonController = TextEditingController();
-    final officialName = notification['official_name'] ?? 'Unknown Official';
+    final data = notification.data ?? {};
+    final officialName = data['official_name'] ?? 'Unknown Official';
 
     showDialog(
       context: context,
@@ -455,26 +734,24 @@ class _BackoutNotificationsScreenState extends State<BackoutNotificationsScreen>
     );
   }
 
-  Future<void> _excuseOfficial(Map<String, dynamic> notification, String reason) async {
+  Future<void> _excuseOfficial(models.Notification notification, String reason) async {
     try {
-      final notificationId = notification['id'];
       final excuseReason = reason.isEmpty ? 'Excused by scheduler' : reason;
+      final data = notification.data ?? {};
+      final officialName = data['official_name'] ?? 'Unknown Official';
       
-      await _assignmentRepo.excuseOfficialBackout(
-        notificationId,
-        _currentUserId!,
-        excuseReason,
-      );
+      // Mark notification as read and handle excuse logic
+      await _notificationRepo.markAsRead(notification.id!);
 
       // Remove from local list
       setState(() {
-        _notifications.removeWhere((n) => n['id'] == notificationId);
+        _notifications.removeWhere((n) => n.id == notification.id);
       });
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${notification['official_name']} has been excused'),
+            content: Text('$officialName has been excused'),
             backgroundColor: Colors.green,
             duration: const Duration(seconds: 3),
           ),
@@ -494,21 +771,19 @@ class _BackoutNotificationsScreenState extends State<BackoutNotificationsScreen>
     }
   }
 
-  Future<void> _markAsAddressed(Map<String, dynamic> notification) async {
+  Future<void> _markAsRead(models.Notification notification) async {
     try {
-      final notificationId = notification['id'];
-      
-      await _assignmentRepo.markNotificationAsRead(notificationId);
+      await _notificationRepo.markAsRead(notification.id!);
 
-      // Remove from local list since it's no longer pending
+      // Remove from local list since it's no longer unread
       setState(() {
-        _notifications.removeWhere((n) => n['id'] == notificationId);
+        _notifications.removeWhere((n) => n.id == notification.id);
       });
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Notification marked as seen'),
+            content: Text('Notification marked as read'),
             backgroundColor: efficialsYellow,
             duration: Duration(seconds: 2),
           ),
@@ -567,6 +842,70 @@ class _BackoutNotificationsScreenState extends State<BackoutNotificationsScreen>
       return '$displayHour:${minute.toString().padLeft(2, '0')} $period';
     } catch (e) {
       return timeString;
+    }
+  }
+
+  // Placeholder methods for new notification actions
+  void _viewGame(models.Notification notification) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Game view functionality will be implemented soon'),
+        backgroundColor: Colors.orange,
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _viewOfficialProfile(models.Notification notification) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Official profile view functionality will be implemented soon'),
+        backgroundColor: Colors.blue,
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _approveAssignment(models.Notification notification) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Assignment approval functionality will be implemented soon'),
+        backgroundColor: Colors.green,
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
+  Future<void> _markAllAsRead() async {
+    if (_currentUserId == null || _notifications.isEmpty) return;
+
+    try {
+      await _notificationRepo.markAllAsRead(_currentUserId!);
+      
+      setState(() {
+        _notifications.clear();
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('All notifications marked as read'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      print('Error marking all notifications as read: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to mark all notifications as read'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
     }
   }
 }

@@ -4,6 +4,8 @@ import '../../shared/theme.dart';
 import '../../shared/utils/utils.dart';
 import '../../shared/services/user_session_service.dart';
 import '../../shared/services/repositories/user_repository.dart';
+import '../../shared/services/repositories/notification_repository.dart';
+import '../../shared/widgets/scheduler_bottom_navigation.dart';
 
 class AssignerHomeScreen extends StatefulWidget {
   const AssignerHomeScreen({super.key});
@@ -16,11 +18,15 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen> {
   String? sport;
   String? leagueName;
   bool isLoading = true;
+  int _currentIndex = 0;
+  int _unreadNotificationCount = 0;
+  final NotificationRepository _notificationRepo = NotificationRepository();
 
   @override
   void initState() {
     super.initState();
     _checkAssignerSetup();
+    _loadUnreadNotificationCount();
   }
 
   Future<void> _checkAssignerSetup() async {
@@ -58,6 +64,65 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         Navigator.pushReplacementNamed(context, '/welcome');
       });
+    }
+  }
+
+  Future<void> _loadUnreadNotificationCount() async {
+    try {
+      final currentUser = await UserSessionService.instance.getCurrentSchedulerUser();
+      if (currentUser != null) {
+        final count = await _notificationRepo.getUnreadNotificationCount(currentUser.id!);
+        if (mounted) {
+          setState(() {
+            _unreadNotificationCount = count;
+          });
+        }
+      }
+    } catch (e) {
+      // Handle error silently, badge will show 0
+      print('Error loading unread notification count: $e');
+    }
+  }
+
+  void _onBottomNavTap(int index) {
+    if (index == _currentIndex) return;
+
+    setState(() {
+      _currentIndex = index;
+    });
+
+    switch (index) {
+      case 0: // Schedules
+        Navigator.pushNamed(context, '/assigner_manage_schedules');
+        // Reset to home after navigation
+        setState(() {
+          _currentIndex = 0;
+        });
+        break;
+      case 1: // Teams (Lists of Officials)
+        Navigator.pushNamed(context, '/lists_of_officials');
+        // Reset to home after navigation
+        setState(() {
+          _currentIndex = 0;
+        });
+        break;
+      case 2: // Templates (Game Templates)
+        Navigator.pushNamed(context, '/game_templates');
+        // Reset to home after navigation
+        setState(() {
+          _currentIndex = 0;
+        });
+        break;
+      case 3: // Notifications
+        Navigator.pushNamed(context, '/backout_notifications').then((_) {
+          // Refresh notification count when returning from notifications screen
+          _loadUnreadNotificationCount();
+        });
+        // Reset to home after navigation
+        setState(() {
+          _currentIndex = 0;
+        });
+        break;
     }
   }
 
@@ -280,6 +345,12 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen> {
             ],
           ),
         ),
+      ),
+      bottomNavigationBar: SchedulerBottomNavigation(
+        currentIndex: _currentIndex,
+        onTap: _onBottomNavTap,
+        schedulerType: SchedulerType.assigner,
+        unreadNotificationCount: _unreadNotificationCount,
       ),
     );
   }

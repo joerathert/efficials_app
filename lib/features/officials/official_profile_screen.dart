@@ -20,6 +20,7 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
   bool hasEndorsedThisOfficial = false; // Track if current user has endorsed this official
   bool isCurrentUserScheduler = false; // Track if current user is a scheduler
   bool _isLoading = true;
+  bool _hasLoadedOtherProfileData = false; // Track if other profile data has been loaded
   Official? _currentOfficial;
   
   // Repositories
@@ -55,7 +56,7 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
     
     // Check if arguments were passed (viewing another official's profile)
     final args = ModalRoute.of(context)?.settings.arguments;
-    if (args != null && args is Map<String, dynamic>) {
+    if (args != null && args is Map<String, dynamic> && !_hasLoadedOtherProfileData) {
       otherOfficialData = args;
       isViewingOwnProfile = false;
       // Get the show career stats preference from the other official's data
@@ -63,6 +64,7 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
       
       // Load endorsement data for the other profile
       _loadOtherProfileEndorsementData();
+      _hasLoadedOtherProfileData = true;
     }
     
     // Check if current user is a scheduler
@@ -74,15 +76,19 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
     
     try {
       final officialId = otherOfficialData!['id'];
+      print('Loading endorsement data for official ID: $officialId');
+      
       if (officialId != null) {
         // Get endorsement counts for the other official
         final endorsementCounts = await _endorsementRepo.getEndorsementCounts(officialId);
+        print('Endorsement counts retrieved: $endorsementCounts');
         
         // Update the other official's data with real endorsement counts
         setState(() {
           otherOfficialData!['schedulerEndorsements'] = endorsementCounts['schedulerEndorsements'] ?? 0;
           otherOfficialData!['officialEndorsements'] = endorsementCounts['officialEndorsements'] ?? 0;
         });
+        print('Updated endorsement counts in UI: Scheduler=${otherOfficialData!['schedulerEndorsements']}, Official=${otherOfficialData!['officialEndorsements']}');
         
         // Check if current user has endorsed this official
         final userSession = UserSessionService.instance;
@@ -92,6 +98,7 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
             endorsedOfficialId: officialId,
             endorserUserId: currentUserId,
           );
+          print('Current user (ID: $currentUserId) has endorsed this official: $hasEndorsed');
           
           setState(() {
             hasEndorsedThisOfficial = hasEndorsed;
@@ -1051,24 +1058,30 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
       final currentUserId = await userSession.getCurrentUserId();
       final officialId = otherOfficialData!['id'];
       
+      print('Handling endorsement: isRemoving=$isRemoving, currentUserId=$currentUserId, officialId=$officialId, isCurrentUserScheduler=$isCurrentUserScheduler');
+      
       if (currentUserId == null || officialId == null) {
         throw Exception('User not logged in or invalid official ID');
       }
       
       if (isRemoving) {
         // Remove endorsement from database
+        print('Removing endorsement from database...');
         await _endorsementRepo.removeEndorsement(
           endorsedOfficialId: officialId,
           endorserUserId: currentUserId,
         );
+        print('Endorsement removed from database');
       } else {
         // Add endorsement to database
         final endorserType = isCurrentUserScheduler ? 'scheduler' : 'official';
+        print('Adding endorsement to database with type: $endorserType');
         await _endorsementRepo.addEndorsement(
           endorsedOfficialId: officialId,
           endorserUserId: currentUserId,
           endorserType: endorserType,
         );
+        print('Endorsement added to database');
       }
       
       // Update UI state
@@ -1079,19 +1092,23 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
         if (isCurrentUserScheduler) {
           // Current user is a scheduler - update scheduler endorsements
           int currentCount = otherOfficialData!['schedulerEndorsements'] ?? 0;
+          print('Current scheduler endorsements: $currentCount');
           if (isRemoving) {
             otherOfficialData!['schedulerEndorsements'] = currentCount > 0 ? currentCount - 1 : 0;
           } else {
             otherOfficialData!['schedulerEndorsements'] = currentCount + 1;
           }
+          print('Updated scheduler endorsements to: ${otherOfficialData!['schedulerEndorsements']}');
         } else {
           // Current user is an official - update official endorsements
           int currentCount = otherOfficialData!['officialEndorsements'] ?? 0;
+          print('Current official endorsements: $currentCount');
           if (isRemoving) {
             otherOfficialData!['officialEndorsements'] = currentCount > 0 ? currentCount - 1 : 0;
           } else {
             otherOfficialData!['officialEndorsements'] = currentCount + 1;
           }
+          print('Updated official endorsements to: ${otherOfficialData!['officialEndorsements']}');
         }
       });
       

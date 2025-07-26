@@ -1851,3 +1851,265 @@ class UserSettings {
     );
   }
 }
+
+// General Notification model - replaces specific notification types
+class Notification {
+  final int? id;
+  final int recipientId; // scheduler user ID
+  final String type; // 'backout', 'game_filling', 'official_interest', 'official_claim'
+  final String title;
+  final String message;
+  final Map<String, dynamic>? data; // JSON data specific to notification type
+  final bool isRead;
+  final DateTime createdAt;
+  final DateTime? readAt;
+
+  // Related data for display (populated from joins)
+  final String? officialName;
+  final String? gameSport;
+  final String? gameOpponent;
+  final DateTime? gameDate;
+  final String? gameTime;
+
+  Notification({
+    this.id,
+    required this.recipientId,
+    required this.type,
+    required this.title,
+    required this.message,
+    this.data,
+    this.isRead = false,
+    DateTime? createdAt,
+    this.readAt,
+    this.officialName,
+    this.gameSport,
+    this.gameOpponent,
+    this.gameDate,
+    this.gameTime,
+  }) : createdAt = createdAt ?? DateTime.now();
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'recipient_id': recipientId,
+      'type': type,
+      'title': title,
+      'message': message,
+      'data': data != null ? jsonEncode(data) : null,
+      'is_read': isRead ? 1 : 0,
+      'created_at': createdAt.toIso8601String(),
+      'read_at': readAt?.toIso8601String(),
+    };
+  }
+
+  factory Notification.fromMap(Map<String, dynamic> map) {
+    return Notification(
+      id: map['id']?.toInt(),
+      recipientId: map['recipient_id']?.toInt() ?? 0,
+      type: map['type'] ?? '',
+      title: map['title'] ?? '',
+      message: map['message'] ?? '',
+      data: map['data'] != null ? jsonDecode(map['data']) : null,
+      isRead: (map['is_read'] ?? 0) == 1,
+      createdAt: DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
+      readAt: map['read_at'] != null ? DateTime.parse(map['read_at']) : null,
+      officialName: map['official_name'],
+      gameSport: map['game_sport'],
+      gameOpponent: map['game_opponent'],
+      gameDate: map['game_date'] != null ? DateTime.parse(map['game_date']) : null,
+      gameTime: map['game_time'],
+    );
+  }
+
+  // Helper methods for different notification types
+  static Notification createBackoutNotification({
+    required int schedulerId,
+    required String officialName,
+    required String gameSport,
+    required String gameOpponent,
+    required DateTime gameDate,
+    required String gameTime,
+    required String reason,
+    Map<String, dynamic>? additionalData,
+  }) {
+    return Notification(
+      recipientId: schedulerId,
+      type: 'backout',
+      title: 'Official Backed Out',
+      message: '$officialName backed out of $gameSport game ($gameOpponent) on ${gameDate.toString().split(' ')[0]} at $gameTime. Reason: $reason',
+      data: {
+        'official_name': officialName,
+        'game_sport': gameSport,
+        'game_opponent': gameOpponent,
+        'game_date': gameDate.toIso8601String(),
+        'game_time': gameTime,
+        'reason': reason,
+        ...?additionalData,
+      },
+    );
+  }
+
+  static Notification createGameFillingNotification({
+    required int schedulerId,
+    required String gameSport,
+    required String gameOpponent,
+    required DateTime gameDate,
+    required String gameTime,
+    required int officialsNeeded,
+    required int daysUntilGame,
+    Map<String, dynamic>? additionalData,
+  }) {
+    return Notification(
+      recipientId: schedulerId,
+      type: 'game_filling',
+      title: 'Game Needs Officials',
+      message: '$gameSport game ($gameOpponent) on ${gameDate.toString().split(' ')[0]} at $gameTime needs $officialsNeeded more official${officialsNeeded == 1 ? '' : 's'}. Game is in $daysUntilGame day${daysUntilGame == 1 ? '' : 's'}.',
+      data: {
+        'game_sport': gameSport,
+        'game_opponent': gameOpponent,
+        'game_date': gameDate.toIso8601String(),
+        'game_time': gameTime,
+        'officials_needed': officialsNeeded,
+        'days_until_game': daysUntilGame,
+        ...?additionalData,
+      },
+    );
+  }
+
+  static Notification createOfficialInterestNotification({
+    required int schedulerId,
+    required String officialName,
+    required String gameSport,
+    required String gameOpponent,
+    required DateTime gameDate,
+    required String gameTime,
+    Map<String, dynamic>? additionalData,
+  }) {
+    return Notification(
+      recipientId: schedulerId,
+      type: 'official_interest',
+      title: 'Official Expressed Interest',
+      message: '$officialName expressed interest in officiating $gameSport game ($gameOpponent) on ${gameDate.toString().split(' ')[0]} at $gameTime.',
+      data: {
+        'official_name': officialName,
+        'game_sport': gameSport,
+        'game_opponent': gameOpponent,
+        'game_date': gameDate.toIso8601String(),
+        'game_time': gameTime,
+        ...?additionalData,
+      },
+    );
+  }
+
+  static Notification createOfficialClaimNotification({
+    required int schedulerId,
+    required String officialName,
+    required String gameSport,
+    required String gameOpponent,
+    required DateTime gameDate,
+    required String gameTime,
+    Map<String, dynamic>? additionalData,
+  }) {
+    return Notification(
+      recipientId: schedulerId,
+      type: 'official_claim',
+      title: 'Official Claimed Game',
+      message: '$officialName claimed $gameSport game ($gameOpponent) on ${gameDate.toString().split(' ')[0]} at $gameTime.',
+      data: {
+        'official_name': officialName,
+        'game_sport': gameSport,
+        'game_opponent': gameOpponent,
+        'game_date': gameDate.toIso8601String(),
+        'game_time': gameTime,
+        ...?additionalData,
+      },
+    );
+  }
+}
+
+// Notification Settings model for scheduler notification preferences
+class NotificationSettings {
+  final int? id;
+  final int userId;
+  
+  // Game filling notifications
+  final bool gameFillingNotificationsEnabled;
+  final List<int> gameFillingReminderDays; // Days before game to send notifications
+  
+  // Official activity notifications
+  final bool officialInterestNotificationsEnabled;
+  final bool officialClaimNotificationsEnabled;
+  
+  // Backout notifications (always enabled for schedulers)
+  final bool backoutNotificationsEnabled;
+  
+  final DateTime createdAt;
+  final DateTime updatedAt;
+
+  NotificationSettings({
+    this.id,
+    required this.userId,
+    this.gameFillingNotificationsEnabled = true,
+    this.gameFillingReminderDays = const [14, 7, 3, 2, 1], // Default: 2 weeks, 1 week, 3/2/1 days
+    this.officialInterestNotificationsEnabled = false,
+    this.officialClaimNotificationsEnabled = false,
+    this.backoutNotificationsEnabled = true,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) : createdAt = createdAt ?? DateTime.now(),
+       updatedAt = updatedAt ?? DateTime.now();
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'user_id': userId,
+      'game_filling_notifications_enabled': gameFillingNotificationsEnabled ? 1 : 0,
+      'game_filling_reminder_days': jsonEncode(gameFillingReminderDays),
+      'official_interest_notifications_enabled': officialInterestNotificationsEnabled ? 1 : 0,
+      'official_claim_notifications_enabled': officialClaimNotificationsEnabled ? 1 : 0,
+      'backout_notifications_enabled': backoutNotificationsEnabled ? 1 : 0,
+      'created_at': createdAt.toIso8601String(),
+      'updated_at': updatedAt.toIso8601String(),
+    };
+  }
+
+  factory NotificationSettings.fromMap(Map<String, dynamic> map) {
+    return NotificationSettings(
+      id: map['id']?.toInt(),
+      userId: map['user_id']?.toInt() ?? 0,
+      gameFillingNotificationsEnabled: (map['game_filling_notifications_enabled'] ?? 1) == 1,
+      gameFillingReminderDays: map['game_filling_reminder_days'] != null 
+          ? List<int>.from(jsonDecode(map['game_filling_reminder_days']))
+          : [14, 7, 3, 2, 1],
+      officialInterestNotificationsEnabled: (map['official_interest_notifications_enabled'] ?? 0) == 1,
+      officialClaimNotificationsEnabled: (map['official_claim_notifications_enabled'] ?? 0) == 1,
+      backoutNotificationsEnabled: (map['backout_notifications_enabled'] ?? 1) == 1,
+      createdAt: DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
+      updatedAt: DateTime.parse(map['updated_at'] ?? DateTime.now().toIso8601String()),
+    );
+  }
+
+  NotificationSettings copyWith({
+    int? id,
+    int? userId,
+    bool? gameFillingNotificationsEnabled,
+    List<int>? gameFillingReminderDays,
+    bool? officialInterestNotificationsEnabled,
+    bool? officialClaimNotificationsEnabled,
+    bool? backoutNotificationsEnabled,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) {
+    return NotificationSettings(
+      id: id ?? this.id,
+      userId: userId ?? this.userId,
+      gameFillingNotificationsEnabled: gameFillingNotificationsEnabled ?? this.gameFillingNotificationsEnabled,
+      gameFillingReminderDays: gameFillingReminderDays ?? this.gameFillingReminderDays,
+      officialInterestNotificationsEnabled: officialInterestNotificationsEnabled ?? this.officialInterestNotificationsEnabled,
+      officialClaimNotificationsEnabled: officialClaimNotificationsEnabled ?? this.officialClaimNotificationsEnabled,
+      backoutNotificationsEnabled: backoutNotificationsEnabled ?? this.backoutNotificationsEnabled,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+}
