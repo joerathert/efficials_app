@@ -100,7 +100,12 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
           if (list is Map) {
             return Map<String, dynamic>.from(list);
           }
-          return <String, dynamic>{'name': 'Unknown List', 'minOfficials': 0, 'maxOfficials': 0};
+          return <String, dynamic>{
+            'name': 'Unknown List', 
+            'minOfficials': 0, 
+            'maxOfficials': 0,
+            'officials': <Map<String, dynamic>>[],
+          };
         }).toList();
       } catch (e) {
         selectedLists = [];
@@ -642,7 +647,35 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
         for (var list in savedListsRaw) list['name'] as String: List<Map<String, dynamic>>.from(list['officials'] ?? [])
       };
       
-      final officials = savedLists[listName] ?? [];
+      // Get the full original list
+      final fullOfficialsList = savedLists[listName] ?? [];
+      
+      // Get the game-specific officials for this list (the ones actually selected for this game)
+      List<Map<String, dynamic>> gameSpecificOfficials = [];
+      
+      if (args['method'] == 'advanced' && selectedLists.isNotEmpty) {
+        // For advanced method, get officials from the specific list in selectedLists
+        debugPrint('=== ADVANCED METHOD DEBUG ===');
+        debugPrint('Looking for list: $listName');
+        debugPrint('Available selectedLists: ${selectedLists.map((l) => l['name']).toList()}');
+        
+        final gameList = selectedLists.firstWhere(
+          (list) => list['name'] == listName,
+          orElse: () => <String, dynamic>{},
+        );
+        
+        debugPrint('Found gameList: ${gameList.keys.toList()}');
+        debugPrint('Officials in gameList: ${gameList['officials']}');
+        
+        gameSpecificOfficials = List<Map<String, dynamic>>.from(gameList['officials'] ?? []);
+        debugPrint('Game-specific officials count: ${gameSpecificOfficials.length}');
+      } else if (args['method'] == 'use_list' && args['selectedListName'] == listName) {
+        // For use_list method, all selected officials are from this list
+        gameSpecificOfficials = selectedOfficials;
+      }
+      
+      // Get the names of officials actually selected for this game
+      final gameOfficialNames = gameSpecificOfficials.map((o) => o['name'] as String?).toSet();
       
       if (mounted) {
         showDialog(
@@ -655,18 +688,47 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
             ),
             content: SizedBox(
               width: double.maxFinite,
-              child: officials.isEmpty
+              height: 400,
+              child: fullOfficialsList.isEmpty
                   ? const Text('No officials in this list.', style: TextStyle(color: Colors.white))
                   : Column(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      children: officials.map((official) => Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4),
-                        child: Text(
-                          '• ${official['name']} (${official['distance']?.toStringAsFixed(1) ?? '0.0'} mi)',
-                          style: const TextStyle(color: Colors.white, fontSize: 16),
+                      children: [
+                        if (gameSpecificOfficials.isNotEmpty) ...[
+                          Text(
+                            'Legend: Normal text = selected for game, Strikethrough = removed from game',
+                            style: TextStyle(fontSize: 12, color: Colors.grey[400], fontStyle: FontStyle.italic),
+                          ),
+                          const SizedBox(height: 8),
+                        ],
+                        Expanded(
+                          child: ListView.builder(
+                            itemCount: fullOfficialsList.length,
+                            itemBuilder: (context, index) {
+                              final official = fullOfficialsList[index];
+                              final officialName = official['name'] as String? ?? 'Unknown Official';
+                              final isSelectedForGame = gameOfficialNames.contains(officialName);
+                              
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 4),
+                                child: Text(
+                                  '• $officialName (${official['distance']?.toStringAsFixed(1) ?? '0.0'} mi)',
+                                  style: TextStyle(
+                                    color: isSelectedForGame ? Colors.white : Colors.grey,
+                                    fontSize: 16,
+                                    decoration: isSelectedForGame 
+                                        ? TextDecoration.none 
+                                        : TextDecoration.lineThrough,
+                                    decorationColor: Colors.grey,
+                                    decorationThickness: 2.0,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
                         ),
-                      )).toList(),
+                      ],
                     ),
             ),
             actions: [
@@ -925,7 +987,12 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                                 if (list is Map) {
                                   return Map<String, dynamic>.from(list);
                                 }
-                                return <String, dynamic>{'name': 'Unknown List', 'minOfficials': 0, 'maxOfficials': 0};
+                                return <String, dynamic>{
+                                  'name': 'Unknown List', 
+                                  'minOfficials': 0, 
+                                  'maxOfficials': 0,
+                                  'officials': <Map<String, dynamic>>[],
+                                };
                               }).toList();
                             } catch (e) {
                               selectedLists = [];

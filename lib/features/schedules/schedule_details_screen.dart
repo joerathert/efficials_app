@@ -5,6 +5,7 @@ import 'package:table_calendar/table_calendar.dart';
 import '../../shared/theme.dart';
 import '../games/game_template.dart'; // Import the GameTemplate model
 import '../../shared/services/schedule_service.dart';
+import '../../shared/services/game_service.dart';
 
 class ScheduleDetailsScreen extends StatefulWidget {
   const ScheduleDetailsScreen({super.key});
@@ -25,6 +26,7 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
   bool _showOnlyNeedsOfficials = false; // Toggle state for filtering
   String? associatedTemplateName; // Store the associated template name
   final ScheduleService _scheduleService = ScheduleService();
+  final GameService _gameService = GameService();
 
   @override
   void didChangeDependencies() {
@@ -108,6 +110,57 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
   }
 
   Future<void> _fetchGames() async {
+    try {
+      // Load games from database (primary source)
+      final allGames = await _gameService.getGames();
+      
+      setState(() {
+        games.clear();
+        
+        // Filter games for this schedule that have dates
+        games = allGames.where((game) {
+          final matchesSchedule = game['scheduleName'] == scheduleName;
+          final hasDate = game['date'] != null;
+          return matchesSchedule && hasDate;
+        }).toList();
+        
+        // Games from database should already have correct DateTime objects,
+        // but ensure consistency for any string dates/times
+        for (var game in games) {
+          if (game['date'] != null && game['date'] is String) {
+            game['date'] = DateTime.parse(game['date'] as String);
+          }
+          if (game['time'] != null && game['time'] is String) {
+            final timeParts = (game['time'] as String).split(':');
+            game['time'] = TimeOfDay(
+              hour: int.parse(timeParts[0]),
+              minute: int.parse(timeParts[1]),
+            );
+          }
+        }
+
+        if (games.isNotEmpty) {
+          games.sort(
+              (a, b) => (a['date'] as DateTime).compareTo(b['date'] as DateTime));
+          _focusedDay = games.first['date'] as DateTime;
+          // Auto-select the first day with games and show its games
+          _selectedDay = _focusedDay;
+          _selectedDayGames = _getGamesForDay(_selectedDay!);
+        } else {
+          _focusedDay = DateTime.now();
+        }
+
+        isLoading = false;
+      });
+    } catch (e) {
+      debugPrint('Error loading games from database: $e');
+      
+      // Fallback to SharedPreferences if database fails
+      await _fetchGamesFromSharedPreferences();
+    }
+  }
+
+  Future<void> _fetchGamesFromSharedPreferences() async {
     final prefs = await SharedPreferences.getInstance();
     final String? unpublishedGamesJson =
         prefs.getString('ad_unpublished_games');

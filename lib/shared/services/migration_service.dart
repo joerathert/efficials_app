@@ -29,9 +29,7 @@ class MigrationService {
         await runMigration();
       }
       
-      debugPrint('Database initialization completed');
     } catch (e) {
-      debugPrint('Database initialization failed: $e');
       rethrow;
     }
   }
@@ -154,9 +152,7 @@ class MigrationService {
       }
       
       await prefs.setBool('database_migration_completed', false);
-      debugPrint('Database reset completed');
     } catch (e) {
-      debugPrint('Database reset failed: $e');
       rethrow;
     }
   }

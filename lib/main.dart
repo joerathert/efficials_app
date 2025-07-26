@@ -91,9 +91,7 @@ void main() async {
   // Initialize database and run migration
   try {
     await MigrationService().initializeDatabase();
-    debugPrint('Database initialization completed successfully');
   } catch (e) {
-    debugPrint('Failed to initialize database: $e');
     // Continue without database - app should still work with SharedPreferences
   }
   

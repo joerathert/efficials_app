@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../shared/theme.dart';
+import '../../shared/services/game_service.dart';
 
 class AdvancedOfficialsSelectionScreen extends StatefulWidget {
   const AdvancedOfficialsSelectionScreen({super.key});
@@ -28,12 +29,23 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
   // Store args for use after lists are loaded
   Map<String, dynamic>? _routeArgs;
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Capture route arguments
+    if (_routeArgs == null) {
+      _routeArgs = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    }
+  }
+
   void _restoreSelectedLists(List<dynamic> existingLists) {
+    final isEditMode = _routeArgs?['isEdit'] as bool? ?? false;
+    
     setState(() {
       selectedLists.clear();
       for (var listData in existingLists) {
         if (listData is Map<String, dynamic>) {
-          // Find the corresponding list from saved lists to get full data
+          // Find the corresponding list from saved lists to get ID
           final fullList = lists.firstWhere(
             (l) => l['name'] == listData['name'],
             orElse: () => {'name': 'Unknown List', 'id': -1, 'officials': []},
@@ -42,7 +54,10 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
           selectedLists.add({
             'name': listData['name'],
             'id': fullList['id'],
-            'officials': fullList['officials'] ?? [],
+            // In edit mode, use the game-specific officials from listData, not the full list
+            'officials': isEditMode 
+                ? (listData['officials'] ?? fullList['officials'] ?? [])
+                : (fullList['officials'] ?? []),
             'minOfficials': listData['minOfficials'] ?? 0,
             'maxOfficials': listData['maxOfficials'] ?? 0,
           });
@@ -155,29 +170,43 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
                     itemCount: officials.length,
                     itemBuilder: (context, index) {
                       final official = officials[index];
+                      final officialName = official['name'] ?? 'Unknown Official';
+                      
+                      // Track which officials are checked/unchecked
+                      final isChecked = official['_isSelected'] ?? true;
+                      
                       return CheckboxListTile(
                         title: Text(
-                          official['name'] ?? 'Unknown Official',
-                          style: const TextStyle(color: Colors.white),
+                          officialName,
+                          style: TextStyle(
+                            color: isChecked ? Colors.white : Colors.grey,
+                            decoration: isChecked ? TextDecoration.none : TextDecoration.lineThrough,
+                          ),
                         ),
                         subtitle: Text(
                           'Distance: ${(official['distance'] as num?)?.toStringAsFixed(1) ?? '0.0'} mi',
-                          style: const TextStyle(color: Colors.grey),
+                          style: TextStyle(
+                            color: isChecked ? Colors.grey : Colors.grey.shade600,
+                          ),
                         ),
-                        value: true, // Initially all are checked since they're in the list
+                        value: isChecked,
                         activeColor: Colors.green,
                         checkColor: Colors.white,
                         onChanged: (bool? value) {
-                          if (value == false) {
-                            // Remove the official from the list
-                            setDialogState(() {
-                              officials.removeAt(index);
-                            });
-                            // Update the main state
-                            setState(() {
-                              selectedLists[listIndex]['officials'] = officials;
-                            });
-                          }
+                          setDialogState(() {
+                            // Toggle the selection state but keep the official in the list
+                            officials[index]['_isSelected'] = value ?? false;
+                          });
+                          
+                          // Update the main state with only the checked officials
+                          setState(() {
+                            final checkedOfficials = officials.where((off) => off['_isSelected'] != false).toList();
+                            // Remove the temporary _isSelected field from checked officials
+                            for (var off in checkedOfficials) {
+                              off.remove('_isSelected');
+                            }
+                            selectedLists[listIndex]['officials'] = checkedOfficials;
+                          });
                         },
                       );
                     },
@@ -186,19 +215,40 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
           actions: [
             TextButton(
               onPressed: () async {
-                // Save the updated list back to SharedPreferences
-                await _saveUpdatedListToPreferences(list['name'], officials);
-                Navigator.pop(context);
+                // Check if we're in edit mode for a game
+                final isEditMode = _routeArgs?['isEdit'] as bool? ?? false;
                 
-                // Show confirmation
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Changes to "${list['name']}" saved successfully'),
-                    backgroundColor: Colors.green,
-                  ),
-                );
+                if (isEditMode) {
+                  // In edit mode, DON'T save changes to the original saved lists
+                  // Only update the game-specific selection
+                  Navigator.pop(context);
+                  
+                  // Show confirmation that changes are for this game only
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Success! Removed officials will no longer have access to this game.'),
+                      backgroundColor: Colors.blue,
+                      duration: const Duration(seconds: 3),
+                    ),
+                  );
+                } else {
+                  // In new game creation mode, save changes to the original lists
+                  await _saveUpdatedListToPreferences(list['name'], officials);
+                  Navigator.pop(context);
+                  
+                  // Show confirmation
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Changes to "${list['name']}" saved permanently'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
               },
-              child: const Text('Save Changes', style: TextStyle(color: efficialsYellow)),
+              child: Text(
+                (_routeArgs?['isEdit'] as bool? ?? false) ? 'Remove' : 'Save Changes',
+                style: const TextStyle(color: efficialsYellow),
+              ),
             ),
             TextButton(
               onPressed: () => Navigator.pop(context),
@@ -222,7 +272,7 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
     });
   }
 
-  void _handleContinue() {
+  Future<void> _handleContinue() async {
     final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
     final requiredOfficials = int.tryParse(args['officialsRequired'].toString()) ?? 0;
 
@@ -259,21 +309,114 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
       selectedOfficials.addAll(officials);
     }
 
-    Navigator.pushNamed(
-      context,
-      '/review_game_info',
-      arguments: {
-        ...args,
-        'selectedOfficials': selectedOfficials,
-        'method': 'advanced',
-        'selectedLists': selectedLists.map((list) => {
-          'name': list['name'],
-          'id': list['id'],
-          'minOfficials': list['minOfficials'],
-          'maxOfficials': list['maxOfficials'],
-        }).toList(),
-      },
-    );
+    final updatedArgs = {
+      ...args,
+      'selectedOfficials': selectedOfficials,
+      'method': 'advanced',
+      'selectedLists': selectedLists.map((list) => {
+        'name': list['name'],
+        'id': list['id'],
+        'minOfficials': list['minOfficials'],
+        'maxOfficials': list['maxOfficials'],
+        'officials': list['officials'], // Include the game-specific officials for each list
+      }).toList(),
+    };
+
+    // Check if we're in edit mode
+    final isEditMode = args['isEdit'] as bool? ?? false;
+    
+    if (isEditMode) {
+      // In edit mode, update the game in the database and return to game info screen
+      await _updateGameInDatabase(updatedArgs);
+      
+      // Navigate back to game information screen
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        '/game_information',
+        (route) => route.settings.name == '/athletic_director_home' ||
+                   route.settings.name == '/coach_home' ||
+                   route.settings.name == '/assigner_home',
+        arguments: updatedArgs,
+      );
+    } else {
+      // Continue to review screen for new game creation
+      Navigator.pushNamed(
+        context,
+        '/review_game_info',
+        arguments: updatedArgs,
+      );
+    }
+  }
+
+  Future<void> _updateGameInDatabase(Map<String, dynamic> gameData) async {
+    try {
+      final gameService = GameService();
+      
+      final gameId = gameData['id'];
+      if (gameId != null) {
+        // Convert data for database storage
+        final updateData = Map<String, dynamic>.from(gameData);
+        
+        // Convert DateTime objects to strings if needed
+        if (updateData['date'] != null && updateData['date'] is DateTime) {
+          updateData['date'] = (updateData['date'] as DateTime).toIso8601String();
+        }
+        if (updateData['time'] != null && updateData['time'] is TimeOfDay) {
+          final time = updateData['time'] as TimeOfDay;
+          updateData['time'] = '${time.hour}:${time.minute}';
+        }
+        if (updateData['createdAt'] != null && updateData['createdAt'] is DateTime) {
+          updateData['createdAt'] = (updateData['createdAt'] as DateTime).toIso8601String();
+        }
+        if (updateData['updatedAt'] != null && updateData['updatedAt'] is DateTime) {
+          updateData['updatedAt'] = (updateData['updatedAt'] as DateTime).toIso8601String();
+        }
+        
+        // Update the game in the database
+        int? databaseGameId;
+        if (gameId is int) {
+          databaseGameId = gameId;
+        } else if (gameId is String) {
+          databaseGameId = int.tryParse(gameId);
+        }
+        
+        if (databaseGameId != null) {
+          await gameService.updateGame(databaseGameId, updateData);
+          debugPrint('Game updated in database successfully with ID: $databaseGameId');
+          
+          // Update the SharedPreferences cache that _gameToMapWithOfficials relies on
+          final prefs = await SharedPreferences.getInstance();
+          final advancedData = {
+            'selectedLists': gameData['selectedLists'],
+            'selectedOfficials': gameData['selectedOfficials'] ?? [],
+          };
+          await prefs.setString('recent_advanced_selection_$databaseGameId', jsonEncode(advancedData));
+          debugPrint('Updated advanced selection cache for game $databaseGameId');
+          
+          // Show success message
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Game updated successfully!'),
+                backgroundColor: Colors.green,
+                duration: Duration(seconds: 2),
+              ),
+            );
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error updating game in database: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Error updating game. Please try again.'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    }
   }
 
   @override

@@ -27,6 +27,8 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
   int? officialsRequired;
   bool hireAutomatically = false;
   String? selectedListName;
+  String? method; // Method for officials selection: 'standard', 'use_list', 'advanced'
+  List<Map<String, dynamic>> selectedLists = []; // For advanced method
   String? location; // Selected location name
   bool isEditing = false;
   GameTemplate? existingTemplate;
@@ -151,6 +153,8 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
             _gameFeeController.text = existingTemplate!.gameFee ?? '';
             hireAutomatically = existingTemplate!.hireAutomatically ?? false;
             selectedListName = existingTemplate!.officialsListName;
+            method = existingTemplate!.method;
+            selectedLists = existingTemplate!.selectedLists ?? [];
             location = existingTemplate!.location ?? location;
             includeSport = existingTemplate!.includeSport;
             includeTime = existingTemplate!.includeTime;
@@ -172,6 +176,10 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
             _gameFeeController.text = args['gameFee']?.toString() ?? '';
             hireAutomatically = args['hireAutomatically'] as bool? ?? false;
             selectedListName = args['selectedListName'] as String?;
+            method = args['method'] as String?;
+            selectedLists = args['selectedLists'] != null 
+                ? List<Map<String, dynamic>>.from(args['selectedLists'] as List)
+                : [];
             // Check if the game has a selected list name (indicates 'use_list' method was used)
             includeOfficialsList = selectedListName != null && selectedListName!.isNotEmpty;
             if (args['time'] != null) {
@@ -225,7 +233,12 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
       final fetchedLocations = await _locationService.getLocations();
       setState(() {
         locations = List<Map<String, dynamic>>.from(fetchedLocations);
-        locations.add({'name': '+ Create new location', 'id': 0}); // Add create option
+        
+        // Remove any existing "Create new location" entries to prevent duplicates
+        locations.removeWhere((loc) => loc['name'] == '+ Create new location');
+        
+        // Add the create option only once
+        locations.add({'name': '+ Create new location', 'id': 0});
         
         // Validate current location selection
         if (location != null && 
@@ -344,6 +357,27 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
     if (result != null && result is Map<String, dynamic>) {
       setState(() {
         selectedListName = result['selectedListName'] as String?;
+        method = 'use_list';
+      });
+    }
+  }
+
+  Future<void> _selectAdvancedLists() async {
+    final result = await Navigator.pushNamed(
+      context,
+      '/advanced_officials_selection',
+      arguments: {
+        'sport': sport,
+        'fromGameCreation': true,
+        'selectedLists': selectedLists,
+      },
+    );
+    if (result != null && result is Map<String, dynamic>) {
+      setState(() {
+        selectedLists = result['selectedLists'] != null 
+            ? List<Map<String, dynamic>>.from(result['selectedLists'] as List)
+            : [];
+        method = 'advanced';
       });
     }
   }
@@ -396,7 +430,8 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
       includeHireAutomatically: includeHireAutomatically,
       officialsListName: selectedListName,
       includeOfficialsList: includeOfficialsList,
-      method: selectedListName != null ? 'use_list' : null,
+      method: method,
+      selectedLists: method == 'advanced' ? selectedLists : null,
       location:
           includeLocation ? location : null, // Use dropdown-selected location
       includeLocation: includeLocation,
@@ -419,6 +454,7 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
         'opponent': newTemplate.opponent,
         'hireAutomatically': newTemplate.hireAutomatically,
         'method': newTemplate.method,
+        'selectedLists': newTemplate.selectedLists,
         'officialsListName': newTemplate.officialsListName, // Add the missing officials list name
         'officialsListId': null, // Will be handled by GameService
         'includeScheduleName': newTemplate.includeScheduleName,
@@ -802,15 +838,23 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                                     }
                                   });
                                 },
-                                items: locations.map((loc) {
-                                  return DropdownMenuItem(
-                                    value: loc['name'] as String,
-                                    child: Text(loc['name'] as String,
-                                        style: const TextStyle(
-                                            color: Colors.white),
-                                        overflow: TextOverflow.ellipsis),
-                                  );
-                                }).toList(),
+                                items: locations
+                                    .fold<List<Map<String, dynamic>>>([], (uniqueList, loc) {
+                                      // Only add if name doesn't already exist in uniqueList
+                                      if (!uniqueList.any((item) => item['name'] == loc['name'])) {
+                                        uniqueList.add(loc);
+                                      }
+                                      return uniqueList;
+                                    })
+                                    .map((loc) {
+                                      return DropdownMenuItem(
+                                        value: loc['name'] as String,
+                                        child: Text(loc['name'] as String,
+                                            style: const TextStyle(
+                                                color: Colors.white),
+                                            overflow: TextOverflow.ellipsis),
+                                      );
+                                    }).toList(),
                               ),
                       ),
                     ],
@@ -1065,27 +1109,141 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                         checkColor: efficialsBlack,
                       ),
                       Expanded(
-                        child: GestureDetector(
-                          onTap: _selectOfficialsList,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 8.0),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    selectedListName == null
-                                        ? 'Selected Officials: List Used'
-                                        : 'Selected Officials: List Used ($selectedListName)',
-                                    style: const TextStyle(
-                                        fontSize: 16, color: Colors.white),
-                                    softWrap: true,
-                                  ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Method:',
+                              style: TextStyle(fontSize: 16, color: Colors.white),
+                            ),
+                            const SizedBox(height: 8),
+                            DropdownButtonFormField<String>(
+                              decoration: textFieldDecoration('Selection Method'),
+                              value: method,
+                              hint: const Text('Select officials method',
+                                  style: TextStyle(color: efficialsGray)),
+                              style: const TextStyle(color: Colors.white, fontSize: 16),
+                              dropdownColor: darkSurface,
+                              onChanged: (value) {
+                                setState(() {
+                                  method = value;
+                                  // Clear related data when method changes
+                                  if (method != 'use_list') {
+                                    selectedListName = null;
+                                  }
+                                  if (method != 'advanced') {
+                                    selectedLists.clear();
+                                  }
+                                });
+                              },
+                              items: const [
+                                DropdownMenuItem(
+                                  value: 'standard',
+                                  child: Text('Standard Selection',
+                                      style: TextStyle(color: Colors.white)),
                                 ),
-                                const Icon(Icons.list, color: efficialsYellow),
+                                DropdownMenuItem(
+                                  value: 'use_list',
+                                  child: Text('Use Saved List',
+                                      style: TextStyle(color: Colors.white)),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'advanced',
+                                  child: Text('Advanced Selection',
+                                      style: TextStyle(color: Colors.white)),
+                                ),
                               ],
                             ),
-                          ),
+                            const SizedBox(height: 12),
+                            // Method-specific configuration
+                            if (method == 'use_list') ...[
+                              GestureDetector(
+                                onTap: _selectOfficialsList,
+                                child: Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          selectedListName == null
+                                              ? 'Tap to select a saved list'
+                                              : 'List: $selectedListName',
+                                          style: const TextStyle(
+                                              fontSize: 14, color: Colors.white),
+                                        ),
+                                      ),
+                                      const Icon(Icons.list, color: efficialsYellow),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ] else if (method == 'advanced') ...[
+                              GestureDetector(
+                                onTap: _selectAdvancedLists,
+                                child: Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          selectedLists.isEmpty
+                                              ? 'Tap to configure advanced lists'
+                                              : 'Lists configured: ${selectedLists.length}',
+                                          style: const TextStyle(
+                                              fontSize: 14, color: Colors.white),
+                                        ),
+                                      ),
+                                      const Icon(Icons.settings, color: efficialsYellow),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              if (selectedLists.isNotEmpty) ...[
+                                const SizedBox(height: 8),
+                                ...selectedLists.map((list) => Padding(
+                                  padding: const EdgeInsets.only(left: 16, bottom: 4),
+                                  child: Text(
+                                    '• ${list['name']}: ${list['minOfficials']}-${list['maxOfficials']} officials',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
+                                )),
+                              ],
+                            ] else if (method == 'standard') ...[
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Row(
+                                  children: [
+                                    Icon(Icons.person, color: efficialsYellow),
+                                    SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        'Officials will be selected manually when using this template',
+                                        style: TextStyle(
+                                            fontSize: 14, color: Colors.white),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                       ),
                     ],

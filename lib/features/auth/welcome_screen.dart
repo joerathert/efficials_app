@@ -67,8 +67,6 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
         }
         await prefs.setString('schedulerType', schedulerTypeForPrefs);
         
-        print('DEBUG WelcomeScreen - Set schedulerType in SharedPreferences: $schedulerTypeForPrefs');
-        print('DEBUG WelcomeScreen - Database user.schedulerType: ${user.schedulerType}');
         
         _navigateToSchedulerHome(user.schedulerType);
         return;

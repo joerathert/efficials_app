@@ -17,6 +17,7 @@ class GameTemplate {
   final bool? hireAutomatically;
   final String? method;
   final List<Map<String, dynamic>>? selectedOfficials;
+  final List<Map<String, dynamic>>? selectedLists; // Added for advanced method
   final String? officialsListName;
   final bool includeScheduleName;
   final bool includeSport;
@@ -50,6 +51,7 @@ class GameTemplate {
     this.hireAutomatically,
     this.method,
     this.selectedOfficials,
+    this.selectedLists, // Added for advanced method
     this.officialsListName,
     this.includeScheduleName = false,
     this.includeSport = false,
@@ -86,6 +88,7 @@ class GameTemplate {
       'hireAutomatically': hireAutomatically,
       'method': method,
       'selectedOfficials': selectedOfficials,
+      'selectedLists': selectedLists, // Added for advanced method
       'officialsListName': officialsListName,
       'includeScheduleName': includeScheduleName,
       'includeSport': includeSport,
@@ -174,6 +177,9 @@ class GameTemplate {
       hireAutomatically: json['hireAutomatically'] as bool?,
       method: json['method'] as String?,
       selectedOfficials: selectedOfficials,
+      selectedLists: json['selectedLists'] != null 
+          ? List<Map<String, dynamic>>.from(json['selectedLists'] as List)
+          : null,
       officialsListName: json['officialsListName'] as String?,
       includeScheduleName: json['includeScheduleName'] as bool? ?? false,
       includeSport: json['includeSport'] as bool? ?? false,

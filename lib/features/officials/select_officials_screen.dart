@@ -123,10 +123,10 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: darkSurface,
-        title: const Text('Standard vs. Advanced',
+        title: const Text('Selection Methods',
             style: TextStyle(color: efficialsYellow, fontSize: 20, fontWeight: FontWeight.bold)),
         content: const Text(
-            'Standard method uses basic filters to find officials. Advanced method allows detailed customization of filters for more specific selections.',
+            '• Manual Selection: Search and pick individual officials\n\n• Multiple Lists: Combine and filter across multiple saved lists\n\n• Single List: Select all officials from one saved list\n\n• Hire a Crew: Select an entire pre-formed crew',
             style: TextStyle(color: Colors.white)),
         actions: [
           TextButton(
@@ -146,7 +146,7 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
         title: const Text('Insufficient Lists',
             style: TextStyle(color: efficialsYellow, fontSize: 20, fontWeight: FontWeight.bold)),
         content: const Text(
-            'The Advanced method requires at least two lists of officials. Would you like to create a new list?',
+            'The Multiple Lists method requires at least two lists of officials. Would you like to create a new list?',
             style: TextStyle(color: Colors.white)),
         actions: [
           TextButton(
@@ -359,7 +359,7 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
                         style: elevatedButtonStyle(
                           padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 32),
                         ),
-                        child: const Text('Standard', style: signInButtonTextStyle),
+                        child: const Text('Manual Selection', style: signInButtonTextStyle),
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -397,7 +397,7 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
                         style: elevatedButtonStyle(
                           padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 32),
                         ),
-                        child: const Text('Advanced', style: signInButtonTextStyle),
+                        child: const Text('Multiple Lists', style: signInButtonTextStyle),
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -440,7 +440,7 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
                         style: elevatedButtonStyle(
                           padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 32),
                         ),
-                        child: const Text('Use List', style: signInButtonTextStyle),
+                        child: const Text('Single List', style: signInButtonTextStyle),
                       ),
                     ),
                     const SizedBox(height: 16),

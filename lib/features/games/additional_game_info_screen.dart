@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -207,7 +208,60 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
     });
   }
 
-  void _handleContinue() {
+  List<Map<String, dynamic>> _getTemplateSelectedLists() {
+    if (template == null || template!.method != 'advanced') {
+      return [];
+    }
+    
+    // Return the selectedLists directly from the template if available
+    if (template!.selectedLists != null && template!.selectedLists!.isNotEmpty) {
+      debugPrint('Loading ${template!.selectedLists!.length} selected lists from template');
+      return List<Map<String, dynamic>>.from(template!.selectedLists!);
+    }
+    
+    debugPrint('Template has advanced method but no selectedLists data');
+    return [];
+  }
+
+  Future<List<Map<String, dynamic>>> _getTemplateListOfficials() async {
+    if (template == null || template!.method != 'use_list' || template!.officialsListName == null) {
+      return [];
+    }
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final String? listsJson = prefs.getString('saved_lists');
+      
+      if (listsJson == null || listsJson.isEmpty) {
+        debugPrint('No saved lists found in SharedPreferences');
+        return [];
+      }
+      
+      final List<dynamic> lists = jsonDecode(listsJson);
+      
+      // Find the list by name
+      for (final list in lists) {
+        if (list['name'] == template!.officialsListName) {
+          final officials = list['officials'] as List<dynamic>?;
+          if (officials != null) {
+            final officialsList = officials
+                .map((official) => Map<String, dynamic>.from(official as Map))
+                .toList();
+            debugPrint('Loaded ${officialsList.length} officials from template list "${template!.officialsListName}"');
+            return officialsList;
+          }
+        }
+      }
+      
+      debugPrint('Template list "${template!.officialsListName}" not found in saved lists');
+      return [];
+    } catch (e) {
+      debugPrint('Error loading template list officials: $e');
+      return [];
+    }
+  }
+
+  Future<void> _handleContinue() async {
     
     if (!_isAwayGame) {
       if (_levelOfCompetition == null ||
@@ -241,6 +295,13 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
 
     final args =
         ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+    
+    // Load officials from template list if needed
+    List<Map<String, dynamic>> templateOfficials = [];
+    if (template?.method == 'use_list' && template?.officialsListName != null) {
+      templateOfficials = await _getTemplateListOfficials();
+    }
+    
     final updatedArgs = {
       ...args,
       'id': args['id'] ?? DateTime.now().millisecondsSinceEpoch,
@@ -252,9 +313,14 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
       'hireAutomatically': _isAwayGame ? false : _hireAutomatically,
       'isAway': _isAwayGame,
       'officialsHired': args['officialsHired'] ?? 0,
-      'selectedOfficials':
-          args['selectedOfficials'] ?? <Map<String, dynamic>>[],
+      'selectedOfficials': template?.method == 'use_list' && templateOfficials.isNotEmpty
+          ? templateOfficials
+          : (args['selectedOfficials'] ?? <Map<String, dynamic>>[]),
       'template': template,
+      // Add template-specific data for advanced method
+      'method': template?.method,
+      'selectedLists': template?.method == 'advanced' ? _getTemplateSelectedLists() : (args['selectedLists'] ?? []),
+      'selectedListName': template?.method == 'use_list' ? template?.officialsListName : args['selectedListName'],
       'sport': template?.includeSport == true ? template?.sport : args['sport'],
       'fromScheduleDetails': args['fromScheduleDetails'] ?? false,
       'scheduleId': args['scheduleId'],
@@ -274,7 +340,40 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
       );
     } else {
       // Normal game creation flow
-      final nextRoute = _isAwayGame ? '/review_game_info' : '/select_officials';
+      String nextRoute;
+      if (_isAwayGame) {
+        nextRoute = '/review_game_info';
+      } else {
+        // Check if template has a specific method for officials selection
+        if (template?.method != null) {
+          debugPrint('Template method: ${template!.method}');
+          switch (template!.method) {
+            case 'advanced':
+              nextRoute = '/advanced_officials_selection';
+              debugPrint('Routing to Advanced Officials Selection with ${updatedArgs['selectedLists']?.length ?? 0} lists');
+              break;
+            case 'use_list':
+              // If template has a pre-selected list, skip the list selection screen
+              if (template!.officialsListName != null && template!.officialsListName!.isNotEmpty) {
+                nextRoute = '/review_game_info';
+                debugPrint('Template has pre-selected list "${template!.officialsListName}", skipping list selection');
+              } else {
+                nextRoute = '/lists_of_officials';
+                debugPrint('Routing to Lists of Officials (no pre-selected list)');
+              }
+              break;
+            case 'standard':
+            default:
+              nextRoute = '/select_officials';
+              debugPrint('Routing to Standard Select Officials');
+              break;
+          }
+        } else {
+          // Default to standard selection if no template method is specified
+          nextRoute = '/select_officials';
+        }
+      }
+      
       Navigator.pushNamed(
         context,
         nextRoute,

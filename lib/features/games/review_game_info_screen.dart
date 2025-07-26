@@ -203,7 +203,6 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
     try {
       final dbResult = await _gameService.createGame(gameData);
       if (dbResult != null) {
-        debugPrint('Game saved to database successfully with ID: ${dbResult['id']}');
         
         // Save advanced selection data for later reconstruction
         if (gameData['method'] == 'advanced' && gameData['selectedLists'] != null) {
@@ -795,17 +794,13 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
                             style: TextStyle(fontSize: 16, color: Colors.grey))
                       else if (args['method'] == 'use_list' &&
                           args['selectedListName'] != null) ...[
-                        Builder(builder: (context) {
-                          print('DEBUG Review Game - Rendering list name: ${args['selectedListName']}');
-                          print('DEBUG Review Game - Method: ${args['method']}');
-                          return Padding(
+                        Padding(
                             padding: const EdgeInsets.symmetric(vertical: 4),
                             child: Text(
                               'List Used: ${args['selectedListName']}',
                               style: const TextStyle(fontSize: 16, color: Colors.white),
                             ),
-                          );
-                        }),
+                          ),
                       ]
                       else if (args['selectedOfficials'] == null ||
                           (args['selectedOfficials'] as List).isEmpty)

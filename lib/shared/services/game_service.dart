@@ -25,12 +25,10 @@ class GameService {
   Future<int> _getCurrentUserId() async {
     final user = await _userRepository.getCurrentUser();
     if (user != null) {
-      debugPrint('Found current user with ID: ${user.id}');
       return user.id!;
     }
     
     // If no user exists, create a default Athletic Director user
-    debugPrint('No user found, creating default user');
     try {
       final defaultUser = User(
         schedulerType: 'Athletic Director',

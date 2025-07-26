@@ -70,7 +70,6 @@ class _DateTimeScreenState extends State<DateTimeScreen>
             template!.time != null) {
           _selectedTime = template!.time;
         }
-        print('didChangeDependencies - Initial Args: $args, Date: $_selectedDate, Time: $_selectedTime, Edit: $_isFromEdit, Sport: $sport, Template: $template, ScheduleName: $scheduleName');
       }
       _isInitialized = true;
       if (_selectedDate != null || _selectedTime != null) {
@@ -191,7 +190,6 @@ class _DateTimeScreenState extends State<DateTimeScreen>
 
   @override
   Widget build(BuildContext context) {
-    print('build - Date: $_selectedDate, Time: $_selectedTime, Sport: $sport, Template: $template');
 
     return Scaffold(
       backgroundColor: darkBackground,

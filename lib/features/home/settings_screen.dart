@@ -20,6 +20,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool defaultDarkMode = false;
   String? defaultMethod;
   bool defaultChoice = false;
+  
+  // Notification Settings
+  bool emailNotifications = true;
+  bool pushNotifications = true;
+  bool textNotifications = false;
+  bool gameReminders = true;
+  bool scheduleUpdates = true;
+  bool assignmentAlerts = true;
+  bool emergencyNotifications = true;
+  
+  // Privacy Settings
+  bool shareProfile = true;
+  bool showAvailability = true;
+  bool allowContactFromOfficials = true;
+  
+  // App Preferences
+  String notificationSound = 'default';
+  bool vibrationEnabled = true;
+  String dateFormat = 'MM/dd/yyyy';
+  String timeFormat = '12';
+  bool autoRefresh = true;
+  int refreshInterval = 30;
 
   @override
   void initState() {
@@ -39,6 +61,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
       defaultDarkMode = prefs.getBool('default_dark_mode') ?? false;
       defaultMethod = prefs.getString('defaultMethod');
       defaultChoice = prefs.getBool('defaultChoice') ?? false;
+      
+      // Load notification preferences
+      emailNotifications = prefs.getBool('emailNotifications') ?? true;
+      pushNotifications = prefs.getBool('pushNotifications') ?? true;
+      textNotifications = prefs.getBool('textNotifications') ?? false;
+      gameReminders = prefs.getBool('gameReminders') ?? true;
+      scheduleUpdates = prefs.getBool('scheduleUpdates') ?? true;
+      assignmentAlerts = prefs.getBool('assignmentAlerts') ?? true;
+      emergencyNotifications = prefs.getBool('emergencyNotifications') ?? true;
+      
+      // Load privacy settings
+      shareProfile = prefs.getBool('shareProfile') ?? true;
+      showAvailability = prefs.getBool('showAvailability') ?? true;
+      allowContactFromOfficials = prefs.getBool('allowContactFromOfficials') ?? true;
+      
+      // Load app preferences
+      notificationSound = prefs.getString('notificationSound') ?? 'default';
+      vibrationEnabled = prefs.getBool('vibrationEnabled') ?? true;
+      dateFormat = prefs.getString('dateFormat') ?? 'MM/dd/yyyy';
+      timeFormat = prefs.getString('timeFormat') ?? '12';
+      autoRefresh = prefs.getBool('autoRefresh') ?? true;
+      refreshInterval = prefs.getInt('refreshInterval') ?? 30;
       
       // Load user profile data from database
       final userId = await sessionService.getCurrentUserId();
@@ -68,6 +112,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
       await prefs.setBool('dont_ask_create_template', dontAskCreateTemplate);
       await prefs.setBool('default_dark_mode', defaultDarkMode);
       await prefs.setBool('defaultChoice', defaultChoice);
+      
+      // Save notification preferences
+      await prefs.setBool('emailNotifications', emailNotifications);
+      await prefs.setBool('pushNotifications', pushNotifications);
+      await prefs.setBool('textNotifications', textNotifications);
+      await prefs.setBool('gameReminders', gameReminders);
+      await prefs.setBool('scheduleUpdates', scheduleUpdates);
+      await prefs.setBool('assignmentAlerts', assignmentAlerts);
+      await prefs.setBool('emergencyNotifications', emergencyNotifications);
+      
+      // Save privacy settings
+      await prefs.setBool('shareProfile', shareProfile);
+      await prefs.setBool('showAvailability', showAvailability);
+      await prefs.setBool('allowContactFromOfficials', allowContactFromOfficials);
+      
+      // Save app preferences
+      await prefs.setString('notificationSound', notificationSound);
+      await prefs.setBool('vibrationEnabled', vibrationEnabled);
+      await prefs.setString('dateFormat', dateFormat);
+      await prefs.setString('timeFormat', timeFormat);
+      await prefs.setBool('autoRefresh', autoRefresh);
+      await prefs.setInt('refreshInterval', refreshInterval);
       
       if (defaultChoice && defaultMethod != null && defaultMethod!.isNotEmpty) {
         await prefs.setString('defaultMethod', defaultMethod!);
@@ -298,6 +364,215 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ],
             ),
 
+            // Privacy Settings
+            _buildSettingSection(
+              'Privacy',
+              [
+                _buildSwitchTile(
+                  'Share Profile',
+                  'Allow other users to view your profile',
+                  shareProfile,
+                  (value) => shareProfile = value,
+                ),
+                const Divider(height: 1),
+                _buildSwitchTile(
+                  'Show Availability',
+                  'Display your availability to schedulers',
+                  showAvailability,
+                  (value) => showAvailability = value,
+                ),
+                const Divider(height: 1),
+                _buildSwitchTile(
+                  'Allow Contact from Officials',
+                  'Let other officials contact you directly',
+                  allowContactFromOfficials,
+                  (value) => allowContactFromOfficials = value,
+                ),
+              ],
+            ),
+
+            // App Preferences
+            _buildSettingSection(
+              'App Preferences',
+              [
+                ListTile(
+                  title: const Text(
+                    'Notification Sound',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  subtitle: const Text(
+                    'Choose your notification sound',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: secondaryTextColor,
+                    ),
+                  ),
+                  trailing: DropdownButton<String>(
+                    value: notificationSound,
+                    items: const [
+                      DropdownMenuItem(
+                        value: 'default',
+                        child: Text('Default'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'chime',
+                        child: Text('Chime'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'bell',
+                        child: Text('Bell'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'none',
+                        child: Text('Silent'),
+                      ),
+                    ],
+                    onChanged: (value) {
+                      setState(() {
+                        notificationSound = value!;
+                      });
+                      _saveSettings();
+                    },
+                  ),
+                ),
+                const Divider(height: 1),
+                _buildSwitchTile(
+                  'Vibration',
+                  'Enable vibration for notifications',
+                  vibrationEnabled,
+                  (value) => vibrationEnabled = value,
+                ),
+                const Divider(height: 1),
+                _buildSwitchTile(
+                  'Auto Refresh',
+                  'Automatically refresh data in the background',
+                  autoRefresh,
+                  (value) => autoRefresh = value,
+                ),
+                if (autoRefresh) ...[
+                  const Divider(height: 1),
+                  ListTile(
+                    title: const Text(
+                      'Refresh Interval',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    subtitle: const Text(
+                      'How often to refresh data (seconds)',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: secondaryTextColor,
+                      ),
+                    ),
+                    trailing: DropdownButton<int>(
+                      value: refreshInterval,
+                      items: const [
+                        DropdownMenuItem(
+                          value: 15,
+                          child: Text('15s'),
+                        ),
+                        DropdownMenuItem(
+                          value: 30,
+                          child: Text('30s'),
+                        ),
+                        DropdownMenuItem(
+                          value: 60,
+                          child: Text('1m'),
+                        ),
+                        DropdownMenuItem(
+                          value: 300,
+                          child: Text('5m'),
+                        ),
+                      ],
+                      onChanged: (value) {
+                        setState(() {
+                          refreshInterval = value!;
+                        });
+                        _saveSettings();
+                      },
+                    ),
+                  ),
+                ],
+              ],
+            ),
+
+            // Support Settings
+            _buildSettingSection(
+              'Support',
+              [
+                ListTile(
+                  leading: const Icon(Icons.help_outline),
+                  title: const Text(
+                    'Help & FAQ',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  subtitle: const Text(
+                    'Get help and view frequently asked questions',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: secondaryTextColor,
+                    ),
+                  ),
+                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                  onTap: () {
+                    // TODO: Navigate to help screen
+                  },
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.feedback_outlined),
+                  title: const Text(
+                    'Send Feedback',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  subtitle: const Text(
+                    'Report issues or suggest improvements',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: secondaryTextColor,
+                    ),
+                  ),
+                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                  onTap: () {
+                    // TODO: Navigate to feedback screen
+                  },
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.info_outline),
+                  title: const Text(
+                    'About',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  subtitle: const Text(
+                    'App version and legal information',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: secondaryTextColor,
+                    ),
+                  ),
+                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                  onTap: () {
+                    // TODO: Navigate to about screen
+                  },
+                ),
+              ],
+            ),
+
             // Account Settings
             _buildSettingSection(
               'Account',
@@ -311,6 +586,50 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       fontWeight: FontWeight.w500,
                     ),
                   ),
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.edit_outlined),
+                  title: const Text(
+                    'Edit Profile',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  subtitle: const Text(
+                    'Update your personal information',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: secondaryTextColor,
+                    ),
+                  ),
+                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                  onTap: () {
+                    // TODO: Navigate to profile edit screen
+                  },
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.security_outlined),
+                  title: const Text(
+                    'Change Password',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  subtitle: const Text(
+                    'Update your account password',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: secondaryTextColor,
+                    ),
+                  ),
+                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                  onTap: () {
+                    // TODO: Navigate to change password screen
+                  },
                 ),
                 const Divider(height: 1),
                 ListTile(

@@ -173,7 +173,6 @@ class _AthleticDirectorHomeScreenState
 
   Future<void> _fetchGames() async {
     try {
-      debugPrint('Fetching games from database...');
       // Initialize schedule filters first to avoid filtering out all games
       await _initializeScheduleFilters();
       
@@ -184,10 +183,8 @@ class _AthleticDirectorHomeScreenState
         scheduleFilters: scheduleFilters,
         status: 'Published',
       );
-      debugPrint('Published games from database: ${publishedGamesData.length}');
       
       final unpublishedGamesData = await _gameService.getUnpublishedGames();
-      debugPrint('Unpublished games from database: ${unpublishedGamesData.length}');
       
       // Extract schedule names from all games
       Set<String> scheduleNames = {};
@@ -203,9 +200,7 @@ class _AthleticDirectorHomeScreenState
         publishedGames = publishedGamesData.map(Game.fromJson).toList();
         isLoading = false;
       });
-      debugPrint('Set publishedGames state with ${publishedGames.length} games');
     } catch (e) {
-      debugPrint('Error fetching games from database: $e');
       // Fallback to SharedPreferences if database fails
       await _fetchGamesFromPrefs();
     }
@@ -278,7 +273,6 @@ class _AthleticDirectorHomeScreenState
   Future<void> _initializeScheduleFilters() async {
     try {
       // Use database data instead of SharedPreferences
-      debugPrint('Initializing schedule filters from database...');
       
       // Get all games (published and unpublished) from database
       final publishedGamesData = await _gameService.getPublishedGames();
@@ -288,7 +282,6 @@ class _AthleticDirectorHomeScreenState
       allGames.addAll(publishedGamesData.map(Game.fromJson));
       allGames.addAll(unpublishedGamesData.map(Game.fromJson));
       
-      debugPrint('Building schedule filters from ${allGames.length} total games');
 
       final Map<String, Map<String, bool>> newScheduleFilters = {};
       for (var game in allGames) {
@@ -305,14 +298,12 @@ class _AthleticDirectorHomeScreenState
 
       if (newScheduleFilters.isNotEmpty &&
           (scheduleFilters.isEmpty || _hasNewSchedules(newScheduleFilters))) {
-        debugPrint('Updating schedule filters with ${newScheduleFilters.length} sports');
         setState(() {
           scheduleFilters = newScheduleFilters;
         });
         await _saveFilters();
       }
     } catch (e) {
-      debugPrint('Error initializing schedule filters from database: $e');
       // Fallback to SharedPreferences approach if database fails
       await _initializeScheduleFiltersFromPrefs();
     }
@@ -320,7 +311,6 @@ class _AthleticDirectorHomeScreenState
 
   // Legacy fallback method for SharedPreferences (to be phased out)
   Future<void> _initializeScheduleFiltersFromPrefs() async {
-    debugPrint('Falling back to SharedPreferences for schedule filters');
     final prefs = await SharedPreferences.getInstance();
     final String? gamesJson = prefs.getString('ad_published_games');
     final String? unpublishedGamesJson =
@@ -393,7 +383,6 @@ class _AthleticDirectorHomeScreenState
         return game;
       }
     } catch (e) {
-      debugPrint('Error fetching game from database: $e');
       // Fallback to SharedPreferences if database fails
     }
     
@@ -1068,7 +1057,6 @@ class _AthleticDirectorHomeScreenState
             if (result == true || 
                 (result != null && result is Map<String, dynamic>) ||
                 (result != null && (result as Map<String, dynamic>)['refresh'] == true)) {
-              debugPrint('Refreshing games after game information screen update');
               await _fetchGames();
             }
           });

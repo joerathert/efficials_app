@@ -163,6 +163,7 @@ class _NewGameTemplateScreenState extends State<NewGameTemplateScreen> {
       'includeOfficialsList': includeOfficialsList,
       'method': method,
       'selectedOfficials': selectedOfficials?.map((name) => {'name': name}).toList(),
+      'selectedLists': method == 'advanced' ? widget.gameData['selectedLists'] : null,
       'includeSelectedOfficials': includeSelectedOfficials,
     };
 

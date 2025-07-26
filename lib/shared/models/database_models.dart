@@ -384,9 +384,6 @@ class Game {
        updatedAt = updatedAt ?? DateTime.now();
 
   Map<String, dynamic> toMap() {
-    // Debug logging to track null homeTeam values
-    if (homeTeam == null || homeTeam!.trim().isEmpty) {
-    }
     
     return {
       'id': id,
@@ -424,12 +421,7 @@ class Game {
       }
     }
     
-    // Enhanced debug logging to track homeTeam issue
     final homeTeamFromMap = map['home_team'];
-    print('🔍 Game.fromMap() DEBUG:');
-    print('   Game ID: ${map['id']}');
-    print('   Opponent: "${map['opponent']}"');
-    print('   All map keys: ${map.keys.toList()}');
 
     final game = Game(
       id: map['id']?.toInt(),
@@ -457,8 +449,6 @@ class Game {
       sportName: map['sport_name'],
       locationName: map['location_name'],
     );
-    
-    print('🔍 End Game.fromMap() DEBUG');
     
     return game;
   }
@@ -1745,6 +1735,119 @@ class CrewInvitation {
       inviterName: map['inviter_name'],
       sportName: map['sport_name'],
       levelOfCompetition: map['level_of_competition'],
+    );
+  }
+}
+
+// User Settings model for managing user preferences
+class UserSettings {
+  final int? id;
+  final int userId;
+  
+  // Notification preferences
+  final bool emailNotifications;
+  final bool pushNotifications;
+  final bool textNotifications;
+  final bool gameReminders;
+  final bool scheduleUpdates;
+  final bool assignmentAlerts;
+  final bool emergencyNotifications;
+  
+  // Privacy preferences
+  final bool shareProfile;
+  final bool showAvailability;
+  final bool allowContactFromOfficials;
+  
+  // App preferences
+  final bool defaultDarkMode;
+  final String notificationSound;
+  final bool vibrationEnabled;
+  final String dateFormat;
+  final String timeFormat;
+  final bool autoRefresh;
+  final int refreshInterval;
+  
+  final DateTime createdAt;
+  final DateTime updatedAt;
+
+  UserSettings({
+    this.id,
+    required this.userId,
+    this.emailNotifications = true,
+    this.pushNotifications = true,
+    this.textNotifications = false,
+    this.gameReminders = true,
+    this.scheduleUpdates = true,
+    this.assignmentAlerts = true,
+    this.emergencyNotifications = true,
+    this.shareProfile = true,
+    this.showAvailability = true,
+    this.allowContactFromOfficials = true,
+    this.defaultDarkMode = false,
+    this.notificationSound = 'default',
+    this.vibrationEnabled = true,
+    this.dateFormat = 'MM/dd/yyyy',
+    this.timeFormat = '12',
+    this.autoRefresh = true,
+    this.refreshInterval = 30,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) : createdAt = createdAt ?? DateTime.now(),
+       updatedAt = updatedAt ?? DateTime.now();
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'user_id': userId,
+      'email_notifications': emailNotifications ? 1 : 0,
+      'push_notifications': pushNotifications ? 1 : 0,
+      'text_notifications': textNotifications ? 1 : 0,
+      'game_reminders': gameReminders ? 1 : 0,
+      'schedule_updates': scheduleUpdates ? 1 : 0,
+      'assignment_alerts': assignmentAlerts ? 1 : 0,
+      'emergency_notifications': emergencyNotifications ? 1 : 0,
+      'share_profile': shareProfile ? 1 : 0,
+      'show_availability': showAvailability ? 1 : 0,
+      'allow_contact_from_officials': allowContactFromOfficials ? 1 : 0,
+      'default_dark_mode': defaultDarkMode ? 1 : 0,
+      'notification_sound': notificationSound,
+      'vibration_enabled': vibrationEnabled ? 1 : 0,
+      'date_format': dateFormat,
+      'time_format': timeFormat,
+      'auto_refresh': autoRefresh ? 1 : 0,
+      'refresh_interval': refreshInterval,
+      'created_at': createdAt.toIso8601String(),
+      'updated_at': updatedAt.toIso8601String(),
+    };
+  }
+
+  factory UserSettings.fromMap(Map<String, dynamic> map) {
+    return UserSettings(
+      id: map['id']?.toInt(),
+      userId: map['user_id']?.toInt() ?? 0,
+      emailNotifications: (map['email_notifications'] ?? 1) == 1,
+      pushNotifications: (map['push_notifications'] ?? 1) == 1,
+      textNotifications: (map['text_notifications'] ?? 0) == 1,
+      gameReminders: (map['game_reminders'] ?? 1) == 1,
+      scheduleUpdates: (map['schedule_updates'] ?? 1) == 1,
+      assignmentAlerts: (map['assignment_alerts'] ?? 1) == 1,
+      emergencyNotifications: (map['emergency_notifications'] ?? 1) == 1,
+      shareProfile: (map['share_profile'] ?? 1) == 1,
+      showAvailability: (map['show_availability'] ?? 1) == 1,
+      allowContactFromOfficials: (map['allow_contact_from_officials'] ?? 1) == 1,
+      defaultDarkMode: (map['default_dark_mode'] ?? 0) == 1,
+      notificationSound: map['notification_sound'] ?? 'default',
+      vibrationEnabled: (map['vibration_enabled'] ?? 1) == 1,
+      dateFormat: map['date_format'] ?? 'MM/dd/yyyy',
+      timeFormat: map['time_format'] ?? '12',
+      autoRefresh: (map['auto_refresh'] ?? 1) == 1,
+      refreshInterval: map['refresh_interval']?.toInt() ?? 30,
+      createdAt: map['created_at'] != null 
+          ? DateTime.parse(map['created_at']) 
+          : DateTime.now(),
+      updatedAt: map['updated_at'] != null 
+          ? DateTime.parse(map['updated_at']) 
+          : DateTime.now(),
     );
   }
 }
