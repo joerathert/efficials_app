@@ -37,6 +37,7 @@ import 'features/officials/edit_list_screen.dart';
 import 'features/officials/advanced_officials_selection_screen.dart';
 import 'features/officials/select_officials_screen.dart';
 import 'features/officials/official_game_details_screen.dart';
+import 'features/officials/available_game_details_screen.dart';
 import 'features/officials/official_profile_screen.dart';
 
 // Games screens
@@ -211,6 +212,7 @@ class EfficialsApp extends StatelessWidget {
         '/assigner_sport_defaults': (context) => const AssignerSportDefaultsScreen(),
         '/database_test': (context) => const DatabaseTestScreen(),
         '/official_game_details': (context) => const OfficialGameDetailsScreen(),
+        '/available_game_details': (context) => const AvailableGameDetailsScreen(),
         '/official_profile': (context) => const OfficialProfileScreen(),
         '/select_crew': (context) => const SelectCrewScreen(),
         '/filter_crews_settings': (context) => const FilterCrewsScreen(),

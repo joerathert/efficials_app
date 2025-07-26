@@ -18,6 +18,8 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
   bool isInitialized = false;
   String? sport;
   String? listName;
+  int? listId;
+  bool isEdit = false;
 
   @override
   void initState() {
@@ -35,6 +37,8 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
         
         sport = arguments['sport'] as String? ?? 'Football';
         listName = arguments['listName'] as String? ?? 'Unnamed List';
+        listId = arguments['listId'] as int?;
+        isEdit = arguments['isEdit'] as bool? ?? false;
         
         // Handle the selectedOfficials casting more safely
         final selectedOfficialsRaw = arguments['selectedOfficials'];
@@ -94,60 +98,108 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
       existingLists = List<Map<String, dynamic>>.from(jsonDecode(listsJson));
     }
 
-    final newList = {
-      'name': listName,
-      'sport': sport,
-      'officials': selectedOfficialsData,
-      'id': existingLists.isEmpty ? 1 : (existingLists
-          .map((list) => (list['id'] as int?) ?? 0)
-          .reduce((a, b) => a > b ? a : b) + 1),
-    };
+    if (isEdit && listId != null) {
+      // Update existing list
+      final updatedList = {
+        'name': listName,
+        'sport': sport,
+        'officials': selectedOfficialsData,
+        'id': listId,
+      };
 
-    // Check for duplicate names
-    if (existingLists.any((list) => list['name'] == listName)) {
+      // Find and update the existing list
+      final index = existingLists.indexWhere((list) => list['id'] == listId);
+      if (index != -1) {
+        // Check for duplicate names (excluding the current list)
+        if (existingLists.any((list) => list['name'] == listName && list['id'] != listId)) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text('A list with this name already exists!'),
+                backgroundColor: darkSurface,
+              ),
+            );
+          }
+          return;
+        }
+        existingLists[index] = updatedList;
+      } else {
+        existingLists.add(updatedList);
+      }
+
+      await prefs.setString('saved_lists', jsonEncode(existingLists));
+
       if (mounted) {
+        // Navigate back to the lists screen after updating
+        Navigator.popUntil(context, (route) {
+          return route.settings.name == '/lists_of_officials' || route.isFirst;
+        });
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('A list with this name already exists!'),
+            content: const Text('Your list was updated!'),
             backgroundColor: darkSurface,
+            duration: const Duration(seconds: 2),
           ),
         );
       }
-      return;
-    }
+    } else {
+      // Create new list
+      final newList = {
+        'name': listName,
+        'sport': sport,
+        'officials': selectedOfficialsData,
+        'id': existingLists.isEmpty ? 1 : (existingLists
+            .map((list) => (list['id'] as int?) ?? 0)
+            .reduce((a, b) => a > b ? a : b) + 1),
+      };
 
-    existingLists.add(newList);
-    await prefs.setString('saved_lists', jsonEncode(existingLists));
-
-    if (mounted) {
-      // Get the arguments to check if we're coming from game creation
-      final arguments = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
-      final fromGameCreation = arguments['fromGameCreation'] == true;
-      
-      if (fromGameCreation) {
-        // For game creation, just pop back with the list data
-        // This preserves the navigation stack so the green arrow works properly
-        Navigator.pop(context, {
-          'listName': listName,
-          'sport': sport,
-          'officials': selectedOfficialsData,
-        });
-      } else {
-        // Regular pop for non-game creation flows
-        Navigator.pop(context, {
-          'listName': listName,
-          'sport': sport,
-          'officials': selectedOfficialsData,
-        });
+      // Check for duplicate names
+      if (existingLists.any((list) => list['name'] == listName)) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('A list with this name already exists!'),
+              backgroundColor: darkSurface,
+            ),
+          );
+        }
+        return;
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Your list was created!'),
-          backgroundColor: darkSurface,
-          duration: const Duration(seconds: 2),
-        ),
-      );
+      existingLists.add(newList);
+      await prefs.setString('saved_lists', jsonEncode(existingLists));
+
+      if (mounted) {
+        // Get the arguments to check if we're coming from game creation
+        final arguments = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+        final fromGameCreation = arguments['fromGameCreation'] == true;
+        
+        if (fromGameCreation) {
+          // For game creation, just pop back with the list data
+          // This preserves the navigation stack so the green arrow works properly
+          Navigator.pop(context, {
+            'listName': listName,
+            'sport': sport,
+            'officials': selectedOfficialsData,
+          });
+        } else {
+          // Regular pop for non-game creation flows
+          Navigator.pop(context, {
+            'listName': listName,
+            'sport': sport,
+            'officials': selectedOfficialsData,
+          });
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Your list was created!'),
+            backgroundColor: darkSurface,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
     }
   }
 
@@ -336,7 +388,7 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
                       child: ElevatedButton(
                         onPressed: selectedCount > 0 ? _confirmList : null,
                         style: elevatedButtonStyle(),
-                        child: const Text('Save List', style: signInButtonTextStyle),
+                        child: Text(isEdit ? 'Update List' : 'Save List', style: signInButtonTextStyle),
                       ),
                     ),
                   ],

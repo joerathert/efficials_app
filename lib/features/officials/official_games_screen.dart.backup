@@ -315,54 +315,58 @@ class _OfficialGamesScreenState extends State<OfficialGamesScreen> {
     final dateString = gameDate != null ? _formatDate(gameDate) : 'TBD';
     final timeString = assignment.gameTime != null ? _formatTime(assignment.gameTime!) : 'TBD';
 
-    return GestureDetector(
-      onTap: () {
-        Navigator.pushNamed(
-          context,
-          '/available_game_details',
-          arguments: assignment,
-        );
-      },
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: darkSurface,
-          borderRadius: BorderRadius.circular(12),
-          border: Border(left: BorderSide(color: statusColor, width: 4)),
-        ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: darkSurface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border(left: BorderSide(color: statusColor, width: 4)),
+      ),
+      child: InkWell(
+        onTap: () {
+          print('Tapping on game card - Assignment ID: ${assignment.id}');
+          print('Navigation to /official_game_details');
+          Navigator.pushNamed(
+            context,
+            '/official_game_details',
+            arguments: assignment,
+          );
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    sportName,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: efficialsYellow,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: statusColor.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      assignment.status.toUpperCase(),
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        color: statusColor,
+                  Row(
+                    children: [
+                      Text(
+                        sportName,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: efficialsYellow,
+                        ),
                       ),
-                    ),
-                  ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: statusColor.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          assignment.status.toUpperCase(),
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: statusColor,
+                          ),
+                        ),
+                      ),
                 ],
               ),
               Text(
@@ -375,110 +379,112 @@ class _OfficialGamesScreenState extends State<OfficialGamesScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            _formatAssignmentTitle(assignment),
-            style: const TextStyle(
-              fontSize: 14,
-              color: Colors.white,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Row(
-            children: [
-              Icon(Icons.schedule, size: 14, color: Colors.grey[400]),
-              const SizedBox(width: 4),
+              const SizedBox(height: 8),
               Text(
-                '$dateString at $timeString',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[400],
+                _formatAssignmentTitle(assignment),
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: Colors.white,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Row(
-            children: [
-              Icon(Icons.location_on, size: 14, color: Colors.grey[400]),
-              const SizedBox(width: 4),
-              Expanded(
-                child: Text(
-                  locationName,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[400],
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Row(
-            children: [
-              Icon(Icons.person, size: 14, color: Colors.grey[400]),
-              const SizedBox(width: 4),
-              Text(
-                'Position: ${assignment.position ?? 'Official'}',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[400],
-                ),
-              ),
-            ],
-          ),
-          if (isUpcoming) ...[
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () {
-                      Navigator.pushNamed(
-                        context,
-                        '/available_game_details',
-                        arguments: assignment,
-                      );
-                    },
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: efficialsYellow,
-                      side: const BorderSide(color: efficialsYellow),
-                    ),
-                    child: const Text('View Details'),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () {
-                      // TODO: Navigate to game location
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: efficialsYellow,
-                      foregroundColor: efficialsBlack,
-                    ),
-                    child: const Text('Directions'),
-                  ),
-                ),
-                if (isConfirmed) ...[
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => _showBackOutDialog(assignment),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.red,
-                        side: const BorderSide(color: Colors.red),
-                      ),
-                      child: const Text('Back Out'),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Icon(Icons.schedule, size: 14, color: Colors.grey[400]),
+                  const SizedBox(width: 4),
+                  Text(
+                    '$dateString at $timeString',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[400],
                     ),
                   ),
                 ],
-              ],
-            ),
-          ],
-        ],
-      ),
+              ),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Icon(Icons.location_on, size: 14, color: Colors.grey[400]),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      locationName,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[400],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Icon(Icons.person, size: 14, color: Colors.grey[400]),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Position: ${assignment.position ?? 'Official'}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[400],
+                    ),
+                  ),
+                ],
+              ),
+              if (isUpcoming) ...[
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () {
+                          print('View Details button pressed - Assignment ID: ${assignment.id}');
+                          print('Navigation to /official_game_details');
+                          Navigator.pushNamed(
+                            context,
+                            '/official_game_details',
+                            arguments: assignment,
+                          );
+                        },
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: efficialsYellow,
+                          side: const BorderSide(color: efficialsYellow),
+                        ),
+                        child: const Text('View Details'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () {
+                          // TODO: Navigate to game location
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: efficialsYellow,
+                          foregroundColor: efficialsBlack,
+                        ),
+                        child: const Text('Directions'),
+                      ),
+                    ),
+                    if (isConfirmed) ...[
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => _showBackOutDialog(assignment),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.red,
+                            side: const BorderSide(color: Colors.red),
+                          ),
+                          child: const Text('Back Out'),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }

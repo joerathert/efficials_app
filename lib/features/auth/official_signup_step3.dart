@@ -53,22 +53,8 @@ class _OfficialSignUpStep3State extends State<OfficialSignUpStep3> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     previousData = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
-    
-    // Auto-add default sport for testing convenience
-    if (selectedSports.isEmpty) {
-      _addDefaultSport();
-    }
   }
 
-  void _addDefaultSport() {
-    setState(() {
-      selectedSports['Football'] = {
-        'certification': 'IHSA Registered',
-        'experience': 3,
-        'levels': ['Junior Varsity (16U-17U)', 'Varsity (17U-18U)'],
-      };
-    });
-  }
 
   void _addSport(String sport) {
     if (!selectedSports.containsKey(sport)) {
@@ -185,56 +171,49 @@ class _OfficialSignUpStep3State extends State<OfficialSignUpStep3> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.blue.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.blue.withOpacity(0.3)),
-                        ),
-                        child: const Row(
+                      const SizedBox(height: 16),
+                      if (selectedSports.isEmpty)
+                        Column(
                           children: [
-                            Icon(Icons.info_outline, color: Colors.blue, size: 16),
-                            SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'Football with IHSA Registration added by default. You can edit, remove, or add more sports.',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.blue,
+                            const Center(
+                              child: Padding(
+                                padding: EdgeInsets.all(32.0),
+                                child: Text(
+                                  'No sports selected yet.\nTap "Add Sport" to get started.',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.grey,
+                                  ),
+                                  textAlign: TextAlign.center,
                                 ),
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                            SizedBox(
+                              width: 200,
+                              child: ElevatedButton(
+                                onPressed: _handleContinue,
+                                style: elevatedButtonStyle(),
+                                child: const Text('Continue', style: signInButtonTextStyle),
+                              ),
+                            ),
+                          ],
+                        )
+                      else
+                        Column(
+                          children: [
+                            ...selectedSports.entries.map((entry) => _buildSportCard(entry.key, entry.value)),
+                            const SizedBox(height: 40),
+                            SizedBox(
+                              width: 200,
+                              child: ElevatedButton(
+                                onPressed: _handleContinue,
+                                style: elevatedButtonStyle(),
+                                child: const Text('Continue', style: signInButtonTextStyle),
                               ),
                             ),
                           ],
                         ),
-                      ),
-                      const SizedBox(height: 16),
-                      if (selectedSports.isEmpty)
-                        const Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(32.0),
-                            child: Text(
-                              'No sports selected yet.\nTap "Add Sport" to get started.',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: Colors.grey,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                        )
-                      else
-                        ...selectedSports.entries.map((entry) => _buildSportCard(entry.key, entry.value)),
-                      const SizedBox(height: 40),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: _handleContinue,
-                          style: elevatedButtonStyle(),
-                          child: const Text('Continue', style: signInButtonTextStyle),
-                        ),
-                      ),
                     ],
                   ),
                 ),

@@ -585,15 +585,43 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
   }
 
   Widget _buildAvailableGameCard(Map<String, dynamic> game) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: darkSurface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.blue.withOpacity(0.3)),
-      ),
-      child: Column(
+    return GestureDetector(
+      onTap: () {
+        // Create a basic GameAssignment with the available data
+        final Map<String, dynamic> assignmentMap = {
+          'id': game['id'],
+          'game_id': game['game_id'] ?? 0,
+          'official_id': 0, // Not relevant for available games
+          'status': 'available',
+          'assigned_by': 0, // Not relevant for available games
+          'assigned_at': DateTime.now().toIso8601String(),
+          'fee_amount': double.tryParse(game['game_fee']?.toString() ?? '0') ?? 0.0,
+          // Additional fields from the game data (use correct keys for fromMap)
+          'date': game['game_date'],
+          'time': game['game_time'],
+          'sport_name': game['sport_name'],
+          'opponent': game['opponent'],
+          'home_team': game['home_team'],
+          'location_name': game['location_name'],
+        };
+        
+        final gameAssignment = GameAssignment.fromMap(assignmentMap);
+        
+        Navigator.pushNamed(
+          context,
+          '/available_game_details',
+          arguments: gameAssignment,
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: darkSurface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.blue.withOpacity(0.3)),
+        ),
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
@@ -709,6 +737,7 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
             ],
           ),
         ],
+        ),
       ),
     );
   }

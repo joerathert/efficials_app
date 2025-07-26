@@ -3,16 +3,15 @@ import 'package:intl/intl.dart';
 import '../../shared/theme.dart';
 import '../../shared/models/database_models.dart';
 import '../../shared/services/repositories/game_assignment_repository.dart';
-import '../../shared/widgets/back_out_dialog.dart';
 
-class OfficialGameDetailsScreen extends StatefulWidget {
-  const OfficialGameDetailsScreen({super.key});
+class AvailableGameDetailsScreen extends StatefulWidget {
+  const AvailableGameDetailsScreen({super.key});
 
   @override
-  State<OfficialGameDetailsScreen> createState() => _OfficialGameDetailsScreenState();
+  State<AvailableGameDetailsScreen> createState() => _AvailableGameDetailsScreenState();
 }
 
-class _OfficialGameDetailsScreenState extends State<OfficialGameDetailsScreen> {
+class _AvailableGameDetailsScreenState extends State<AvailableGameDetailsScreen> {
   late GameAssignment assignment;
   List<Map<String, dynamic>> otherOfficials = [];
   Map<String, dynamic>? schedulerInfo;
@@ -24,8 +23,6 @@ class _OfficialGameDetailsScreenState extends State<OfficialGameDetailsScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     assignment = ModalRoute.of(context)!.settings.arguments as GameAssignment;
-    print('OfficialGameDetailsScreen loaded - Assignment ID: ${assignment.id}');
-    print('Assignment sport: ${assignment.sportName}');
     _loadGameDetails();
   }
 
@@ -33,22 +30,31 @@ class _OfficialGameDetailsScreenState extends State<OfficialGameDetailsScreen> {
     try {
       setState(() => _isLoading = true);
       
-      if (assignment.gameId != null) {
-        // Get other officials for this game
-        final officials = await _assignmentRepo.getConfirmedOfficialsForGame(assignment.gameId!);
-        
-        // Get scheduler information 
-        final scheduler = await _assignmentRepo.getSchedulerForGame(assignment.gameId!);
-        
-        setState(() {
-          otherOfficials = officials.where((official) => 
-            official['id'] != assignment.officialId
-          ).toList();
-          schedulerInfo = scheduler;
-        });
+      print('Loading game details for gameId: ${assignment.gameId}');
+      
+      if (assignment.gameId != null && assignment.gameId != 0) {
+        try {
+          // Get other officials who have already claimed this game
+          final officials = await _assignmentRepo.getConfirmedOfficialsForGame(assignment.gameId!);
+          print('Found ${officials.length} confirmed officials');
+          
+          // Get scheduler information 
+          final scheduler = await _assignmentRepo.getSchedulerForGame(assignment.gameId!);
+          print('Scheduler info: $scheduler');
+          
+          setState(() {
+            otherOfficials = officials;
+            schedulerInfo = scheduler;
+          });
+        } catch (e) {
+          print('Error loading game-specific details: $e');
+          // Continue without these details
+        }
+      } else {
+        print('No valid gameId available, skipping detailed load');
       }
     } catch (e) {
-      print('Error loading game details: $e');
+      print('Error loading available game details: $e');
     } finally {
       setState(() => _isLoading = false);
     }
@@ -105,6 +111,8 @@ class _OfficialGameDetailsScreenState extends State<OfficialGameDetailsScreen> {
           _buildOtherOfficials(),
           const SizedBox(height: 24),
           _buildSchedulerInfo(),
+          const SizedBox(height: 24),
+          _buildDistanceInfo(),
           const SizedBox(height: 24),
           _buildActionButtons(),
         ],
@@ -169,21 +177,6 @@ class _OfficialGameDetailsScreenState extends State<OfficialGameDetailsScreen> {
                       ),
                     ),
                   ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Colors.green.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  'CONFIRMED',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.green[300],
-                  ),
                 ),
               ),
             ],
@@ -279,7 +272,7 @@ class _OfficialGameDetailsScreenState extends State<OfficialGameDetailsScreen> {
               const Icon(Icons.people, color: efficialsYellow, size: 20),
               const SizedBox(width: 8),
               Text(
-                'Other Officials (${otherOfficials.length})',
+                'Officials Already Confirmed (${otherOfficials.length})',
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -291,7 +284,7 @@ class _OfficialGameDetailsScreenState extends State<OfficialGameDetailsScreen> {
           const SizedBox(height: 16),
           if (otherOfficials.isEmpty)
             Text(
-              'You are the only official assigned to this game.',
+              'No other officials have claimed this game yet.',
               style: TextStyle(
                 fontSize: 16,
                 color: Colors.grey[400],
@@ -306,12 +299,12 @@ class _OfficialGameDetailsScreenState extends State<OfficialGameDetailsScreen> {
                     width: 40,
                     height: 40,
                     decoration: BoxDecoration(
-                      color: efficialsYellow.withOpacity(0.2),
+                      color: Colors.green.withOpacity(0.2),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: const Icon(
-                      Icons.person,
-                      color: efficialsYellow,
+                      Icons.check_circle,
+                      color: Colors.green,
                       size: 20,
                     ),
                   ),
@@ -320,40 +313,12 @@ class _OfficialGameDetailsScreenState extends State<OfficialGameDetailsScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        GestureDetector(
-                          onTap: () {
-                            // Create a more complete profile data structure for the other official
-                            final officialId = official['id'] as int;
-                            final otherOfficialProfile = {
-                              'id': officialId,
-                              'name': official['name'],
-                              'email': '${official['name'].toLowerCase().replaceAll(' ', '.')}@email.com',
-                              'phone': '(555) ${(officialId * 123).toString().padLeft(7, '0').substring(0, 3)}-${(officialId * 456).toString().padLeft(4, '0')}',
-                              'location': 'Chicago, IL',
-                              'experienceYears': 5 + (officialId % 10),
-                              'primarySport': 'Football',
-                              'certificationLevel': 'IHSA Certified',
-                              'bio': 'Experienced official committed to fair play and sportsmanship.',
-                              'totalGames': 30 + (officialId % 50),
-                              'rating': 4.2 + ((officialId % 8) * 0.1),
-                              'joinedDate': DateTime(2022, (officialId % 12) + 1, (officialId % 28) + 1),
-                              'showCareerStats': (officialId % 2) == 0, // Some officials show stats, others don't
-                            };
-                            
-                            Navigator.pushNamed(
-                              context,
-                              '/official_profile',
-                              arguments: otherOfficialProfile,
-                            );
-                          },
-                          child: Text(
-                            official['name'] as String,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                              color: efficialsYellow,
-                              decoration: TextDecoration.underline,
-                            ),
+                        Text(
+                          official['name'] as String,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.white,
                           ),
                         ),
                         Text(
@@ -425,6 +390,38 @@ class _OfficialGameDetailsScreenState extends State<OfficialGameDetailsScreen> {
     );
   }
 
+  Widget _buildDistanceInfo() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: darkSurface,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.directions_car, color: efficialsYellow, size: 20),
+              const SizedBox(width: 8),
+              const Text(
+                'Distance from Home',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: efficialsYellow,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _buildDetailRow(Icons.home, 'Distance', '${_calculateDistance()} miles'),
+          const SizedBox(height: 12),
+        ],
+      ),
+    );
+  }
+
   Widget _buildContactRow(IconData icon, String label, String value) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -464,12 +461,29 @@ class _OfficialGameDetailsScreenState extends State<OfficialGameDetailsScreen> {
         SizedBox(
           width: double.infinity,
           child: ElevatedButton.icon(
-            onPressed: _getDirections,
-            icon: const Icon(Icons.directions, size: 20),
-            label: const Text('Get Directions'),
+            onPressed: _expressInterest,
+icon: null,
+            label: const Text('Express Interest'),
             style: ElevatedButton.styleFrom(
               backgroundColor: efficialsYellow,
               foregroundColor: Colors.black,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: _getDirections,
+            icon: const Icon(Icons.directions, size: 20),
+            label: const Text('Get Directions'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: efficialsYellow,
+              side: const BorderSide(color: efficialsYellow),
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -494,24 +508,17 @@ class _OfficialGameDetailsScreenState extends State<OfficialGameDetailsScreen> {
             ),
           ),
         ),
-        const SizedBox(height: 12),
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton.icon(
-            onPressed: _showBackOutDialog,
-            icon: const Icon(Icons.exit_to_app, size: 20),
-            label: const Text('Back Out of Game'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-          ),
-        ),
       ],
+    );
+  }
+
+  void _expressInterest() {
+    // TODO: Implement express interest functionality
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Interest expressed! The scheduler will be notified.'),
+        backgroundColor: Colors.green,
+      ),
     );
   }
 
@@ -533,47 +540,6 @@ class _OfficialGameDetailsScreenState extends State<OfficialGameDetailsScreen> {
         backgroundColor: Colors.orange,
       ),
     );
-  }
-
-  void _showBackOutDialog() {
-    final sportName = assignment.sportName ?? 'Sport';
-    final gameDate = assignment.gameDate;
-    final gameTime = assignment.gameTime;
-    final locationName = assignment.locationName ?? 'TBD';
-    
-    String gameTitle = _formatAssignmentTitle(assignment);
-    String dateString = gameDate != null 
-        ? DateFormat('EEEE, MMMM d, yyyy').format(gameDate) 
-        : 'TBD';
-    String timeString = gameTime != null 
-        ? DateFormat('h:mm a').format(gameTime) 
-        : 'TBD';
-    
-    final gameSummary = '$sportName: $gameTitle\n$dateString at $timeString\n$locationName';
-
-    showDialog<bool>(
-      context: context,
-      builder: (BuildContext context) {
-        return BackOutDialog(
-          gameSummary: gameSummary,
-          onConfirmBackOut: (String reason) => _handleBackOut(reason),
-        );
-      },
-    ).then((result) {
-      if (result == true) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Successfully backed out of game'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        Navigator.pop(context); // Go back to previous screen
-      }
-    });
-  }
-
-  Future<void> _handleBackOut(String reason) async {
-    await _assignmentRepo.backOutOfGame(assignment.id!, reason);
   }
 
   // Helper methods for sports
@@ -622,7 +588,6 @@ class _OfficialGameDetailsScreenState extends State<OfficialGameDetailsScreen> {
 
   String _getOfficialLocation(int officialId) {
     // Generate consistent city, state based on official ID
-    // This is placeholder data until proper location fields are added to the database
     final cities = [
       'Chicago, IL', 'Springfield, IL', 'Peoria, IL', 'Rockford, IL', 
       'Aurora, IL', 'Joliet, IL', 'Naperville, IL', 'Elgin, IL',
@@ -632,4 +597,12 @@ class _OfficialGameDetailsScreenState extends State<OfficialGameDetailsScreen> {
     
     return cities[officialId % cities.length];
   }
+
+  String _calculateDistance() {
+    // TODO: Implement actual distance calculation based on official's home address
+    // For now, return a placeholder based on assignment ID for consistent display
+    final distance = 15.0 + ((assignment.id ?? 0) % 20);
+    return distance.toStringAsFixed(1);
+  }
+
 }

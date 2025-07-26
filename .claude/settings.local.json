@@ -21,7 +21,11 @@
       "Bash(grep -r \"_gameRepository\\.createGame\\|GameRepository.*createGame\" /mnt/c/Users/Efficials/efficials_app/lib --include=\"*.dart\")",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(q)"
+      "Bash(q)",
+      "Bash(cp:*)",
+      "Bash(sed:*)",
+      "Bash(git checkout:*)",
+      "Bash(/home/efficials/bin/flutter run --hot)"
     ],
     "deny": []
   }
