@@ -47,17 +47,6 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
     setState(() {
       args = Map<String, dynamic>.from(newArgs);
       
-      // Debug logging to see what data we have
-      print('=== GAME INFORMATION DEBUG ===');
-      print('method: ${args['method']}');
-      print('selectedListName: ${args['selectedListName']}');
-      print('selectedLists: ${args['selectedLists']}');
-      print('selectedOfficials: ${args['selectedOfficials']}');
-      print('isAwayGame: ${args['isAwayGame']}');
-      print('sport: ${args['sport']}');
-      print('sportName: ${args['sportName']}');
-      print('All args keys: ${args.keys.toList()}');
-      print('==============================');
       sport = args['sport'] as String? ?? args['sportName'] as String? ?? 'Unknown';
       scheduleName = args['scheduleName'] as String? ?? 'Unnamed';
       location = args['location'] as String? ?? 'Not set';
@@ -156,7 +145,6 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
       // Only try to load from database if this looks like a database game ID
       // (small integer, not a large timestamp)
       if (databaseGameId != null && databaseGameId < 1000000000000) {
-        print('Loading interested officials for database game ID: $databaseGameId');
         final interestedOfficials = await _gameAssignmentRepo.getInterestedOfficialsForGame(databaseGameId);
         final confirmedOfficials = await _gameAssignmentRepo.getConfirmedOfficialsForGame(databaseGameId);
         
@@ -170,7 +158,6 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
           }
         });
       } else {
-        print('SharedPreferences game detected (ID: $gameId) - express interest not supported');
         // For SharedPreferences games, interested officials feature is not supported
         // as they use a different storage system
         setState(() {
@@ -208,7 +195,6 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
       
       // For database games, use the GameService
       if (databaseGameId != null && databaseGameId < 1000000000000) {
-        print('Deleting database game ID: $databaseGameId');
         final success = await _gameService.deleteGame(databaseGameId);
         
         if (success) {
@@ -233,7 +219,6 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
         }
       } else {
         // For SharedPreferences games, use the legacy approach
-        print('Deleting SharedPreferences game ID: $gameId');
         await _deleteSharedPreferencesGame(gameId);
       }
     } catch (e) {
@@ -434,7 +419,6 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
       
       // For database games, use the GameService
       if (databaseGameId != null && databaseGameId < 1000000000000) {
-        print('Updating officials hired count for database game ID: $databaseGameId');
         
         // Update the officials hired count in database
         final updateResult = await _gameService.updateOfficialsHired(databaseGameId, officialsHired);
@@ -445,9 +429,7 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
             final assignmentId = await _getAssignmentId(databaseGameId, officialId);
             if (assignmentId > 0) {
               await _gameAssignmentRepo.updateAssignmentStatus(assignmentId, 'accepted');
-              print('Updated assignment $assignmentId for official $officialId to accepted');
             } else {
-              print('ERROR: Could not find assignment for game $databaseGameId, official $officialId');
             }
           } catch (e) {
             print('ERROR updating assignment status for official $officialId: $e');
@@ -477,7 +459,6 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
         }
       } else {
         // For SharedPreferences games, use the legacy approach
-        print('Updating officials hired count for SharedPreferences game ID: $gameId');
         await _updateSharedPreferencesGame();
       }
     } catch (e) {
@@ -655,20 +636,14 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
       
       if (args['method'] == 'advanced' && selectedLists.isNotEmpty) {
         // For advanced method, get officials from the specific list in selectedLists
-        debugPrint('=== ADVANCED METHOD DEBUG ===');
-        debugPrint('Looking for list: $listName');
-        debugPrint('Available selectedLists: ${selectedLists.map((l) => l['name']).toList()}');
         
         final gameList = selectedLists.firstWhere(
           (list) => list['name'] == listName,
           orElse: () => <String, dynamic>{},
         );
         
-        debugPrint('Found gameList: ${gameList.keys.toList()}');
-        debugPrint('Officials in gameList: ${gameList['officials']}');
         
         gameSpecificOfficials = List<Map<String, dynamic>>.from(gameList['officials'] ?? []);
-        debugPrint('Game-specific officials count: ${gameSpecificOfficials.length}');
       } else if (args['method'] == 'use_list' && args['selectedListName'] == listName) {
         // For use_list method, all selected officials are from this list
         gameSpecificOfficials = selectedOfficials;
@@ -746,12 +721,6 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
   }
 
   Widget _buildSelectedOfficialsSection() {
-    print('Building Selected Officials Section:');
-    print('  isAwayGame: $isAwayGame');
-    print('  method: ${args['method']}');
-    print('  selectedListName: ${args['selectedListName']}');
-    print('  selectedLists length: ${selectedLists.length}');
-    print('  selectedOfficials length: ${selectedOfficials.length}');
     
     if (isAwayGame) {
       return const Text('No officials needed for away games.', style: TextStyle(fontSize: 16, color: Colors.grey));

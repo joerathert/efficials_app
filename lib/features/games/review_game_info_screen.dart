@@ -26,6 +26,7 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
   bool isUsingTemplate = false;
   bool isAssignerFlow = false;
   bool _isPublishing = false; // Add loading state to prevent duplicate submissions
+  bool _showButtonLoading = false; // Separate state for button loading indicators
   bool _hasInitialized = false; // Track if we've already initialized to prevent overwriting
   final GameService _gameService = GameService();
 
@@ -164,6 +165,7 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
     
     setState(() {
       _isPublishing = true;
+      _showButtonLoading = true;
     });
     
     try {
@@ -227,15 +229,17 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
     // Don't show template dialog if game was created using a template or is away game
     bool? shouldCreateTemplate = false;
     if (!isUsingTemplate && !isAwayGame) {
+      // Hide button loading before showing dialog
+      if (mounted) {
+        setState(() {
+          _showButtonLoading = false;
+        });
+      }
       shouldCreateTemplate = await _showCreateTemplateDialog();
     }
 
     if (shouldCreateTemplate == true && !isAwayGame) {
       if (mounted) {
-        // Debug: Check what data we're passing to template creation
-        print('DEBUG Review Game - gameData being passed to template:');
-        print('DEBUG Review Game - method: ${gameData['method']}');
-        print('DEBUG Review Game - selectedListName: ${gameData['selectedListName']}');
         
         // Prepare data for template creation (convert DateTime and TimeOfDay to strings)
         final templateData = Map<String, dynamic>.from(gameData);
@@ -247,13 +251,11 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
           templateData['time'] = '${time.hour}:${time.minute}';
         }
         
-        print('DEBUG Review Game - About to navigate to /new_game_template');
         Navigator.pushNamed(
           context,
           '/new_game_template',
           arguments: templateData,
         ).then((result) {
-          print('DEBUG Review Game - Returned from template creation with result: $result');
           if (result == true && mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
@@ -298,6 +300,7 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
       if (mounted) {
         setState(() {
           _isPublishing = false;
+          _showButtonLoading = false;
         });
       }
     }
@@ -309,6 +312,7 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
     
     setState(() {
       _isPublishing = true;
+      _showButtonLoading = true;
     });
     
     try {
@@ -377,6 +381,12 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
     // Don't show template dialog if game was created using a template or is away game
     bool? shouldCreateTemplate = false;
     if (!isUsingTemplate && !isAwayGame) {
+      // Hide button loading before showing dialog
+      if (mounted) {
+        setState(() {
+          _showButtonLoading = false;
+        });
+      }
       shouldCreateTemplate = await _showCreateTemplateDialog();
     }
 
@@ -431,6 +441,7 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
       if (mounted) {
         setState(() {
           _isPublishing = false;
+          _showButtonLoading = false;
         });
       }
     }
@@ -729,19 +740,12 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
                             }).then((result) {
                           if (result != null &&
                               result is Map<String, dynamic>) {
-                            print('DEBUG Review Game - Edit navigation returned with result:');
-                            print('  method: ${result['method']}');
-                            print('  selectedListName: ${result['selectedListName']}');
-                            print('  selectedOfficials count: ${(result['selectedOfficials'] as List?)?.length ?? 0}');
                             
                             setState(() {
                               args = result;
                               fromScheduleDetails =
                                   result['fromScheduleDetails'] == true;
                               scheduleId = result['scheduleId'] as int?;
-                              print('DEBUG Review Game - Updated args in setState:');
-                              print('  args[method]: ${args['method']}');
-                              print('  args[selectedListName]: ${args['selectedListName']}');
                             });
                           }
                         }),
@@ -862,7 +866,7 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
                 ElevatedButton(
                   onPressed: _isPublishing ? null : _publishGame,
                   style: elevatedButtonStyle(),
-                  child: _isPublishing 
+                  child: _showButtonLoading 
                       ? const SizedBox(
                           width: 20,
                           height: 20,
@@ -877,7 +881,7 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
                 ElevatedButton(
                   onPressed: _isPublishing ? null : _publishLater,
                   style: elevatedButtonStyle(),
-                  child: _isPublishing 
+                  child: _showButtonLoading 
                       ? const SizedBox(
                           width: 20,
                           height: 20,

@@ -1139,17 +1139,22 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                               items: const [
                                 DropdownMenuItem(
                                   value: 'standard',
-                                  child: Text('Standard Selection',
-                                      style: TextStyle(color: Colors.white)),
-                                ),
-                                DropdownMenuItem(
-                                  value: 'use_list',
-                                  child: Text('Use Saved List',
+                                  child: Text('Manual Selection',
                                       style: TextStyle(color: Colors.white)),
                                 ),
                                 DropdownMenuItem(
                                   value: 'advanced',
-                                  child: Text('Advanced Selection',
+                                  child: Text('Multiple Lists',
+                                      style: TextStyle(color: Colors.white)),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'use_list',
+                                  child: Text('Single List',
+                                      style: TextStyle(color: Colors.white)),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'hire_crew',
+                                  child: Text('Hire a Crew',
                                       style: TextStyle(color: Colors.white)),
                                 ),
                               ],
@@ -1221,6 +1226,27 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                                   ),
                                 )),
                               ],
+                            ] else if (method == 'hire_crew') ...[
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Row(
+                                  children: [
+                                    Icon(Icons.group, color: efficialsYellow),
+                                    SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        'A crew will be hired when using this template',
+                                        style: TextStyle(
+                                            fontSize: 14, color: Colors.white),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ] else if (method == 'standard') ...[
                               Container(
                                 padding: const EdgeInsets.all(12),

@@ -209,14 +209,9 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen> with RouteAwa
     final prefs = await SharedPreferences.getInstance();
     final currentSchedulerType = prefs.getString('schedulerType');
     
-    print('DEBUG GameTemplates - _useTemplate called');
-    print('DEBUG GameTemplates - Platform: ${Platform.operatingSystem}');
-    print('DEBUG GameTemplates - schedulerType: $currentSchedulerType');
-    print('DEBUG GameTemplates - template: ${template.name}');
     
     // For Coaches: Skip schedule selection and use their team name
     if (currentSchedulerType == 'Coach') {
-      print('DEBUG GameTemplates - Following Coach path');
       final teamName = prefs.getString('team_name');
       if (teamName != null) {
         Navigator.pushNamed(
@@ -234,8 +229,6 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen> with RouteAwa
     
     // For Athletic Directors and Assigners: Navigate to schedule selection
     // They need to select a schedule first before creating the game
-    print('DEBUG GameTemplates - Following AD/Assigner path to /select_schedule');
-    print('DEBUG GameTemplates - Navigating with args: sport=${template.sport}, template=${template.name}');
     Navigator.pushNamed(
       context,
       '/select_schedule',

@@ -585,6 +585,8 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                             shape: BoxShape.rectangle,
                             borderRadius: BorderRadius.circular(4),
                           ),
+                          selectedTextStyle: const TextStyle(
+                              fontSize: 16, color: Colors.black),
                           defaultTextStyle: const TextStyle(
                               fontSize: 16, color: Colors.white),
                           weekendTextStyle: const TextStyle(
@@ -632,6 +634,11 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                                 day.month == _selectedDay!.month &&
                                 day.day == _selectedDay!.day;
 
+                            // If the day is selected, return null to let the built-in selectedDecoration handle it
+                            if (isSelected) {
+                              return null;
+                            }
+
                             Color? backgroundColor;
                             Color textColor =
                                 isOutsideMonth ? Colors.grey : Colors.white;
@@ -671,6 +678,11 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                                 backgroundColor = Colors.green;
                                 textColor = Colors.white;
                               }
+                            }
+
+                            // Override text color to black when day is selected
+                            if (isSelected) {
+                              textColor = Colors.black;
                             }
 
                             return GestureDetector(
@@ -910,9 +922,6 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
               final sportToUse = sport ?? (games.isNotEmpty
                   ? games.first['sport'] as String? ?? 'Unknown'
                   : 'Unknown');
-              print('DEBUG ScheduleDetails - Navigating with sport: $sportToUse');
-              print('DEBUG ScheduleDetails - Schedule sport: $sport');
-              print('DEBUG ScheduleDetails - Schedule name: $scheduleName');
               Navigator.pushNamed(
                 context,
                 '/select_game_template',
@@ -947,14 +956,23 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
 
                     // Navigate to the game creation flow with the template (if any)
                     if (mounted) {
+                      // Check if we can skip date_time_screen
+                      bool canSkipDateTime = template != null && 
+                                           template!.includeTime && 
+                                           template!.time != null && 
+                                           _selectedDay != null;
+                      
+                      String nextRoute = canSkipDateTime ? '/choose_location' : '/date_time';
+                      
                       // ignore: use_build_context_synchronously
                       Navigator.pushNamed(
                         context,
-                        '/date_time',
+                        nextRoute,
                         arguments: {
                           'scheduleName': scheduleName,
                           'scheduleId': scheduleId,
                           'date': _selectedDay,
+                          'time': canSkipDateTime ? template!.time : null,
                           'fromScheduleDetails': true,
                           'sport': sport ?? _inferSportFromScheduleName(scheduleName ?? '') ?? 'Football',
                           'template': template, // Pass the associated template

@@ -637,30 +637,9 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                                               bottom: 12.0),
                                           child: GestureDetector(
                                             onTap: () {
-                                              // If there's only one schedule in the group, navigate directly to it
-                                              if (schedules.length == 1) {
-                                                final schedule = schedules.first;
-                                                final scheduleName = schedule['scheduleName'] as String? ?? 'Unknown';
-                                                final scheduleId = schedule['scheduleId'] as int? ?? scheduleName.hashCode;
-                                                Navigator.pushNamed(
-                                                  context,
-                                                  '/schedule_details',
-                                                  arguments: {
-                                                    'scheduleName':
-                                                        scheduleName,
-                                                    'scheduleId':
-                                                        scheduleId,
-                                                  },
-                                                ).then((result) {
-                                                  if (result == true) {
-                                                    _loadSchedules();
-                                                  }
-                                                });
-                                              } else {
-                                                // Show selection dialog for multiple schedules
-                                                _showScheduleSelectionDialog(
-                                                    groupName, schedules);
-                                              }
+                                              // Always show selection dialog regardless of schedule count
+                                              _showScheduleSelectionDialog(
+                                                  groupName, schedules);
                                             },
                                             child: Container(
                                               padding: const EdgeInsets.all(16),

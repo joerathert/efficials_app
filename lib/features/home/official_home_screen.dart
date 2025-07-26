@@ -107,11 +107,6 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
         _currentOfficial!.id!
       );
       
-      // Debug: Check what sports are being returned
-      print('DEBUG: Available games loaded: ${available.length}');
-      for (var game in available.take(3)) {
-        print('DEBUG: Game sport_name: ${game['sport_name']}, opponent: ${game['opponent']}');
-      }
       
       // Transform the data to include scheduler field
       final transformedAvailable = available.map((game) {
@@ -1450,7 +1445,6 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
             ),
             ElevatedButton(
               onPressed: () {
-                print('DEBUG: Express Interest button pressed');
                 Navigator.pop(context);
                 _expressInterest(game);
               },
@@ -1535,7 +1529,6 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
             ),
             ElevatedButton(
               onPressed: () {
-                print('DEBUG: Claim Game button pressed');
                 Navigator.pop(context);
                 _claimGame(game);
               },
@@ -1577,10 +1570,6 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
     final officialId = _currentOfficial!.id!;
     final feeAmount = _parseDoubleFromString(game['game_fee']);
     
-    print('DEBUG: Express Interest called for game: $game');
-    print('DEBUG: Game ID: $gameId, Official ID: $officialId');
-    print('DEBUG: Available games before: ${availableGames.length}');
-    print('DEBUG: Pending games before: ${pendingGames.length}');
     
     // Immediately update the UI state for responsive UX
     setState(() {
@@ -1590,7 +1579,6 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
         availableGame['id'] == game['id'] || 
         (availableGame['game_id'] == game['game_id'] && game['game_id'] != null)
       );
-      print('DEBUG: Removed ${removedCount - availableGames.length} games from available');
       
       // Create a GameAssignment object for pending list using fromMap
       final pendingAssignmentMap = {
@@ -1614,8 +1602,6 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
       // Add to pending games
       pendingGames.add(pendingAssignment);
       
-      print('DEBUG: Available games after: ${availableGames.length}');
-      print('DEBUG: Pending games after: ${pendingGames.length}');
     });
     
     // Show immediate feedback
@@ -1663,10 +1649,6 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
     final officialId = _currentOfficial!.id!;
     final feeAmount = _parseDoubleFromString(game['game_fee']);
     
-    print('DEBUG: Claim Game called for game: $game');
-    print('DEBUG: Game ID: $gameId, Official ID: $officialId');
-    print('DEBUG: Available games before: ${availableGames.length}');
-    print('DEBUG: Accepted games before: ${acceptedGames.length}');
     
     // Immediately update the UI state for responsive UX
     setState(() {
@@ -1676,7 +1658,6 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
         availableGame['id'] == game['id'] || 
         (availableGame['game_id'] == game['game_id'] && game['game_id'] != null)
       );
-      print('DEBUG: Removed ${removedCount - availableGames.length} games from available');
       
       // Create a GameAssignment object for accepted list using fromMap
       final acceptedAssignmentMap = {
@@ -1724,8 +1705,6 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
         return aTime.compareTo(bTime);
       });
       
-      print('DEBUG: Available games after: ${availableGames.length}');
-      print('DEBUG: Accepted games after: ${acceptedGames.length}');
     });
     
     // Show immediate feedback

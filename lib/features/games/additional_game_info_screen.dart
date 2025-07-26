@@ -215,11 +215,9 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
     
     // Return the selectedLists directly from the template if available
     if (template!.selectedLists != null && template!.selectedLists!.isNotEmpty) {
-      debugPrint('Loading ${template!.selectedLists!.length} selected lists from template');
       return List<Map<String, dynamic>>.from(template!.selectedLists!);
     }
     
-    debugPrint('Template has advanced method but no selectedLists data');
     return [];
   }
 
@@ -233,7 +231,6 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
       final String? listsJson = prefs.getString('saved_lists');
       
       if (listsJson == null || listsJson.isEmpty) {
-        debugPrint('No saved lists found in SharedPreferences');
         return [];
       }
       
@@ -247,16 +244,13 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
             final officialsList = officials
                 .map((official) => Map<String, dynamic>.from(official as Map))
                 .toList();
-            debugPrint('Loaded ${officialsList.length} officials from template list "${template!.officialsListName}"');
             return officialsList;
           }
         }
       }
       
-      debugPrint('Template list "${template!.officialsListName}" not found in saved lists');
       return [];
     } catch (e) {
-      debugPrint('Error loading template list officials: $e');
       return [];
     }
   }
@@ -346,26 +340,21 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
       } else {
         // Check if template has a specific method for officials selection
         if (template?.method != null) {
-          debugPrint('Template method: ${template!.method}');
           switch (template!.method) {
             case 'advanced':
               nextRoute = '/advanced_officials_selection';
-              debugPrint('Routing to Advanced Officials Selection with ${updatedArgs['selectedLists']?.length ?? 0} lists');
               break;
             case 'use_list':
               // If template has a pre-selected list, skip the list selection screen
               if (template!.officialsListName != null && template!.officialsListName!.isNotEmpty) {
                 nextRoute = '/review_game_info';
-                debugPrint('Template has pre-selected list "${template!.officialsListName}", skipping list selection');
               } else {
                 nextRoute = '/lists_of_officials';
-                debugPrint('Routing to Lists of Officials (no pre-selected list)');
               }
               break;
             case 'standard':
             default:
               nextRoute = '/select_officials';
-              debugPrint('Routing to Standard Select Officials');
               break;
           }
         } else {

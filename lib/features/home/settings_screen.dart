@@ -317,12 +317,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         value: defaultMethod,
                         items: const [
                           DropdownMenuItem(
-                            value: 'use_list',
-                            child: Text('Use List'),
+                            value: 'standard',
+                            child: Text('Manual Selection'),
                           ),
                           DropdownMenuItem(
-                            value: 'manual',
-                            child: Text('Manual Selection'),
+                            value: 'advanced',
+                            child: Text('Multiple Lists'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'use_list',
+                            child: Text('Single List'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'hire_crew',
+                            child: Text('Hire a Crew'),
                           ),
                         ],
                         onChanged: (value) {

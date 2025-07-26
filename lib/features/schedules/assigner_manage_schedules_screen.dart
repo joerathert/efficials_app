@@ -42,11 +42,9 @@ class _AssignerManageSchedulesScreenState
     if (args != null) {
       if (args['selectedTeam'] != null && _teamToRestore == null) {
         _teamToRestore = args['selectedTeam'] as String;
-        print('DEBUG: Setting team to restore: $_teamToRestore');
       }
       if (args['focusDate'] != null && _dateToFocus == null) {
         _dateToFocus = args['focusDate'] as DateTime;
-        print('DEBUG: Setting date to focus: $_dateToFocus');
       }
     }
   }
@@ -70,10 +68,7 @@ class _AssignerManageSchedulesScreenState
 
     // Check if we need to restore team selection after loading teams
     if (_teamToRestore != null) {
-      print('DEBUG: Trying to restore team: $_teamToRestore');
-      print('DEBUG: Available teams: $teams');
       if (teams.contains(_teamToRestore)) {
-        print('DEBUG: Team found, setting selectedTeam');
         setState(() {
           selectedTeam = _teamToRestore;
         });
@@ -81,7 +76,6 @@ class _AssignerManageSchedulesScreenState
         await _loadAssociatedTemplate();
         _teamToRestore = null; // Clear after restoration
       } else {
-        print('DEBUG: Team not found in teams list');
       }
     }
 
