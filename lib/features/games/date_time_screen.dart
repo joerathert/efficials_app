@@ -360,55 +360,56 @@ class _DateTimeScreenState extends State<DateTimeScreen>
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: ElevatedButton(
-                      onPressed:
-                          (_selectedDate != null && _selectedTime != null && _isValidDateTime())
-                              ? () {
-                                  final args = ModalRoute.of(context)!
-                                      .settings
-                                      .arguments as Map<String, dynamic>?;
-                                  final updatedArgs = {
-                                    ...?args,
-                                    'date': _selectedDate,
-                                    'time': _selectedTime,
-                                    'template': template,
-                                    'scheduleName': scheduleName,
-                                  };
+                      onPressed: (_selectedDate != null && _selectedTime != null)
+                          ? () {
+                              final args = ModalRoute.of(context)!
+                                  .settings
+                                  .arguments as Map<String, dynamic>?;
+                              final updatedArgs = {
+                                ...?args,
+                                'date': _selectedDate,
+                                'time': _selectedTime,
+                                'template': template,
+                                'scheduleName': scheduleName,
+                              };
 
-                                  if (_isFromEdit) {
-                                    Navigator.pushReplacementNamed(
-                                      context,
-                                      '/review_game_info',
-                                      arguments: {
-                                        ...updatedArgs,
-                                        'isEdit': true,
-                                        'isFromGameInfo': _isFromGameInfo,
-                                      },
-                                    );
-                                  } else {
-                                    Navigator.pushNamed(
-                                      context,
-                                      '/choose_location',
-                                      arguments: updatedArgs,
-                                    );
-                                  }
-                                }
-                              : null,
-                      style: elevatedButtonStyle(
+                              if (_isFromEdit) {
+                                Navigator.pushReplacementNamed(
+                                  context,
+                                  '/review_game_info',
+                                  arguments: {
+                                    ...updatedArgs,
+                                    'isEdit': true,
+                                    'isFromGameInfo': _isFromGameInfo,
+                                  },
+                                );
+                              } else {
+                                Navigator.pushNamed(
+                                  context,
+                                  '/choose_location',
+                                  arguments: updatedArgs,
+                                );
+                              }
+                            }
+                          : null,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: (_selectedDate != null && _selectedTime != null)
+                            ? efficialsYellow
+                            : Colors.grey.shade600,
+                        foregroundColor: (_selectedDate != null && _selectedTime != null)
+                            ? efficialsBlack
+                            : Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 2,
                       ),
-                      child: Text(
-                        (_selectedDate == null || _selectedTime == null) 
-                            ? 'Select Date & Time to Continue'
-                            : !_isValidDateTime()
-                                ? 'Select Future Date & Time'
-                                : 'Continue',
+                      child: const Text(
+                        'Continue',
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w600,
-                          color:
-                              (_selectedDate != null && _selectedTime != null && _isValidDateTime())
-                                  ? efficialsBlack
-                                  : efficialsBlack.withOpacity(0.5),
                         ),
                       ),
                     ),
