@@ -29,7 +29,7 @@ class _ScheduleFilterScreenState extends State<ScheduleFilterScreen> {
   @override
   void initState() {
     super.initState();
-    scheduleFilters = _separateGenderSports(widget.scheduleFilters);
+    scheduleFilters = widget.scheduleFilters;
     showAwayGames = widget.showAwayGames;
     showFullyCoveredGames = widget.showFullyCoveredGames;
     for (var sport in scheduleFilters.keys) {
@@ -37,40 +37,6 @@ class _ScheduleFilterScreenState extends State<ScheduleFilterScreen> {
     }
   }
 
-  Map<String, Map<String, bool>> _separateGenderSports(
-      Map<String, Map<String, bool>> originalFilters) {
-    final Map<String, Map<String, bool>> newFilters = {};
-
-    originalFilters.forEach((sport, schedules) {
-      if (sport.toLowerCase() == 'basketball') {
-        final Map<String, bool> boysSchedules = {};
-        final Map<String, bool> girlsSchedules = {};
-
-        schedules.forEach((schedule, value) {
-          if (schedule.toLowerCase().contains('boys')) {
-            boysSchedules[schedule] = value;
-          } else if (schedule.toLowerCase().contains('girls')) {
-            girlsSchedules[schedule] = value;
-          } else {
-            // If no gender specified, add to both
-            boysSchedules[schedule] = value;
-            girlsSchedules[schedule] = value;
-          }
-        });
-
-        if (boysSchedules.isNotEmpty) {
-          newFilters['Boys Basketball'] = boysSchedules;
-        }
-        if (girlsSchedules.isNotEmpty) {
-          newFilters['Girls Basketball'] = girlsSchedules;
-        }
-      } else {
-        newFilters[sport] = schedules;
-      }
-    });
-
-    return newFilters;
-  }
 
   bool _areAllSchedulesSelected(String sport) {
     return scheduleFilters[sport]!.values.every((selected) => selected);

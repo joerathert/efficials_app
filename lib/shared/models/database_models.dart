@@ -412,12 +412,17 @@ class Game {
   factory Game.fromMap(Map<String, dynamic> map) {
     TimeOfDay? gameTime;
     if (map['time'] != null) {
-      final timeParts = ((map['time'] as String?) ?? '0:0').split(':');
-      if (timeParts.length == 2) {
-        gameTime = TimeOfDay(
-          hour: int.parse(timeParts[0]),
-          minute: int.parse(timeParts[1]),
-        );
+      // Handle different types that might come from time field
+      if (map['time'] is TimeOfDay) {
+        gameTime = map['time'] as TimeOfDay;
+      } else if (map['time'] is String) {
+        final timeParts = (map['time'] as String).split(':');
+        if (timeParts.length == 2) {
+          gameTime = TimeOfDay(
+            hour: int.parse(timeParts[0]),
+            minute: int.parse(timeParts[1]),
+          );
+        }
       }
     }
     
@@ -1949,6 +1954,35 @@ class Notification {
     );
   }
 
+  static Notification createCrewBackoutNotification({
+    required int schedulerId,
+    required String crewName,
+    required String gameSport,
+    required String gameOpponent,
+    required DateTime gameDate,
+    required String gameTime,
+    required String reason,
+    required Map<String, dynamic> crewData,
+    Map<String, dynamic>? additionalData,
+  }) {
+    return Notification(
+      recipientId: schedulerId,
+      type: 'crew_backout',
+      title: 'Crew Backed Out',
+      message: '$crewName backed out of $gameSport game ($gameOpponent) on ${gameDate.toString().split(' ')[0]} at $gameTime. Reason: $reason',
+      data: {
+        'crew_name': crewName,
+        'game_sport': gameSport,
+        'game_opponent': gameOpponent,
+        'game_date': gameDate.toIso8601String(),
+        'game_time': gameTime,
+        'reason': reason,
+        'crew_data': crewData,
+        ...?additionalData,
+      },
+    );
+  }
+
   static Notification createGameFillingNotification({
     required int schedulerId,
     required String gameSport,
@@ -2043,6 +2077,10 @@ class NotificationSettings {
   // Backout notifications (always enabled for schedulers)
   final bool backoutNotificationsEnabled;
   
+  // Communication preferences
+  final bool emailEnabled;
+  final bool smsEnabled;
+  
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -2054,6 +2092,8 @@ class NotificationSettings {
     this.officialInterestNotificationsEnabled = false,
     this.officialClaimNotificationsEnabled = false,
     this.backoutNotificationsEnabled = true,
+    this.emailEnabled = false,
+    this.smsEnabled = false,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) : createdAt = createdAt ?? DateTime.now(),
@@ -2068,6 +2108,8 @@ class NotificationSettings {
       'official_interest_notifications_enabled': officialInterestNotificationsEnabled ? 1 : 0,
       'official_claim_notifications_enabled': officialClaimNotificationsEnabled ? 1 : 0,
       'backout_notifications_enabled': backoutNotificationsEnabled ? 1 : 0,
+      'email_enabled': emailEnabled ? 1 : 0,
+      'sms_enabled': smsEnabled ? 1 : 0,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };
@@ -2084,6 +2126,8 @@ class NotificationSettings {
       officialInterestNotificationsEnabled: (map['official_interest_notifications_enabled'] ?? 0) == 1,
       officialClaimNotificationsEnabled: (map['official_claim_notifications_enabled'] ?? 0) == 1,
       backoutNotificationsEnabled: (map['backout_notifications_enabled'] ?? 1) == 1,
+      emailEnabled: (map['email_enabled'] ?? 0) == 1,
+      smsEnabled: (map['sms_enabled'] ?? 0) == 1,
       createdAt: DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
       updatedAt: DateTime.parse(map['updated_at'] ?? DateTime.now().toIso8601String()),
     );
@@ -2097,6 +2141,8 @@ class NotificationSettings {
     bool? officialInterestNotificationsEnabled,
     bool? officialClaimNotificationsEnabled,
     bool? backoutNotificationsEnabled,
+    bool? emailEnabled,
+    bool? smsEnabled,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -2108,6 +2154,61 @@ class NotificationSettings {
       officialInterestNotificationsEnabled: officialInterestNotificationsEnabled ?? this.officialInterestNotificationsEnabled,
       officialClaimNotificationsEnabled: officialClaimNotificationsEnabled ?? this.officialClaimNotificationsEnabled,
       backoutNotificationsEnabled: backoutNotificationsEnabled ?? this.backoutNotificationsEnabled,
+      emailEnabled: emailEnabled ?? this.emailEnabled,
+      smsEnabled: smsEnabled ?? this.smsEnabled,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+}
+
+// Team model
+class Team {
+  final int? id;
+  final String name;
+  final int userId;
+  final DateTime createdAt;
+  final DateTime? updatedAt;
+
+  Team({
+    this.id,
+    required this.name,
+    required this.userId,
+    DateTime? createdAt,
+    this.updatedAt,
+  }) : createdAt = createdAt ?? DateTime.now();
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'name': name,
+      'user_id': userId,
+      'created_at': createdAt.toIso8601String(),
+      'updated_at': updatedAt?.toIso8601String(),
+    };
+  }
+
+  factory Team.fromMap(Map<String, dynamic> map) {
+    return Team(
+      id: map['id'],
+      name: map['name'],
+      userId: map['user_id'],
+      createdAt: DateTime.parse(map['created_at']),
+      updatedAt: map['updated_at'] != null ? DateTime.parse(map['updated_at']) : null,
+    );
+  }
+
+  Team copyWith({
+    int? id,
+    String? name,
+    int? userId,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) {
+    return Team(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      userId: userId ?? this.userId,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

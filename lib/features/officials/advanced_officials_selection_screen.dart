@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../shared/theme.dart';
 import '../../shared/services/game_service.dart';
+import '../../shared/services/repositories/list_repository.dart';
+import '../../shared/services/repositories/official_repository.dart';
 
 class AdvancedOfficialsSelectionScreen extends StatefulWidget {
   const AdvancedOfficialsSelectionScreen({super.key});
@@ -16,10 +18,17 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
   List<Map<String, dynamic>> selectedLists = [];
   bool isLoading = true;
   int totalRequiredOfficials = 0;
+  
+  late final ListRepository listRepo;
+  late final OfficialRepository officialRepo;
+  late final GameService gameService;
 
   @override
   void initState() {
     super.initState();
+    listRepo = ListRepository();
+    officialRepo = OfficialRepository();
+    gameService = GameService();
     lists = [
       {'name': 'No saved lists', 'id': -1},
     ];
@@ -67,31 +76,40 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
   }
 
   Future<void> _fetchLists() async {
-    final prefs = await SharedPreferences.getInstance();
-    final String? listsJson = prefs.getString('saved_lists');
-    setState(() {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final String? listsJson = prefs.getString('saved_lists');
+      
+      List<Map<String, dynamic>> allLists = [];
       if (listsJson != null && listsJson.isNotEmpty) {
-        try {
-          lists = List<Map<String, dynamic>>.from(jsonDecode(listsJson));
-        } catch (e) {
-          lists = [];
+        allLists = List<Map<String, dynamic>>.from(jsonDecode(listsJson));
+      }
+      
+      // Filter lists by current sport
+      final currentSport = _routeArgs?['sport'] as String? ?? 'Baseball';
+      final filteredLists = allLists.where((list) => list['sport'] == currentSport).toList();
+      
+      setState(() {
+        lists = filteredLists.isNotEmpty ? filteredLists : [{'name': 'No saved lists', 'id': -1}];
+        isLoading = false;
+      });
+      
+      // After lists are loaded, check if we need to restore selected lists
+      if (_routeArgs != null) {
+        final isEdit = _routeArgs!['isEdit'] as bool? ?? false;
+        if (isEdit && _routeArgs!['selectedLists'] != null) {
+          final existingLists = _routeArgs!['selectedLists'] as List<dynamic>;
+          if (existingLists.isNotEmpty) {
+            _restoreSelectedLists(existingLists);
+          }
         }
       }
-      if (lists.isEmpty) {
-        lists.add({'name': 'No saved lists', 'id': -1});
-      }
-      isLoading = false;
-    });
-    
-    // After lists are loaded, check if we need to restore selected lists
-    if (_routeArgs != null) {
-      final isEdit = _routeArgs!['isEdit'] as bool? ?? false;
-      if (isEdit && _routeArgs!['selectedLists'] != null) {
-        final existingLists = _routeArgs!['selectedLists'] as List<dynamic>;
-        if (existingLists.isNotEmpty) {
-          _restoreSelectedLists(existingLists);
-        }
-      }
+    } catch (e) {
+      setState(() {
+        lists = [{'name': 'No saved lists', 'id': -1}];
+        isLoading = false;
+      });
+      debugPrint('Error fetching lists: $e');
     }
   }
 
@@ -112,37 +130,38 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
     });
   }
 
-  Future<void> _saveUpdatedListToPreferences(String listName, List<Map<String, dynamic>> updatedOfficials) async {
+  Future<void> _saveUpdatedListToSharedPreferences(String listName, List<Map<String, dynamic>> updatedOfficials) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final String? listsJson = prefs.getString('saved_lists');
       
+      List<Map<String, dynamic>> allLists = [];
       if (listsJson != null && listsJson.isNotEmpty) {
-        List<Map<String, dynamic>> savedLists = List<Map<String, dynamic>>.from(jsonDecode(listsJson));
-        
-        // Find and update the specific list
-        for (int i = 0; i < savedLists.length; i++) {
-          if (savedLists[i]['name'] == listName) {
-            savedLists[i]['officials'] = updatedOfficials;
+        allLists = List<Map<String, dynamic>>.from(jsonDecode(listsJson));
+      }
+      
+      // Find and update the list
+      for (int i = 0; i < allLists.length; i++) {
+        if (allLists[i]['name'] == listName) {
+          allLists[i]['officials'] = updatedOfficials;
+          break;
+        }
+      }
+      
+      // Save back to SharedPreferences
+      await prefs.setString('saved_lists', jsonEncode(allLists));
+      
+      // Update the local lists data
+      setState(() {
+        for (int i = 0; i < lists.length; i++) {
+          if (lists[i]['name'] == listName) {
+            lists[i]['officials'] = updatedOfficials;
             break;
           }
         }
-        
-        // Save back to SharedPreferences
-        await prefs.setString('saved_lists', jsonEncode(savedLists));
-        
-        // Update the local lists data
-        setState(() {
-          for (int i = 0; i < lists.length; i++) {
-            if (lists[i]['name'] == listName) {
-              lists[i]['officials'] = updatedOfficials;
-              break;
-            }
-          }
-        });
-        
-        debugPrint('Updated list "$listName" with ${updatedOfficials.length} officials');
-      }
+      });
+      
+      debugPrint('Updated list "$listName" with ${updatedOfficials.length} officials');
     } catch (e) {
       debugPrint('Error saving updated list: $e');
     }
@@ -233,7 +252,7 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
                   );
                 } else {
                   // In new game creation mode, save changes to the original lists
-                  await _saveUpdatedListToPreferences(list['name'], officials);
+                  await _saveUpdatedListToSharedPreferences(list['name'], officials);
                   Navigator.pop(context);
                   
                   // Show confirmation
@@ -270,6 +289,28 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
     setState(() {
       selectedLists[index]['maxOfficials'] = int.tryParse(value) ?? 0; // Default to 0 if invalid, but hint will show initially
     });
+  }
+
+  Future<void> _navigateToCreateNewList() async {
+    final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+    final sport = args['sport'] as String? ?? 'Baseball';
+    
+    final result = await Navigator.pushNamed(
+      context,
+      '/create_new_list',
+      arguments: {
+        'sport': sport,
+        'fromGameCreation': args['fromGameCreation'] ?? false,
+        'fromTemplateCreation': true, // Flag to indicate we're coming from template creation
+        ...args, // Pass through all game creation context
+      },
+    );
+    
+    if (result != null) {
+      // Refresh the lists after creating a new one
+      await _fetchLists();
+      setState(() {});
+    }
   }
 
   Future<void> _handleContinue() async {
@@ -322,8 +363,9 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
       }).toList(),
     };
 
-    // Check if we're in edit mode
+    // Check if we're in edit mode or template creation mode
     final isEditMode = args['isEdit'] as bool? ?? false;
+    final isFromTemplateCreation = args['fromTemplateCreation'] as bool? ?? false;
     
     if (isEditMode) {
       // In edit mode, update the game in the database and return to game info screen
@@ -338,6 +380,18 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
                    route.settings.name == '/assigner_home',
         arguments: updatedArgs,
       );
+    } else if (isFromTemplateCreation) {
+      // Return to template creation screen with the advanced configuration data
+      Navigator.pop(context, {
+        'selectedLists': selectedLists.map((list) => {
+          'name': list['name'],
+          'id': list['id'],
+          'minOfficials': list['minOfficials'],
+          'maxOfficials': list['maxOfficials'],
+          'officials': list['officials'],
+        }).toList(),
+        'method': 'advanced',
+      });
     } else {
       // Continue to review screen for new game creation
       Navigator.pushNamed(
@@ -350,8 +404,6 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
 
   Future<void> _updateGameInDatabase(Map<String, dynamic> gameData) async {
     try {
-      final gameService = GameService();
-      
       final gameId = gameData['id'];
       if (gameId != null) {
         // Convert data for database storage
@@ -383,15 +435,6 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
         if (databaseGameId != null) {
           await gameService.updateGame(databaseGameId, updateData);
           debugPrint('Game updated in database successfully with ID: $databaseGameId');
-          
-          // Update the SharedPreferences cache that _gameToMapWithOfficials relies on
-          final prefs = await SharedPreferences.getInstance();
-          final advancedData = {
-            'selectedLists': gameData['selectedLists'],
-            'selectedOfficials': gameData['selectedOfficials'] ?? [],
-          };
-          await prefs.setString('recent_advanced_selection_$databaseGameId', jsonEncode(advancedData));
-          debugPrint('Updated advanced selection cache for game $databaseGameId');
           
           // Show success message
           if (mounted) {
@@ -425,24 +468,43 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
     _routeArgs = args; // Store args for later use
     totalRequiredOfficials = int.tryParse(args['officialsRequired'].toString()) ?? 0;
 
-    final dropdownItems = lists.isNotEmpty
-        ? lists.map((list) {
-            return DropdownMenuItem(
-              value: list['name'] as String,
-              child: Text(
-                list['name'] as String,
-                style: list['name'] == 'No saved lists' 
-                  ? const TextStyle(color: Colors.red) 
-                  : const TextStyle(color: primaryTextColor),
-              ),
-            );
-          }).toList()
-        : [
-            const DropdownMenuItem(
-              value: 'No saved lists',
-              child: Text('No saved lists', style: TextStyle(color: Colors.red)),
+    final dropdownItems = <DropdownMenuItem<String>>[];
+    
+    // Add existing lists
+    if (lists.isNotEmpty && lists.first['name'] != 'No saved lists') {
+      for (final list in lists) {
+        dropdownItems.add(
+          DropdownMenuItem(
+            value: list['name'] as String,
+            child: Text(
+              list['name'] as String,
+              style: const TextStyle(color: primaryTextColor),
             ),
-          ];
+          ),
+        );
+      }
+    }
+    
+    // Always add the "Create new list" option
+    dropdownItems.add(
+      const DropdownMenuItem(
+        value: '+ Create new list',
+        child: Text(
+          '+ Create new list',
+          style: TextStyle(color: efficialsYellow, fontWeight: FontWeight.bold),
+        ),
+      ),
+    );
+    
+    // Add "No saved lists" message if no real lists exist
+    if (lists.isEmpty || (lists.length == 1 && lists.first['name'] == 'No saved lists')) {
+      dropdownItems.insert(0, 
+        const DropdownMenuItem(
+          value: 'No saved lists',
+          child: Text('No saved lists', style: TextStyle(color: Colors.red)),
+        ),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -516,8 +578,12 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
                               style: const TextStyle(color: primaryTextColor),
                               value: null,
                               onChanged: (newValue) {
-                                if (newValue != null && newValue != 'No saved lists' && !selectedLists.any((l) => l['name'] == newValue)) {
-                                  _addList(newValue);
+                                if (newValue != null) {
+                                  if (newValue == '+ Create new list') {
+                                    _navigateToCreateNewList();
+                                  } else if (newValue != 'No saved lists' && !selectedLists.any((l) => l['name'] == newValue)) {
+                                    _addList(newValue);
+                                  }
                                 }
                               },
                               items: dropdownItems,
@@ -657,9 +723,14 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
                                             style: const TextStyle(color: primaryTextColor),
                                             value: selectedValue,
                                             onChanged: (newValue) {
-                                              setDialogState(() {
-                                                selectedValue = newValue;
-                                              });
+                                              if (newValue == '+ Create new list') {
+                                                Navigator.pop(context); // Close dialog first
+                                                _navigateToCreateNewList();
+                                              } else {
+                                                setDialogState(() {
+                                                  selectedValue = newValue;
+                                                });
+                                              }
                                             },
                                             items: dropdownItems,
                                           ),

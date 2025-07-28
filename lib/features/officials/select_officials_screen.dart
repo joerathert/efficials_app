@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../shared/theme.dart';
 import '../games/game_template.dart';
 import '../../shared/services/repositories/official_repository.dart';
@@ -135,6 +137,35 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
     }
   }
 
+  Future<int> _getBaseballListsCount() async {
+    if (_currentUserId == null) return 0;
+    
+    try {
+      return await _officialRepository.getBaseballListsCount(_currentUserId!);
+    } catch (e) {
+      // Handle database errors
+      return 0;
+    }
+  }
+
+  Future<int> _getListsCountBySport(String sport) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final String? listsJson = prefs.getString('saved_lists');
+      
+      if (listsJson == null || listsJson.isEmpty) return 0;
+      
+      final List<Map<String, dynamic>> existingLists = 
+          List<Map<String, dynamic>>.from(jsonDecode(listsJson));
+      
+      // Count lists for the specific sport
+      return existingLists.where((list) => list['sport'] == sport).length;
+    } catch (e) {
+      // Handle database errors
+      return 0;
+    }
+  }
+
   void _showDifferenceDialog() {
     showDialog(
       context: context,
@@ -156,6 +187,9 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
   }
 
   void _showInsufficientListsDialog() {
+    final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+    final sport = args['sport'] as String? ?? 'Baseball';
+    
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -173,7 +207,11 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              Navigator.pushNamed(context, '/create_new_list').then((result) {
+              Navigator.pushNamed(context, '/create_new_list', arguments: {
+                'sport': sport,
+                'fromGameCreation': true,
+                ...args, // Pass through all game creation context
+              }).then((result) {
                 setState(() {});
               });
             },
@@ -216,8 +254,8 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
             },
           );
         } else if (_defaultMethod == 'advanced') {
-          final listCount = await _getAvailableListsCount();
-          if (listCount < 2) {
+          final currentSportListsCount = await _getListsCountBySport(sport);
+          if (currentSportListsCount < 2) {
             _showInsufficientListsDialog();
           } else {
             if (mounted) {
@@ -384,8 +422,8 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
                       width: 200,
                       child: ElevatedButton(
                         onPressed: () async {
-                          final listCount = await _getAvailableListsCount();
-                          if (listCount < 2) {
+                          final currentSportListsCount = await _getListsCountBySport(sport);
+                          if (currentSportListsCount < 2) {
                             _showInsufficientListsDialog();
                           } else {
                             _saveDefaultChoice('advanced');

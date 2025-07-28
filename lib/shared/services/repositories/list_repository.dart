@@ -107,4 +107,60 @@ class ListRepository extends BaseRepository {
     final results = await query('official_lists', where: whereClause, whereArgs: whereArgs);
     return results.isNotEmpty;
   }
+  
+  // Get all lists with their officials for a user (for advanced officials selection)
+  Future<List<Map<String, dynamic>>> getLists([int? userId]) async {
+    // If no userId provided, get current user
+    final userIdToUse = userId ?? await _getCurrentUserId();
+    
+    final lists = await getUserLists(userIdToUse);
+    
+    // Get officials for each list
+    for (var list in lists) {
+      final listId = list['id'] as int;
+      final officials = await getListOfficials(listId);
+      list['officials'] = officials;
+    }
+    
+    return lists;
+  }
+  
+  // Update list with new officials (replaces existing officials)
+  Future<void> updateList(String listName, List<Map<String, dynamic>> officials) async {
+    final db = await database;
+    
+    await db.transaction((txn) async {
+      // Find the list by name
+      final listResults = await txn.query('official_lists', where: 'name = ?', whereArgs: [listName]);
+      if (listResults.isEmpty) {
+        throw Exception('List not found: $listName');
+      }
+      
+      final listId = listResults.first['id'] as int;
+      
+      // Remove existing officials from the list
+      await txn.delete('official_list_members', where: 'list_id = ?', whereArgs: [listId]);
+      
+      // Add new officials to the list
+      for (final official in officials) {
+        final officialId = official['id'];
+        if (officialId != null) {
+          await txn.insert('official_list_members', {
+            'list_id': listId,
+            'official_id': officialId,
+            'created_at': DateTime.now().toIso8601String(),
+          });
+        }
+      }
+    });
+  }
+  
+  // Helper method to get current user ID
+  Future<int> _getCurrentUserId() async {
+    final userResult = await query('users', where: 'scheduler_type IS NOT NULL', limit: 1);
+    if (userResult.isEmpty) {
+      throw Exception('No user found');
+    }
+    return userResult.first['id'] as int;
+  }
 }

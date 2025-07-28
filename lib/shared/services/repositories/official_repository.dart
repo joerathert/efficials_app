@@ -294,6 +294,32 @@ class OfficialRepository extends BaseRepository {
     return results.first['count'] as int;
   }
 
+  // Get count of available baseball lists for a user
+  Future<int> getBaseballListsCount(int userId) async {
+    final results = await rawQuery('''
+      SELECT COUNT(*) as count
+      FROM official_lists ol
+      INNER JOIN sports s ON ol.sport_id = s.id
+      WHERE ol.user_id = ? AND s.name = 'Baseball'
+    ''', [userId]);
+    
+    if (results.isEmpty) return 0;
+    return results.first['count'] as int;
+  }
+
+  // Get count of lists for a specific sport for a user
+  Future<int> getListsCountBySport(int userId, String sportName) async {
+    final results = await rawQuery('''
+      SELECT COUNT(*) as count
+      FROM official_lists ol
+      INNER JOIN sports s ON ol.sport_id = s.id
+      WHERE ol.user_id = ? AND s.name = ?
+    ''', [userId, sportName]);
+    
+    if (results.isEmpty) return 0;
+    return results.first['count'] as int;
+  }
+
   // Get officials from a specific list by list name
   Future<List<Map<String, dynamic>>> getOfficialsFromList(String listName, int userId) async {
     final results = await rawQuery('''

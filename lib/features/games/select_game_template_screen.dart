@@ -5,6 +5,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../shared/theme.dart';
 import 'game_template.dart';
 import '../../shared/services/game_service.dart';
+import '../../shared/services/repositories/template_repository.dart';
+import '../../shared/services/repositories/user_repository.dart';
 
 class SelectGameTemplateScreen extends StatefulWidget {
   const SelectGameTemplateScreen({super.key});
@@ -22,6 +24,8 @@ class _SelectGameTemplateScreenState extends State<SelectGameTemplateScreen> {
   String? sport;
   bool isAssignerFlow = false;
   final GameService _gameService = GameService();
+  final TemplateRepository _templateRepository = TemplateRepository();
+  final UserRepository _userRepository = UserRepository();
   
   // Debug info for on-screen display
   String debugInfo = 'Debug: Initializing...';
@@ -179,18 +183,57 @@ class _SelectGameTemplateScreenState extends State<SelectGameTemplateScreen> {
           debugInfo += '\nRoute: schedule_details flow';
         });
         // This is the Assigner/Athletic Director flow from schedule_details_screen
-        String templateKey;
-        if (isAssignerFlow) {
-          templateKey =
-              'assigner_team_template_${scheduleName!.toLowerCase().replaceAll(' ', '_')}';
-        } else {
-          templateKey = 'schedule_template_${scheduleName!.toLowerCase()}';
+        try {
+          final user = await _userRepository.getCurrentUser();
+          if (user?.id != null) {
+            // Use TemplateRepository to save the association to database
+            final success = await _templateRepository.setAssociation(
+              user!.id!,
+              scheduleName!,
+              selectedTemplate.name,
+              selectedTemplate.toJson(),
+            );
+            
+            if (success) {
+              setState(() {
+                debugInfo += '\nTemplate associated successfully';
+              });
+            } else {
+              setState(() {
+                debugInfo += '\nFailed to associate template';
+              });
+              // Fallback to SharedPreferences if database fails
+              String templateKey;
+              if (isAssignerFlow) {
+                templateKey =
+                    'assigner_team_template_${scheduleName!.toLowerCase().replaceAll(' ', '_')}';
+              } else {
+                templateKey = 'schedule_template_${scheduleName!.toLowerCase()}';
+              }
+              await prefs.setString(
+                templateKey,
+                jsonEncode(selectedTemplate.toJson()),
+              );
+            }
+          }
+        } catch (e) {
+          setState(() {
+            debugInfo += '\nError: $e';
+          });
+          // Fallback to SharedPreferences if there's an error
+          String templateKey;
+          if (isAssignerFlow) {
+            templateKey =
+                'assigner_team_template_${scheduleName!.toLowerCase().replaceAll(' ', '_')}';
+          } else {
+            templateKey = 'schedule_template_${scheduleName!.toLowerCase()}';
+          }
+          await prefs.setString(
+            templateKey,
+            jsonEncode(selectedTemplate.toJson()),
+          );
         }
-
-        await prefs.setString(
-          templateKey,
-          jsonEncode(selectedTemplate.toJson()),
-        );
+        
         if (mounted) {
           Navigator.pop(context);
         }

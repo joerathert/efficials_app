@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
 import '../../shared/theme.dart';
+import '../../shared/models/database_models.dart';
 
 class OfficialAvailabilityScreen extends StatefulWidget {
-  const OfficialAvailabilityScreen({super.key});
+  final List<GameAssignment>? acceptedGames;
+  
+  const OfficialAvailabilityScreen({
+    super.key,
+    this.acceptedGames,
+  });
 
   @override
   State<OfficialAvailabilityScreen> createState() => _OfficialAvailabilityScreenState();
@@ -27,6 +33,8 @@ class _OfficialAvailabilityScreenState extends State<OfficialAvailabilityScreen>
   bool _weekdayAvailability = true;
   bool _weekendAvailability = true;
   bool _eveningAvailability = true;
+
+  List<GameAssignment> get _acceptedGames => widget.acceptedGames ?? [];
 
   @override
   Widget build(BuildContext context) {
@@ -92,36 +100,80 @@ class _OfficialAvailabilityScreenState extends State<OfficialAvailabilityScreen>
                 calendarFormat: _calendarFormat,
                 eventLoader: (day) {
                   final dayKey = DateTime(day.year, day.month, day.day);
-                  return availability.containsKey(dayKey) ? [availability[dayKey]!] : [];
+                  List<String> events = [];
+                  
+                  // Add availability status
+                  if (availability.containsKey(dayKey)) {
+                    events.add(availability[dayKey]!);
+                  }
+                  
+                  // Add accepted games for this day
+                  for (final game in _acceptedGames) {
+                    if (game.gameDate != null) {
+                      final gameDate = DateTime(
+                        game.gameDate!.year,
+                        game.gameDate!.month,
+                        game.gameDate!.day,
+                      );
+                      if (gameDate == dayKey) {
+                        events.add('game');
+                      }
+                    }
+                  }
+                  
+                  return events;
                 },
                 startingDayOfWeek: StartingDayOfWeek.sunday,
                 calendarBuilders: CalendarBuilders(
                   markerBuilder: (context, day, events) {
                     if (events.isNotEmpty) {
-                      final status = events.first as String;
-                      Color markerColor;
-                      switch (status) {
-                        case 'available':
-                          markerColor = Colors.green;
-                          break;
-                        case 'unavailable':
-                          markerColor = Colors.red;
-                          break;
-                        case 'busy':
-                          markerColor = Colors.orange;
-                          break;
-                        default:
-                          markerColor = Colors.grey;
+                      final eventList = events.cast<String>();
+                      final hasGame = eventList.contains('game');
+                      
+                      if (hasGame) {
+                        // Game marker has priority
+                        return Container(
+                          width: 12,
+                          height: 12,
+                          margin: const EdgeInsets.only(top: 2),
+                          decoration: BoxDecoration(
+                            color: efficialsYellow,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 1),
+                          ),
+                          child: Icon(
+                            Icons.sports,
+                            size: 8,
+                            color: Colors.black,
+                          ),
+                        );
+                      } else {
+                        // Show availability status
+                        final status = eventList.first;
+                        Color markerColor;
+                        switch (status) {
+                          case 'available':
+                            markerColor = Colors.green;
+                            break;
+                          case 'unavailable':
+                            markerColor = Colors.red;
+                            break;
+                          case 'busy':
+                            markerColor = Colors.orange;
+                            break;
+                          default:
+                            markerColor = Colors.grey;
+                        }
+                        return Container(
+                          width: 8,
+                          height: 8,
+                          margin: const EdgeInsets.only(top: 2),
+                          decoration: BoxDecoration(
+                            color: markerColor,
+                            shape: BoxShape.circle,
+                          ),
+                        );
                       }
-                      return Container(
-                        width: 8,
-                        height: 8,
-                        margin: const EdgeInsets.only(top: 2),
-                        decoration: BoxDecoration(
-                          color: markerColor,
-                          shape: BoxShape.circle,
-                        ),
-                      );
                     }
                     return null;
                   },
@@ -201,12 +253,23 @@ class _OfficialAvailabilityScreenState extends State<OfficialAvailabilityScreen>
                     ),
                   ),
                   const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  Column(
                     children: [
-                      _buildLegendItem('Available', Colors.green),
-                      _buildLegendItem('Unavailable', Colors.red),
-                      _buildLegendItem('Busy/Game', Colors.orange),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          _buildLegendItem('Available', Colors.green),
+                          _buildLegendItem('Unavailable', Colors.red),
+                          _buildLegendItem('Busy', Colors.orange),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          _buildGameLegendItem('Confirmed Game', efficialsYellow),
+                        ],
+                      ),
                     ],
                   ),
                 ],
@@ -316,9 +379,52 @@ class _OfficialAvailabilityScreenState extends State<OfficialAvailabilityScreen>
     );
   }
 
+  Widget _buildGameLegendItem(String label, Color color) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 12,
+          height: 12,
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white, width: 1),
+          ),
+          child: Icon(
+            Icons.sports,
+            size: 8,
+            color: Colors.black,
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 12,
+            color: Colors.white,
+          ),
+        ),
+      ],
+    );
+  }
+
   void _showAvailabilityDialog(DateTime selectedDay) {
     final dayKey = DateTime(selectedDay.year, selectedDay.month, selectedDay.day);
     final currentStatus = availability[dayKey] ?? 'available';
+    
+    // Check if there's a game on this day
+    final gamesOnDay = _acceptedGames.where((game) {
+      if (game.gameDate != null) {
+        final gameDate = DateTime(
+          game.gameDate!.year,
+          game.gameDate!.month,
+          game.gameDate!.day,
+        );
+        return gameDate == dayKey;
+      }
+      return false;
+    }).toList();
 
     showDialog(
       context: context,
@@ -330,6 +436,7 @@ class _OfficialAvailabilityScreenState extends State<OfficialAvailabilityScreen>
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               _formatDate(selectedDay),
@@ -340,33 +447,77 @@ class _OfficialAvailabilityScreenState extends State<OfficialAvailabilityScreen>
               ),
             ),
             const SizedBox(height: 16),
+            
+            // Show games if any
+            if (gamesOnDay.isNotEmpty) ...[
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: efficialsYellow.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: efficialsYellow.withOpacity(0.3)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.sports, color: efficialsYellow, size: 20),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Games on this day:',
+                          style: TextStyle(
+                            color: efficialsYellow,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    ...gamesOnDay.map((game) => Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Text(
+                        '${game.sportName ?? 'Game'} - ${_formatGameTime(game.gameTime)} - \$${game.feeAmount?.toStringAsFixed(2) ?? '0.00'}',
+                        style: TextStyle(
+                          color: Colors.grey[300],
+                          fontSize: 14,
+                        ),
+                      ),
+                    )).toList(),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+            
+            // Availability settings
             Column(
               children: [
                 RadioListTile<String>(
                   title: const Text('Available', style: TextStyle(color: Colors.white)),
                   value: 'available',
                   groupValue: currentStatus,
-                  onChanged: (value) {
+                  onChanged: gamesOnDay.isEmpty ? (value) {
                     Navigator.pop(context, value);
-                  },
+                  } : null,
                   activeColor: efficialsYellow,
                 ),
                 RadioListTile<String>(
                   title: const Text('Unavailable', style: TextStyle(color: Colors.white)),
                   value: 'unavailable',
                   groupValue: currentStatus,
-                  onChanged: (value) {
+                  onChanged: gamesOnDay.isEmpty ? (value) {
                     Navigator.pop(context, value);
-                  },
+                  } : null,
                   activeColor: efficialsYellow,
                 ),
                 RadioListTile<String>(
                   title: const Text('Busy/Has Game', style: TextStyle(color: Colors.white)),
                   value: 'busy',
                   groupValue: currentStatus,
-                  onChanged: (value) {
+                  onChanged: gamesOnDay.isEmpty ? (value) {
                     Navigator.pop(context, value);
-                  },
+                  } : null,
                   activeColor: efficialsYellow,
                 ),
               ],
@@ -407,5 +558,16 @@ class _OfficialAvailabilityScreenState extends State<OfficialAvailabilityScreen>
     const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     
     return '${weekdays[date.weekday % 7]}, ${months[date.month - 1]} ${date.day}, ${date.year}';
+  }
+
+  String _formatGameTime(DateTime? time) {
+    if (time == null) return 'TBD';
+    
+    final hour = time.hour;
+    final minute = time.minute;
+    final period = hour >= 12 ? 'PM' : 'AM';
+    final displayHour = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
+    
+    return '$displayHour:${minute.toString().padLeft(2, '0')} $period';
   }
 }

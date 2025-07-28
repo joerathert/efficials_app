@@ -123,18 +123,13 @@ class _NameListScreenState extends State<NameListScreen> {
                         'sport': sport, 
                         'listName': name,
                         'fromGameCreation': true, // Ensure this flag is set
-                        // Only pass through necessary game creation context, exclude selectedOfficials
-                        'gameId': args['gameId'],
-                        'method': args['method'],
-                        'isEdit': args['isEdit'],
-                        'scheduleName': args['scheduleName'],
-                        'gameDate': args['gameDate'],
-                        'gameTime': args['gameTime'],
-                        'opponent': args['opponent'],
-                        'gameLocation': args['gameLocation'],
-                        'isAwayGame': args['isAwayGame'],
-                        'locationData': args['locationData'],
+                        // Pass through ALL game creation context
+                        ...args,
+                        // Override specific values
+                        'sport': sport,
+                        'listName': name,
                         // Explicitly exclude selectedOfficials to start with clean slate
+                        'selectedOfficials': null,
                       },
                     ).then((result) {
                       if (result != null && mounted) {

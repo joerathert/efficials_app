@@ -37,6 +37,74 @@ class GameAssignmentRepository extends BaseRepository {
     
     return results.map((data) => GameAssignment.fromMap(data)).toList();
   }
+
+  // Optimized batch method to get all assignment data for home screen
+  Future<Map<String, dynamic>> getOfficialHomeData(int officialId) async {
+    // Get accepted games
+    final acceptedResults = await rawQuery('''
+      SELECT ga.*, g.date, g.time, g.opponent, g.home_team, g.game_fee, g.level_of_competition,
+             l.name as location_name, l.address as location_address,
+             s.name as sport_name
+      FROM game_assignments ga
+      JOIN games g ON ga.game_id = g.id
+      LEFT JOIN locations l ON g.location_id = l.id
+      LEFT JOIN sports s ON g.sport_id = s.id
+      WHERE ga.official_id = ? AND ga.status = 'accepted'
+      ORDER BY g.date ASC, g.time ASC
+    ''', [officialId]);
+
+    // Get pending games
+    final pendingResults = await rawQuery('''
+      SELECT ga.*, g.date, g.time, g.opponent, g.home_team, g.game_fee, g.level_of_competition,
+             l.name as location_name, l.address as location_address,
+             s.name as sport_name
+      FROM game_assignments ga
+      JOIN games g ON ga.game_id = g.id
+      LEFT JOIN locations l ON g.location_id = l.id
+      LEFT JOIN sports s ON g.sport_id = s.id
+      WHERE ga.official_id = ? AND ga.status = 'pending'
+      ORDER BY g.date ASC, g.time ASC
+    ''', [officialId]);
+
+    // Get available games
+    final availableResults = await rawQuery('''
+      SELECT DISTINCT g.*, l.name as location_name, l.address as location_address,
+             s.name as sport_name, u.first_name, u.last_name,
+             'available' as assignment_status
+      FROM games g
+      LEFT JOIN locations l ON g.location_id = l.id
+      LEFT JOIN sports s ON g.sport_id = s.id
+      LEFT JOIN users u ON g.user_id = u.id
+      WHERE g.id NOT IN (
+        SELECT ga.game_id 
+        FROM game_assignments ga 
+        WHERE ga.official_id = ?
+      )
+      AND g.status = 'Published'
+      AND g.date >= date('now')
+      AND g.officials_required > g.officials_hired
+      ORDER BY g.date ASC, g.time ASC
+    ''', [officialId]);
+
+    // Transform data
+    final acceptedGames = acceptedResults.map((data) => GameAssignment.fromMap(data)).toList();
+    final pendingGames = pendingResults.map((data) => GameAssignment.fromMap(data)).toList();
+    
+    // Transform available games with scheduler info
+    final availableGames = availableResults.map((game) {
+      final firstName = game['first_name'] ?? '';
+      final lastName = game['last_name'] ?? '';
+      final scheduler = '$firstName $lastName'.trim();
+      
+      return Map<String, dynamic>.from(game)..['scheduler'] = scheduler;
+    }).toList();
+
+    return {
+      'accepted': acceptedGames,
+      'pending': pendingGames,
+      'available': availableGames,
+    };
+  }
   
   // Get available games for an official (games that match their sports/criteria but aren't assigned yet)
   Future<List<Map<String, dynamic>>> getAvailableGamesForOfficial(int officialId) async {

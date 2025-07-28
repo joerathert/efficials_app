@@ -31,6 +31,11 @@ class TemplateRepository extends BaseRepository {
     }
   }
 
+  // Get template association for a team (alias for getByScheduleName for compatibility)
+  Future<String?> getByTeam(int userId, String teamName) async {
+    return await getByScheduleName(userId, teamName);
+  }
+
   // Set template association for a schedule
   Future<bool> setAssociation(int userId, String scheduleName, String templateName, Map<String, dynamic> templateData) async {
     try {

@@ -1,9 +1,11 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:table_calendar/table_calendar.dart';
 import '../../shared/theme.dart';
-import '../games/game_template.dart';
+import '../../shared/models/database_models.dart';
+import '../../shared/services/repositories/team_repository.dart';
+import '../../shared/services/repositories/template_repository.dart';
+import '../../shared/services/game_service.dart';
+import '../../shared/services/user_session_service.dart';
 
 class AssignerManageSchedulesScreen extends StatefulWidget {
   const AssignerManageSchedulesScreen({super.key});
@@ -27,6 +29,12 @@ class _AssignerManageSchedulesScreenState
   String? assignerSport;
   String? _teamToRestore; // Store team to restore separately
   DateTime? _dateToFocus; // Store date to focus calendar on
+  
+  // Services
+  final TeamRepository _teamRepository = TeamRepository();
+  final TemplateRepository _templateRepository = TemplateRepository();
+  final GameService _gameService = GameService();
+  final UserSessionService _userSessionService = UserSessionService.instance;
 
   @override
   void initState() {
@@ -62,38 +70,59 @@ class _AssignerManageSchedulesScreenState
   }
 
   Future<void> _loadAssignerInfo() async {
-    final prefs = await SharedPreferences.getInstance();
-    assignerSport = prefs.getString('assigner_sport');
-    await _fetchTeams();
-
-    // Check if we need to restore team selection after loading teams
-    if (_teamToRestore != null) {
-      if (teams.contains(_teamToRestore)) {
-        setState(() {
-          selectedTeam = _teamToRestore;
-        });
-        await _fetchGames();
-        await _loadAssociatedTemplate();
-        _teamToRestore = null; // Clear after restoration
-      } else {
+    try {
+      // Get current user info
+      final userId = await _userSessionService.getCurrentUserId();
+      if (userId != null) {
+        // You might want to get sport from user profile or settings
+        // For now, we'll assume it's stored in user session or use a default
+        assignerSport = 'Basketball'; // Default or get from user settings
       }
-    }
+      
+      await _fetchTeams();
 
-    setState(() {
-      isLoading = false;
-    });
+      // Check if we need to restore team selection after loading teams
+      if (_teamToRestore != null) {
+        if (teams.contains(_teamToRestore)) {
+          setState(() {
+            selectedTeam = _teamToRestore;
+          });
+          await _fetchGames();
+          await _loadAssociatedTemplate();
+          _teamToRestore = null; // Clear after restoration
+        }
+      }
+
+      setState(() {
+        isLoading = false;
+      });
+    } catch (e) {
+      debugPrint('Error loading assigner info: $e');
+      setState(() {
+        isLoading = false;
+      });
+    }
   }
 
   Future<void> _fetchTeams() async {
-    final prefs = await SharedPreferences.getInstance();
-    final String? teamsJson = prefs.getString('assigner_teams');
-    setState(() {
-      teams.clear();
-      if (teamsJson != null && teamsJson.isNotEmpty) {
-        final List<dynamic> decoded = jsonDecode(teamsJson);
-        teams = decoded.cast<String>();
+    try {
+      final userId = await _userSessionService.getCurrentUserId();
+      if (userId != null) {
+        final teamNames = await _teamRepository.getTeamsByUser(userId);
+        setState(() {
+          teams = teamNames;
+        });
+      } else {
+        setState(() {
+          teams = [];
+        });
       }
-    });
+    } catch (e) {
+      debugPrint('Error fetching teams: $e');
+      setState(() {
+        teams = [];
+      });
+    }
   }
 
   Future<void> _addNewTeam() async {
@@ -135,13 +164,24 @@ class _AssignerManageSchedulesScreenState
     );
 
     if (newTeamName != null) {
-      final prefs = await SharedPreferences.getInstance();
-      teams.add(newTeamName);
-      await prefs.setString('assigner_teams', jsonEncode(teams));
-      setState(() {
-        selectedTeam = newTeamName;
-      });
-      await _fetchGames();
+      try {
+        final userId = await _userSessionService.getCurrentUserId();
+        if (userId != null) {
+          await _teamRepository.createTeam(newTeamName, userId);
+          teams.add(newTeamName);
+          setState(() {
+            selectedTeam = newTeamName;
+          });
+          await _fetchGames();
+        }
+      } catch (e) {
+        debugPrint('Error creating team: $e');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error creating team: $e')),
+          );
+        }
+      }
     }
   }
 
@@ -153,98 +193,65 @@ class _AssignerManageSchedulesScreenState
       return;
     }
 
-    final prefs = await SharedPreferences.getInstance();
-    final String? unpublishedGamesJson =
-        prefs.getString('assigner_unpublished_games');
-    final String? publishedGamesJson =
-        prefs.getString('assigner_published_games');
-    List<Map<String, dynamic>> allGames = [];
-
-    if (mounted) {
-      setState(() {
-        games.clear();
-      });
-    }
     try {
-      if (unpublishedGamesJson != null && unpublishedGamesJson.isNotEmpty) {
-        final unpublished =
-            List<Map<String, dynamic>>.from(jsonDecode(unpublishedGamesJson));
-        allGames.addAll(unpublished);
+      // Get games from GameService using the team name
+      final teamGames = await _gameService.getGamesByTeam(selectedTeam!);
+      
+      // Filter by sport if needed
+      games = teamGames.where((game) {
+        final matchesSport = assignerSport == null || game['sport'] == assignerSport;
+        final hasDate = game['date'] != null;
+        return matchesSport && hasDate;
+      }).toList();
+
+      // Set focused day based on priority: dateToFocus > latest game > current date
+      if (_dateToFocus != null) {
+        _focusedDay = _dateToFocus!;
+        _dateToFocus = null; // Clear after use
+      } else if (games.isNotEmpty) {
+        games.sort((a, b) => (a['date'] as DateTime).compareTo(b['date'] as DateTime));
+        _focusedDay = games.first['date'] as DateTime;
+      } else {
+        _focusedDay = DateTime.now();
       }
-      if (publishedGamesJson != null && publishedGamesJson.isNotEmpty) {
-        final published =
-            List<Map<String, dynamic>>.from(jsonDecode(publishedGamesJson));
-        allGames.addAll(published);
+
+      // Update UI only if widget is still mounted
+      if (mounted) {
+        setState(() {});
       }
+
+      await _loadAssociatedTemplate();
     } catch (e) {
-    }
-
-    // Filter games by selected team and sport
-    games = allGames.where((game) {
-      final matchesTeam = game['opponent'] == selectedTeam ||
-          (game['scheduleName'] != null &&
-              game['scheduleName'].toString().contains(selectedTeam!));
-      final matchesSport = game['sport'] == assignerSport;
-      final hasDate = game['date'] != null;
-      final shouldInclude = matchesTeam && matchesSport && hasDate;
-
-      if (shouldInclude) {
-        // Game matches criteria
-      }
-
-      return shouldInclude;
-    }).toList();
-
-    for (var game in games) {
-      if (game['date'] != null) {
-        game['date'] = DateTime.parse(game['date'] as String);
-      }
-      if (game['time'] != null) {
-        final timeParts = (game['time'] as String).split(':');
-        game['time'] = TimeOfDay(
-          hour: int.parse(timeParts[0]),
-          minute: int.parse(timeParts[1]),
-        );
+      debugPrint('Error fetching games: $e');
+      if (mounted) {
+        setState(() {
+          games = [];
+        });
       }
     }
-
-    // Set focused day based on priority: dateToFocus > latest game > current date
-    if (_dateToFocus != null) {
-      _focusedDay = _dateToFocus!;
-      _dateToFocus = null; // Clear after use
-    } else if (games.isNotEmpty) {
-      games.sort(
-          (a, b) => (a['date'] as DateTime).compareTo(b['date'] as DateTime));
-      _focusedDay = games.first['date'] as DateTime;
-    } else {
-      _focusedDay = DateTime.now();
-    }
-
-    // Update UI only if widget is still mounted
-    if (mounted) {
-      setState(() {
-        games = games; // Update the instance variable
-      });
-    }
-
-    await _loadAssociatedTemplate();
   }
 
   Future<void> _loadAssociatedTemplate() async {
     if (selectedTeam == null) return;
-    final prefs = await SharedPreferences.getInstance();
-    final String templateKey =
-        'assigner_team_template_${selectedTeam!.toLowerCase().replaceAll(' ', '_')}';
-    final String? templateJson = prefs.getString(templateKey);
-
-    if (templateJson != null) {
-      final templateData = jsonDecode(templateJson) as Map<String, dynamic>;
-      if (mounted) {
-        setState(() {
-          associatedTemplateName = templateData['name'] as String?;
-        });
+    
+    try {
+      final userId = await _userSessionService.getCurrentUserId();
+      if (userId != null) {
+        final templateName = await _templateRepository.getByTeam(userId, selectedTeam!);
+        if (mounted) {
+          setState(() {
+            associatedTemplateName = templateName;
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            associatedTemplateName = null;
+          });
+        }
       }
-    } else {
+    } catch (e) {
+      debugPrint('Error loading associated template: $e');
       if (mounted) {
         setState(() {
           associatedTemplateName = null;
@@ -255,16 +262,27 @@ class _AssignerManageSchedulesScreenState
 
   Future<void> _removeAssociatedTemplate() async {
     if (selectedTeam == null) return;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(
-        'assigner_team_template_${selectedTeam!.toLowerCase().replaceAll(' ', '_')}');
-    setState(() {
-      associatedTemplateName = null;
-    });
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Template association removed')),
-      );
+    
+    try {
+      final userId = await _userSessionService.getCurrentUserId();
+      if (userId != null) {
+        await _templateRepository.removeAssociation(userId, selectedTeam!);
+        setState(() {
+          associatedTemplateName = null;
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Template association removed')),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Error removing template association: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error removing template: $e')),
+        );
+      }
     }
   }
 
@@ -410,7 +428,7 @@ class _AssignerManageSchedulesScreenState
                               dropdownColor: darkSurface,
                               style: const TextStyle(color: primaryTextColor),
                               onChanged: (newValue) async {
-                                if (newValue == '+ Add a new team') {
+                                if (newValue == '+ Add new') {
                                   await _addNewTeam();
                                 } else {
                                   if (mounted) {
@@ -430,13 +448,13 @@ class _AssignerManageSchedulesScreenState
                                       child: Text(team, style: const TextStyle(color: primaryTextColor)),
                                     )),
                                 const DropdownMenuItem(
-                                  value: '+ Add a new team',
+                                  value: '+ Add new',
                                   child: Row(
                                     children: [
                                       Icon(Icons.add_circle_outline,
                                           color: efficialsBlue, size: 20),
                                       SizedBox(width: 8),
-                                      Text('Add a new team', style: TextStyle(color: primaryTextColor)),
+                                      Text('+ Add new', style: TextStyle(color: primaryTextColor)),
                                     ],
                                   ),
                                 ),
@@ -998,15 +1016,13 @@ class _AssignerManageSchedulesScreenState
                   onPressed: _selectedDay == null
                       ? null
                       : () async {
-                          final prefs = await SharedPreferences.getInstance();
-                          final String? templateJson = prefs.getString(
-                              'assigner_team_template_${selectedTeam!.toLowerCase().replaceAll(' ', '_')}');
+                          // For now, pass null template as the template system 
+                          // may need additional work to fully integrate with database
                           GameTemplate? template;
-                          if (templateJson != null) {
-                            final templateData = jsonDecode(templateJson)
-                                as Map<String, dynamic>;
-                            template = GameTemplate.fromJson(templateData);
-                          }
+                          
+                          // TODO: If needed, implement template loading from database
+                          // This would require additional work to integrate the 
+                          // game template system with the database
 
                           if (mounted) {
                             // ignore: use_build_context_synchronously

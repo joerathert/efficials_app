@@ -20,17 +20,45 @@ class CrewDetailsScreen extends StatefulWidget {
 class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
   final CrewRepository _crewRepo = CrewRepository();
   final CrewChiefService _crewChiefService = CrewChiefService();
+  final TextEditingController _searchController = TextEditingController();
 
   List<CrewMember> _members = [];
+  List<CrewMember> _filteredMembers = [];
   Map<String, dynamic> _performanceStats = {};
   bool _isLoading = true;
   bool _isCrewChief = false;
   int? _currentOfficialId;
+  String _searchQuery = '';
 
-  @override
+@override
   void initState() {
     super.initState();
     _loadCrewDetails();
+    _searchController.addListener(_onSearchChanged);
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged() {
+    setState(() {
+      _searchQuery = _searchController.text;
+      _filterMembers();
+    });
+  }
+
+  void _filterMembers() {
+    if (_searchQuery.isEmpty) {
+      _filteredMembers = List.from(_members);
+    } else {
+      _filteredMembers = _members.where((member) {
+        final name = member.officialName?.toLowerCase() ?? '';
+        return name.contains(_searchQuery.toLowerCase());
+      }).toList();
+    }
   }
 
   Future<void> _loadCrewDetails() async {
@@ -57,6 +85,7 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
           setState(() {
             _isCrewChief = isChief;
             _members = members;
+            _filteredMembers = List.from(members);
             _performanceStats = stats;
             _isLoading = false;
           });
@@ -263,7 +292,7 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
                 if (_isCrewChief)
                   TextButton.icon(
                     onPressed: () {
-                      // TODO: Navigate to add member screen
+                      Navigator.pushNamed(context, '/add_crew_member', arguments: widget.crew);
                     },
                     icon:
                         const Icon(Icons.add, color: efficialsYellow, size: 16),
@@ -275,13 +304,33 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
               ],
             ),
             const SizedBox(height: 16),
-            if (_members.isEmpty)
-              const Text(
-                'No members added yet',
-                style: TextStyle(color: Colors.grey),
+            TextField(
+              controller: _searchController,
+              style: const TextStyle(color: efficialsWhite),
+              decoration: InputDecoration(
+                hintText: 'Search members...',
+                hintStyle: TextStyle(color: Colors.grey[400]),
+                prefixIcon: Icon(Icons.search, color: Colors.grey[400]),
+                filled: true,
+                fillColor: Colors.grey[900],
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: efficialsYellow),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            if (_filteredMembers.isEmpty)
+              Text(
+                _searchQuery.isEmpty ? 'No members added yet' : 'No members found matching "$_searchQuery"',
+                style: const TextStyle(color: Colors.grey),
               )
             else
-              ..._members.map((member) => _buildMemberTile(member)),
+              ..._filteredMembers.map((member) => _buildMemberTile(member)),
           ],
         ),
       ),
@@ -431,7 +480,7 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
             width: double.infinity,
             child: ElevatedButton.icon(
               onPressed: () {
-                // TODO: Navigate to availability management
+                Navigator.pushNamed(context, '/crew_availability', arguments: widget.crew);
               },
               icon: const Icon(Icons.calendar_today),
               label: const Text('Manage Availability'),
@@ -468,13 +517,13 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
   void _handleMenuSelection(String value) {
     switch (value) {
       case 'manage_availability':
-        // TODO: Navigate to availability management
+        Navigator.pushNamed(context, '/crew_availability', arguments: widget.crew);
         break;
       case 'add_member':
-        // TODO: Navigate to add member screen
+        Navigator.pushNamed(context, '/add_crew_member', arguments: widget.crew);
         break;
       case 'edit_crew':
-        // TODO: Navigate to edit crew screen
+        Navigator.pushNamed(context, '/edit_crew', arguments: widget.crew);
         break;
       case 'delete_crew':
         _showDeleteCrewConfirmation();
@@ -547,6 +596,8 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
     );
 
     if (firstConfirmed != true) return;
+
+    if (!mounted) return;
 
     // Second confirmation dialog (double confirmation)
     final secondConfirmed = await showDialog<bool>(
@@ -648,6 +699,20 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
     try {
       if (_currentOfficialId == null) return;
 
+      // Check for active assignments before deletion
+      final hasActiveAssignments = await _crewRepo.checkAssignments(widget.crew.id!);
+      if (hasActiveAssignments) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Cannot delete crew with active game assignments'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
       await _crewRepo.deleteCrew(widget.crew.id!, _currentOfficialId!);
 
       if (mounted) {
@@ -706,13 +771,30 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
 
     if (confirmed == true && _currentOfficialId != null) {
       try {
+        // Check for active assignments before removal
+        final hasActiveAssignments = await _crewRepo.checkMemberAssignments(
+          widget.crew.id!,
+          member.officialId,
+        );
+        if (hasActiveAssignments) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Cannot remove ${member.officialName} - they have active game assignments'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          return;
+        }
+
         await _crewChiefService.removeCrewMember(
           widget.crew.id!,
           member.officialId,
           _currentOfficialId!,
         );
 
-        _loadCrewDetails(); // Refresh the details
+        await _loadCrewDetails(); // Refresh the details
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(

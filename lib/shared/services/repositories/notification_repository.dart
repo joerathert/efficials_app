@@ -1,12 +1,13 @@
 import 'dart:convert';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import '../database_helper.dart';
-import '../../models/database_models.dart';
+import '../../models/database_models.dart' as models;
 
 class NotificationRepository {
   final DatabaseHelper _db = DatabaseHelper();
 
   /// Get all notifications for a specific user
-  Future<List<Notification>> getNotifications(int userId, {bool unreadOnly = false}) async {
+  Future<List<models.Notification>> getNotifications(int userId, {bool unreadOnly = false, bool readOnly = false}) async {
     final database = await _db.database;
     
     String whereClause = 'recipient_id = ?';
@@ -14,6 +15,8 @@ class NotificationRepository {
     
     if (unreadOnly) {
       whereClause += ' AND is_read = 0';
+    } else if (readOnly) {
+      whereClause += ' AND is_read = 1';
     }
     
     final result = await database.query(
@@ -23,7 +26,7 @@ class NotificationRepository {
       orderBy: 'created_at DESC',
     );
     
-    return result.map((row) => Notification.fromMap(row)).toList();
+    return result.map((row) => models.Notification.fromMap(row)).toList();
   }
 
   /// Get count of unread notifications for badge display
@@ -39,7 +42,7 @@ class NotificationRepository {
   }
 
   /// Create a new notification
-  Future<int> createNotification(Notification notification) async {
+  Future<int> createNotification(models.Notification notification) async {
     final database = await _db.database;
     
     final notificationMap = notification.toMap();
@@ -90,7 +93,7 @@ class NotificationRepository {
   }
 
   /// Get notifications by type
-  Future<List<Notification>> getNotificationsByType(int userId, String type) async {
+  Future<List<models.Notification>> getNotificationsByType(int userId, String type) async {
     final database = await _db.database;
     
     final result = await database.query(
@@ -100,7 +103,7 @@ class NotificationRepository {
       orderBy: 'created_at DESC',
     );
     
-    return result.map((row) => Notification.fromMap(row)).toList();
+    return result.map((row) => models.Notification.fromMap(row)).toList();
   }
 
   /// Create backout notification
@@ -114,7 +117,7 @@ class NotificationRepository {
     required String reason,
     Map<String, dynamic>? additionalData,
   }) async {
-    final notification = Notification.createBackoutNotification(
+    final notification = models.Notification.createBackoutNotification(
       schedulerId: schedulerId,
       officialName: officialName,
       gameSport: gameSport,
@@ -139,7 +142,7 @@ class NotificationRepository {
     required int daysUntilGame,
     Map<String, dynamic>? additionalData,
   }) async {
-    final notification = Notification.createGameFillingNotification(
+    final notification = models.Notification.createGameFillingNotification(
       schedulerId: schedulerId,
       gameSport: gameSport,
       gameOpponent: gameOpponent,
@@ -163,7 +166,7 @@ class NotificationRepository {
     required String gameTime,
     Map<String, dynamic>? additionalData,
   }) async {
-    final notification = Notification.createOfficialInterestNotification(
+    final notification = models.Notification.createOfficialInterestNotification(
       schedulerId: schedulerId,
       officialName: officialName,
       gameSport: gameSport,
@@ -186,7 +189,7 @@ class NotificationRepository {
     required String gameTime,
     Map<String, dynamic>? additionalData,
   }) async {
-    final notification = Notification.createOfficialClaimNotification(
+    final notification = models.Notification.createOfficialClaimNotification(
       schedulerId: schedulerId,
       officialName: officialName,
       gameSport: gameSport,
@@ -199,10 +202,127 @@ class NotificationRepository {
     return await createNotification(notification);
   }
 
+  /// Create crew backout notification
+  Future<int> createCrewBackoutNotification({
+    required int schedulerId,
+    required String crewName,
+    required String gameSport,
+    required String gameOpponent,
+    required DateTime gameDate,
+    required String gameTime,
+    required String reason,
+    required Map<String, dynamic> crewData,
+    Map<String, dynamic>? additionalData,
+  }) async {
+    final notification = models.Notification.createCrewBackoutNotification(
+      schedulerId: schedulerId,
+      crewName: crewName,
+      gameSport: gameSport,
+      gameOpponent: gameOpponent,
+      gameDate: gameDate,
+      gameTime: gameTime,
+      reason: reason,
+      crewData: crewData,
+      additionalData: additionalData,
+    );
+    
+    return await createNotification(notification);
+  }
+
+  // Push Notification Methods
+
+  /// Request push notification permission
+  Future<bool> requestPushPermission() async {
+    try {
+      final messaging = FirebaseMessaging.instance;
+      final settings = await messaging.requestPermission(
+        alert: true,
+        announcement: false,
+        badge: true,
+        carPlay: false,
+        criticalAlert: false,
+        provisional: false,
+        sound: true,
+      );
+      
+      return settings.authorizationStatus == AuthorizationStatus.authorized ||
+             settings.authorizationStatus == AuthorizationStatus.provisional;
+    } catch (e) {
+      print('Error requesting push notification permission: $e');
+      return false;
+    }
+  }
+
+  /// Subscribe to push notifications for a user
+  Future<bool> subscribeToPush(int userId) async {
+    try {
+      final messaging = FirebaseMessaging.instance;
+      
+      // Subscribe to user-specific topics
+      await messaging.subscribeToTopic('user_${userId}_notifications');
+      await messaging.subscribeToTopic('user_${userId}_backouts');
+      await messaging.subscribeToTopic('user_${userId}_game_filling');
+      
+      // Get and store FCM token for direct messaging if needed
+      final token = await messaging.getToken();
+      if (token != null) {
+        // Store token in database or send to server
+        print('FCM Token: $token');
+      }
+      
+      return true;
+    } catch (e) {
+      print('Error subscribing to push notifications: $e');
+      return false;
+    }
+  }
+
+  /// Unsubscribe from push notifications for a user
+  Future<bool> unsubscribeFromPush(int userId) async {
+    try {
+      final messaging = FirebaseMessaging.instance;
+      
+      // Unsubscribe from user-specific topics
+      await messaging.unsubscribeFromTopic('user_${userId}_notifications');
+      await messaging.unsubscribeFromTopic('user_${userId}_backouts');
+      await messaging.unsubscribeFromTopic('user_${userId}_game_filling');
+      
+      return true;
+    } catch (e) {
+      print('Error unsubscribing from push notifications: $e');
+      return false;
+    }
+  }
+
+  /// Initialize push notification handlers
+  Future<void> initializePushNotifications(int userId) async {
+    try {
+      final messaging = FirebaseMessaging.instance;
+      
+      // Handle foreground messages
+      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+        print('Received foreground message: ${message.notification?.title}');
+        // Handle the message and potentially create local notification
+      });
+      
+      // Handle when app is opened from notification
+      FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+        print('App opened from notification: ${message.notification?.title}');
+        // Navigate to appropriate screen based on message data
+      });
+      
+      // Handle background messages
+      FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+      
+    } catch (e) {
+      print('Error initializing push notifications: $e');
+    }
+  }
+
   // Notification Settings Methods
 
   /// Get notification settings for a user
-  Future<NotificationSettings?> getNotificationSettings(int userId) async {
+  Future<models.NotificationSettings?> getNotificationSettings(int userId) async {
     final database = await _db.database;
     
     final result = await database.query(
@@ -215,11 +335,11 @@ class NotificationRepository {
       return null;
     }
     
-    return NotificationSettings.fromMap(result.first);
+    return models.NotificationSettings.fromMap(result.first);
   }
 
   /// Create or update notification settings
-  Future<void> saveNotificationSettings(NotificationSettings settings) async {
+  Future<void> saveNotificationSettings(models.NotificationSettings settings) async {
     final database = await _db.database;
     
     final settingsMap = settings.toMap();
@@ -249,14 +369,16 @@ class NotificationRepository {
   }
 
   /// Get default notification settings for a new user
-  Future<NotificationSettings> getDefaultNotificationSettings(int userId) async {
-    return NotificationSettings(
+  Future<models.NotificationSettings> getDefaultNotificationSettings(int userId) async {
+    return models.NotificationSettings(
       userId: userId,
       backoutNotificationsEnabled: true,
       gameFillingNotificationsEnabled: true,
       officialInterestNotificationsEnabled: true,
       officialClaimNotificationsEnabled: true,
       gameFillingReminderDays: [3, 1], // 3 days and 1 day before
+      emailEnabled: false,
+      smsEnabled: false,
     );
   }
 
@@ -298,4 +420,11 @@ class NotificationRepository {
     
     return result;
   }
+}
+
+/// Top-level function to handle background messages
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  print('Handling background message: ${message.notification?.title}');
+  // Handle background notification logic here
 }

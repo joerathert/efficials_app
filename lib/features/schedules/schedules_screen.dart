@@ -37,7 +37,30 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
       final unpublishedGames = await _gameService.getUnpublishedGames();
       final allGames = [...publishedGames, ...unpublishedGames];
       
-      await _processScheduleData(schedulesWithGameCounts, allGames);
+      // Convert Game objects to maps for compatibility with existing method
+      final allGameMaps = allGames.map((game) => {
+        'id': game.id,
+        'scheduleName': game.scheduleName,
+        'sport': game.sportName,
+        'date': game.date,
+        'time': game.time,
+        'location': game.locationName,
+        'isAway': game.isAway,
+        'levelOfCompetition': game.levelOfCompetition,
+        'gender': game.gender,
+        'officialsRequired': game.officialsRequired,
+        'officialsHired': game.officialsHired,
+        'gameFee': game.gameFee,
+        'opponent': game.opponent,
+        'homeTeam': game.homeTeam,
+        'hireAutomatically': game.hireAutomatically,
+        'method': game.method,
+        'status': game.status,
+        'createdAt': game.createdAt,
+        'updatedAt': game.updatedAt,
+      }).toList();
+      
+      await _processScheduleData(schedulesWithGameCounts, allGameMaps);
     } catch (e) {
       // Fallback to SharedPreferences if database fails
       await _loadSchedulesFromPrefs();

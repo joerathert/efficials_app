@@ -583,6 +583,9 @@ class _OfficialGamesScreenState extends State<OfficialGamesScreen> {
   }
 
   Future<void> _handleBackOut(GameAssignment assignment, String reason) async {
+    if (assignment.id == null) {
+      throw Exception('Assignment ID is null - cannot back out of game');
+    }
     await _assignmentRepo.backOutOfGame(assignment.id!, reason);
   }
 }

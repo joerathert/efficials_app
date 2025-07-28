@@ -36,10 +36,63 @@ class CrewRepository extends BaseRepository {
   
   // Crew CRUD operations
   Future<int> createCrew(Crew crew) async {
+    debugPrint('Creating crew: ${crew.name}');
     return await insert('crews', crew.toMap());
+  }
+
+  // Atomic crew creation with members and invitations
+  Future<int> createCrewWithMembersAndInvitations({
+    required Crew crew,
+    required List<Official> selectedMembers,
+    required int crewChiefId,
+  }) async {
+    debugPrint('Creating crew atomically: ${crew.name}');
+    
+    return await withTransaction((txn) async {
+      // 1. Create the crew
+      final crewId = await txn.insert('crews', crew.toMap());
+      debugPrint('Crew created with ID: $crewId');
+
+      // 2. Add crew chief as a member
+      await txn.insert('crew_members', {
+        'crew_id': crewId,
+        'official_id': crewChiefId,
+        'position': 'crew_chief',
+        'game_position': 'Crew Chief',
+        'status': 'active',
+        'joined_at': DateTime.now().toIso8601String(),
+      });
+      debugPrint('Crew chief added as member');
+
+      // 3. Create invitations for selected members (exclude crew chief)
+      for (final member in selectedMembers) {
+        if (member.id != crewChiefId) {
+          await txn.insert('crew_invitations', {
+            'crew_id': crewId,
+            'invited_official_id': member.id,
+            'invited_by': crewChiefId,
+            'position': 'member',
+            'status': 'pending',
+            'invited_at': DateTime.now().toIso8601String(),
+          });
+          debugPrint('Invitation created for official ID: ${member.id}');
+        }
+      }
+
+      debugPrint('Crew creation transaction completed successfully');
+      return crewId;
+    }) as int;
+  }
+
+  // Batch operations
+  Future<List<int>> batchCreateCrews(List<Crew> crews) async {
+    debugPrint('Batch creating ${crews.length} crews');
+    final crewMaps = crews.map((crew) => crew.toMap()).toList();
+    return await batchInsert('crews', crewMaps);
   }
   
   Future<Crew?> getCrewById(int crewId) async {
+    debugPrint('Getting crew by ID: $crewId');
     final results = await rawQuery('''
       SELECT c.*, ct.required_officials, ct.level_of_competition,
              s.name as sport_name, o.name as crew_chief_name,
@@ -79,7 +132,21 @@ class CrewRepository extends BaseRepository {
     );
   }
   
-  Future<List<Crew>> getAllCrews() async {
+  Future<List<Crew>> getAllCrews({int? sportId, String? level}) async {
+    debugPrint('Getting all crews - sportId: $sportId, level: $level');
+    String whereClause = 'c.is_active = 1';
+    List<dynamic> args = [];
+    
+    if (sportId != null) {
+      whereClause += ' AND ct.sport_id = ?';
+      args.add(sportId);
+    }
+    
+    if (level != null) {
+      whereClause += ' AND ct.level_of_competition = ?';
+      args.add(level);
+    }
+    
     final results = await rawQuery('''
       SELECT c.*, ct.required_officials, ct.level_of_competition,
              s.name as sport_name, o.name as crew_chief_name,
@@ -89,10 +156,10 @@ class CrewRepository extends BaseRepository {
       JOIN sports s ON ct.sport_id = s.id
       JOIN officials o ON c.crew_chief_id = o.id
       LEFT JOIN crew_members cm ON c.id = cm.crew_id AND cm.status = 'active'
-      WHERE c.is_active = 1
+      WHERE $whereClause
       GROUP BY c.id
       ORDER BY c.name
-    ''');
+    ''', args);
     
     final crews = <Crew>[];
     for (final data in results) {
@@ -210,44 +277,86 @@ class CrewRepository extends BaseRepository {
     return crews;
   }
   
-  // Crew member management
+  // Crew member management with transaction support
   Future<int> addCrewMember(int crewId, int officialId, String position, String? gamePosition) async {
-    // First check if crew has space
-    final crew = await getCrewById(crewId);
-    if (crew == null) throw Exception('Crew not found');
+    debugPrint('Adding crew member - crewId: $crewId, officialId: $officialId, position: $position');
     
-    final currentMembers = await getCurrentMemberCount(crewId);
-    if (currentMembers >= crew.requiredOfficials!) {
-      throw Exception('Crew is already at full capacity (${crew.requiredOfficials} members)');
-    }
-    
-    return await insert('crew_members', {
-      'crew_id': crewId,
-      'official_id': officialId,
-      'position': position,
-      'game_position': gamePosition,
-      'status': 'active',
-      'joined_at': DateTime.now().toIso8601String(),
-    });
+    return await withTransaction((txn) async {
+      // First check if crew has space
+      final crewResults = await txn.rawQuery('''
+        SELECT c.*, ct.required_officials
+        FROM crews c
+        JOIN crew_types ct ON c.crew_type_id = ct.id
+        WHERE c.id = ? AND c.is_active = 1
+      ''', [crewId]);
+      
+      if (crewResults.isEmpty) throw Exception('Crew not found');
+      
+      final crew = crewResults.first;
+      final requiredOfficials = crew['required_officials'] as int;
+      
+      final currentMembersResults = await txn.rawQuery('''
+        SELECT COUNT(*) as count 
+        FROM crew_members 
+        WHERE crew_id = ? AND status = 'active'
+      ''', [crewId]);
+      
+      final currentMembers = currentMembersResults.first['count'] as int;
+      
+      if (currentMembers >= requiredOfficials) {
+        throw Exception('Crew is already at full capacity ($requiredOfficials members)');
+      }
+      
+      final result = await txn.insert('crew_members', {
+        'crew_id': crewId,
+        'official_id': officialId,
+        'position': position,
+        'game_position': gamePosition,
+        'status': 'active',
+        'joined_at': DateTime.now().toIso8601String(),
+      });
+      
+      debugPrint('Crew member added successfully with ID: $result');
+      return result;
+    }) as int;
   }
   
   Future<int> removeCrewMember(int crewId, int officialId) async {
-    return await update('crew_members', 
-      {'status': 'inactive'}, 
-      'crew_id = ? AND official_id = ?', 
-      [crewId, officialId]);
+    debugPrint('Removing crew member - crewId: $crewId, officialId: $officialId');
+    
+    return await withTransaction((txn) async {
+      final result = await txn.update('crew_members', 
+        {'status': 'inactive'}, 
+        where: 'crew_id = ? AND official_id = ?', 
+        whereArgs: [crewId, officialId]);
+      
+      debugPrint('Crew member removal result: $result rows affected');
+      return result;
+    }) as int;
   }
   
-  Future<List<CrewMember>> getCrewMembers(int crewId) async {
-    final results = await rawQuery('''
+  Future<List<CrewMember>> getCrewMembers(int crewId, {String? nameFilter}) async {
+    debugPrint('Getting crew members for crew ID: $crewId');
+    String query = '''
       SELECT cm.*, o.name as official_name, o.phone, o.email
       FROM crew_members cm
       JOIN officials o ON cm.official_id = o.id
       WHERE cm.crew_id = ? AND cm.status = 'active'
+    ''';
+    List<dynamic> args = [crewId];
+    
+    if (nameFilter != null && nameFilter.isNotEmpty) {
+      query += ' AND LOWER(o.name) LIKE LOWER(?)';
+      args.add('%$nameFilter%');
+    }
+    
+    query += '''
       ORDER BY 
         CASE WHEN cm.position = 'crew_chief' THEN 0 ELSE 1 END,
         cm.joined_at
-    ''', [crewId]);
+    ''';
+    
+    final results = await rawQuery(query, args);
     
     return results.map((data) => CrewMember.fromMap(data)).toList();
   }
@@ -262,10 +371,45 @@ class CrewRepository extends BaseRepository {
     return results.first['count'] ?? 0;
   }
   
+  Future<bool> checkAssignments(int crewId) async {
+    debugPrint('Checking for active assignments for crew ID: $crewId');
+    final results = await rawQuery('''
+      SELECT COUNT(*) as count
+      FROM crew_assignments ca
+      JOIN games g ON ca.game_id = g.id
+      WHERE ca.crew_id = ? 
+        AND ca.status = 'accepted'
+        AND g.date >= DATE('now')
+        AND g.status != 'cancelled'
+    ''', [crewId]);
+    
+    final count = results.first['count'] as int? ?? 0;
+    return count > 0;
+  }
+
+  Future<bool> checkMemberAssignments(int crewId, int officialId) async {
+    debugPrint('Checking for active assignments for crew member - crewId: $crewId, officialId: $officialId');
+    final results = await rawQuery('''
+      SELECT COUNT(*) as count
+      FROM game_assignments ga
+      JOIN games g ON ga.game_id = g.id
+      JOIN crew_assignments ca ON ga.game_id = ca.game_id
+      WHERE ca.crew_id = ? 
+        AND ga.official_id = ?
+        AND ga.status = 'accepted'
+        AND g.date >= DATE('now')
+        AND g.status != 'cancelled'
+    ''', [crewId, officialId]);
+    
+    final count = results.first['count'] as int? ?? 0;
+    return count > 0;
+  }
+  
   // Crew availability management
   Future<int> setCrewAvailability(int crewId, DateTime date, String status,
                                   TimeOfDay? startTime, TimeOfDay? endTime,
                                   String? notes, int setById) async {
+    debugPrint('Setting crew availability - crewId: $crewId, date: $date, status: $status');
     final data = {
       'crew_id': crewId,
       'date': date.toIso8601String().split('T')[0],
@@ -344,6 +488,7 @@ class CrewRepository extends BaseRepository {
   
   // Crew assignment management
   Future<int> createCrewAssignment(CrewAssignment assignment) async {
+    debugPrint('Creating crew assignment for crew ID: ${assignment.crewId}, game ID: ${assignment.gameId}');
     return await insert('crew_assignments', assignment.toMap());
   }
   
@@ -369,6 +514,7 @@ class CrewRepository extends BaseRepository {
   
   Future<int> respondToCrewAssignment(int assignmentId, String status, 
                                       String? notes, int crewChiefId) async {
+    debugPrint('Responding to crew assignment - ID: $assignmentId, status: $status, crewChief: $crewChiefId');
     final result = await update('crew_assignments', {
       'status': status,
       'responded_at': DateTime.now().toIso8601String(),
@@ -480,6 +626,7 @@ class CrewRepository extends BaseRepository {
 
   // Crew invitation management
   Future<int> createCrewInvitation(CrewInvitation invitation) async {
+    debugPrint('Creating crew invitation for crew ID: ${invitation.crewId}, official ID: ${invitation.invitedOfficialId}');
     return await insert('crew_invitations', invitation.toMap());
   }
 
@@ -553,6 +700,8 @@ class CrewRepository extends BaseRepository {
 
   // Crew deletion (only for crew chiefs)
   Future<void> deleteCrew(int crewId, int crewChiefId) async {
+    debugPrint('Deleting crew - ID: $crewId, by crew chief: $crewChiefId');
+    
     // Verify the official is the crew chief
     final isChief = await isCrewChief(crewChiefId, crewId);
     if (!isChief) {
@@ -604,6 +753,8 @@ class CrewRepository extends BaseRepository {
     await rawDelete('''
       DELETE FROM crews WHERE id = ? AND crew_chief_id = ?
     ''', [crewId, crewChiefId]);
+    
+    debugPrint('Crew deletion completed successfully');
   }
 
   // Advanced filtering methods for crew search

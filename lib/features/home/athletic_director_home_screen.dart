@@ -124,10 +124,7 @@ class _AthleticDirectorHomeScreenState
 
   Future<void> _fetchGames() async {
     try {
-      // Initialize schedule filters first to avoid filtering out all games
-      await _initializeScheduleFilters();
-      
-      // Get games from database
+      // Get games from database first
       final publishedGamesData = await _gameService.getFilteredGames(
         showAwayGames: showAwayGames,
         showFullyCoveredGames: showFullyCoveredGames,
@@ -140,16 +137,25 @@ class _AthleticDirectorHomeScreenState
       // Extract schedule names from all games
       Set<String> scheduleNames = {};
       for (var game in [...publishedGamesData, ...unpublishedGamesData]) {
-        final scheduleName = game['scheduleName'];
+        final scheduleName = game.scheduleName;
         if (scheduleName != null) {
-          scheduleNames.add(scheduleName as String);
+          scheduleNames.add(scheduleName);
         }
       }
       existingSchedules = scheduleNames.toList();
       
+      // Initialize schedule filters after getting games to ensure new games are included
+      await _initializeScheduleFilters();
+      
       setState(() {
-        publishedGames = publishedGamesData.map(Game.fromMap).toList();
+        publishedGames = publishedGamesData; // No conversion needed - already Game objects
         isLoading = false;
+        
+        // Debug logging to understand what's happening with games
+        developer.log('Published games loaded: ${publishedGames.length}');
+        for (var game in publishedGames) {
+          developer.log('Game: id=${game.id}, scheduleName=${game.scheduleName}, sportName=${game.sportName}, date=${game.date}');
+        }
       });
     } catch (e) {
       developer.log('Error fetching games from database: $e');
@@ -219,8 +225,8 @@ class _AthleticDirectorHomeScreenState
       final unpublishedGamesData = await _gameService.getUnpublishedGames();
       
       List<Game> allGames = [];
-      allGames.addAll(publishedGamesData.map(Game.fromMap));
-      allGames.addAll(unpublishedGamesData.map(Game.fromMap));
+      allGames.addAll(publishedGamesData); // Already Game objects
+      allGames.addAll(unpublishedGamesData); // Already Game objects
       
       final Map<String, Map<String, bool>> newScheduleFilters = {};
       for (var game in allGames) {
@@ -228,12 +234,23 @@ class _AthleticDirectorHomeScreenState
           continue; // Skip games without a schedule name
         }
         
-        final sportName = game.sportName ?? 'Unknown Sport';
-        if (!newScheduleFilters.containsKey(sportName)) {
-          newScheduleFilters[sportName] = {};
+        final baseSportName = game.sportName ?? 'Unknown Sport';
+        String sportKey = baseSportName;
+        
+        // For basketball, use gender-specific sport names
+        if (baseSportName.toLowerCase() == 'basketball' && game.gender != null) {
+          if (game.gender!.toLowerCase() == 'boys' || game.gender!.toLowerCase() == 'male') {
+            sportKey = 'Boys Basketball';
+          } else if (game.gender!.toLowerCase() == 'girls' || game.gender!.toLowerCase() == 'female') {
+            sportKey = 'Girls Basketball';
+          }
         }
-        if (!newScheduleFilters[sportName]!.containsKey(game.scheduleName)) {
-          newScheduleFilters[sportName]![game.scheduleName!] = true;
+        
+        if (!newScheduleFilters.containsKey(sportKey)) {
+          newScheduleFilters[sportKey] = {};
+        }
+        if (!newScheduleFilters[sportKey]!.containsKey(game.scheduleName)) {
+          newScheduleFilters[sportKey]![game.scheduleName!] = true;
         }
       }
 
@@ -326,10 +343,12 @@ class _AthleticDirectorHomeScreenState
     }
   }
 
-  List<Game> _filterGamesByTime(List<Game> games, bool getPastGames) {
+  List<Game> _filterGamesByTime(List<Game> games, bool getPastGames, {bool applyScheduleFilters = true}) {
     final now = DateTime.now();
     // Create a DateTime at the start of today (midnight) for date comparison
     final today = DateTime(now.year, now.month, now.day);
+    
+    developer.log('Filtering ${games.length} games, getPastGames: $getPastGames');
 
     var filteredGames = games.where((game) {
       if (!showAwayGames && game.isAway) return false;
@@ -337,7 +356,8 @@ class _AthleticDirectorHomeScreenState
           game.officialsHired >= game.officialsRequired) {
         return false;
       }
-      if (game.scheduleName == null) return false;
+      // Don't filter out games with null schedule names immediately - they might be new games
+      // The schedule filter logic below will handle this properly
 
       // Filter by past/upcoming
       if (game.date != null) {
@@ -348,37 +368,55 @@ class _AthleticDirectorHomeScreenState
         if (!getPastGames && isPastGame) return false;
       }
 
-      // Apply schedule filters
-      if (scheduleFilters.isEmpty) {
-        return true; // Show all games when no filters are set
-      }
-      
-      final sportName = game.sportName ?? 'Unknown Sport';
-      
-      // Check if the game's sport/schedule combination exists in filters
-      if (scheduleFilters.containsKey(sportName) &&
-          scheduleFilters[sportName]!.containsKey(game.scheduleName!)) {
-        return scheduleFilters[sportName]![game.scheduleName!]!;
-      }
-      
-      // If the game's sport/schedule combination is not in filters,
-      // it might be a new game that wasn't included during filter initialization
-      // Add it to filters and show it by default
-      if (sportName.isNotEmpty && game.scheduleName != null) {
-        if (!scheduleFilters.containsKey(sportName)) {
-          scheduleFilters[sportName] = {};
+      // Apply schedule filters only if requested
+      if (applyScheduleFilters) {
+        if (scheduleFilters.isEmpty) {
+          return true; // Show all games when no filters are set
         }
-        if (!scheduleFilters[sportName]!.containsKey(game.scheduleName!)) {
-          scheduleFilters[sportName]![game.scheduleName!] = true;
-          // Save the updated filters asynchronously
-          _saveFilters();
+        
+        final baseSportName = game.sportName ?? 'Unknown Sport';
+        String sportKey = baseSportName;
+        
+        // For basketball, use gender-specific sport names to match filter keys
+        if (baseSportName.toLowerCase() == 'basketball' && game.gender != null) {
+          if (game.gender!.toLowerCase() == 'boys' || game.gender!.toLowerCase() == 'male') {
+            sportKey = 'Boys Basketball';
+          } else if (game.gender!.toLowerCase() == 'girls' || game.gender!.toLowerCase() == 'female') {
+            sportKey = 'Girls Basketball';
+          }
         }
-        return scheduleFilters[sportName]![game.scheduleName!]!;
+        
+        final scheduleName = game.scheduleName;
+        
+        // If game has no schedule name, hide it when filters are active
+        if (scheduleName == null || scheduleName.isEmpty) {
+          return false;
+        }
+        
+        // If the game's sport/schedule combination is not in filters,
+        // it might be a new game that wasn't included during filter initialization
+        // Add it to filters and show it by default
+        if (sportKey.isNotEmpty) {
+          if (!scheduleFilters.containsKey(sportKey)) {
+            scheduleFilters[sportKey] = {};
+          }
+          if (!scheduleFilters[sportKey]!.containsKey(scheduleName)) {
+            scheduleFilters[sportKey]![scheduleName] = true;
+            // Save the updated filters asynchronously
+            _saveFilters();
+          }
+          return scheduleFilters[sportKey]![scheduleName]!;
+        }
+        
+        // If game doesn't have proper sport info, hide it when filters are active
+        return false;
       }
       
-      // If game doesn't have proper sport/schedule info, don't show it
-      return false;
+      // If not applying schedule filters, just return true (show all games)
+      return true;
     }).toList();
+    
+    developer.log('After filtering: ${filteredGames.length} games remaining');
 
     filteredGames.sort((a, b) {
       if (a.date == null && b.date == null) return 0;
@@ -410,75 +448,11 @@ class _AthleticDirectorHomeScreenState
 
   Widget _buildGamesList(List<Game> pastGames, List<Game> upcomingGames) {
     if (upcomingGames.isEmpty && pastGames.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Transform.translate(
-                offset: const Offset(0, -80),
-                child: Column(
-                  children: [
-                    const Icon(
-                      Icons.sports,
-                      size: 80,
-                      color: efficialsYellow,
-                    ),
-                    const SizedBox(height: 24),
-                    const Text(
-                      'Welcome to Efficials!',
-                      style: TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
-                        color: efficialsYellow,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'Get started by adding your first game to manage schedules and officials.',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.grey,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 32),
-                    ElevatedButton.icon(
-                      onPressed: () {
-                        setState(() {
-                          isFabExpanded = true;
-                        });
-                      },
-                      icon: const Icon(Icons.add_circle_outline, size: 24),
-                      label: const Text(
-                        'Add Your First Game',
-                        style: TextStyle(fontSize: 18),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: efficialsYellow,
-                        foregroundColor: efficialsBlack,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 24,
-                          vertical: 16,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    if (!showPastGames) {
-      if (upcomingGames.isEmpty) {
+      // Check if there are any games at all vs games filtered out
+      final bool hasAnyGames = publishedGames.isNotEmpty;
+      
+      if (!hasAnyGames) {
+        // No games exist - show welcome message
         return Center(
           child: Padding(
             padding: const EdgeInsets.all(24.0),
@@ -490,15 +464,15 @@ class _AthleticDirectorHomeScreenState
                   child: Column(
                     children: [
                       const Icon(
-                        Icons.event_available,
+                        Icons.sports,
                         size: 80,
                         color: efficialsYellow,
                       ),
                       const SizedBox(height: 24),
                       const Text(
-                        'No Upcoming Games',
+                        'Welcome to Efficials!',
                         style: TextStyle(
-                          fontSize: 24,
+                          fontSize: 32,
                           fontWeight: FontWeight.bold,
                           color: efficialsYellow,
                         ),
@@ -506,7 +480,7 @@ class _AthleticDirectorHomeScreenState
                       ),
                       const SizedBox(height: 16),
                       const Text(
-                        'Add a new game to start managing your schedule.',
+                        'Get started by adding your first game to manage schedules and officials.',
                         style: TextStyle(
                           fontSize: 16,
                           color: Colors.grey,
@@ -522,7 +496,7 @@ class _AthleticDirectorHomeScreenState
                         },
                         icon: const Icon(Icons.add_circle_outline, size: 24),
                         label: const Text(
-                          'Add New Game',
+                          'Add Your First Game',
                           style: TextStyle(fontSize: 18),
                         ),
                         style: ElevatedButton.styleFrom(
@@ -544,6 +518,283 @@ class _AthleticDirectorHomeScreenState
             ),
           ),
         );
+      } else {
+        // Games exist but are filtered out - show filter message
+        return Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Transform.translate(
+                  offset: const Offset(0, -80),
+                  child: Column(
+                    children: [
+                      const Text(
+                        'No Games Found',
+                        style: TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                          color: primaryTextColor,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'You have ${publishedGames.length} game${publishedGames.length == 1 ? '' : 's'} created, but ${publishedGames.length == 1 ? 'it is' : 'they are'} currently hidden by your filter settings.',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          color: secondaryTextColor,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 32),
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ScheduleFilterScreen(
+                                scheduleFilters: scheduleFilters,
+                                showAwayGames: showAwayGames,
+                                showFullyCoveredGames: showFullyCoveredGames,
+                                onFiltersChanged: (updatedFilters, away, fullyCovered) {
+                                  setState(() {
+                                    scheduleFilters = updatedFilters;
+                                    showAwayGames = away;
+                                    showFullyCoveredGames = fullyCovered;
+                                  });
+                                  _saveFilters();
+                                },
+                              ),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.filter_list, size: 24),
+                        label: const Text(
+                          'Adjust Filters',
+                          style: TextStyle(fontSize: 18),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: efficialsBlue,
+                          foregroundColor: Colors.black,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 24,
+                            vertical: 16,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      TextButton(
+                        onPressed: () {
+                          setState(() {
+                            // Reset all filters to show all games
+                            scheduleFilters.forEach((sport, schedules) {
+                              schedules.forEach((schedule, _) {
+                                scheduleFilters[sport]![schedule] = true;
+                              });
+                            });
+                            showAwayGames = true;
+                            showFullyCoveredGames = true;
+                          });
+                          _saveFilters();
+                        },
+                        child: const Text(
+                          'Show All Games',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: efficialsYellow,
+                            decoration: TextDecoration.underline,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+    }
+
+    if (!showPastGames) {
+      if (upcomingGames.isEmpty) {
+        // Check if there are upcoming games in the unfiltered list
+        final unfilteredUpcomingGames = _filterGamesByTime(publishedGames, false, applyScheduleFilters: false);
+        final bool hasUpcomingGamesFiltered = unfilteredUpcomingGames.isNotEmpty;
+        
+        if (hasUpcomingGamesFiltered) {
+          // There are upcoming games but they're filtered out
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Transform.translate(
+                    offset: const Offset(0, -80),
+                    child: Column(
+                      children: [
+                        const Text(
+                          'No Upcoming Games Found',
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: primaryTextColor,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'You have ${unfilteredUpcomingGames.length} upcoming game${unfilteredUpcomingGames.length == 1 ? '' : 's'}, but ${unfilteredUpcomingGames.length == 1 ? 'it is' : 'they are'} currently hidden by your filter settings.',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            color: secondaryTextColor,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 32),
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => ScheduleFilterScreen(
+                                  scheduleFilters: scheduleFilters,
+                                  showAwayGames: showAwayGames,
+                                  showFullyCoveredGames: showFullyCoveredGames,
+                                  onFiltersChanged: (updatedFilters, away, fullyCovered) {
+                                    setState(() {
+                                      scheduleFilters = updatedFilters;
+                                      showAwayGames = away;
+                                      showFullyCoveredGames = fullyCovered;
+                                    });
+                                    _saveFilters();
+                                  },
+                                ),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.filter_list, size: 24),
+                          label: const Text(
+                            'Adjust Filters',
+                            style: TextStyle(fontSize: 18),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: efficialsBlue,
+                            foregroundColor: Colors.black,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 24,
+                              vertical: 16,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        TextButton(
+                          onPressed: () {
+                            setState(() {
+                              // Reset all filters to show all games
+                              scheduleFilters.forEach((sport, schedules) {
+                                schedules.forEach((schedule, _) {
+                                  scheduleFilters[sport]![schedule] = true;
+                                });
+                              });
+                              showAwayGames = true;
+                              showFullyCoveredGames = true;
+                            });
+                            _saveFilters();
+                          },
+                          child: const Text(
+                            'Show All Games',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: efficialsYellow,
+                              decoration: TextDecoration.underline,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        } else {
+          // No upcoming games exist at all
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Transform.translate(
+                    offset: const Offset(0, -80),
+                    child: Column(
+                      children: [
+                        const Icon(
+                          Icons.event_available,
+                          size: 80,
+                          color: efficialsYellow,
+                        ),
+                        const SizedBox(height: 24),
+                        const Text(
+                          'No Upcoming Games',
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: efficialsYellow,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'Add a new game to start managing your schedule.',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 32),
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            setState(() {
+                              isFabExpanded = true;
+                            });
+                          },
+                          icon: const Icon(Icons.add_circle_outline, size: 24),
+                          label: const Text(
+                            'Add New Game',
+                            style: TextStyle(fontSize: 18),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: efficialsYellow,
+                            foregroundColor: efficialsBlack,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 24,
+                              vertical: 16,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
       }
       return ListView.builder(
         controller: scrollController,

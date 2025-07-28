@@ -580,7 +580,30 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen> with RouteAwa
           else
             _buildDetailRow('Method', _getMethodDisplayName(template.method)),
           
-          if ((template.method == 'standard' || template.method == 'advanced') && 
+          // Show advanced method details
+          if (template.method == 'advanced' && template.selectedLists?.isNotEmpty == true) ...[
+            const SizedBox(height: 8),
+            _buildDetailRow('Lists Configured', '${template.selectedLists!.length}'),
+            const SizedBox(height: 4),
+            ...template.selectedLists!.map((list) {
+              final listName = list['name'] as String? ?? 'Unknown List';
+              final minOfficials = list['minOfficials'] as int? ?? 0;
+              final maxOfficials = list['maxOfficials'] as int? ?? 0;
+              final officialsCount = (list['officials'] as List?)?.length ?? 0;
+              return Padding(
+                padding: const EdgeInsets.only(left: 16, bottom: 2),
+                child: Text(
+                  '• $listName: $minOfficials-$maxOfficials officials ($officialsCount available)',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: secondaryTextColor,
+                  ),
+                ),
+              );
+            }).toList(),
+          ]
+          // Show standard method selected officials
+          else if ((template.method == 'standard') && 
               template.selectedOfficials?.isNotEmpty == true) ...[
             _buildDetailRow('Selected Officials', ''),
             const SizedBox(height: 4),

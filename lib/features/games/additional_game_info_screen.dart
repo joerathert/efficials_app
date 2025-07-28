@@ -255,6 +255,26 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
     }
   }
 
+  List<Map<String, dynamic>> _getTemplateAdvancedOfficials() {
+    if (template == null || template!.method != 'advanced' || template!.selectedLists == null) {
+      return [];
+    }
+    
+    // Collect all officials from all selected lists in the template
+    List<Map<String, dynamic>> allOfficials = [];
+    for (var list in template!.selectedLists!) {
+      final officials = list['officials'] as List<dynamic>?;
+      if (officials != null) {
+        for (var official in officials) {
+          if (official is Map<String, dynamic>) {
+            allOfficials.add(Map<String, dynamic>.from(official));
+          }
+        }
+      }
+    }
+    return allOfficials;
+  }
+
   Future<void> _handleContinue() async {
     
     if (!_isAwayGame) {
@@ -290,10 +310,12 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
     final args =
         ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
     
-    // Load officials from template list if needed
+    // Load officials from template if needed
     List<Map<String, dynamic>> templateOfficials = [];
     if (template?.method == 'use_list' && template?.officialsListName != null) {
       templateOfficials = await _getTemplateListOfficials();
+    } else if (template?.method == 'advanced' && template?.selectedLists != null) {
+      templateOfficials = _getTemplateAdvancedOfficials();
     }
     
     final updatedArgs = {
@@ -307,7 +329,7 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
       'hireAutomatically': _isAwayGame ? false : _hireAutomatically,
       'isAway': _isAwayGame,
       'officialsHired': args['officialsHired'] ?? 0,
-      'selectedOfficials': template?.method == 'use_list' && templateOfficials.isNotEmpty
+      'selectedOfficials': (template?.method == 'use_list' || template?.method == 'advanced') && templateOfficials.isNotEmpty
           ? templateOfficials
           : (args['selectedOfficials'] ?? <Map<String, dynamic>>[]),
       'template': template,
@@ -342,7 +364,12 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
         if (template?.method != null) {
           switch (template!.method) {
             case 'advanced':
-              nextRoute = '/advanced_officials_selection';
+              // If template has pre-configured selectedLists with min/max data, skip advanced selection
+              if (template!.selectedLists != null && template!.selectedLists!.isNotEmpty) {
+                nextRoute = '/review_game_info';
+              } else {
+                nextRoute = '/advanced_officials_selection';
+              }
               break;
             case 'use_list':
               // If template has a pre-selected list, skip the list selection screen

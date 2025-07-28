@@ -29,7 +29,9 @@
       "Bash(pkill:*)",
       "Bash(tree:*)",
       "Bash(echo:*)",
-      "Bash(timeout:*)"
+      "Bash(timeout:*)",
+      "Bash(git restore:*)",
+      "Bash(git stash:*)"
     ],
     "deny": []
   }

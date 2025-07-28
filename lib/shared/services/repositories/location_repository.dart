@@ -248,4 +248,67 @@ class LocationRepository extends BaseRepository {
   bool isUserLocationsCached(int userId) {
     return _locationsByUserCache.containsKey(userId);
   }
+
+  // Find and return duplicate locations for a user
+  Future<Map<String, List<Location>>> findDuplicateLocations(int userId) async {
+    final locations = await getLocationsByUser(userId);
+    final duplicates = <String, List<Location>>{};
+    
+    for (final location in locations) {
+      final name = location.name;
+      if (duplicates.containsKey(name)) {
+        duplicates[name]!.add(location);
+      } else {
+        final sameName = locations.where((l) => l.name == name).toList();
+        if (sameName.length > 1) {
+          duplicates[name] = sameName;
+        }
+      }
+    }
+    
+    return duplicates;
+  }
+
+  // Merge duplicate locations (keeps the first one, transfers references from others, then deletes)
+  Future<void> mergeDuplicateLocations(int userId, String locationName) async {
+    final duplicates = await findDuplicateLocations(userId);
+    if (!duplicates.containsKey(locationName) || duplicates[locationName]!.length <= 1) {
+      throw Exception('No duplicates found for location: $locationName');
+    }
+    
+    final locations = duplicates[locationName]!;
+    final keepLocation = locations.first; // Keep the first one (oldest)
+    final deleteLocations = locations.skip(1).toList();
+    
+    final db = await database;
+    await db.transaction((txn) async {
+      // Update all games to reference the location we're keeping
+      for (final deleteLocation in deleteLocations) {
+        await txn.update(
+          'games',
+          {'location_id': keepLocation.id},
+          where: 'location_id = ?',
+          whereArgs: [deleteLocation.id],
+        );
+        
+        // Update all game templates to reference the location we're keeping
+        await txn.update(
+          'game_templates',
+          {'location_id': keepLocation.id},
+          where: 'location_id = ?',
+          whereArgs: [deleteLocation.id],
+        );
+        
+        // Delete the duplicate location
+        await txn.delete(
+          tableName,
+          where: 'id = ?',
+          whereArgs: [deleteLocation.id],
+        );
+      }
+    });
+    
+    // Clear cache
+    clearUserCache(userId);
+  }
 }

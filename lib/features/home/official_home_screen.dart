@@ -35,6 +35,7 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
   bool _isLoading = true;
   Official? _currentOfficial;
   int _pendingInvitationsCount = 0;
+  double _ytdEarnings = 0.0;
   
   @override
   void initState() {
@@ -90,32 +91,12 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
     if (_currentOfficial == null) return;
     
     try {
-      // Load accepted games
-      final accepted = await _assignmentRepo.getAssignmentsByStatus(
-        _currentOfficial!.id!,
-        'accepted'
-      );
+      // Use optimized batch method to load all data in one call
+      final homeData = await _assignmentRepo.getOfficialHomeData(_currentOfficial!.id!);
       
-      // Load pending games
-      final pending = await _assignmentRepo.getAssignmentsByStatus(
-        _currentOfficial!.id!,
-        'pending'
-      );
-      
-      // Load available games
-      final available = await _assignmentRepo.getAvailableGamesForOfficial(
-        _currentOfficial!.id!
-      );
-      
-      
-      // Transform the data to include scheduler field
-      final transformedAvailable = available.map((game) {
-        final firstName = game['first_name'] ?? '';
-        final lastName = game['last_name'] ?? '';
-        final scheduler = '$firstName $lastName'.trim();
-        
-        return Map<String, dynamic>.from(game)..['scheduler'] = scheduler;
-      }).toList();
+      final accepted = homeData['accepted'] as List<GameAssignment>;
+      final pending = homeData['pending'] as List<GameAssignment>;
+      final transformedAvailable = homeData['available'] as List<Map<String, dynamic>>;
       
       if (mounted) {
         setState(() {
@@ -146,6 +127,9 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
           pendingGames = pending;
           // Convert to mutable list to allow removeWhere operations
           availableGames = transformedAvailable;
+          
+          // Calculate YTD earnings from accepted games
+          _calculateYtdEarnings();
         });
       }
     } catch (e) {
@@ -166,6 +150,22 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
     } catch (e) {
       print('Error loading invitations count: $e');
     }
+  }
+
+  void _calculateYtdEarnings() {
+    final currentYear = DateTime.now().year;
+    double totalEarnings = 0.0;
+    
+    for (final assignment in acceptedGames) {
+      // Only count games from current year
+      if (assignment.gameDate != null && 
+          assignment.gameDate!.year == currentYear &&
+          assignment.feeAmount != null) {
+        totalEarnings += assignment.feeAmount!;
+      }
+    }
+    
+    _ytdEarnings = totalEarnings;
   }
 
   @override
@@ -273,7 +273,6 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                   children: [
                     _buildWelcomeHeader(),
                     _buildStatsCards(),
-                    _buildCrewManagementCard(),
                   ],
                 ),
               ),
@@ -435,7 +434,7 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
   }
 
   Widget _buildAvailabilityTab() {
-    return const OfficialAvailabilityScreen();
+    return OfficialAvailabilityScreen(acceptedGames: acceptedGames);
   }
 
   Widget _buildProfileTab() {
@@ -1033,6 +1032,59 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                   ],
                 ),
               ),
+              // Crew Management Button
+              GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const CrewDashboardScreen(),
+                    ),
+                  ).then((_) => _loadInvitationsCount());
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: efficialsYellow.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: efficialsYellow.withOpacity(0.3),
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.groups,
+                        color: efficialsYellow,
+                        size: 20,
+                      ),
+                      if (_pendingInvitationsCount > 0) ...[
+                        const SizedBox(width: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.red,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            '$_pendingInvitationsCount',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
             ],
           ),
         ],
@@ -1042,7 +1094,7 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
 
   Widget _buildStatsCards() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
       child: Row(
         children: [
           Expanded(
@@ -1124,6 +1176,151 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
     );
   }
 
+  Widget _buildEarningsCard() {
+    return InkWell(
+      onTap: () {
+        // Show detailed earnings breakdown
+        _showEarningsDetails();
+      },
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Colors.green.withOpacity(0.2),
+              Colors.green.withOpacity(0.1),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.green.withOpacity(0.3)),
+        ),
+        child: Column(
+          children: [
+            Icon(
+              Icons.attach_money,
+              color: Colors.green,
+              size: 28,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '\$${_ytdEarnings.toStringAsFixed(0)}',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.green,
+              ),
+            ),
+            Text(
+              'YTD Earnings',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[400],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showEarningsDetails() {
+    final currentYear = DateTime.now().year;
+    final monthlyEarnings = <int, double>{};
+    
+    // Calculate monthly breakdown
+    for (final assignment in acceptedGames) {
+      if (assignment.gameDate != null && 
+          assignment.gameDate!.year == currentYear &&
+          assignment.feeAmount != null) {
+        final month = assignment.gameDate!.month;
+        monthlyEarnings[month] = (monthlyEarnings[month] ?? 0) + assignment.feeAmount!;
+      }
+    }
+    
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: darkSurface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              Icon(Icons.attach_money, color: Colors.green, size: 24),
+              const SizedBox(width: 8),
+              Text(
+                '$currentYear Earnings',
+                style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          content: Container(
+            width: double.maxFinite,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Colors.green.withOpacity(0.2), Colors.green.withOpacity(0.1)],
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    children: [
+                      Text(
+                        'Total YTD Earnings',
+                        style: TextStyle(
+                          color: Colors.grey[400],
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '\$${_ytdEarnings.toStringAsFixed(2)}',
+                        style: TextStyle(
+                          color: Colors.green,
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Games Officiated: ${acceptedGames.where((a) => a.gameDate?.year == currentYear).length}',
+                  style: TextStyle(
+                    color: Colors.grey[300],
+                    fontSize: 16,
+                  ),
+                ),
+                if (acceptedGames.where((a) => a.gameDate?.year == currentYear).isNotEmpty)
+                  Text(
+                    'Average per Game: \$${(_ytdEarnings / acceptedGames.where((a) => a.gameDate?.year == currentYear).length).toStringAsFixed(2)}',
+                    style: TextStyle(
+                      color: Colors.grey[400],
+                      fontSize: 14,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('Close', style: TextStyle(color: efficialsYellow)),
+            ),
+          ],
+        );
+      },
+    );
+  }
 
   Widget _buildEnhancedEmptyState() {
     return SingleChildScrollView(
@@ -1656,8 +1853,39 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
     
     // Persist to database in the background
     try {
-      await _assignmentRepo.expressInterest(gameId, officialId, feeAmount);
-      print('Successfully persisted interest expression to database');
+      final assignmentId = await _assignmentRepo.expressInterest(gameId, officialId, feeAmount);
+      print('Successfully persisted interest expression to database with ID: $assignmentId');
+      
+      // Update the assignment in the UI with the actual database ID
+      if (mounted) {
+        setState(() {
+          final index = pendingGames.indexWhere((assignment) => 
+            assignment.gameId == gameId && assignment.officialId == officialId && assignment.id == null
+          );
+          
+          if (index != -1) {
+            // Create an updated assignment with the actual ID
+            final updatedAssignmentMap = {
+              'id': assignmentId,
+              'game_id': gameId,
+              'official_id': officialId,
+              'status': 'pending',
+              'assigned_by': officialId,
+              'assigned_at': DateTime.now().toIso8601String(),
+              'fee_amount': feeAmount,
+              // Additional fields from game data
+              'date': game['date'],
+              'time': game['time'],
+              'sport_name': game['sport_name'],
+              'opponent': game['opponent'],
+              'location_name': game['location_name'],
+            };
+            
+            final updatedAssignment = GameAssignment.fromMap(updatedAssignmentMap);
+            pendingGames[index] = updatedAssignment;
+          }
+        });
+      }
     } catch (e) {
       print('Error persisting interest expression: $e');
       
@@ -1759,8 +1987,40 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
     
     // Persist to database in the background
     try {
-      await _assignmentRepo.claimGame(gameId, officialId, feeAmount);
-      print('Successfully persisted game claim to database');
+      final assignmentId = await _assignmentRepo.claimGame(gameId, officialId, feeAmount);
+      print('Successfully persisted game claim to database with ID: $assignmentId');
+      
+      // Update the assignment in the UI with the actual database ID
+      if (mounted) {
+        setState(() {
+          final index = acceptedGames.indexWhere((assignment) => 
+            assignment.gameId == gameId && assignment.officialId == officialId && assignment.id == null
+          );
+          
+          if (index != -1) {
+            // Create an updated assignment with the actual ID
+            final updatedAssignmentMap = {
+              'id': assignmentId,
+              'game_id': gameId,
+              'official_id': officialId,
+              'status': 'accepted',
+              'assigned_by': officialId,
+              'assigned_at': DateTime.now().toIso8601String(),
+              'responded_at': DateTime.now().toIso8601String(),
+              'fee_amount': feeAmount,
+              // Additional fields from game data
+              'date': game['date'],
+              'time': game['time'],
+              'sport_name': game['sport_name'],
+              'opponent': game['opponent'],
+              'location_name': game['location_name'],
+            };
+            
+            final updatedAssignment = GameAssignment.fromMap(updatedAssignmentMap);
+            acceptedGames[index] = updatedAssignment;
+          }
+        });
+      }
     } catch (e) {
       print('Error persisting game claim: $e');
       

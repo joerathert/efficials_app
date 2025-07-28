@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
 import '../../shared/theme.dart';
 import 'game_template.dart';
 import '../../shared/services/repositories/sport_repository.dart';
@@ -257,23 +255,26 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
   }
 
   Future<void> _fetchSports() async {
-    // Use consistent sports list that matches other screens
-    setState(() {
-      availableSports = [
-        'Football',
-        'Basketball',
-        'Baseball',
-        'Soccer',
-        'Volleyball',
-      ];
-      isLoadingSports = false;
-    });
+    try {
+      final sports = await _sportRepository.getAllSports();
+      setState(() {
+        availableSports = sports.map((sport) => sport.name).toList();
+        isLoadingSports = false;
+      });
+    } catch (e) {
+      setState(() {
+        availableSports = [
+          'Football',
+          'Basketball',
+          'Baseball',
+          'Soccer',
+          'Volleyball',
+        ];
+        isLoadingSports = false;
+      });
+    }
   }
 
-  Future<void> _saveLocations() async {
-    // Locations are now saved directly through LocationService
-    // This method is kept for compatibility but no longer needed
-  }
 
   Future<void> _selectTime(BuildContext context) async {
     final TimeOfDay? picked = await showTimePicker(
@@ -369,7 +370,10 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
       arguments: {
         'sport': sport,
         'fromGameCreation': true,
+        'fromTemplateCreation': true, // Flag to indicate we're coming from template creation
+        'method': 'advanced', // Include the method so downstream screens know this is Multiple Lists
         'selectedLists': selectedLists,
+        'officialsRequired': officialsRequired ?? 0, // Pass the officials required value
       },
     );
     if (result != null && result is Map<String, dynamic>) {
@@ -437,14 +441,13 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
       includeLocation: includeLocation,
     );
 
-    // Try to save to database first
     try {
       final templateData = {
         'name': newTemplate.name,
         'sport': newTemplate.sport,
         'scheduleName': newTemplate.scheduleName,
-        'date': newTemplate.date, // Pass DateTime object directly
-        'time': newTemplate.time, // Pass TimeOfDay object directly
+        'date': newTemplate.date,
+        'time': newTemplate.time,
         'location': newTemplate.location,
         'isAwayGame': newTemplate.isAwayGame,
         'levelOfCompetition': newTemplate.levelOfCompetition,
@@ -455,8 +458,8 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
         'hireAutomatically': newTemplate.hireAutomatically,
         'method': newTemplate.method,
         'selectedLists': newTemplate.selectedLists,
-        'officialsListName': newTemplate.officialsListName, // Add the missing officials list name
-        'officialsListId': null, // Will be handled by GameService
+        'officialsListName': newTemplate.officialsListName,
+        'officialsListId': null,
         'includeScheduleName': newTemplate.includeScheduleName,
         'includeSport': newTemplate.includeSport,
         'includeDate': newTemplate.includeDate,
@@ -477,14 +480,34 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
         // Update existing template
         final success = await _gameService.updateTemplate(newTemplate.toJson());
         if (!success) {
-          throw Exception('Failed to update template in database');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Failed to update template. Please try again.'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          return;
+        }
+        if (mounted) {
+          Navigator.pop(context, newTemplate);
         }
       } else {
         // Create new template
         final result = await _gameService.createTemplate(templateData);
         if (result == null) {
-          throw Exception('Failed to create template in database');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Failed to create template. Template name may already exist.'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          return;
         }
+        
         // Create a new template object with the database ID
         final savedTemplate = GameTemplate(
           id: result['id'].toString(),
@@ -503,6 +526,7 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
           hireAutomatically: newTemplate.hireAutomatically,
           method: newTemplate.method,
           selectedOfficials: newTemplate.selectedOfficials,
+          selectedLists: newTemplate.selectedLists,
           officialsListName: newTemplate.officialsListName,
           includeScheduleName: newTemplate.includeScheduleName,
           includeSport: newTemplate.includeSport,
@@ -523,58 +547,15 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
         if (mounted) {
           Navigator.pop(context, savedTemplate);
         }
-        return;
-      }
-
-      if (mounted) {
-        Navigator.pop(context, newTemplate);
       }
     } catch (e) {
-      // Fallback to SharedPreferences if database fails
-      
-      final prefs = await SharedPreferences.getInstance();
-      final String? templatesJson = prefs.getString('game_templates');
-      List<GameTemplate> templates = [];
-      if (templatesJson != null && templatesJson.isNotEmpty) {
-        final List<dynamic> decoded = jsonDecode(templatesJson);
-        templates = decoded.map((json) => GameTemplate.fromJson(json)).toList();
-      }
-
-      // Check for duplicate template names
-      final templateName = _nameController.text.trim();
-      final hasDuplicate = templates.any((template) => 
-        template.name?.toLowerCase() == templateName.toLowerCase() &&
-        (!isEditing || template.id != existingTemplate?.id)
-      );
-
-      if (hasDuplicate) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('A template named "$templateName" already exists. Please choose a different name.'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-        return;
-      }
-
-      if (isEditing) {
-        // Find and update the existing template
-        final index = templates.indexWhere((t) => t.id == existingTemplate!.id);
-        if (index != -1) {
-          templates[index] = newTemplate;
-        }
-      } else {
-        // Add new template
-        templates.add(newTemplate);
-      }
-
-      await prefs.setString('game_templates',
-          jsonEncode(templates.map((t) => t.toJson()).toList()));
-
       if (mounted) {
-        Navigator.pop(context, newTemplate);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error saving template: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     }
   }

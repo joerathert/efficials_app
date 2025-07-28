@@ -130,39 +130,69 @@ class SportRepository extends BaseRepository {
     );
   }
   
+  // Validate sport defaults
+  Map<String, String> validateDefaults(SportDefaults sportDefaults) {
+    final errors = <String, String>{};
+    
+    // Validate game fee format using regex
+    if (sportDefaults.gameFee != null && sportDefaults.gameFee!.isNotEmpty) {
+      final feeRegex = RegExp(r'^\d+(\.\d{1,2})?$');
+      if (!feeRegex.hasMatch(sportDefaults.gameFee!)) {
+        errors['gameFee'] = 'Game fee must be a valid amount (e.g., 25.00)';
+      }
+    }
+    
+    // Check required fields (you can customize which fields are required)
+    if (sportDefaults.gender == null || sportDefaults.gender!.isEmpty) {
+      errors['gender'] = 'Gender is required';
+    }
+    
+    if (sportDefaults.officialsRequired == null) {
+      errors['officialsRequired'] = 'Number of officials is required';
+    }
+    
+    if (sportDefaults.levelOfCompetition == null || sportDefaults.levelOfCompetition!.isEmpty) {
+      errors['levelOfCompetition'] = 'Competition level is required';
+    }
+    
+    return errors;
+  }
+
   // Save sport defaults
   Future<void> saveSportDefaults(SportDefaults sportDefaults) async {
-    final sport = await getOrCreateSport(sportDefaults.sportName);
-    
-    final data = {
-      'user_id': sportDefaults.userId,
-      'sport_id': sport.id,
-      'gender': sportDefaults.gender,
-      'officials_required': sportDefaults.officialsRequired,
-      'game_fee': sportDefaults.gameFee,
-      'level_of_competition': sportDefaults.levelOfCompetition,
-    };
-    
-    // Check if defaults already exist
-    final existing = await query(
-      'sport_defaults',
-      where: 'user_id = ? AND sport_id = ?',
-      whereArgs: [sportDefaults.userId, sport.id],
-      limit: 1,
-    );
-    
-    if (existing.isNotEmpty) {
-      // Update existing
-      await update(
+    await withTransaction((txn) async {
+      final sport = await getOrCreateSport(sportDefaults.sportName);
+      
+      final data = {
+        'user_id': sportDefaults.userId,
+        'sport_id': sport.id,
+        'gender': sportDefaults.gender,
+        'officials_required': sportDefaults.officialsRequired,
+        'game_fee': sportDefaults.gameFee,
+        'level_of_competition': sportDefaults.levelOfCompetition,
+      };
+      
+      // Check if defaults already exist
+      final existing = await query(
         'sport_defaults',
-        data,
-        'user_id = ? AND sport_id = ?',
-        [sportDefaults.userId, sport.id],
+        where: 'user_id = ? AND sport_id = ?',
+        whereArgs: [sportDefaults.userId, sport.id],
+        limit: 1,
       );
-    } else {
-      // Create new
-      await insert('sport_defaults', data);
-    }
+      
+      if (existing.isNotEmpty) {
+        // Update existing
+        await update(
+          'sport_defaults',
+          data,
+          'user_id = ? AND sport_id = ?',
+          [sportDefaults.userId, sport.id],
+        );
+      } else {
+        // Create new
+        await insert('sport_defaults', data);
+      }
+    });
   }
   
   // Delete sport defaults

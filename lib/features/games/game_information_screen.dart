@@ -670,13 +670,6 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        if (gameSpecificOfficials.isNotEmpty) ...[
-                          Text(
-                            'Legend: Normal text = selected for game, Strikethrough = removed from game',
-                            style: TextStyle(fontSize: 12, color: Colors.grey[400], fontStyle: FontStyle.italic),
-                          ),
-                          const SizedBox(height: 8),
-                        ],
                         Expanded(
                           child: ListView.builder(
                             itemCount: fullOfficialsList.length,

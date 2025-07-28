@@ -3,6 +3,7 @@ import '../../shared/theme.dart';
 import '../../shared/services/user_session_service.dart';
 import '../../shared/services/repositories/notification_repository.dart';
 import '../../shared/models/database_models.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 class NotificationSettingsScreen extends StatefulWidget {
   const NotificationSettingsScreen({super.key});
@@ -23,11 +24,41 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
   bool _officialInterestNotificationsEnabled = false;
   bool _officialClaimNotificationsEnabled = false;
   List<int> _gameFillingReminderDays = [3, 1];
+  bool _emailEnabled = false;
+  bool _smsEnabled = false;
+  bool _notificationPermissionGranted = false;
 
   @override
   void initState() {
     super.initState();
     _loadSettings();
+    _checkNotificationPermission();
+  }
+
+  Future<void> _checkNotificationPermission() async {
+    final status = await Permission.notification.status;
+    if (mounted) {
+      setState(() {
+        _notificationPermissionGranted = status.isGranted;
+      });
+    }
+  }
+
+  Future<void> _requestNotificationPermission() async {
+    final status = await Permission.notification.request();
+    if (mounted) {
+      setState(() {
+        _notificationPermissionGranted = status.isGranted;
+      });
+      if (!status.isGranted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Notification permission is required for alerts'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _loadSettings() async {
@@ -52,13 +83,15 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
             _gameFillingNotificationsEnabled = settings.gameFillingNotificationsEnabled;
             _officialInterestNotificationsEnabled = settings.officialInterestNotificationsEnabled;
             _officialClaimNotificationsEnabled = settings.officialClaimNotificationsEnabled;
-            _gameFillingReminderDays = settings.gameFillingReminderDays;
+            _gameFillingReminderDays = List<int>.from(settings.gameFillingReminderDays)..sort((a, b) => b.compareTo(a));
+            _emailEnabled = settings.emailEnabled;
+            _smsEnabled = settings.smsEnabled;
             _isLoading = false;
           });
         }
       }
     } catch (e) {
-      print('Error loading notification settings: $e');
+      debugPrint('Error loading notification settings: $e');
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -88,6 +121,8 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
         officialInterestNotificationsEnabled: _officialInterestNotificationsEnabled,
         officialClaimNotificationsEnabled: _officialClaimNotificationsEnabled,
         gameFillingReminderDays: _gameFillingReminderDays,
+        emailEnabled: _emailEnabled,
+        smsEnabled: _smsEnabled,
       );
 
       await _notificationRepo.saveNotificationSettings(settings);
@@ -105,7 +140,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
         );
       }
     } catch (e) {
-      print('Error saving notification settings: $e');
+      debugPrint('Error saving notification settings: $e');
       if (mounted) {
         setState(() {
           _isSaving = false;
@@ -243,6 +278,49 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                   ),
                   
                   const SizedBox(height: 32),
+                  
+                  _buildSectionHeader('Communication Preferences'),
+                  const SizedBox(height: 16),
+                  
+                  // Email notifications
+                  _buildSettingCard(
+                    icon: Icons.email,
+                    iconColor: Colors.purple,
+                    title: 'Email Notifications',
+                    subtitle: 'Send notifications via email',
+                    value: _emailEnabled,
+                    onChanged: (value) {
+                      setState(() {
+                        _emailEnabled = value;
+                      });
+                    },
+                  ),
+                  
+                  const SizedBox(height: 12),
+                  
+                  // SMS notifications
+                  _buildSettingCard(
+                    icon: Icons.sms,
+                    iconColor: Colors.cyan,
+                    title: 'SMS Notifications',
+                    subtitle: 'Send notifications via text message',
+                    value: _smsEnabled,
+                    onChanged: (value) {
+                      setState(() {
+                        _smsEnabled = value;
+                      });
+                    },
+                  ),
+                  
+                  const SizedBox(height: 32),
+                  
+                  // Permissions section
+                  if (!_notificationPermissionGranted) ...[
+                    _buildSectionHeader('Device Permissions'),
+                    const SizedBox(height: 16),
+                    _buildPermissionCard(),
+                    const SizedBox(height: 32),
+                  ],
                   
                   _buildInfoSection(),
                   
@@ -403,8 +481,11 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
           if (isSelected) {
             _gameFillingReminderDays.remove(day);
           } else {
-            _gameFillingReminderDays.add(day);
-            _gameFillingReminderDays.sort((a, b) => b.compareTo(a)); // Sort descending
+            // Ensure uniqueness and minimum of 1 day
+            if (day >= 1 && !_gameFillingReminderDays.contains(day)) {
+              _gameFillingReminderDays.add(day);
+              _gameFillingReminderDays.sort((a, b) => b.compareTo(a)); // Sort descending
+            }
           }
         });
       },
@@ -440,14 +521,14 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          const Row(
             children: [
               Icon(
                 Icons.info_outline,
                 color: efficialsYellow,
                 size: 20,
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               Text(
                 'About Notifications',
                 style: TextStyle(
@@ -471,6 +552,87 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildPermissionCard() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.orange.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.orange.withOpacity(0.3)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Icon(
+                    Icons.notifications_off,
+                    color: Colors.orange,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Notification Permission Required',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Allow notifications to receive alerts about games and officials',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[400],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _requestNotificationPermission,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: const Text(
+                  'Grant Permission',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

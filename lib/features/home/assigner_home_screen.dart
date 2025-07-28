@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../shared/theme.dart';
 import '../../shared/utils/utils.dart';
 import '../../shared/services/user_session_service.dart';
 import '../../shared/services/repositories/user_repository.dart';
+import '../../shared/services/repositories/game_repository.dart';
 import '../../shared/services/repositories/notification_repository.dart';
 import '../../shared/widgets/scheduler_bottom_navigation.dart';
 
@@ -20,56 +20,77 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen> {
   bool isLoading = true;
   int _currentIndex = 0;
   int _unreadNotificationCount = 0;
+  Map<String, int> gameStats = {};
   final NotificationRepository _notificationRepo = NotificationRepository();
+  final UserRepository _userRepository = UserRepository();
+  final GameRepository _gameRepository = GameRepository();
 
   @override
   void initState() {
     super.initState();
-    _checkAssignerSetup();
-    _loadUnreadNotificationCount();
+    _initializeAssignerHome();
+  }
+
+  Future<void> _initializeAssignerHome() async {
+    await Future.wait([
+      _checkAssignerSetup(),
+      _loadUnreadNotificationCount(),
+      _loadGameStatistics(),
+    ]);
   }
 
   Future<void> _checkAssignerSetup() async {
+    debugPrint('Checking assigner setup from database');
     try {
-      // Get current user from database instead of SharedPreferences
-      final currentUser = await UserSessionService.instance.getCurrentSchedulerUser();
+      // Get current user directly from UserRepository
+      final currentUser = await _userRepository.getCurrentUser();
       
       if (currentUser == null) {
-        // No user logged in, redirect to login
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          Navigator.pushReplacementNamed(context, '/welcome');
-        });
+        debugPrint('No current user found, redirecting to welcome');
+        if (mounted) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            Navigator.pushReplacementNamed(context, '/welcome');
+          });
+        }
         return;
       }
 
-      // Check if user setup is completed in database
-      final setupCompleted = currentUser.setupCompleted;
-
-      setState(() {
-        sport = currentUser.sport;
-        leagueName = currentUser.leagueName ?? 'League';
-        isLoading = false;
-      });
-
-      if (!setupCompleted) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          Navigator.pushReplacementNamed(context, '/assigner_sport_selection');
+      debugPrint('Current user: ${currentUser.email}, setupCompleted: ${currentUser.setupCompleted}');
+      
+      // Load sport and league from user record
+      if (mounted) {
+        setState(() {
+          sport = currentUser.sport;
+          leagueName = currentUser.leagueName ?? 'League';
+          isLoading = false;
         });
       }
+
+      // Redirect if setup not completed
+      if (!currentUser.setupCompleted) {
+        debugPrint('Setup not completed, redirecting to sport selection');
+        if (mounted) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            Navigator.pushReplacementNamed(context, '/assigner_sport_selection');
+          });
+        }
+      }
     } catch (e) {
-      // Handle error
-      setState(() {
-        isLoading = false;
-      });
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        Navigator.pushReplacementNamed(context, '/welcome');
-      });
+      debugPrint('Error checking assigner setup: $e');
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          Navigator.pushReplacementNamed(context, '/welcome');
+        });
+      }
     }
   }
 
   Future<void> _loadUnreadNotificationCount() async {
     try {
-      final currentUser = await UserSessionService.instance.getCurrentSchedulerUser();
+      final currentUser = await _userRepository.getCurrentUser();
       if (currentUser != null) {
         final count = await _notificationRepo.getUnreadNotificationCount(currentUser.id!);
         if (mounted) {
@@ -79,8 +100,25 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen> {
         }
       }
     } catch (e) {
-      // Handle error silently, badge will show 0
-      print('Error loading unread notification count: $e');
+      debugPrint('Error loading unread notification count: $e');
+    }
+  }
+
+  Future<void> _loadGameStatistics() async {
+    debugPrint('Loading game statistics');
+    try {
+      final currentUser = await _userRepository.getCurrentUser();
+      if (currentUser != null) {
+        final stats = await _gameRepository.getGameStatistics(currentUser.id!);
+        if (mounted) {
+          setState(() {
+            gameStats = stats;
+          });
+        }
+        debugPrint('Game statistics loaded: $stats');
+      }
+    } catch (e) {
+      debugPrint('Error loading game statistics: $e');
     }
   }
 
@@ -285,6 +323,63 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen> {
                 ),
               ),
               const SizedBox(height: 30),
+              
+              // Quick Stats Section
+              if (gameStats.isNotEmpty) ...[
+                const Text(
+                  'Quick Stats',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildStatsCard(
+                        icon: Icons.publish,
+                        title: 'Published',
+                        count: gameStats['Published'] ?? 0,
+                        color: Colors.green,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildStatsCard(
+                        icon: Icons.drafts,
+                        title: 'Draft',
+                        count: gameStats['Draft'] ?? 0,
+                        color: Colors.orange,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildStatsCard(
+                        icon: Icons.schedule,
+                        title: 'Scheduled',
+                        count: gameStats['Scheduled'] ?? 0,
+                        color: Colors.blue,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildStatsCard(
+                        icon: Icons.check_circle,
+                        title: 'Complete',
+                        count: gameStats['Complete'] ?? 0,
+                        color: efficialsYellow,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 30),
+              ],
+              
               const Text(
                 'Quick Actions',
                 style: TextStyle(
@@ -351,6 +446,61 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen> {
         onTap: _onBottomNavTap,
         schedulerType: SchedulerType.assigner,
         unreadNotificationCount: _unreadNotificationCount,
+      ),
+    );
+  }
+
+  Widget _buildStatsCard({
+    required IconData icon,
+    required String title,
+    required int count,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: darkSurface,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.3),
+            spreadRadius: 1,
+            blurRadius: 3,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                icon,
+                color: color,
+                size: 24,
+              ),
+              const Spacer(),
+              Text(
+                count.toString(),
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: primaryTextColor,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -436,11 +586,13 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen> {
                 // Clear user session
                 await UserSessionService.instance.clearSession();
                 
-                Navigator.pushNamedAndRemoveUntil(
-                  context,
-                  '/welcome',
-                  (route) => false,
-                ); // Go to welcome screen and clear navigation stack
+                if (mounted) {
+                  Navigator.pushNamedAndRemoveUntil(
+                    context,
+                    '/welcome',
+                    (route) => false,
+                  ); // Go to welcome screen and clear navigation stack
+                }
               },
               child: const Text('Logout', style: TextStyle(color: Colors.red)),
             ),

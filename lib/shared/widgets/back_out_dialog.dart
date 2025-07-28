@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
 import '../theme.dart';
+import '../services/repositories/game_assignment_repository.dart';
 
 class BackOutDialog extends StatefulWidget {
   final String gameSummary;
   final Function(String reason) onConfirmBackOut;
+  final int? assignmentId;
 
   const BackOutDialog({
     super.key,
     required this.gameSummary,
     required this.onConfirmBackOut,
+    this.assignmentId,
   });
 
   @override
@@ -17,8 +20,20 @@ class BackOutDialog extends StatefulWidget {
 
 class _BackOutDialogState extends State<BackOutDialog> {
   final TextEditingController _reasonController = TextEditingController();
+  final GameAssignmentRepository _assignmentRepo = GameAssignmentRepository();
   bool _showConfirmation = false;
   bool _isLoading = false;
+  String? _selectedPreset;
+  
+  final List<String> _reasonPresets = [
+    'Emergency',
+    'Illness',
+    'Schedule Conflict',
+    'Family Emergency',
+    'Work Conflict',
+    'Transportation Issue',
+    'Other',
+  ];
 
   @override
   void dispose() {
@@ -27,10 +42,25 @@ class _BackOutDialogState extends State<BackOutDialog> {
   }
 
   void _showSecondStep() {
-    if (_reasonController.text.trim().isEmpty) {
+    // Check if we have a preset selected or custom text entered
+    final hasPreset = _selectedPreset != null;
+    final hasCustomText = _reasonController.text.trim().isNotEmpty;
+    
+    if (!hasPreset && !hasCustomText) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please provide a reason for backing out'),
+          content: Text('Please select a reason or provide details'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+    
+    // If 'Other' is selected but no text provided
+    if (_selectedPreset == 'Other' && !hasCustomText) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please provide details for your reason'),
           backgroundColor: Colors.red,
         ),
       );
@@ -54,7 +84,16 @@ class _BackOutDialogState extends State<BackOutDialog> {
     });
 
     try {
-      await widget.onConfirmBackOut(_reasonController.text.trim());
+      final reason = _reasonController.text.trim();
+      
+      // If we have an assignmentId, call the repository directly
+      if (widget.assignmentId != null) {
+        await _assignmentRepo.backOutOfGame(widget.assignmentId!, reason);
+      } else {
+        // Fallback to the callback method
+        await widget.onConfirmBackOut(reason);
+      }
+      
       if (mounted) {
         Navigator.of(context).pop(true);
       }
@@ -71,6 +110,17 @@ class _BackOutDialogState extends State<BackOutDialog> {
         });
       }
     }
+  }
+  
+  void _onPresetChanged(String? preset) {
+    setState(() {
+      _selectedPreset = preset;
+      if (preset != null && preset != 'Other') {
+        _reasonController.text = preset;
+      } else if (preset == 'Other') {
+        _reasonController.text = '';
+      }
+    });
   }
 
   @override
@@ -121,7 +171,37 @@ class _BackOutDialogState extends State<BackOutDialog> {
         ),
         const SizedBox(height: 16),
         Text(
-          'Please provide a brief explanation:',
+          'Reason for backing out:',
+          style: TextStyle(color: Colors.grey[300]),
+        ),
+        const SizedBox(height: 8),
+        DropdownButtonFormField<String>(
+          value: _selectedPreset,
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: darkBackground,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: Colors.grey[600]!),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: efficialsYellow),
+            ),
+            hintText: 'Select a reason...',
+            hintStyle: TextStyle(color: Colors.grey[500]),
+          ),
+          dropdownColor: darkBackground,
+          style: const TextStyle(color: Colors.white),
+          items: _reasonPresets.map((preset) => DropdownMenuItem(
+            value: preset,
+            child: Text(preset),
+          )).toList(),
+          onChanged: _onPresetChanged,
+        ),
+        const SizedBox(height: 12),
+        Text(
+          _selectedPreset == 'Other' ? 'Please specify:' : 'Additional details (optional):',
           style: TextStyle(color: Colors.grey[300]),
         ),
         const SizedBox(height: 8),
@@ -130,7 +210,9 @@ class _BackOutDialogState extends State<BackOutDialog> {
           maxLines: 3,
           style: const TextStyle(color: Colors.white),
           decoration: InputDecoration(
-            hintText: 'e.g., Personal emergency, illness, scheduling conflict...',
+            hintText: _selectedPreset == 'Other' 
+                ? 'Please provide details...' 
+                : 'Any additional information...',
             hintStyle: TextStyle(color: Colors.grey[500]),
             filled: true,
             fillColor: darkBackground,
@@ -190,7 +272,7 @@ class _BackOutDialogState extends State<BackOutDialog> {
         ),
         const SizedBox(height: 12),
         Text(
-          'Reason: ${_reasonController.text.trim()}',
+          'Reason: ${_getDisplayReason()}',
           style: TextStyle(
             color: Colors.grey[400],
             fontStyle: FontStyle.italic,
@@ -270,5 +352,16 @@ class _BackOutDialogState extends State<BackOutDialog> {
             : const Text('Back Out'),
       ),
     ];
+  }
+  
+  String _getDisplayReason() {
+    if (_selectedPreset != null && _selectedPreset != 'Other') {
+      final customText = _reasonController.text.trim();
+      if (customText.isNotEmpty) {
+        return '$_selectedPreset - $customText';
+      }
+      return _selectedPreset!;
+    }
+    return _reasonController.text.trim();
   }
 }

@@ -8,6 +8,7 @@ import '../../shared/theme.dart';
 import '../../shared/services/migration_service.dart';
 import '../../shared/services/repositories/user_repository.dart';
 import '../../shared/services/database_helper.dart';
+import '../../shared/services/auth_service.dart';
 import '../../shared/models/database_models.dart';
 import '../../shared/utils/database_cleanup.dart';
 
@@ -448,9 +449,7 @@ class _DatabaseTestScreenState extends State<DatabaseTestScreen> {
   }
 
   String _hashPassword(String password) {
-    var bytes = utf8.encode(password);
-    var digest = sha256.convert(bytes);
-    return digest.toString();
+    return AuthService.hashPassword(password);
   }
 
   Future<String> _generateTestUsers() async {

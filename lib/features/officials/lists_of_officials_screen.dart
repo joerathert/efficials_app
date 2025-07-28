@@ -560,7 +560,7 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
         const SnackBar(
           content: Text('Your list was created successfully!'),
           backgroundColor: darkSurface,
-          duration: Duration(seconds: 2),
+          duration: Duration(seconds: 3),
         ),
       );
     }

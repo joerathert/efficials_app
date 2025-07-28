@@ -238,7 +238,17 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                         ? const Center(child: CircularProgressIndicator())
                         : DropdownButtonFormField<String>(
                             decoration: textFieldDecoration('Choose location'),
-                            value: selectedLocation,
+                            value: selectedLocation != null 
+                                ? () {
+                                    // Find the first match for the selected location name
+                                    for (int i = 0; i < locations.length; i++) {
+                                      if (locations[i]['name'] == selectedLocation) {
+                                        return '${locations[i]['name']}#$i';
+                                      }
+                                    }
+                                    return null;
+                                  }()
+                                : null,
                             hint: const Text('Select a location',
                                 style: TextStyle(color: efficialsGray)),
                             dropdownColor: darkSurface,
@@ -246,57 +256,50 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                                 color: Colors.white, fontSize: 16),
                             onChanged: (newValue) {
                               if (newValue == null) return;
+                              // Extract actual location name from unique value (format: "name#index")
+                              final actualLocationName = newValue.contains('#') 
+                                  ? newValue.substring(0, newValue.lastIndexOf('#'))
+                                  : newValue;
                               setState(() {
-                                selectedLocation = newValue;
-                                if (newValue == '+ Create new location') {
+                                selectedLocation = actualLocationName;
+                                if (actualLocationName == '+ Create new location') {
                                   Navigator.pushNamed(
                                           context, '/add_new_location')
                                       .then((result) async {
                                     if (result != null) {
-                                      final newLoc =
-                                          result as Map<String, dynamic>;
-                                      try {
-                                        final userId = await _sessionService.getCurrentUserId();
-                                        if (userId != null) {
-                                          final location = Location(
-                                            name: newLoc['name'],
-                                            address: newLoc['address'],
-                                            notes: newLoc['notes'],
-                                            userId: userId,
-                                          );
-                                          final locationId = await _locationRepository.createLocation(location);
-                                          setState(() {
-                                            locations.insert(locations.length - 1, {
-                                              'name': newLoc['name'],
-                                              'address': newLoc['address'],
-                                              'notes': newLoc['notes'],
-                                              'id': locationId,
-                                            });
-                                            selectedLocation = newLoc['name'];
-                                          });
-                                        }
-                                      } catch (e) {
-                                        if (mounted) {
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            SnackBar(
-                                              content: Text('Error creating location: ${e.toString()}'),
-                                              backgroundColor: Colors.red,
-                                            ),
-                                          );
-                                        }
-                                      }
+                                      final newLoc = result as Map<String, dynamic>;
+                                      // Location was already created in AddNewLocationScreen
+                                      // Just add it to our local list and select it
+                                      setState(() {
+                                        locations.insert(locations.length - 1, {
+                                          'name': newLoc['name'],
+                                          'address': newLoc['address'],
+                                          'notes': newLoc['notes'],
+                                          'id': newLoc['id'], // Use the ID returned from AddNewLocationScreen
+                                        });
+                                        selectedLocation = newLoc['name'];
+                                      });
                                     }
                                   });
                                 }
                               });
                             },
                             items: locations
-                                .map((loc) => DropdownMenuItem(
-                                      value: loc['name'] as String,
-                                      child: Text(loc['name'] as String,
-                                          style: const TextStyle(
-                                              color: Colors.white)),
-                                    ))
+                                .asMap()
+                                .entries
+                                .map((entry) {
+                                  final index = entry.key;
+                                  final loc = entry.value;
+                                  final locationName = loc['name'] as String;
+                                  // Create unique value by combining name with index to avoid duplicates
+                                  final uniqueValue = '$locationName#$index';
+                                  return DropdownMenuItem(
+                                    value: uniqueValue,
+                                    child: Text(locationName,
+                                        style: const TextStyle(
+                                            color: Colors.white)),
+                                  );
+                                })
                                 .toList(),
                           ),
                   ],

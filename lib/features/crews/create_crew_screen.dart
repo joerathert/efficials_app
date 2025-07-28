@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'dart:convert';
 import '../../shared/theme.dart';
 import '../../shared/services/repositories/crew_repository.dart';
 import '../../shared/services/repositories/official_repository.dart';
@@ -18,9 +17,11 @@ class _CreateCrewScreenState extends State<CreateCrewScreen> {
   final OfficialRepository _officialRepo = OfficialRepository();
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
+  final _searchController = TextEditingController();
 
   List<CrewType> _crewTypes = [];
   List<Official> _availableOfficials = [];
+  List<Official> _filteredOfficials = [];
   List<Official> _selectedMembers = [];
   CrewType? _selectedCrewType;
   List<String> _selectedCompetitionLevels = [];
@@ -47,6 +48,7 @@ class _CreateCrewScreenState extends State<CreateCrewScreen> {
   @override
   void dispose() {
     _nameController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -66,6 +68,7 @@ class _CreateCrewScreenState extends State<CreateCrewScreen> {
         setState(() {
           _crewTypes = crewTypes;
           _availableOfficials = officials;
+          _filteredOfficials = officials;
           _isLoading = false;
         });
       }
@@ -208,6 +211,8 @@ class _CreateCrewScreenState extends State<CreateCrewScreen> {
                   _selectedCrewType = newValue;
                   _selectedMembers.clear(); // Reset member selection
                   _selectedCompetitionLevels.clear(); // Reset competition levels
+                  _searchController.clear();
+                  _filteredOfficials = _availableOfficials;
                 });
               },
             ),
@@ -303,18 +308,18 @@ class _CreateCrewScreenState extends State<CreateCrewScreen> {
             padding: const EdgeInsets.all(12),
             margin: const EdgeInsets.only(top: 8),
             decoration: BoxDecoration(
-              color: Colors.orange.withOpacity(0.1),
+              color: Colors.red.withOpacity(0.1),
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.orange.withOpacity(0.3)),
+              border: Border.all(color: Colors.red.withOpacity(0.3)),
             ),
             child: const Row(
               children: [
-                Icon(Icons.warning_outlined, color: Colors.orange, size: 16),
+                Icon(Icons.error_outline, color: Colors.red, size: 16),
                 SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Please select at least one competition level.',
-                    style: TextStyle(color: Colors.orange, fontSize: 12),
+                    'At least one competition level is required.',
+                    style: TextStyle(color: Colors.red, fontSize: 12),
                   ),
                 ),
               ],
@@ -348,15 +353,60 @@ class _CreateCrewScreenState extends State<CreateCrewScreen> {
           ),
         ),
         const SizedBox(height: 16),
+        // Search TextField
+        TextFormField(
+          controller: _searchController,
+          style: const TextStyle(color: efficialsWhite),
+          decoration: InputDecoration(
+            hintText: 'Search officials by name...',
+            hintStyle: TextStyle(color: Colors.grey[600]),
+            prefixIcon: const Icon(Icons.search, color: efficialsYellow),
+            suffixIcon: _searchController.text.isNotEmpty
+                ? IconButton(
+                    icon: const Icon(Icons.clear, color: efficialsYellow),
+                    onPressed: () {
+                      setState(() {
+                        _searchController.clear();
+                        _filteredOfficials = _availableOfficials;
+                      });
+                    },
+                  )
+                : null,
+            filled: true,
+            fillColor: efficialsBlack,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide.none,
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: efficialsYellow),
+            ),
+          ),
+          onChanged: (value) {
+            setState(() {
+              if (value.isEmpty) {
+                _filteredOfficials = _availableOfficials;
+              } else {
+                _filteredOfficials = _availableOfficials
+                    .where((official) => official.name
+                        .toLowerCase()
+                        .contains(value.toLowerCase()))
+                    .toList();
+              }
+            });
+          },
+        ),
+        const SizedBox(height: 16),
         Container(
           constraints: const BoxConstraints(maxHeight: 300),
           clipBehavior: Clip.none,
           child: ListView.builder(
             shrinkWrap: true,
             padding: EdgeInsets.zero,
-            itemCount: _availableOfficials.length,
+            itemCount: _filteredOfficials.length,
             itemBuilder: (context, index) {
-              final official = _availableOfficials[index];
+              final official = _filteredOfficials[index];
               final isCurrentUser = official.id == _currentUserId;
               final isSelected = _selectedMembers.contains(official);
               final canSelect = !isCurrentUser && (_selectedMembers.length < needToSelect || isSelected);
@@ -401,21 +451,38 @@ class _CreateCrewScreenState extends State<CreateCrewScreen> {
             },
           ),
         ),
+        // Validation error for insufficient members
+        if (_selectedCrewType != null && _selectedMembers.length < needToSelect)
+          Container(
+            padding: const EdgeInsets.all(12),
+            margin: const EdgeInsets.only(top: 8),
+            decoration: BoxDecoration(
+              color: Colors.red.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.red.withOpacity(0.3)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.error_outline, color: Colors.red, size: 16),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Select ${needToSelect - _selectedMembers.length} more member(s) to complete the crew.',
+                    style: const TextStyle(color: Colors.red, fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
+          ),
       ],
     );
   }
 
   Widget _buildCreateButton() {
-    final requiredCount = _selectedCrewType!.requiredOfficials;
-    final needToSelect = requiredCount - 1;
-    final canCreate = _selectedMembers.length == needToSelect && 
-                     _nameController.text.trim().isNotEmpty &&
-                     _selectedCompetitionLevels.isNotEmpty;
-
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton(
-        onPressed: canCreate && !_isCreating ? _createCrew : null,
+        onPressed: !_isCreating ? _createCrew : null,
         style: ElevatedButton.styleFrom(
           backgroundColor: efficialsYellow,
           foregroundColor: efficialsBlack,
@@ -445,7 +512,37 @@ class _CreateCrewScreenState extends State<CreateCrewScreen> {
   }
 
   Future<void> _createCrew() async {
-    if (!_formKey.currentState!.validate() || _currentUserId == null) {
+    // Enhanced validation
+    if (!_formKey.currentState!.validate()) {
+      _showValidationError('Please fix the form errors before proceeding.');
+      return;
+    }
+
+    if (_currentUserId == null) {
+      _showValidationError('User session error. Please log in again.');
+      return;
+    }
+
+    if (_selectedCrewType == null) {
+      _showValidationError('Please select a sport and crew type.');
+      return;
+    }
+
+    if (_selectedCompetitionLevels.isEmpty) {
+      _showValidationError('Please select at least one competition level.');
+      return;
+    }
+
+    final requiredCount = _selectedCrewType!.requiredOfficials;
+    final needToSelect = requiredCount - 1; // Subtract 1 for crew chief
+    
+    if (_selectedMembers.length < needToSelect) {
+      _showValidationError('Please select $needToSelect crew members to complete the crew.');
+      return;
+    }
+
+    if (_selectedMembers.length > needToSelect) {
+      _showValidationError('Too many members selected. Please select exactly $needToSelect members.');
       return;
     }
 
@@ -454,7 +551,7 @@ class _CreateCrewScreenState extends State<CreateCrewScreen> {
     });
 
     try {
-      // Create the crew
+      // Create the crew with atomic transaction
       final crew = Crew(
         name: _nameController.text.trim(),
         crewTypeId: _selectedCrewType!.id!,
@@ -463,28 +560,11 @@ class _CreateCrewScreenState extends State<CreateCrewScreen> {
         competitionLevels: _selectedCompetitionLevels,
       );
 
-      final crewId = await _crewRepo.createCrew(crew);
-
-      // Add crew chief as a member
-      await _crewRepo.addCrewMember(
-        crewId,
-        _currentUserId!,
-        'crew_chief',
-        'Crew Chief',
+      await _crewRepo.createCrewWithMembersAndInvitations(
+        crew: crew,
+        selectedMembers: _selectedMembers,
+        crewChiefId: _currentUserId!,
       );
-
-      // Send invitations to selected members (exclude current user since they're already crew chief)
-      for (final member in _selectedMembers) {
-        if (member.id != _currentUserId) {
-          final invitation = CrewInvitation(
-            crewId: crewId,
-            invitedOfficialId: member.id!,
-            invitedBy: _currentUserId!,
-            position: 'member',
-          );
-          await _crewRepo.createCrewInvitation(invitation);
-        }
-      }
 
       if (mounted) {
         Navigator.pop(context, true); // Return true to indicate success
@@ -507,6 +587,16 @@ class _CreateCrewScreenState extends State<CreateCrewScreen> {
         });
       }
     }
+  }
+
+  void _showValidationError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   void _showErrorDialog(String message) {

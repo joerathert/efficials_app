@@ -615,7 +615,7 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
 
                               if (allAway) {
                                 backgroundColor = Colors.grey[300];
-                                textColor = Colors.white;
+                                textColor = Colors.black;
                               } else if (needsOfficials) {
                                 backgroundColor = Colors.red;
                                 textColor = Colors.white;

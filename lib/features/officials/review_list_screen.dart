@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../shared/theme.dart';
+import '../../shared/services/repositories/official_repository.dart';
+import '../../shared/services/user_session_service.dart';
 
 class ReviewListScreen extends StatefulWidget {
   const ReviewListScreen({super.key});
@@ -20,12 +22,71 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
   String? listName;
   int? listId;
   bool isEdit = false;
+  late final OfficialRepository _officialRepository;
+  int? _currentUserId;
 
   @override
   void initState() {
     super.initState();
     selectedOfficialsList = [];
     filteredOfficials = [];
+    _officialRepository = OfficialRepository();
+    _initializeUser();
+  }
+
+  Future<void> _initializeUser() async {
+    _currentUserId = await UserSessionService.instance.getCurrentUserId();
+  }
+
+  Future<int> _getListsCountBySport(String sport) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final String? listsJson = prefs.getString('saved_lists');
+      
+      if (listsJson == null || listsJson.isEmpty) return 0;
+      
+      final List<Map<String, dynamic>> existingLists = 
+          List<Map<String, dynamic>>.from(jsonDecode(listsJson));
+      
+      // Count lists for the specific sport
+      return existingLists.where((list) => list['sport'] == sport).length;
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  void _showSecondListCreationDialog(Map<String, dynamic> arguments) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        backgroundColor: darkSurface,
+        title: Center(
+          child: Text('Create Second List',
+              style: TextStyle(color: efficialsYellow, fontSize: 20, fontWeight: FontWeight.bold)),
+        ),
+        content: Text(
+            'You need at least two lists to use Multiple Lists. Let\'s create your second one.',
+            style: TextStyle(color: Colors.white)),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context); // Close dialog
+              Navigator.pushReplacementNamed(
+                context,
+                '/name_list',
+                arguments: {
+                  'sport': sport ?? 'Baseball',
+                  'fromGameCreation': true,
+                  ...arguments, // Pass through all game creation context
+                },
+              );
+            },
+            child: const Text('Continue', style: TextStyle(color: efficialsYellow)),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -175,9 +236,54 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
         final arguments = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
         final fromGameCreation = arguments['fromGameCreation'] == true;
         
+        // Check for special navigation logic for sports lists from game creation
+        if (fromGameCreation && sport != null) {
+          final currentSportListsCount = await _getListsCountBySport(sport!);
+          final method = arguments['method'] as String?;
+          
+          // Only show second list dialog for 'advanced' (Multiple Lists) method
+          if (method == 'advanced' && currentSportListsCount == 1) {
+            // First list of this sport created for Multiple Lists method - navigate to name_list_screen for second list
+            if (mounted) {
+              _showSecondListCreationDialog(arguments);
+            }
+            return;
+          } else if (method == 'advanced' && currentSportListsCount >= 2) {
+            // Second+ list of this sport created for Multiple Lists method - navigate to advanced_officials_selection
+            if (mounted) {
+              Navigator.pushReplacementNamed(
+                context,
+                '/advanced_officials_selection',
+                arguments: arguments,
+              );
+            }
+            return;
+          }
+        }
+        
         if (fromGameCreation) {
-          // For game creation, just pop back with the list data
-          // This preserves the navigation stack so the green arrow works properly
+          final method = arguments['method'] as String?;
+          
+          // For Single List method, navigate to lists_of_officials so user can select with green arrow
+          if (method == 'use_list') {
+            Navigator.pushReplacementNamed(
+              context,
+              '/lists_of_officials',
+              arguments: {
+                'sport': sport,
+                'fromGameCreation': true,
+                'method': method,
+                'newListCreated': {
+                  'listName': listName,
+                  'sport': sport,
+                  'officials': selectedOfficialsData,
+                },
+              },
+            );
+            return;
+          }
+          
+          // For other methods, just pop back with the list data
           Navigator.pop(context, {
             'listName': listName,
             'sport': sport,

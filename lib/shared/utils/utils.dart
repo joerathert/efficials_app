@@ -17,7 +17,9 @@ IconData getSportIcon(String sport) {
   IconData icon;
   switch (lowercaseSport) {
     case 'football':
-      icon = FontAwesomeIcons.football;
+      // FontAwesome doesn't have a dedicated American football icon
+      // Use Material Design's sports_football icon instead
+      icon = Icons.sports_football;
       break;
     case 'basketball':
       icon = FontAwesomeIcons.basketball;

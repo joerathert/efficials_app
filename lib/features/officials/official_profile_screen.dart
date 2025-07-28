@@ -4,6 +4,8 @@ import '../../shared/theme.dart';
 import '../../shared/services/user_session_service.dart';
 import '../../shared/services/repositories/official_repository.dart';
 import '../../shared/services/repositories/endorsement_repository.dart';
+import '../../shared/services/repositories/user_repository.dart';
+import 'dart:convert';
 import '../../shared/models/database_models.dart';
 
 class OfficialProfileScreen extends StatefulWidget {
@@ -26,6 +28,7 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
   // Repositories
   final OfficialRepository _officialRepo = OfficialRepository();
   final EndorsementRepository _endorsementRepo = EndorsementRepository();
+  final UserRepository _userRepo = UserRepository();
   
   // Profile data will be loaded from the database
   Map<String, dynamic> profileData = {};
@@ -139,6 +142,18 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
       // Get endorsement counts from the database
       final endorsementCounts = await _endorsementRepo.getEndorsementCounts(_currentOfficial!.id!);
       
+      // Load settings from database
+      final showCareerStats = await _userRepo.getBoolSetting(userId, 'showCareerStats', defaultValue: true);
+      final savedNotificationSettings = await _userRepo.getJsonSetting(userId, 'notificationSettings');
+      
+      // Update notification settings if loaded from DB
+      if (savedNotificationSettings != null) {
+        setState(() {
+          notificationSettings.clear();
+          notificationSettings.addAll(savedNotificationSettings.map((key, value) => MapEntry(key, value as bool)));
+        });
+      }
+
       // Populate profile data from the database
       profileData = {
         'name': _currentOfficial!.name ?? 'Unknown Official',
@@ -157,7 +172,7 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
         'profileVerified': false, // These are in OfficialUser model, not Official
         'emailVerified': false, // These are in OfficialUser model, not Official
         'phoneVerified': false, // These are in OfficialUser model, not Official
-        'showCareerStats': true, // Default to true for now
+        'showCareerStats': showCareerStats,
         'followThroughRate': _currentOfficial!.followThroughRate ?? 100.0,
       };
       
@@ -344,32 +359,40 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
                                 ),
                               ),
                               const SizedBox(height: 4),
-                              Row(
-                                children: [
-                                  Icon(Icons.thumb_up, size: 14, color: Colors.grey[400]),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    'Schedulers: ${currentProfileData['schedulerEndorsements'] ?? 0}',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      color: Colors.grey[400],
+                              GestureDetector(
+                                onTap: () => _showEndorsersDialog('scheduler'),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.thumb_up, size: 14, color: Colors.grey[400]),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'Schedulers: ${currentProfileData['schedulerEndorsements'] ?? 0}',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: Colors.grey[400],
+                                        decoration: TextDecoration.underline,
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
                               const SizedBox(height: 2),
-                              Row(
-                                children: [
-                                  Icon(Icons.thumb_up, size: 14, color: Colors.grey[400]),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    'Officials: ${currentProfileData['officialEndorsements'] ?? 0}',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      color: Colors.grey[400],
+                              GestureDetector(
+                                onTap: () => _showEndorsersDialog('official'),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.thumb_up, size: 14, color: Colors.grey[400]),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'Officials: ${currentProfileData['officialEndorsements'] ?? 0}',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: Colors.grey[400],
+                                        decoration: TextDecoration.underline,
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
                             ],
                           ),
@@ -383,7 +406,7 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
               if (isViewingOwnProfile)
                 IconButton(
                   onPressed: () {
-                    // TODO: Navigate to edit profile
+                    Navigator.pushNamed(context, '/edit_profile');
                   },
                   icon: const Icon(Icons.edit, color: efficialsYellow),
                 )
@@ -606,7 +629,7 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
               if (isViewingOwnProfile)
                 TextButton(
                   onPressed: () {
-                    // TODO: Edit sports
+                    Navigator.pushNamed(context, '/edit_sports');
                   },
                   child: const Text('Edit', style: TextStyle(color: efficialsYellow)),
                 ),
@@ -709,7 +732,7 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
               if (isViewingOwnProfile)
                 TextButton(
                   onPressed: () {
-                    // TODO: Edit contact info
+                    Navigator.pushNamed(context, '/edit_contact');
                   },
                   child: const Text('Edit', style: TextStyle(color: efficialsYellow)),
                 ),
@@ -845,10 +868,11 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
             title: const Text('Email Notifications', style: TextStyle(color: Colors.white)),
             subtitle: const Text('Game assignments and updates', style: TextStyle(color: Colors.grey)),
             value: notificationSettings['emailNotifications']!,
-            onChanged: (value) {
+            onChanged: (value) async {
               setState(() {
                 notificationSettings['emailNotifications'] = value;
               });
+              await _saveNotificationSettings();
             },
             activeColor: efficialsYellow,
             contentPadding: EdgeInsets.zero,
@@ -857,10 +881,11 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
             title: const Text('SMS Notifications', style: TextStyle(color: Colors.white)),
             subtitle: const Text('Text messages for urgent updates', style: TextStyle(color: Colors.grey)),
             value: notificationSettings['smsNotifications']!,
-            onChanged: (value) {
+            onChanged: (value) async {
               setState(() {
                 notificationSettings['smsNotifications'] = value;
               });
+              await _saveNotificationSettings();
             },
             activeColor: efficialsYellow,
             contentPadding: EdgeInsets.zero,
@@ -869,10 +894,37 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
             title: const Text('App Notifications', style: TextStyle(color: Colors.white)),
             subtitle: const Text('Push notifications in the app', style: TextStyle(color: Colors.grey)),
             value: notificationSettings['appNotifications']!,
-            onChanged: (value) {
+            onChanged: (value) async {
               setState(() {
                 notificationSettings['appNotifications'] = value;
               });
+              await _saveNotificationSettings();
+            },
+            activeColor: efficialsYellow,
+            contentPadding: EdgeInsets.zero,
+          ),
+          SwitchListTile(
+            title: const Text('Weekly Digest', style: TextStyle(color: Colors.white)),
+            subtitle: const Text('Weekly summary of your activity', style: TextStyle(color: Colors.grey)),
+            value: notificationSettings['weeklyDigest']!,
+            onChanged: (value) async {
+              setState(() {
+                notificationSettings['weeklyDigest'] = value;
+              });
+              await _saveNotificationSettings();
+            },
+            activeColor: efficialsYellow,
+            contentPadding: EdgeInsets.zero,
+          ),
+          SwitchListTile(
+            title: const Text('Marketing Emails', style: TextStyle(color: Colors.white)),
+            subtitle: const Text('Updates about new features and news', style: TextStyle(color: Colors.grey)),
+            value: notificationSettings['marketingEmails']!,
+            onChanged: (value) async {
+              setState(() {
+                notificationSettings['marketingEmails'] = value;
+              });
+              await _saveNotificationSettings();
             },
             activeColor: efficialsYellow,
             contentPadding: EdgeInsets.zero,
@@ -972,11 +1024,11 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
           style: TextStyle(color: Colors.grey),
         ),
         value: profileData['showCareerStats'] ?? true,
-        onChanged: (value) {
+        onChanged: (value) async {
           setState(() {
             profileData['showCareerStats'] = value;
           });
-          // TODO: Save this preference to the database
+          await _saveCareerStatsSetting(value);
         },
         activeColor: efficialsYellow,
         contentPadding: EdgeInsets.zero,
@@ -1171,5 +1223,172 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
         );
       }
     }
+  }
+
+  Future<void> _saveCareerStatsSetting(bool value) async {
+    try {
+      final userSession = UserSessionService.instance;
+      final userId = await userSession.getCurrentUserId();
+      
+      if (userId != null) {
+        await _userRepo.setBoolSetting(userId, 'showCareerStats', value);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Career stats preference saved'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      print('Error saving career stats setting: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to save preference'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _saveNotificationSettings() async {
+    try {
+      final userSession = UserSessionService.instance;
+      final userId = await userSession.getCurrentUserId();
+      
+      if (userId != null) {
+        await _userRepo.setJsonSetting(userId, 'notificationSettings', notificationSettings);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Notification settings saved'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      print('Error saving notification settings: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to save notification settings'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> _getEndorsers(int officialId, String endorserType) async {
+    try {
+      final endorsements = await _endorsementRepo.getEndorsementsForOfficial(officialId);
+      final filteredEndorsements = endorsements.where((e) => e.endorserType == endorserType).toList();
+      
+      List<Map<String, dynamic>> endorsers = [];
+      for (var endorsement in filteredEndorsements) {
+        final user = await _userRepo.getUserById(endorsement.endorserUserId);
+        if (user != null) {
+          endorsers.add({
+            'name': '${user.firstName ?? ''} ${user.lastName ?? ''}'.trim(),
+            'type': endorsement.endorserType,
+            'date': endorsement.createdAt,
+          });
+        }
+      }
+      
+      return endorsers;
+    } catch (e) {
+      print('Error getting endorsers: $e');
+      return [];
+    }
+  }
+
+  void _showEndorsersDialog(String endorserType) async {
+    final officialId = isViewingOwnProfile 
+        ? _currentOfficial?.id 
+        : otherOfficialData?['id'];
+    
+    if (officialId == null) return;
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: darkSurface,
+        title: Text(
+          '${endorserType == 'scheduler' ? 'Scheduler' : 'Official'} Endorsements',
+          style: const TextStyle(color: efficialsYellow),
+        ),
+        content: FutureBuilder<List<Map<String, dynamic>>>(
+          future: _getEndorsers(officialId, endorserType),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const SizedBox(
+                height: 100,
+                child: Center(
+                  child: CircularProgressIndicator(color: efficialsYellow),
+                ),
+              );
+            }
+            
+            if (snapshot.hasError || !snapshot.hasData || snapshot.data!.isEmpty) {
+              return SizedBox(
+                height: 100,
+                child: Center(
+                  child: Text(
+                    'No ${endorserType} endorsements found',
+                    style: const TextStyle(color: Colors.grey),
+                  ),
+                ),
+              );
+            }
+            
+            final endorsers = snapshot.data!;
+            return SizedBox(
+              width: double.maxFinite,
+              height: 300,
+              child: ListView.builder(
+                itemCount: endorsers.length,
+                itemBuilder: (context, index) {
+                  final endorser = endorsers[index];
+                  return ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: efficialsYellow,
+                      child: Text(
+                        endorser['name'].split(' ').map((n) => n.isNotEmpty ? n[0] : '').join(),
+                        style: const TextStyle(color: efficialsBlack),
+                      ),
+                    ),
+                    title: Text(
+                      endorser['name'],
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                    subtitle: Text(
+                      endorser['date'] != null 
+                          ? 'Endorsed on ${endorser['date'].toString().split(' ')[0]}'
+                          : 'Date unknown',
+                      style: const TextStyle(color: Colors.grey),
+                    ),
+                  );
+                },
+              ),
+            );
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close', style: TextStyle(color: efficialsYellow)),
+          ),
+        ],
+      ),
+    );
   }
 }

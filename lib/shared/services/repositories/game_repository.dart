@@ -270,18 +270,28 @@ class GameRepository extends BaseRepository {
       games = games.where((game) {
         if (game.scheduleName == null || game.sportName == null) return false;
         
-        final sportFilters = scheduleFilters[game.sportName!];
+        final baseSportName = game.sportName!;
+        String sportKey = baseSportName;
+        
+        // For basketball, use gender-specific sport names to match filter keys
+        if (baseSportName.toLowerCase() == 'basketball' && game.gender != null) {
+          if (game.gender!.toLowerCase() == 'boys' || game.gender!.toLowerCase() == 'male') {
+            sportKey = 'Boys Basketball';
+          } else if (game.gender!.toLowerCase() == 'girls' || game.gender!.toLowerCase() == 'female') {
+            sportKey = 'Girls Basketball';
+          }
+        }
+        
+        final sportFilters = scheduleFilters[sportKey];
         if (sportFilters == null) {
-          // If sport is not in filters, show the game by default
-          // This handles cases where new sports are added but not yet in filters
-          return true;
+          // If sport is not in filters, hide the game - all filters should be explicit
+          return false;
         }
         
         final scheduleFilter = sportFilters[game.scheduleName!];
         if (scheduleFilter == null) {
-          // If schedule is not in filters, show the game by default
-          // This handles cases where new schedules are added but not yet in filters
-          return true;
+          // If schedule is not in filters, hide the game - all filters should be explicit
+          return false;
         }
         
         return scheduleFilter == true;

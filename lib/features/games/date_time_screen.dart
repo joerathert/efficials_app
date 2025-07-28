@@ -277,11 +277,12 @@ class _DateTimeScreenState extends State<DateTimeScreen>
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 600),
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.start,
-                children: [
+            child: SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.start,
+                  children: [
                   const SizedBox(height: 20),
                   const Text(
                     'When will the game be played?',
@@ -396,7 +397,11 @@ class _DateTimeScreenState extends State<DateTimeScreen>
                         padding: const EdgeInsets.symmetric(vertical: 16),
                       ),
                       child: Text(
-                        'Continue',
+                        (_selectedDate == null || _selectedTime == null) 
+                            ? 'Select Date & Time to Continue'
+                            : !_isValidDateTime()
+                                ? 'Select Future Date & Time'
+                                : 'Continue',
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w600,
@@ -408,7 +413,9 @@ class _DateTimeScreenState extends State<DateTimeScreen>
                       ),
                     ),
                   ),
+                  const SizedBox(height: 50), // Add extra space at bottom
                 ],
+                ),
               ),
             ),
           ),

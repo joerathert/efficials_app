@@ -11,16 +11,59 @@ class BackoutNotificationsScreen extends StatefulWidget {
   State<BackoutNotificationsScreen> createState() => _BackoutNotificationsScreenState();
 }
 
-class _BackoutNotificationsScreenState extends State<BackoutNotificationsScreen> {
+class _BackoutNotificationsScreenState extends State<BackoutNotificationsScreen> with SingleTickerProviderStateMixin {
   final NotificationRepository _notificationRepo = NotificationRepository();
   List<models.Notification> _notifications = [];
   bool _isLoading = true;
   int? _currentUserId;
+  late TabController _tabController;
+  bool _showUnread = true;
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(_onTabChanged);
+    _initializePushNotifications();
     _loadNotifications();
+  }
+
+  @override
+  void dispose() {
+    _tabController.removeListener(_onTabChanged);
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  void _onTabChanged() {
+    if (_tabController.indexIsChanging) {
+      setState(() {
+        _showUnread = _tabController.index == 0;
+      });
+      _loadNotifications();
+    }
+  }
+
+  Future<void> _initializePushNotifications() async {
+    try {
+      final userSession = UserSessionService.instance;
+      final userId = await userSession.getCurrentUserId();
+      
+      if (userId != null) {
+        // Request permission for push notifications
+        final permissionGranted = await _notificationRepo.requestPushPermission();
+        
+        if (permissionGranted) {
+          // Subscribe to push notifications
+          await _notificationRepo.subscribeToPush(userId);
+          
+          // Initialize push notification handlers
+          await _notificationRepo.initializePushNotifications(userId);
+        }
+      }
+    } catch (e) {
+      print('Error initializing push notifications: $e');
+    }
   }
 
   Future<void> _loadNotifications() async {
@@ -33,7 +76,11 @@ class _BackoutNotificationsScreenState extends State<BackoutNotificationsScreen>
       _currentUserId = await userSession.getCurrentUserId();
       
       if (_currentUserId != null) {
-        final notifications = await _notificationRepo.getNotifications(_currentUserId!, unreadOnly: true);
+        final notifications = await _notificationRepo.getNotifications(
+          _currentUserId!, 
+          unreadOnly: _showUnread, 
+          readOnly: !_showUnread
+        );
         
         if (mounted) {
           setState(() {
@@ -64,6 +111,16 @@ class _BackoutNotificationsScreenState extends State<BackoutNotificationsScreen>
         ),
         iconTheme: const IconThemeData(color: efficialsWhite),
         elevation: 0,
+        bottom: TabBar(
+          controller: _tabController,
+          labelColor: efficialsYellow,
+          unselectedLabelColor: Colors.grey[400],
+          indicatorColor: efficialsYellow,
+          tabs: const [
+            Tab(text: 'Unread'),
+            Tab(text: 'Read'),
+          ],
+        ),
         actions: [
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert, color: efficialsWhite),
@@ -191,6 +248,8 @@ class _BackoutNotificationsScreenState extends State<BackoutNotificationsScreen>
     switch (notification.type) {
       case 'backout':
         return _buildBackoutNotificationCard(notification);
+      case 'crew_backout':
+        return _buildCrewBackoutNotificationCard(notification);
       case 'game_filling':
         return _buildGameFillingNotificationCard(notification);
       case 'official_interest':
@@ -205,7 +264,7 @@ class _BackoutNotificationsScreenState extends State<BackoutNotificationsScreen>
   Widget _buildBackoutNotificationCard(models.Notification notification) {
     final data = notification.data ?? {};
     final officialName = data['official_name'] ?? 'Unknown Official';
-    final backoutReason = data['backout_reason'] ?? 'No reason provided';
+    final backoutReason = data['reason'] ?? 'No reason provided';
 
     return _buildNotificationCardBase(
       notification: notification,
@@ -253,6 +312,129 @@ class _BackoutNotificationsScreenState extends State<BackoutNotificationsScreen>
             onPressed: () => _showExcuseDialog(notification),
             icon: const Icon(Icons.check_circle_outline, size: 18),
             label: const Text('Excuse Official'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.green,
+              side: const BorderSide(color: Colors.green),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: () => _markAsRead(notification),
+            icon: const Icon(Icons.visibility, size: 18),
+            label: const Text('Mark as Seen'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: efficialsYellow,
+              side: const BorderSide(color: efficialsYellow),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCrewBackoutNotificationCard(models.Notification notification) {
+    final data = notification.data ?? {};
+    final crewName = data['crew_name'] ?? 'Unknown Crew';
+    final backoutReason = data['reason'] ?? 'No reason provided';
+    final crewData = data['crew_data'] ?? {};
+
+    return _buildNotificationCardBase(
+      notification: notification,
+      iconData: Icons.group_remove,
+      iconColor: Colors.red,
+      borderColor: Colors.red.withOpacity(0.3),
+      headerColor: Colors.red.withOpacity(0.1),
+      statusText: 'CREW BACKOUT',
+      statusColor: Colors.red[300]!,
+      title: '$crewName backed out',
+      subtitle: 'Crew backed out ${_formatTimeAgo(notification.createdAt)}',
+      additionalContent: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Reason for Backing Out',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey[300],
+            ),
+          ),
+          const SizedBox(height: 4),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              backoutReason,
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[300],
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ),
+          if (crewData.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Text(
+              'Crew Information',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey[300],
+              ),
+            ),
+            const SizedBox(height: 4),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (crewData['members'] != null)
+                    Text(
+                      'Members: ${crewData['members']}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[400],
+                      ),
+                    ),
+                  if (crewData['chief'] != null)
+                    Text(
+                      'Crew Chief: ${crewData['chief']}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[400],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+      actions: [
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: () => _showExcuseDialog(notification),
+            icon: const Icon(Icons.check_circle_outline, size: 18),
+            label: const Text('Excuse Crew'),
             style: OutlinedButton.styleFrom(
               foregroundColor: Colors.green,
               side: const BorderSide(color: Colors.green),
@@ -743,10 +925,8 @@ class _BackoutNotificationsScreenState extends State<BackoutNotificationsScreen>
       // Mark notification as read and handle excuse logic
       await _notificationRepo.markAsRead(notification.id!);
 
-      // Remove from local list
-      setState(() {
-        _notifications.removeWhere((n) => n.id == notification.id);
-      });
+      // Reload notifications to reflect the change
+      await _loadNotifications();
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -775,10 +955,8 @@ class _BackoutNotificationsScreenState extends State<BackoutNotificationsScreen>
     try {
       await _notificationRepo.markAsRead(notification.id!);
 
-      // Remove from local list since it's no longer unread
-      setState(() {
-        _notifications.removeWhere((n) => n.id == notification.id);
-      });
+      // Reload notifications to reflect the change in the appropriate tab
+      await _loadNotifications();
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -882,9 +1060,8 @@ class _BackoutNotificationsScreenState extends State<BackoutNotificationsScreen>
     try {
       await _notificationRepo.markAllAsRead(_currentUserId!);
       
-      setState(() {
-        _notifications.clear();
-      });
+      // Reload notifications to reflect the change
+      await _loadNotifications();
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

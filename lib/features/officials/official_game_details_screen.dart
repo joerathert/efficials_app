@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../shared/theme.dart';
 import '../../shared/models/database_models.dart';
 import '../../shared/services/repositories/game_assignment_repository.dart';
@@ -26,6 +27,12 @@ class _OfficialGameDetailsScreenState extends State<OfficialGameDetailsScreen> {
     assignment = ModalRoute.of(context)!.settings.arguments as GameAssignment;
     print('OfficialGameDetailsScreen loaded - Assignment ID: ${assignment.id}');
     print('Assignment sport: ${assignment.sportName}');
+    
+    // Validate assignment has required data
+    if (assignment.id == null) {
+      print('WARNING: Assignment ID is null for assignment: ${assignment.toString()}');
+    }
+    
     _loadGameDetails();
   }
 
@@ -496,42 +503,222 @@ class _OfficialGameDetailsScreenState extends State<OfficialGameDetailsScreen> {
             ),
           ),
         ),
-        const SizedBox(height: 12),
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton.icon(
-            onPressed: _showBackOutDialog,
-            icon: const Icon(Icons.exit_to_app, size: 20),
-            label: const Text('Back Out of Game'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+        if (otherOfficials.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _openCrewChat,
+              icon: const Icon(Icons.chat, size: 20),
+              label: const Text('Crew Chat'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: efficialsYellow,
+                side: const BorderSide(color: efficialsYellow),
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
             ),
           ),
-        ),
+        ],
+        const SizedBox(height: 12),
+        if (assignment.id != null) // Only show back out button if assignment has valid ID
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _showBackOutDialog,
+              icon: const Icon(Icons.exit_to_app, size: 20),
+              label: const Text('Back Out of Game'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          )
+        else
+          SizedBox(
+            width: double.infinity,
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              decoration: BoxDecoration(
+                color: Colors.grey.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Text(
+                'Back Out Unavailable (Invalid Assignment)',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.grey,
+                  fontSize: 16,
+                ),
+              ),
+            ),
+          ),
       ],
     );
   }
 
-  void _getDirections() {
-    // TODO: Implement directions functionality
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Directions feature coming soon!'),
-        backgroundColor: Colors.orange,
-      ),
-    );
+  Future<void> _getDirections() async {
+    final locationName = assignment.locationName;
+    final address = assignment.locationAddress;
+    
+    if (locationName == null && address == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Location information not available'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+    
+    // Use address if available, otherwise use location name
+    final query = Uri.encodeComponent(address ?? locationName!);
+    final url = 'https://www.google.com/maps/search/?api=1&query=$query';
+    
+    try {
+      final uri = Uri.parse(url);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        throw Exception('Could not launch maps');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Could not open maps: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
-  void _contactScheduler() {
-    // TODO: Implement contact scheduler functionality
+  Future<void> _contactScheduler() async {
+    if (schedulerInfo == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Scheduler contact information not available'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+    
+    final email = schedulerInfo!['email'] as String?;
+    final phone = schedulerInfo!['phone'] as String?;
+    final name = schedulerInfo!['name'] as String? ?? 'Scheduler';
+    
+    if (email == null && phone == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No contact information available for scheduler'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+    
+    // Show options dialog if both email and phone are available
+    if (email != null && phone != null) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          backgroundColor: darkSurface,
+          title: Text(
+            'Contact $name',
+            style: const TextStyle(color: efficialsYellow),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.email, color: efficialsYellow),
+                title: const Text('Send Email', style: TextStyle(color: Colors.white)),
+                subtitle: Text(email, style: TextStyle(color: Colors.grey[400])),
+                onTap: () {
+                  Navigator.pop(context);
+                  _launchEmail(email, name);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.phone, color: efficialsYellow),
+                title: const Text('Call', style: TextStyle(color: Colors.white)),
+                subtitle: Text(phone, style: TextStyle(color: Colors.grey[400])),
+                onTap: () {
+                  Navigator.pop(context);
+                  _launchPhone(phone);
+                },
+              ),
+            ],
+          ),
+        ),
+      );
+    } else if (email != null) {
+      await _launchEmail(email, name);
+    } else if (phone != null) {
+      await _launchPhone(phone);
+    }
+  }
+  
+  Future<void> _launchEmail(String email, String schedulerName) async {
+    final gameTitle = _formatAssignmentTitle(assignment);
+    final subject = Uri.encodeComponent('Game Assignment: ${assignment.sportName} - $gameTitle');
+    final url = 'mailto:$email?subject=$subject';
+    
+    try {
+      final uri = Uri.parse(url);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri);
+      } else {
+        throw Exception('Could not launch email');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Could not open email: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+  
+  Future<void> _launchPhone(String phone) async {
+    final url = 'tel:$phone';
+    
+    try {
+      final uri = Uri.parse(url);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri);
+      } else {
+        throw Exception('Could not launch phone');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Could not open phone: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+  
+  void _openCrewChat() {
+    // TODO: Implement crew chat functionality
+    // This could navigate to a new screen or use firebase_chat package
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Contact scheduler feature coming soon!'),
+        content: Text('Crew chat feature coming soon!'),
         backgroundColor: Colors.orange,
       ),
     );
@@ -558,6 +745,7 @@ class _OfficialGameDetailsScreenState extends State<OfficialGameDetailsScreen> {
       builder: (BuildContext context) {
         return BackOutDialog(
           gameSummary: gameSummary,
+          assignmentId: assignment.id,
           onConfirmBackOut: (String reason) => _handleBackOut(reason),
         );
       },
@@ -569,12 +757,15 @@ class _OfficialGameDetailsScreenState extends State<OfficialGameDetailsScreen> {
             backgroundColor: Colors.green,
           ),
         );
-        Navigator.pop(context); // Go back to previous screen
+        Navigator.pop(context, true); // Return true to indicate successful back out
       }
     });
   }
 
   Future<void> _handleBackOut(String reason) async {
+    if (assignment.id == null) {
+      throw Exception('Assignment ID is null - cannot back out of game');
+    }
     await _assignmentRepo.backOutOfGame(assignment.id!, reason);
   }
 

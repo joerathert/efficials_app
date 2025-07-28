@@ -504,6 +504,7 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
           context,
           homeRoute,
           (route) => false,
+          arguments: {'refresh': true}, // Force refresh when returning to home
         );
       }
     }

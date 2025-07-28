@@ -48,13 +48,13 @@ class GameService {
   // GAME OPERATIONS
 
   // Get all games for the current user
-  Future<List<Map<String, dynamic>>> getGames({String? status}) async {
+  Future<List<Game>> getGames({String? status}) async {
     try {
       final userId = await _getCurrentUserId();
       final games = await _gameRepository.getGamesByUser(userId, status: status);
       
-      // Convert to the format expected by the UI
-      return games.map((game) => _gameToMap(game)).toList();
+      // Return Game objects directly - no conversion needed
+      return games;
     } catch (e) {
       debugPrint('Error getting games: $e');
       return [];
@@ -62,12 +62,12 @@ class GameService {
   }
 
   // Get published games
-  Future<List<Map<String, dynamic>>> getPublishedGames() async {
+  Future<List<Game>> getPublishedGames() async {
     return await getGames(status: 'Published');
   }
 
   // Get unpublished games
-  Future<List<Map<String, dynamic>>> getUnpublishedGames() async {
+  Future<List<Game>> getUnpublishedGames() async {
     return await getGames(status: 'Unpublished');
   }
 
@@ -102,8 +102,40 @@ class GameService {
     }
   }
 
+  // Get games by team (opponent name)
+  Future<List<Map<String, dynamic>>> getGamesByTeam(String teamName) async {
+    try {
+      final userId = await _getCurrentUserId();
+      final allGames = await _gameRepository.getGamesByUser(userId);
+      
+      // Filter games for this team that have dates
+      final games = allGames.where((game) {
+        final matchesTeam = game.opponent == teamName ||
+            (game.scheduleName != null && game.scheduleName!.contains(teamName));
+        final hasDate = game.date != null;
+        return matchesTeam && hasDate;
+      }).toList();
+
+      // Convert to maps and parse date/time
+      return games.map((game) {
+        final gameMap = _gameToMap(game);
+        // Ensure date and time are properly formatted
+        if (game.date != null) {
+          gameMap['date'] = game.date;
+        }
+        if (game.time != null) {
+          gameMap['time'] = game.time;
+        }
+        return gameMap;
+      }).toList();
+    } catch (e) {
+      debugPrint('Error getting games by team: $e');
+      return [];
+    }
+  }
+
   // Get filtered games
-  Future<List<Map<String, dynamic>>> getFilteredGames({
+  Future<List<Game>> getFilteredGames({
     bool? showAwayGames,
     bool? showFullyCoveredGames,
     Map<String, Map<String, bool>>? scheduleFilters,
@@ -119,7 +151,7 @@ class GameService {
         status: status,
       );
       
-      return games.map((game) => _gameToMap(game)).toList();
+      return games;
     } catch (e) {
       debugPrint('Error getting filtered games: $e');
       return [];
@@ -356,7 +388,18 @@ class GameService {
       // Fix templates that have officialsListId but no officialsListName due to JOIN issues
       final fixedTemplates = await _fixTemplatesWithMissingListNames(templates);
       
-      return fixedTemplates.map((template) => _templateToMap(template)).toList();
+      // Convert templates to map and add selectedLists data
+      final templateMaps = <Map<String, dynamic>>[];
+      for (final template in fixedTemplates) {
+        final templateMap = _templateToMap(template);
+        // Add selectedLists data for advanced method templates
+        if (template.method == 'advanced') {
+          templateMap['selectedLists'] = await _getTemplateSelectedLists(template.id!);
+        }
+        templateMaps.add(templateMap);
+      }
+      
+      return templateMaps;
     } catch (e) {
       debugPrint('Error getting templates: $e');
       return [];
@@ -372,7 +415,18 @@ class GameService {
 
       final templates = await _templateRepository.getTemplatesBySport(userId, sportId);
       
-      return templates.map((template) => _templateToMap(template)).toList();
+      // Convert templates to map and add selectedLists data
+      final templateMaps = <Map<String, dynamic>>[];
+      for (final template in templates) {
+        final templateMap = _templateToMap(template);
+        // Add selectedLists data for advanced method templates
+        if (template.method == 'advanced') {
+          templateMap['selectedLists'] = await _getTemplateSelectedLists(template.id!);
+        }
+        templateMaps.add(templateMap);
+      }
+      
+      return templateMaps;
     } catch (e) {
       debugPrint('Error getting templates by sport: $e');
       return [];
@@ -443,6 +497,12 @@ class GameService {
       );
 
       final templateId = await _templateRepository.createGameTemplate(template);
+      
+      // Store selectedLists data separately if it exists
+      if (templateData['selectedLists'] != null && templateData['method'] == 'advanced') {
+        await _storeTemplateSelectedLists(templateId, templateData['selectedLists']);
+      }
+      
       final createdTemplate = await _templateRepository.getTemplateById(templateId);
       
       if (createdTemplate != null) {
@@ -538,12 +598,15 @@ class GameService {
         data = templateData.toJson();
       }
 
+      debugPrint('UpdateTemplate - Data: $data');
+      
       final templateId = int.parse(data['id'].toString());
       final userId = await _getCurrentUserId();
       
       // Get sport ID
       final sportId = await _getSportId(data['sport']);
       if (sportId == null) {
+        debugPrint('UpdateTemplate - Failed to get sport ID for: ${data['sport']}');
         return false;
       }
 
@@ -553,6 +616,33 @@ class GameService {
         locationId = await _getLocationId(data['location']);
       }
 
+      // Parse time correctly - it could be a Map with hour/minute or a string
+      TimeOfDay? parsedTime;
+      if (data['time'] != null) {
+        if (data['time'] is Map) {
+          final timeMap = data['time'] as Map<String, dynamic>;
+          parsedTime = TimeOfDay(
+            hour: timeMap['hour'] as int,
+            minute: timeMap['minute'] as int,
+          );
+        } else if (data['time'] is String) {
+          // Handle string format like "14:30"
+          final parts = (data['time'] as String).split(':');
+          if (parts.length == 2) {
+            parsedTime = TimeOfDay(
+              hour: int.parse(parts[0]),
+              minute: int.parse(parts[1]),
+            );
+          }
+        }
+      }
+
+      // Get officials list ID if provided by name
+      int? officialsListId;
+      if (data['officialsListName'] != null) {
+        officialsListId = await _getOfficialsListId(data['officialsListName']);
+      }
+
       final template = GameTemplate(
         id: templateId,
         name: data['name'],
@@ -560,7 +650,7 @@ class GameService {
         userId: userId,
         scheduleName: data['scheduleName'],
         date: data['date'] != null ? DateTime.parse(data['date']) : null,
-        time: data['time'] != null ? TimeOfDay.fromDateTime(DateTime.parse('2000-01-01 ${data['time']}')) : null,
+        time: parsedTime,
         locationId: locationId,
         opponent: data['opponent'],
         isAwayGame: data['isAwayGame'] ?? false,
@@ -569,11 +659,12 @@ class GameService {
         officialsRequired: data['officialsRequired'],
         gameFee: data['gameFee'],
         hireAutomatically: data['hireAutomatically'],
+        method: data['method'],
+        officialsListId: officialsListId,
         selectedOfficials: data['selectedOfficials'],
         officialsListName: data['officialsListName'],
-        method: data['method'],
-        includeSport: data['includeSport'] ?? false,
         includeScheduleName: data['includeScheduleName'] ?? false,
+        includeSport: data['includeSport'] ?? false,
         includeDate: data['includeDate'] ?? false,
         includeTime: data['includeTime'] ?? false,
         includeLocation: data['includeLocation'] ?? false,
@@ -589,23 +680,26 @@ class GameService {
         createdAt: DateTime.now(),
       );
 
+      debugPrint('UpdateTemplate - About to call updateGameTemplate with template: ${template.name}, id: ${template.id}');
       await _templateRepository.updateGameTemplate(template);
+      debugPrint('UpdateTemplate - Successfully updated template');
       return true;
     } catch (e) {
       debugPrint('Error updating template: $e');
+      debugPrint('Error stack trace: ${StackTrace.current}');
       return false;
     }
   }
 
   // Create game from template
-  Future<Map<String, dynamic>?> createGameFromTemplate(int templateId) async {
+  Future<Map<String, dynamic>?> createGameFromTemplate(int templateId, int userId) async {
     try {
       final template = await _templateRepository.getTemplateById(templateId);
       if (template == null) {
         return null;
       }
 
-      final gameData = await _templateRepository.createGameFromTemplate(template);
+      final gameData = await _templateRepository.createGameFromTemplate(template, userId);
       return await createGame(gameData);
     } catch (e) {
       debugPrint('Error creating game from template: $e');
@@ -625,7 +719,26 @@ class GameService {
   // Get schedule ID by name and sport
   Future<int?> _getScheduleId(String scheduleName, int sportId) async {
     final userId = await _getCurrentUserId();
-    final schedule = await _scheduleRepository.getScheduleByName(userId, scheduleName, sportId);
+    var schedule = await _scheduleRepository.getScheduleByName(userId, scheduleName, sportId);
+    
+    // If schedule doesn't exist, create it
+    if (schedule == null) {
+      try {
+        final newSchedule = Schedule(
+          name: scheduleName,
+          sportId: sportId,
+          userId: userId,
+          createdAt: DateTime.now(),
+        );
+        final scheduleId = await _scheduleRepository.createSchedule(newSchedule);
+        schedule = await _scheduleRepository.getScheduleById(scheduleId);
+        debugPrint('Created new schedule: $scheduleName with ID: $scheduleId');
+      } catch (e) {
+        debugPrint('Error creating schedule: $e');
+        return null;
+      }
+    }
+    
     return schedule?.id;
   }
 
@@ -872,6 +985,33 @@ class GameService {
       'includeSelectedOfficials': template.includeSelectedOfficials,
       'includeOfficialsList': template.includeOfficialsList,
       'createdAt': template.createdAt?.toIso8601String(),
+      'selectedOfficials': template.selectedOfficials,
     };
+  }
+
+  // Store selectedLists data for a template
+  Future<void> _storeTemplateSelectedLists(int templateId, List<dynamic> selectedLists) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final key = 'template_selectedLists_$templateId';
+      await prefs.setString(key, jsonEncode(selectedLists));
+    } catch (e) {
+      debugPrint('Error storing template selectedLists: $e');
+    }
+  }
+
+  // Retrieve selectedLists data for a template
+  Future<List<Map<String, dynamic>>?> _getTemplateSelectedLists(int templateId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final key = 'template_selectedLists_$templateId';
+      final data = prefs.getString(key);
+      if (data != null) {
+        return List<Map<String, dynamic>>.from(jsonDecode(data));
+      }
+    } catch (e) {
+      debugPrint('Error retrieving template selectedLists: $e');
+    }
+    return null;
   }
 }
