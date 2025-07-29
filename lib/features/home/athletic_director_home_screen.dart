@@ -72,7 +72,10 @@ class _AthleticDirectorHomeScreenState
     if (args != null &&
         args is Map<String, dynamic> &&
         args['refresh'] == true) {
-      _fetchGames();
+      // Use post frame callback to ensure the refresh happens after the navigation is complete
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _fetchGames();
+      });
     }
     // Reset pull state when navigating to home screen
     _resetPullState();
@@ -1293,7 +1296,10 @@ class _AthleticDirectorHomeScreenState
           return;
         }
         if (mounted) {
-          Navigator.pushNamed(context, '/game_information', arguments: latestGame)
+          Navigator.pushNamed(context, '/game_information', arguments: {
+            ...latestGame,
+            'sourceScreen': 'athletic_director_home',
+          })
               .then((result) async {
             // Always refresh from database after game information screen
             if (result == true || 

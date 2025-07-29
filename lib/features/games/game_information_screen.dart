@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../shared/theme.dart';
 import '../../shared/services/repositories/game_assignment_repository.dart';
+import '../../shared/services/repositories/notification_repository.dart';
 import '../../shared/services/game_service.dart';
 
 class GameInformationScreen extends StatefulWidget {
@@ -37,6 +38,9 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
   // Repository for fetching real interested officials data
   final GameAssignmentRepository _gameAssignmentRepo = GameAssignmentRepository();
   
+  // Repository for notifications
+  final NotificationRepository _notificationRepo = NotificationRepository();
+  
   // Service for database game operations
   final GameService _gameService = GameService();
 
@@ -44,6 +48,27 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     final newArgs = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+    
+    // Always try to reload database games to get fresh data
+    final gameId = newArgs['id'];
+    if (gameId != null && _isDatabaseGame(gameId)) {
+      _reloadGameDataFromDatabase(newArgs);
+    } else {
+      _initializeFromArguments(newArgs);
+    }
+  }
+
+  bool _isDatabaseGame(dynamic gameId) {
+    int? databaseGameId;
+    if (gameId is int) {
+      databaseGameId = gameId;
+    } else if (gameId is String) {
+      databaseGameId = int.tryParse(gameId);
+    }
+    return databaseGameId != null && databaseGameId < 1000000000000;
+  }
+
+  void _initializeFromArguments(Map<String, dynamic> newArgs) {
     setState(() {
       args = Map<String, dynamic>.from(newArgs);
       
@@ -102,6 +127,43 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
       // Load real interested officials from database
       _loadInterestedOfficials();
     });
+  }
+
+  Future<void> _reloadGameDataFromDatabase(Map<String, dynamic> newArgs) async {
+    final gameId = newArgs['id'];
+    if (gameId == null || !_isDatabaseGame(gameId)) {
+      _initializeFromArguments(newArgs);
+      return;
+    }
+
+    try {
+      int databaseGameId;
+      if (gameId is int) {
+        databaseGameId = gameId;
+      } else {
+        databaseGameId = int.parse(gameId as String);
+      }
+
+      // Load fresh data from database with officials data
+      final gameData = await _gameService.getGameByIdWithOfficials(databaseGameId);
+      if (gameData != null) {
+        // Merge the fresh database data with the navigation args
+        final updatedArgs = {
+          ...newArgs,
+          ...gameData,
+          // Preserve navigation-specific args
+          'sourceScreen': newArgs['sourceScreen'],
+          'scheduleName': newArgs['scheduleName'] ?? gameData['scheduleName'],
+          'scheduleId': newArgs['scheduleId'] ?? gameData['scheduleId'],
+        };
+        _initializeFromArguments(updatedArgs);
+      } else {
+        _initializeFromArguments(newArgs);
+      }
+    } catch (e) {
+      debugPrint('Error reloading game data from database: $e');
+      _initializeFromArguments(newArgs);
+    }
   }
 
   @override
@@ -802,6 +864,145 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
     );
   }
 
+  void _showRemoveOfficialDialog(String officialName, int officialId) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: darkSurface,
+        title: const Text('Remove Official', 
+            style: TextStyle(color: efficialsYellow, fontSize: 20, fontWeight: FontWeight.bold)),
+        content: Text('Are you sure you want to remove $officialName from this game?',
+            style: const TextStyle(color: Colors.white)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel', style: TextStyle(color: efficialsYellow)),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _removeOfficialFromGame(officialId, officialName);
+            },
+            child: const Text('Remove', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _removeOfficialFromGame(int officialId, String officialName) async {
+    final gameId = args['id'];
+    if (gameId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Error: Game ID not found')),
+      );
+      return;
+    }
+
+    try {
+      // Check if this is a database game
+      int? databaseGameId;
+      if (gameId is int) {
+        databaseGameId = gameId;
+      } else if (gameId is String) {
+        databaseGameId = int.tryParse(gameId);
+      }
+
+      if (databaseGameId != null && databaseGameId < 1000000000000) {
+        // Remove from database
+        final success = await _gameService.removeOfficialFromGame(databaseGameId, officialId);
+        
+        if (success) {
+          // Send notification to the official
+          try {
+            final prefs = await SharedPreferences.getInstance();
+            final currentUserName = prefs.getString('user_name') ?? 
+                                  prefs.getString('first_name') ?? 
+                                  prefs.getString('schedulerName') ?? 
+                                  'Scheduler';
+            
+            final gameTime = selectedTime != null 
+                ? '${selectedTime!.hour.toString().padLeft(2, '0')}:${selectedTime!.minute.toString().padLeft(2, '0')}'
+                : 'TBD';
+            
+            debugPrint('Creating notification for official ID: $officialId');
+            debugPrint('Scheduler name: $currentUserName');
+            debugPrint('Game sport: $sport, opponent: $opponent');
+                
+            final notificationId = await _notificationRepo.createOfficialRemovalNotification(
+              officialId: officialId,
+              schedulerName: currentUserName,
+              gameSport: sport,
+              gameOpponent: opponent,
+              gameDate: selectedDate ?? DateTime.now(),
+              gameTime: gameTime,
+              additionalData: {
+                'game_id': databaseGameId,
+                'schedule_name': scheduleName,
+                'location': location,
+              },
+            );
+            
+            debugPrint('Notification created successfully with ID: $notificationId');
+          } catch (e) {
+            debugPrint('Error sending removal notification: $e');
+            // Show error to user for debugging
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Warning: Failed to send notification to official. Error: $e'),
+                  backgroundColor: Colors.orange,
+                  duration: const Duration(seconds: 5),
+                ),
+              );
+            }
+          }
+          
+          // Refresh the data to show updated state
+          await _loadInterestedOfficials();
+          
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('$officialName has been removed from this game'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Failed to remove official from game'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        }
+      } else {
+        // For SharedPreferences games, show info message
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Manual removal is not supported for legacy games'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Error removing official from game: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Error removing official from game'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   Map<String, int> _getSelectedCounts(Map<String, List<Map<String, dynamic>>> savedLists) {
     final listCounts = <String, int>{};
     final selectedIds = selectedForHire.entries.where((e) => e.value).map((e) => e.key).toList();
@@ -902,6 +1103,9 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                               ...args,
                               'isEdit': true,
                               'isFromGameInfo': true,
+                              'sourceScreen': args['sourceScreen'], // Pass through source info
+                              'scheduleName': args['scheduleName'],
+                              'scheduleId': args['scheduleId'],
                             },
                           ).then((result) {
                         if (result != null && result is Map<String, dynamic>) {
@@ -1064,31 +1268,53 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                     const SizedBox(height: 20),
                     if (!isAwayGame) ...[
                       Text(
-                        'Confirmed Officials (${confirmedOfficials.length}/$requiredOfficials)',
+                        'Confirmed Officials (${confirmedOfficialsFromDB.length}/$requiredOfficials)',
                         style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: efficialsYellow),
                       ),
                       const SizedBox(height: 10),
-                      if (confirmedOfficials.isEmpty)
+                      if (confirmedOfficialsFromDB.isEmpty)
                         const Text('No officials confirmed.', style: TextStyle(fontSize: 16, color: Colors.grey))
                       else
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
-                          children: confirmedOfficials.map((name) {
+                          children: confirmedOfficialsFromDB.map((official) {
+                            final officialName = official['name'] as String;
+                            final officialId = official['id'] as int;
+                            
                             return Padding(
                               padding: const EdgeInsets.symmetric(vertical: 2),
-                              child: GestureDetector(
-                                onTap: () {
-                                  _navigateToOfficialProfile(name);
-                                },
-                                child: Text(
-                                  name,
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    color: efficialsYellow,
-                                    decoration: TextDecoration.underline,
-                                    decorationColor: efficialsYellow,
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: GestureDetector(
+                                      onTap: () {
+                                        _navigateToOfficialProfile(officialName);
+                                      },
+                                      child: Text(
+                                        officialName,
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          color: efficialsYellow,
+                                          decoration: TextDecoration.underline,
+                                          decorationColor: efficialsYellow,
+                                        ),
+                                      ),
+                                    ),
                                   ),
-                                ),
+                                  IconButton(
+                                    onPressed: () {
+                                      _showRemoveOfficialDialog(officialName, officialId);
+                                    },
+                                    icon: const Icon(
+                                      Icons.remove_circle_outline,
+                                      color: Colors.red,
+                                      size: 20,
+                                    ),
+                                    tooltip: 'Remove from this game',
+                                    padding: const EdgeInsets.all(4),
+                                    constraints: const BoxConstraints(),
+                                  ),
+                                ],
                               ),
                             );
                           }).toList(),

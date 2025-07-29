@@ -102,8 +102,13 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
           'template': template, // Pass the GameTemplate object
         };
         
-        // Return the data instead of navigating directly
-        Navigator.pop(context, finalArgs);
+        // Always navigate to review screen after updating officials
+        // This is consistent with other edit buttons (Location, Date/Time, etc.)
+        Navigator.pushReplacementNamed(
+          context,
+          '/review_game_info',
+          arguments: finalArgs,
+        );
       }
     });
   }

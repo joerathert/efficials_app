@@ -24,7 +24,7 @@ class DatabaseHelper {
     
     return await openDatabase(
       path,
-      version: 14,
+      version: 15,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -350,6 +350,11 @@ class DatabaseHelper {
     if (oldVersion < 14) {
       // Add missing notification tables
       await _addMissingNotificationTables(db);
+    }
+    
+    if (oldVersion < 15) {
+      // Add official_removal notification type
+      await _addOfficialRemovalNotificationType(db);
     }
   }
 
@@ -697,7 +702,7 @@ class DatabaseHelper {
       CREATE TABLE notifications (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         recipient_id INTEGER NOT NULL REFERENCES users(id),
-        type TEXT NOT NULL CHECK(type IN ('backout', 'game_filling', 'official_interest', 'official_claim')),
+        type TEXT NOT NULL CHECK(type IN ('backout', 'game_filling', 'official_interest', 'official_claim', 'official_removal')),
         title TEXT NOT NULL,
         message TEXT NOT NULL,
         data TEXT, -- JSON data specific to notification type
@@ -1388,6 +1393,74 @@ class DatabaseHelper {
       print('✅ Missing notification tables migration completed');
     } catch (e) {
       print('❌ Error creating missing notification tables: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> _addOfficialRemovalNotificationType(Database db) async {
+    try {
+      print('Adding official_removal notification type support...');
+      
+      // Since SQLite doesn't support modifying CHECK constraints directly,
+      // we need to recreate the table to include the new notification type
+      
+      // First, check if notifications table exists and has the old constraint
+      final result = await db.rawQuery(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='notifications'"
+      );
+      
+      if (result.isNotEmpty) {
+        final tableSchema = result.first['sql'] as String;
+        
+        // Check if it has the old constraint
+        if (tableSchema.contains("('backout', 'game_filling', 'official_interest', 'official_claim')")) {
+          print('Updating notifications table schema to support official_removal type...');
+          
+          // Step 1: Create a temporary table with the updated schema
+          await db.execute('''
+            CREATE TABLE notifications_temp (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              recipient_id INTEGER NOT NULL REFERENCES users(id),
+              type TEXT NOT NULL CHECK(type IN ('backout', 'game_filling', 'official_interest', 'official_claim', 'official_removal')),
+              title TEXT NOT NULL,
+              message TEXT NOT NULL,
+              data TEXT,
+              is_read INTEGER DEFAULT 0 CHECK(is_read IN (0, 1)),
+              created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+              read_at DATETIME
+            )
+          ''');
+          
+          // Step 2: Copy existing data
+          await db.execute('''
+            INSERT INTO notifications_temp (id, recipient_id, type, title, message, data, is_read, created_at, read_at)
+            SELECT id, recipient_id, type, title, message, data, is_read, created_at, read_at
+            FROM notifications
+          ''');
+          
+          // Step 3: Drop the old table
+          await db.execute('DROP TABLE notifications');
+          
+          // Step 4: Rename temp table to notifications
+          await db.execute('ALTER TABLE notifications_temp RENAME TO notifications');
+          
+          // Step 5: Recreate indexes
+          await db.execute('CREATE INDEX idx_notifications_recipient_id ON notifications(recipient_id)');
+          await db.execute('CREATE INDEX idx_notifications_type ON notifications(type)');
+          await db.execute('CREATE INDEX idx_notifications_is_read ON notifications(is_read)');
+          await db.execute('CREATE INDEX idx_notifications_created_at ON notifications(created_at)');
+          
+          print('✅ Notifications table updated successfully with official_removal type');
+        } else {
+          print('✅ Notifications table already supports official_removal type');
+        }
+      } else {
+        print('❌ Notifications table not found');
+      }
+      
+      print('✅ Official removal notification type migration completed');
+    } catch (e) {
+      print('❌ Error adding official_removal notification type: $e');
       rethrow;
     }
   }

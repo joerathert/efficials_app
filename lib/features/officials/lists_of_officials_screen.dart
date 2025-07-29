@@ -146,12 +146,16 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
       }
     }
 
-    Navigator.pop(context, {
+    final updatedArgs = {
       ...args,
       'selectedOfficials': selectedOfficials,
       'method': 'use_list',
       'selectedListName': selectedList,
-    });
+    };
+
+    // Always pop back with the updated arguments
+    // The receiving screen will handle the navigation appropriately
+    Navigator.pop(context, updatedArgs);
   }
 
   @override

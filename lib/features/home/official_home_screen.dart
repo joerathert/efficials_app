@@ -10,6 +10,7 @@ import '../../shared/services/user_session_service.dart';
 import '../../shared/services/repositories/game_assignment_repository.dart';
 import '../../shared/services/repositories/official_repository.dart';
 import '../../shared/services/repositories/crew_repository.dart';
+import '../../shared/services/repositories/notification_repository.dart';
 import '../../shared/models/database_models.dart';
 
 class OfficialHomeScreen extends StatefulWidget {
@@ -26,6 +27,7 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
   final GameAssignmentRepository _assignmentRepo = GameAssignmentRepository();
   final OfficialRepository _officialRepo = OfficialRepository();
   final CrewRepository _crewRepo = CrewRepository();
+  final NotificationRepository _notificationRepo = NotificationRepository();
   
   // State variables
   String officialName = "";
@@ -35,6 +37,7 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
   bool _isLoading = true;
   Official? _currentOfficial;
   int _pendingInvitationsCount = 0;
+  int _unreadNotificationCount = 0;
   double _ytdEarnings = 0.0;
   
   @override
@@ -75,6 +78,9 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
       
       // Load pending invitations count
       await _loadInvitationsCount();
+      
+      // Load unread notification count
+      await _loadUnreadNotificationCount();
       
     } catch (e) {
       print('Error loading data: $e');
@@ -152,6 +158,25 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
     }
   }
 
+  Future<void> _loadUnreadNotificationCount() async {
+    try {
+      if (_currentOfficial?.id != null) {
+        debugPrint('Loading notifications for official ID: ${_currentOfficial!.id!}');
+        final count = await _notificationRepo.getUnreadOfficialNotificationCount(_currentOfficial!.id!);
+        debugPrint('Found $count unread notifications');
+        if (mounted) {
+          setState(() {
+            _unreadNotificationCount = count;
+          });
+        }
+      } else {
+        debugPrint('No current official ID available for notifications');
+      }
+    } catch (e) {
+      debugPrint('Error loading unread notification count: $e');
+    }
+  }
+
   void _calculateYtdEarnings() {
     final currentYear = DateTime.now().year;
     double totalEarnings = 0.0;
@@ -182,11 +207,50 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
         elevation: 0,
         centerTitle: true,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications, color: efficialsWhite),
-            onPressed: () {
-              // TODO: Navigate to notifications
+          GestureDetector(
+            onTap: () {
+              Navigator.pushNamed(context, '/official_notifications').then((_) {
+                // Refresh notification count when returning from notifications screen
+                _loadUnreadNotificationCount();
+              });
             },
+            child: Container(
+              width: 48,
+              height: 48,
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+              child: Stack(
+                children: [
+                  Center(
+                    child: Icon(Icons.notifications, color: efficialsWhite, size: 24),
+                  ),
+                  if (_unreadNotificationCount > 0)
+                    Positioned(
+                      right: 8,
+                      top: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 16,
+                          minHeight: 16,
+                        ),
+                        child: Text(
+                          _unreadNotificationCount > 99 ? '99+' : _unreadNotificationCount.toString(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
           ),
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert, color: efficialsWhite),

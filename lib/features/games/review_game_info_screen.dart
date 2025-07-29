@@ -205,6 +205,12 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
     try {
       final dbResult = await _gameService.createGame(gameData);
       if (dbResult != null) {
+        final gameId = dbResult['id'] as int;
+        
+        // Create initial assignments for officials if not an away game
+        if (!isAwayGame && gameData['method'] != null) {
+          await _gameService.createInitialAssignments(gameId, gameData['method'] as String, gameData);
+        }
         
         // Save advanced selection data for later reconstruction
         if (gameData['method'] == 'advanced' && gameData['selectedLists'] != null) {
@@ -213,8 +219,16 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
             'selectedLists': gameData['selectedLists'],
             'selectedOfficials': gameData['selectedOfficials'] ?? [],
           };
-          await prefs.setString('recent_advanced_selection_${dbResult['id']}', jsonEncode(advancedData));
-          debugPrint('Saved advanced selection data for game ${dbResult['id']}');
+          await prefs.setString('recent_advanced_selection_$gameId', jsonEncode(advancedData));
+          debugPrint('Saved advanced selection data for game $gameId');
+        } else if (gameData['method'] == 'use_list' && gameData['selectedListName'] != null) {
+          final prefs = await SharedPreferences.getInstance();
+          final useListData = {
+            'selectedListName': gameData['selectedListName'],
+            'selectedOfficials': gameData['selectedOfficials'] ?? [],
+          };
+          await prefs.setString('recent_use_list_selection_$gameId', jsonEncode(useListData));
+          debugPrint('Saved use_list selection data for game $gameId: ${gameData['selectedListName']}');
         }
       } else {
         debugPrint('Failed to save game to database - result was null');
@@ -512,45 +526,77 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
 
   Future<void> _publishUpdate() async {
     final gameData = Map<String, dynamic>.from(args);
-
-    // Convert all DateTime objects to strings for JSON encoding
-    if (gameData['date'] != null && gameData['date'] is DateTime) {
-      gameData['date'] = (gameData['date'] as DateTime).toIso8601String();
-    }
-    if (gameData['time'] != null && gameData['time'] is TimeOfDay) {
-      final time = gameData['time'] as TimeOfDay;
-      gameData['time'] = '${time.hour}:${time.minute}';
-    }
-    if (gameData['createdAt'] != null && gameData['createdAt'] is DateTime) {
-      gameData['createdAt'] = (gameData['createdAt'] as DateTime).toIso8601String();
-    }
-    if (gameData['updatedAt'] != null && gameData['updatedAt'] is DateTime) {
-      gameData['updatedAt'] = (gameData['updatedAt'] as DateTime).toIso8601String();
-    }
     gameData['status'] = 'Published';
 
-    // Update the database first
+    // Update the database first (GameService handles the data conversion internally)
     try {
       if (gameData['id'] != null) {
         final gameId = gameData['id'] as int;
+        
+        // Get the original game data to compare for assignment updates
+        final originalGameData = await _gameService.getGameByIdWithOfficials(gameId);
+        
         await _gameService.updateGame(gameId, gameData);
         debugPrint('Game updated in database successfully with ID: $gameId');
         
-        // Update advanced selection data cache if it's an advanced method game
+        // Update official assignments if the lists changed
+        if (originalGameData != null && !isAwayGame) {
+          final oldMethod = originalGameData['method'] as String? ?? '';
+          final newMethod = gameData['method'] as String? ?? '';
+          
+          // Check if assignment-affecting data changed
+          bool shouldUpdateAssignments = false;
+          
+          if (oldMethod == 'use_list' && newMethod == 'use_list') {
+            // Check if selected list changed
+            final oldListName = originalGameData['selectedListName'] as String?;
+            final newListName = gameData['selectedListName'] as String?;
+            shouldUpdateAssignments = oldListName != newListName;
+          } else if (oldMethod == 'advanced' && newMethod == 'advanced') {
+            // Check if selected lists changed
+            final oldLists = originalGameData['selectedLists'] as List<dynamic>?;
+            final newLists = gameData['selectedLists'] as List<dynamic>?;
+            shouldUpdateAssignments = !_listsEqual(oldLists, newLists);
+          } else if (oldMethod != newMethod) {
+            // Method changed completely
+            shouldUpdateAssignments = true;
+          }
+          
+          if (shouldUpdateAssignments) {
+            debugPrint('Updating assignments for game $gameId due to list changes');
+            await _gameService.updateAssignmentsForListChange(
+              gameId, 
+              oldMethod, 
+              originalGameData, 
+              newMethod, 
+              gameData
+            );
+          }
+        }
+        
+        // Update selection data cache for both advanced and use_list methods
+        final prefs = await SharedPreferences.getInstance();
         if (gameData['method'] == 'advanced' && gameData['selectedLists'] != null) {
-          final prefs = await SharedPreferences.getInstance();
           final advancedData = {
             'selectedLists': gameData['selectedLists'],
             'selectedOfficials': gameData['selectedOfficials'] ?? [],
           };
           await prefs.setString('recent_advanced_selection_$gameId', jsonEncode(advancedData));
           debugPrint('Updated advanced selection data for game $gameId');
+        } else if (gameData['method'] == 'use_list' && gameData['selectedListName'] != null) {
+          final useListData = {
+            'selectedListName': gameData['selectedListName'],
+            'selectedOfficials': gameData['selectedOfficials'] ?? [],
+          };
+          await prefs.setString('recent_use_list_selection_$gameId', jsonEncode(useListData));
+          debugPrint('Updated use_list selection data for game $gameId: ${gameData['selectedListName']}');
         }
       }
     } catch (e) {
       debugPrint('Error updating game in database: $e');
     }
 
+    // Update SharedPreferences cache with properly formatted data
     final prefs = await SharedPreferences.getInstance();
     final String? gamesJson = prefs.getString('ad_published_games');
     List<Map<String, dynamic>> publishedGames = [];
@@ -558,11 +604,29 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
       publishedGames = List<Map<String, dynamic>>.from(jsonDecode(gamesJson));
     }
 
+    // Create a copy of gameData with proper JSON formatting for SharedPreferences
+    final gameDataForJson = Map<String, dynamic>.from(gameData);
+    
+    // Convert DateTime and TimeOfDay objects to strings for JSON storage
+    if (gameDataForJson['date'] != null && gameDataForJson['date'] is DateTime) {
+      gameDataForJson['date'] = (gameDataForJson['date'] as DateTime).toIso8601String();
+    }
+    if (gameDataForJson['time'] != null && gameDataForJson['time'] is TimeOfDay) {
+      final time = gameDataForJson['time'] as TimeOfDay;
+      gameDataForJson['time'] = '${time.hour}:${time.minute}';
+    }
+    if (gameDataForJson['createdAt'] != null && gameDataForJson['createdAt'] is DateTime) {
+      gameDataForJson['createdAt'] = (gameDataForJson['createdAt'] as DateTime).toIso8601String();
+    }
+    if (gameDataForJson['updatedAt'] != null && gameDataForJson['updatedAt'] is DateTime) {
+      gameDataForJson['updatedAt'] = (gameDataForJson['updatedAt'] as DateTime).toIso8601String();
+    }
+
     final index = publishedGames.indexWhere((g) => g['id'] == gameData['id']);
     if (index != -1) {
-      publishedGames[index] = gameData;
+      publishedGames[index] = gameDataForJson;
     } else {
-      publishedGames.add(gameData);
+      publishedGames.add(gameDataForJson);
     }
 
     await prefs.setString('ad_published_games', jsonEncode(publishedGames));
@@ -574,32 +638,30 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
     }
 
     if (isFromGameInfo) {
-      final schedulerType = prefs.getString('schedulerType');
-
-      String homeRoute;
-      switch (schedulerType?.toLowerCase()) {
-        case 'athletic director':
-        case 'athleticdirector':
-        case 'ad':
-          homeRoute = '/athletic_director_home';
-          break;
-        case 'coach':
-          homeRoute = '/coach_home';
-          break;
-        case 'assigner':
-          homeRoute = '/assigner_home';
-          break;
-        default:
-          homeRoute = '/welcome';
-      }
-
+      // Navigate back to the original source screen
+      final sourceScreen = args['sourceScreen'] as String?;
+      
       if (mounted) {
-        Navigator.pushNamedAndRemoveUntil(
-          context,
-          homeRoute,
-          (route) => false,
-          arguments: {'refresh': true, 'gameData': gameData},
-        );
+        if (sourceScreen == 'schedule_details') {
+          // Navigate back to schedule details screen
+          Navigator.pushNamedAndRemoveUntil(
+            context,
+            '/schedule_details',
+            (route) => false,
+            arguments: {
+              'scheduleName': args['scheduleName'],
+              'scheduleId': args['scheduleId'],
+            },
+          );
+        } else {
+          // Default to athletic director home (covers both 'athletic_director_home' and unknown sources)
+          Navigator.pushNamedAndRemoveUntil(
+            context,
+            '/athletic_director_home',
+            (route) => false,
+            arguments: {'refresh': true, 'gameUpdated': true},
+          );
+        }
       }
     } else {
       if (mounted) {
@@ -610,6 +672,21 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
 
   bool _hasChanges() {
     return args.toString() != originalArgs.toString();
+  }
+
+  // Helper method to compare two lists for equality
+  bool _listsEqual(List<dynamic>? list1, List<dynamic>? list2) {
+    if (list1 == null && list2 == null) return true;
+    if (list1 == null || list2 == null) return false;
+    if (list1.length != list2.length) return false;
+    
+    for (int i = 0; i < list1.length; i++) {
+      final item1 = list1[i] as Map<String, dynamic>;
+      final item2 = list2[i] as Map<String, dynamic>;
+      if (item1['name'] != item2['name']) return false;
+    }
+    
+    return true;
   }
 
   Future<bool> _onWillPop() async {

@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import '../models/database_models.dart';
 import 'repositories/game_repository.dart';
+import 'repositories/game_assignment_repository.dart';
 import 'repositories/game_template_repository.dart';
 import 'repositories/user_repository.dart';
 import 'repositories/schedule_repository.dart';
@@ -15,6 +16,7 @@ class GameService {
   factory GameService() => _instance;
 
   final GameRepository _gameRepository = GameRepository();
+  final GameAssignmentRepository _gameAssignmentRepo = GameAssignmentRepository();
   final GameTemplateRepository _templateRepository = GameTemplateRepository();
   final UserRepository _userRepository = UserRepository();
   final ScheduleRepository _scheduleRepository = ScheduleRepository();
@@ -707,6 +709,143 @@ class GameService {
     }
   }
 
+  // ASSIGNMENT MANAGEMENT METHODS
+  
+  // Create initial assignments when a game is published with a list
+  Future<void> createInitialAssignments(int gameId, String method, Map<String, dynamic> gameData) async {
+    try {
+      final userId = await _getCurrentUserId();
+      
+      if (method == 'use_list' && gameData['selectedListName'] != null) {
+        // Get officials from the selected list
+        final officials = await _getOfficialsFromListName(gameData['selectedListName'] as String);
+        if (officials.isNotEmpty) {
+          await _gameAssignmentRepo.createInitialAssignmentsFromList(gameId, officials, userId);
+          debugPrint('Created initial assignments for ${officials.length} officials from list: ${gameData['selectedListName']}');
+        }
+      } else if (method == 'advanced' && gameData['selectedLists'] != null) {
+        // Get officials from all selected lists
+        final selectedLists = gameData['selectedLists'] as List<dynamic>;
+        final allOfficials = <Map<String, dynamic>>[];
+        final officialIds = <int>{};
+        
+        for (final list in selectedLists) {
+          final listData = list as Map<String, dynamic>;
+          final officials = List<Map<String, dynamic>>.from(listData['officials'] ?? []);
+          
+          // Avoid duplicates
+          for (final official in officials) {
+            final officialId = official['id'] as int;
+            if (!officialIds.contains(officialId)) {
+              allOfficials.add(official);
+              officialIds.add(officialId);
+            }
+          }
+        }
+        
+        if (allOfficials.isNotEmpty) {
+          await _gameAssignmentRepo.createInitialAssignmentsFromList(gameId, allOfficials, userId);
+          debugPrint('Created initial assignments for ${allOfficials.length} officials from ${selectedLists.length} lists');
+        }
+      }
+    } catch (e) {
+      debugPrint('Error creating initial assignments: $e');
+    }
+  }
+
+  // Update assignments when game list is changed
+  Future<void> updateAssignmentsForListChange(int gameId, String oldMethod, Map<String, dynamic> oldGameData, String newMethod, Map<String, dynamic> newGameData) async {
+    try {
+      final userId = await _getCurrentUserId();
+      
+      // Get old officials list
+      List<Map<String, dynamic>> oldOfficials = [];
+      if (oldMethod == 'use_list' && oldGameData['selectedListName'] != null) {
+        oldOfficials = await _getOfficialsFromListName(oldGameData['selectedListName'] as String);
+      } else if (oldMethod == 'advanced' && oldGameData['selectedLists'] != null) {
+        final selectedLists = oldGameData['selectedLists'] as List<dynamic>;
+        final officialIds = <int>{};
+        
+        for (final list in selectedLists) {
+          final listData = list as Map<String, dynamic>;
+          final officials = List<Map<String, dynamic>>.from(listData['officials'] ?? []);
+          
+          for (final official in officials) {
+            final officialId = official['id'] as int;
+            if (!officialIds.contains(officialId)) {
+              oldOfficials.add(official);
+              officialIds.add(officialId);
+            }
+          }
+        }
+      }
+
+      // Get new officials list
+      List<Map<String, dynamic>> newOfficials = [];
+      if (newMethod == 'use_list' && newGameData['selectedListName'] != null) {
+        newOfficials = await _getOfficialsFromListName(newGameData['selectedListName'] as String);
+      } else if (newMethod == 'advanced' && newGameData['selectedLists'] != null) {
+        final selectedLists = newGameData['selectedLists'] as List<dynamic>;
+        final officialIds = <int>{};
+        
+        for (final list in selectedLists) {
+          final listData = list as Map<String, dynamic>;
+          final officials = List<Map<String, dynamic>>.from(listData['officials'] ?? []);
+          
+          for (final official in officials) {
+            final officialId = official['id'] as int;
+            if (!officialIds.contains(officialId)) {
+              newOfficials.add(official);
+              officialIds.add(officialId);
+            }
+          }
+        }
+      }
+
+      // Update assignments
+      await _gameAssignmentRepo.updateAssignmentsForListChange(gameId, oldOfficials, newOfficials, userId);
+      debugPrint('Updated assignments: ${oldOfficials.length} old officials -> ${newOfficials.length} new officials');
+      
+    } catch (e) {
+      debugPrint('Error updating assignments for list change: $e');
+    }
+  }
+
+  // Remove official from game (manual removal)
+  Future<bool> removeOfficialFromGame(int gameId, int officialId) async {
+    try {
+      return await _gameAssignmentRepo.removeOfficialFromGame(gameId, officialId);
+    } catch (e) {
+      debugPrint('Error removing official from game: $e');
+      return false;
+    }
+  }
+
+  // Helper method to get officials from a list name
+  Future<List<Map<String, dynamic>>> _getOfficialsFromListName(String listName) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final String? listsJson = prefs.getString('saved_lists');
+      if (listsJson != null && listsJson.isNotEmpty) {
+        final List<Map<String, dynamic>> savedLists = 
+            List<Map<String, dynamic>>.from(jsonDecode(listsJson));
+        
+        final targetList = savedLists.firstWhere(
+          (list) => list['name'] == listName,
+          orElse: () => <String, dynamic>{},
+        );
+        
+        if (targetList.isNotEmpty) {
+          return List<Map<String, dynamic>>.from(targetList['officials'] ?? []);
+        }
+      }
+      return [];
+    } catch (e) {
+      debugPrint('Error getting officials from list $listName: $e');
+      return [];
+    }
+  }
+
   // HELPER METHODS
 
   // Get sport ID by name
@@ -811,36 +950,57 @@ class GameService {
     if (game.method != null) {
       try {
         if (game.method == 'use_list') {
-          // For use_list method, try to find the most likely list that was used
+          // First, check for cached use_list selection data
           final prefs = await SharedPreferences.getInstance();
-          final String? listsJson = prefs.getString('saved_lists');
-          if (listsJson != null && listsJson.isNotEmpty) {
-            final List<Map<String, dynamic>> savedLists = 
-                List<Map<String, dynamic>>.from(jsonDecode(listsJson));
-            
-            // Try to find the most appropriate list
-            Map<String, dynamic>? bestList;
-            
-            // Look for lists that match the sport and have enough officials
-            for (var list in savedLists) {
-              final officials = List<Map<String, dynamic>>.from(list['officials'] ?? []);
-              
-              // Check if the list has enough officials for this game
-              if (officials.length >= (game.officialsRequired ?? 1)) {
-                // TODO: In a future update, we could also check if the sport matches
-                bestList = list;
-                break;
+          final String? recentUseListData = prefs.getString('recent_use_list_selection_${game.id}');
+          
+          if (recentUseListData != null) {
+            try {
+              final data = jsonDecode(recentUseListData);
+              final selectedListName = data['selectedListName'] as String?;
+              if (selectedListName != null) {
+                gameMap['selectedListName'] = selectedListName;
+                gameMap['selectedOfficials'] = List<Map<String, dynamic>>.from(
+                  data['selectedOfficials'] ?? []
+                );
+                debugPrint('Loaded cached use_list data for game ${game.id}: $selectedListName');
               }
+            } catch (e) {
+              debugPrint('Error parsing recent use_list selection data: $e');
             }
-            
-            // Fallback to first available list if none match criteria
-            bestList ??= savedLists.isNotEmpty ? savedLists.first : null;
-            
-            if (bestList != null) {
-              gameMap['selectedListName'] = bestList['name'];
-              gameMap['selectedOfficials'] = List<Map<String, dynamic>>.from(
-                bestList['officials'] ?? []
-              );
+          }
+          
+          // If no cached data, fall back to guessing from saved lists
+          if (gameMap['selectedListName'] == null) {
+            final String? listsJson = prefs.getString('saved_lists');
+            if (listsJson != null && listsJson.isNotEmpty) {
+              final List<Map<String, dynamic>> savedLists = 
+                  List<Map<String, dynamic>>.from(jsonDecode(listsJson));
+              
+              // Try to find the most appropriate list
+              Map<String, dynamic>? bestList;
+              
+              // Look for lists that match the sport and have enough officials
+              for (var list in savedLists) {
+                final officials = List<Map<String, dynamic>>.from(list['officials'] ?? []);
+                
+                // Check if the list has enough officials for this game
+                if (officials.length >= (game.officialsRequired ?? 1)) {
+                  bestList = list;
+                  break;
+                }
+              }
+              
+              // Fallback to first available list if none match criteria
+              bestList ??= savedLists.isNotEmpty ? savedLists.first : null;
+              
+              if (bestList != null) {
+                gameMap['selectedListName'] = bestList['name'];
+                gameMap['selectedOfficials'] = List<Map<String, dynamic>>.from(
+                  bestList['officials'] ?? []
+                );
+                debugPrint('Guessed list for game ${game.id}: ${bestList['name']}');
+              }
             }
           }
         } else if (game.method == 'advanced') {

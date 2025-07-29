@@ -229,6 +229,122 @@ class NotificationRepository {
     return await createNotification(notification);
   }
 
+  /// Create official removal notification
+  Future<int> createOfficialRemovalNotification({
+    required int officialId,
+    required String schedulerName,
+    required String gameSport,
+    required String gameOpponent,
+    required DateTime gameDate,
+    required String gameTime,
+    Map<String, dynamic>? additionalData,
+  }) async {
+    // Use the official_notifications table instead of the general notifications table
+    return await createOfficialNotification(
+      officialId: officialId,
+      type: 'official_removal',
+      title: 'Removed from Game',
+      message: 'You have been removed from the $gameSport game ($gameOpponent) on ${gameDate.toString().split(' ')[0]} at $gameTime by $schedulerName.',
+      relatedGameId: additionalData?['game_id'],
+    );
+  }
+
+  // Official Notification Methods (using official_notifications table)
+
+  /// Get all notifications for a specific official
+  Future<List<Map<String, dynamic>>> getOfficialNotifications(int officialId, {bool unreadOnly = false, bool readOnly = false}) async {
+    final database = await _db.database;
+    
+    String whereClause = 'official_id = ?';
+    List<dynamic> whereArgs = [officialId];
+    
+    if (unreadOnly) {
+      whereClause += ' AND read_at IS NULL';
+    } else if (readOnly) {
+      whereClause += ' AND read_at IS NOT NULL';
+    }
+    
+    final result = await database.query(
+      'official_notifications',
+      where: whereClause,
+      whereArgs: whereArgs,
+      orderBy: 'created_at DESC',
+    );
+    
+    return result;
+  }
+
+  /// Get count of unread notifications for an official
+  Future<int> getUnreadOfficialNotificationCount(int officialId) async {
+    final database = await _db.database;
+    
+    final result = await database.rawQuery(
+      'SELECT COUNT(*) as count FROM official_notifications WHERE official_id = ? AND read_at IS NULL',
+      [officialId],
+    );
+    
+    return result.first['count'] as int;
+  }
+
+  /// Create a new official notification
+  Future<int> createOfficialNotification({
+    required int officialId,
+    required String type,
+    required String title,
+    required String message,
+    int? relatedGameId,
+  }) async {
+    final database = await _db.database;
+    
+    return await database.insert('official_notifications', {
+      'official_id': officialId,
+      'type': type,
+      'title': title,
+      'message': message,
+      'related_game_id': relatedGameId,
+      'created_at': DateTime.now().toIso8601String(),
+    });
+  }
+
+  /// Mark an official notification as read
+  Future<void> markOfficialNotificationAsRead(int notificationId) async {
+    final database = await _db.database;
+    
+    await database.update(
+      'official_notifications',
+      {
+        'read_at': DateTime.now().toIso8601String(),
+      },
+      where: 'id = ?',
+      whereArgs: [notificationId],
+    );
+  }
+
+  /// Mark all notifications as read for an official
+  Future<void> markAllOfficialNotificationsAsRead(int officialId) async {
+    final database = await _db.database;
+    
+    await database.update(
+      'official_notifications',
+      {
+        'read_at': DateTime.now().toIso8601String(),
+      },
+      where: 'official_id = ? AND read_at IS NULL',
+      whereArgs: [officialId],
+    );
+  }
+
+  /// Delete an official notification
+  Future<void> deleteOfficialNotification(int notificationId) async {
+    final database = await _db.database;
+    
+    await database.delete(
+      'official_notifications',
+      where: 'id = ?',
+      whereArgs: [notificationId],
+    );
+  }
+
   // Push Notification Methods
 
   /// Request push notification permission

@@ -424,13 +424,20 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                           };
                           final isCoach =
                               args['teamName'] != null; // Detect Coach flow
-                          Navigator.pushNamed(
-                            context,
-                            isCoach
-                                ? '/additional_game_info_condensed'
-                                : '/additional_game_info',
-                            arguments: nextArgs,
-                          );
+                          
+                          // Check if we're in edit mode to determine correct navigation
+                          if (isFromEdit) {
+                            // Return to the calling edit screen with updated data
+                            Navigator.pop(context, nextArgs);
+                          } else {
+                            Navigator.pushNamed(
+                              context,
+                              isCoach
+                                  ? '/additional_game_info_condensed'
+                                  : '/additional_game_info',
+                              arguments: nextArgs,
+                            );
+                          }
                         }
                       : null,
                   style: ElevatedButton.styleFrom(

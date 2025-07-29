@@ -772,7 +772,12 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                                   Navigator.pushNamed(
                                     context,
                                     '/game_information',
-                                    arguments: game,
+                                    arguments: {
+                                      ...game,
+                                      'sourceScreen': 'schedule_details',
+                                      'scheduleName': scheduleName,
+                                      'scheduleId': scheduleId,
+                                    },
                                   ).then((result) {
                                     if (result != null) {
                                       if (result is Map<String, dynamic> &&

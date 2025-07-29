@@ -287,6 +287,106 @@ class GameAssignmentRepository extends BaseRepository {
     return results.isNotEmpty ? results.first : null;
   }
 
+  // Create initial assignments for officials when a game is published with a list
+  Future<void> createInitialAssignmentsFromList(int gameId, List<Map<String, dynamic>> officials, int schedulerId) async {
+    for (final official in officials) {
+      final officialId = official['id'] as int;
+      
+      // Check if assignment already exists
+      final existingAssignment = await getAssignmentByGameAndOfficial(gameId, officialId);
+      if (existingAssignment == null) {
+        // Create pending assignment
+        final assignment = GameAssignment(
+          gameId: gameId,
+          officialId: officialId,
+          status: 'pending',
+          assignedBy: schedulerId,
+          assignedAt: DateTime.now(),
+        );
+        await createAssignment(assignment);
+      }
+    }
+  }
+
+  // Update assignments when game list is changed
+  Future<void> updateAssignmentsForListChange(int gameId, List<Map<String, dynamic>> oldOfficials, List<Map<String, dynamic>> newOfficials, int schedulerId) async {
+    // Get current assignments for this game
+    final currentAssignments = await rawQuery('''
+      SELECT * FROM game_assignments WHERE game_id = ?
+    ''', [gameId]);
+
+    final oldOfficialIds = oldOfficials.map((o) => o['id'] as int).toSet();
+    final newOfficialIds = newOfficials.map((o) => o['id'] as int).toSet();
+    final currentAssignmentsByOfficial = <int, Map<String, dynamic>>{};
+    
+    for (final assignment in currentAssignments) {
+      currentAssignmentsByOfficial[assignment['official_id'] as int] = assignment;
+    }
+
+    // Remove assignments for officials no longer in the list (but preserve confirmed officials)
+    final officialsToRemove = oldOfficialIds.difference(newOfficialIds);
+    for (final officialId in officialsToRemove) {
+      final assignment = currentAssignmentsByOfficial[officialId];
+      if (assignment != null && assignment['status'] == 'pending') {
+        // Only remove pending assignments, preserve confirmed ones
+        await delete('game_assignments', 'game_id = ? AND official_id = ? AND status = ?', [gameId, officialId, 'pending']);
+      }
+      // Confirmed officials (status = 'accepted') are preserved even if removed from list
+    }
+
+    // Add assignments for new officials in the list
+    final officialsToAdd = newOfficialIds.difference(oldOfficialIds);
+    for (final officialId in officialsToAdd) {
+      if (!currentAssignmentsByOfficial.containsKey(officialId)) {
+        // Create pending assignment for new official
+        final assignment = GameAssignment(
+          gameId: gameId,
+          officialId: officialId,
+          status: 'pending',
+          assignedBy: schedulerId,
+          assignedAt: DateTime.now(),
+        );
+        await createAssignment(assignment);
+      }
+    }
+  }
+
+  // Remove official from game (for manual removal by scheduler)
+  Future<bool> removeOfficialFromGame(int gameId, int officialId) async {
+    try {
+      // Get the assignment
+      final assignment = await getAssignmentByGameAndOfficial(gameId, officialId);
+      if (assignment == null) return false;
+
+      // Delete the assignment
+      await delete('game_assignments', 'game_id = ? AND official_id = ?', [gameId, officialId]);
+
+      // If the official was confirmed, decrement officials_hired count
+      if (assignment.status == 'accepted') {
+        await rawQuery('''
+          UPDATE games 
+          SET officials_hired = officials_hired - 1 
+          WHERE id = ?
+        ''', [gameId]);
+        
+        // Also decrement official's accepted games count
+        await rawQuery('''
+          UPDATE officials 
+          SET total_accepted_games = total_accepted_games - 1
+          WHERE id = ?
+        ''', [officialId]);
+        
+        // Recalculate follow-through rate
+        await _updateOfficialFollowThroughRate(officialId);
+      }
+
+      return true;
+    } catch (e) {
+      print('Error removing official from game: $e');
+      return false;
+    }
+  }
+
   // Back out of a game (for confirmed assignments)
   Future<int> backOutOfGame(int assignmentId, String reason) async {
     try {

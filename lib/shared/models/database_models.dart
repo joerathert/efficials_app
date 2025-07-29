@@ -2059,6 +2059,32 @@ class Notification {
       },
     );
   }
+
+  /// Create notification to official when they are removed from a game
+  static Notification createOfficialRemovalNotification({
+    required int officialId,
+    required String schedulerName,
+    required String gameSport,
+    required String gameOpponent,
+    required DateTime gameDate,
+    required String gameTime,
+    Map<String, dynamic>? additionalData,
+  }) {
+    return Notification(
+      recipientId: officialId,
+      type: 'official_removal',
+      title: 'Removed from Game',
+      message: 'You have been removed from the $gameSport game ($gameOpponent) on ${gameDate.toString().split(' ')[0]} at $gameTime by $schedulerName.',
+      data: {
+        'scheduler_name': schedulerName,
+        'game_sport': gameSport,
+        'game_opponent': gameOpponent,
+        'game_date': gameDate.toIso8601String(),
+        'game_time': gameTime,
+        ...?additionalData,
+      },
+    );
+  }
 }
 
 // Notification Settings model for scheduler notification preferences
