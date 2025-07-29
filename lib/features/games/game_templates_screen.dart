@@ -92,19 +92,56 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen> with RouteAwa
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Confirm Delete'),
-        content: Text('Are you sure you want to delete "$templateName"?'),
+        backgroundColor: darkSurface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        title: const Text(
+          'Confirm Delete',
+          style: TextStyle(
+            color: primaryTextColor,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: Text(
+          'Are you sure you want to delete "$templateName"?',
+          style: const TextStyle(
+            color: secondaryTextColor,
+            fontSize: 16,
+          ),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel', style: TextStyle(color: efficialsYellow)),
+            style: TextButton.styleFrom(
+              foregroundColor: efficialsGray,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            ),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
           ),
           TextButton(
             onPressed: () {
               Navigator.pop(context);
               _deleteTemplate(template);
             },
-            child: const Text('Delete', style: TextStyle(color: efficialsYellow)),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.red.shade400,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            ),
+            child: const Text(
+              'Delete',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
           ),
         ],
       ),
