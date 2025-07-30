@@ -387,7 +387,7 @@ class GameAssignmentRepository extends BaseRepository {
     try {
       // Get assignment details before updating
       final assignmentDetails = await rawQuery('''
-        SELECT ga.*, g.user_id as scheduler_id, g.sport_id, g.date, g.time, g.opponent, g.home_team,
+        SELECT ga.*, g.user_id as scheduler_id, g.sport_id, g.date, g.time, g.opponent, g.home_team, g.method,
                o.id as official_id, o.name as official_name, s.name as sport_name
         FROM game_assignments ga
         JOIN games g ON ga.game_id = g.id
@@ -404,6 +404,7 @@ class GameAssignmentRepository extends BaseRepository {
       final gameId = assignment['game_id'];
       final officialId = assignment['official_id'];
       final schedulerId = assignment['scheduler_id'];
+      final gameMethod = assignment['method'] as String?;
       final backedOutAt = DateTime.now();
 
       // Update the assignment status
@@ -415,6 +416,17 @@ class GameAssignmentRepository extends BaseRepository {
 
       final result =
           await update('game_assignments', data, 'id = ?', [assignmentId]);
+
+      // If this is an Advanced Method game, update the quotas
+      if (gameMethod == 'advanced') {
+        try {
+          await _advancedMethodRepo.removeOfficialFromGame(gameId, officialId);
+          print('Updated Advanced Method quotas for game $gameId after official $officialId backed out');
+        } catch (e) {
+          print('Warning: Failed to update Advanced Method quotas after back out: $e');
+          // Don't fail the entire back out if quota update fails
+        }
+      }
 
       // Create backout notification using the proper notification system
       final notificationRepo = NotificationRepository();
