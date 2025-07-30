@@ -44,7 +44,6 @@ class _CrewInvitationsScreenState extends State<CrewInvitationsScreen> {
         }
       }
     } catch (e) {
-      print('Error loading invitations: $e');
       if (mounted) {
         setState(() {
           _isLoading = false;

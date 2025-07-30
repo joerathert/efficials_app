@@ -324,12 +324,16 @@ class _AvailableGameDetailsScreenState extends State<AvailableGameDetailsScreen>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          official['name'] as String,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.white,
+                        GestureDetector(
+                          onTap: () => _navigateToOfficialProfile(official),
+                          child: Text(
+                            official['name'] as String,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              color: efficialsYellow,
+                              decoration: TextDecoration.underline,
+                            ),
                           ),
                         ),
                         Text(
@@ -614,6 +618,32 @@ icon: null,
     // For now, return a placeholder based on assignment ID for consistent display
     final distance = 15.0 + ((assignment.id ?? 0) % 20);
     return distance.toStringAsFixed(1);
+  }
+
+  void _navigateToOfficialProfile(Map<String, dynamic> official) {
+    // Create profile data for the other official
+    final profileData = {
+      'id': official['id'],
+      'name': official['name'],
+      'experienceYears': 5, // Default placeholder - could be fetched from database
+      'schedulerEndorsements': 0, // Will be loaded in profile screen
+      'officialEndorsements': 0, // Will be loaded in profile screen
+      'showCareerStats': false, // Default to false for privacy
+      'email': 'Contact via platform', // Don't expose email directly
+      'phone': 'Contact via platform', // Don't expose phone directly
+      'location': _getOfficialLocation(official['id'] as int),
+      'primarySport': 'N/A', // Default placeholder
+      'certificationLevel': 'N/A', // Default placeholder
+      'totalGames': 0, // Default placeholder
+      'followThroughRate': 100.0, // Default placeholder
+      'joinedDate': DateTime.now(), // Default placeholder
+    };
+
+    Navigator.pushNamed(
+      context,
+      '/official_profile',
+      arguments: profileData,
+    );
   }
 
 }

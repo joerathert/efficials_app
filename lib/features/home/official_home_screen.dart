@@ -161,19 +161,15 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
   Future<void> _loadUnreadNotificationCount() async {
     try {
       if (_currentOfficial?.id != null) {
-        debugPrint('Loading notifications for official ID: ${_currentOfficial!.id!}');
         final count = await _notificationRepo.getUnreadOfficialNotificationCount(_currentOfficial!.id!);
-        debugPrint('Found $count unread notifications');
         if (mounted) {
           setState(() {
             _unreadNotificationCount = count;
           });
         }
-      } else {
-        debugPrint('No current official ID available for notifications');
       }
     } catch (e) {
-      debugPrint('Error loading unread notification count: $e');
+      print('Error loading unread notification count: $e');
     }
   }
 

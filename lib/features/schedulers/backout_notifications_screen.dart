@@ -961,7 +961,7 @@ class _BackoutNotificationsScreenState extends State<BackoutNotificationsScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Notification marked as read'),
+            content: Text('Notification marked as read', style: TextStyle(color: Colors.black)),
             backgroundColor: efficialsYellow,
             duration: Duration(seconds: 2),
           ),

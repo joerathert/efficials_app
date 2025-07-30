@@ -292,25 +292,19 @@ class AdvancedMethodRepository extends BaseRepository {
   /// Check if a game should be visible to an official based on quota logic
   Future<bool> isGameVisibleToOfficial(int gameId, int officialId) async {
     try {
-      debugPrint('Checking game visibility: game $gameId, official $officialId');
-      
       // Get all quotas for this game
       final quotas = await getGameListQuotas(gameId);
-      debugPrint('Found ${quotas.length} quotas for game $gameId');
       
       if (quotas.isEmpty) {
         // No quotas defined, use traditional method - game is visible
-        debugPrint('No quotas found - game visible (traditional method)');
         return true;
       }
 
       // Get all lists this official belongs to for this game's sport
       final officialLists = await _getOfficialListsForGame(gameId, officialId);
-      debugPrint('Official $officialId belongs to lists: $officialLists');
       
       if (officialLists.isEmpty) {
         // Official is not on any relevant lists - game is not visible
-        debugPrint('Official not on any relevant lists - game not visible');
         return false;
       }
 
@@ -322,23 +316,17 @@ class AdvancedMethodRepository extends BaseRepository {
           quota = quotas.firstWhere((q) => q.listId == listId);
         } catch (e) {
           // No quota found for this list - skip it
-          debugPrint('No quota found for list $listId - skipping');
           continue;
         }
 
-        debugPrint('List $listId quota: ${quota.currentOfficials}/${quota.maxOfficials}, canAcceptMore: ${quota.canAcceptMore}');
-
         // If quota exists for this list and can accept more officials
         if (quota.canAcceptMore) {
-          debugPrint('List $listId can accept more - game visible');
           return true; // At least one list can accept more officials
         }
       }
 
-      debugPrint('No lists have remaining capacity - game not visible');
       return false; // No lists have remaining capacity
     } catch (e) {
-      debugPrint('Error checking game visibility for official $officialId, game $gameId: $e');
       // Default to visible on error to avoid blocking access
       return true;
     }
@@ -397,28 +385,12 @@ class AdvancedMethodRepository extends BaseRepository {
 
   /// Update quota count for a specific list in a game
   Future<void> _updateQuotaCount(Transaction txn, int gameId, int listId, int delta) async {
-    debugPrint('Updating quota count for game $gameId, list $listId, delta: $delta');
-    
-    final result = await txn.rawUpdate('''
+    await txn.rawUpdate('''
       UPDATE game_list_quotas 
       SET current_officials = MAX(0, current_officials + ?),
           updated_at = ?
       WHERE game_id = ? AND list_id = ?
     ''', [delta, DateTime.now().toIso8601String(), gameId, listId]);
-    
-    debugPrint('Quota update affected $result rows');
-    
-    // Verify the update
-    final verification = await txn.rawQuery('''
-      SELECT current_officials, min_officials, max_officials 
-      FROM game_list_quotas 
-      WHERE game_id = ? AND list_id = ?
-    ''', [gameId, listId]);
-    
-    if (verification.isNotEmpty) {
-      final quota = verification.first;
-      debugPrint('Updated quota: ${quota['current_officials']}/${quota['max_officials']} (min: ${quota['min_officials']})');
-    }
   }
 
   /// Update the game's officials_hired count
@@ -508,12 +480,9 @@ class AdvancedMethodRepository extends BaseRepository {
   /// Set multiple quotas for a game at once
   Future<void> setGameListQuotas(int gameId, List<Map<String, dynamic>> quotas) async {
     try {
-      debugPrint('Setting game list quotas for game $gameId: $quotas');
-      
       await withTransaction((txn) async {
         // Clear existing quotas for this game
-        final deleted = await txn.delete('game_list_quotas', where: 'game_id = ?', whereArgs: [gameId]);
-        debugPrint('Deleted $deleted existing quotas for game $gameId');
+        await txn.delete('game_list_quotas', where: 'game_id = ?', whereArgs: [gameId]);
 
         // Insert new quotas
         for (final quota in quotas) {
@@ -525,13 +494,9 @@ class AdvancedMethodRepository extends BaseRepository {
             'current_officials': 0,
           };
           
-          debugPrint('Inserting quota: $quotaData');
-          final insertedId = await txn.insert('game_list_quotas', quotaData);
-          debugPrint('Inserted quota with ID: $insertedId');
+          await txn.insert('game_list_quotas', quotaData);
         }
       });
-      
-      debugPrint('Successfully set ${quotas.length} quotas for game $gameId');
     } catch (e) {
       debugPrint('Error setting game list quotas for game $gameId: $e');
       throw AdvancedMethodRepositoryException('Failed to set game list quotas: $e');

@@ -1102,8 +1102,6 @@ class GameService {
                   List<Map<String, dynamic>>.from(data['selectedLists'] ?? []);
               gameMap['selectedOfficials'] = List<Map<String, dynamic>>.from(
                   data['selectedOfficials'] ?? []);
-              debugPrint(
-                  'Loaded advanced selection data for game ${game.id}: ${gameMap['selectedLists']?.length ?? 0} lists');
             } catch (e) {
               debugPrint('Error parsing recent advanced selection data: $e');
               gameMap['selectedLists'] = [];

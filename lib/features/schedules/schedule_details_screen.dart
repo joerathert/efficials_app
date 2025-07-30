@@ -192,18 +192,15 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
     try {
       final user = await _userRepository.getCurrentUser();
       if (user?.id != null) {
-        debugPrint('Loading template name for schedule: $scheduleName');
         // First get the template name from the association
         final templateName = await _templateRepository.getByScheduleName(
             user!.id!, scheduleName!);
 
         if (templateName != null) {
-          debugPrint('Found template name: $templateName');
           // Then get the full template data from game_templates table
           final templates = await _gameTemplateRepository
               .getTemplatesByNameSearch(user.id!, templateName);
           if (templates.isNotEmpty) {
-            debugPrint('Found template data: ${templates.first}');
 
             // Get selectedLists data from SharedPreferences if method is advanced
             if (templates.first.method == 'advanced' &&
@@ -258,8 +255,6 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                     sportName: templates.first.sportName,
                     locationName: templates.first.locationName,
                   );
-                  debugPrint(
-                      'Loaded selectedLists data: ${selectedLists.length} lists');
                 } catch (e) {
                   debugPrint('Error parsing selectedLists data: $e');
                 }
@@ -270,13 +265,6 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
               template = templates.first;
               associatedTemplateName = templateName;
             });
-            debugPrint(
-                'Template loaded - includeTime: ${template?.includeTime}, time: ${template?.time}');
-            debugPrint('Template method: ${template?.method}');
-            debugPrint(
-                'Template selectedLists: ${template?.selectedLists?.length ?? 0}');
-            debugPrint(
-                'Template selectedLists content: ${template?.selectedLists}');
           } else {
             debugPrint('No template data found for name: $templateName');
           }
@@ -1029,9 +1017,6 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                     debugPrint(
                         'Template includeTime: ${template?.includeTime}');
                     debugPrint('Template time: ${template?.time}');
-                    debugPrint('Template method: ${template?.method}');
-                    debugPrint(
-                        'Template selectedLists: ${template?.selectedLists?.length ?? 0}');
                     debugPrint('Selected day: $_selectedDay');
                     debugPrint(
                         'Can skip to additional info: $canSkipToAdditionalInfo');

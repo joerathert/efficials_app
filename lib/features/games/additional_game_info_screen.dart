@@ -201,12 +201,6 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
         template = args['template'] as ui.GameTemplate?;
       }
 
-      debugPrint(
-          'Template in args: ${template != null ? 'Instance of GameTemplate' : 'null'}');
-      debugPrint('Template method: ${template?.method}');
-      debugPrint(
-          'Template selectedLists: ${template?.selectedLists?.length ?? 0}');
-      debugPrint('Template selectedLists content: ${template?.selectedLists}');
 
       // Load assigner defaults (only for assigner flow, not for edit mode)
       Map<String, dynamic> defaults = {};
@@ -395,10 +389,6 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
         ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
 
     debugPrint('Template in args: ${args['template']}');
-    debugPrint('Template method: ${template?.method}');
-    debugPrint(
-        'Template selectedLists: ${template?.selectedLists?.length ?? 0}');
-    debugPrint('Template selectedLists content: ${template?.selectedLists}');
 
     // Load officials from template if needed
     List<Map<String, dynamic>> templateOfficials = [];
@@ -465,11 +455,6 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
       } else {
         // Check if template has a specific method for officials selection
         if (template?.method != null) {
-          debugPrint('Template method: ${template!.method}');
-          debugPrint(
-              'Template selectedLists: ${template!.selectedLists?.length ?? 0}');
-          debugPrint(
-              'Template selectedLists content: ${template!.selectedLists}');
 
           switch (template!.method) {
             case 'advanced':

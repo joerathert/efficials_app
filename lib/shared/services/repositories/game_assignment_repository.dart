@@ -46,7 +46,6 @@ class GameAssignmentRepository extends BaseRepository {
 
   // Optimized batch method to get all assignment data for home screen
   Future<Map<String, dynamic>> getOfficialHomeData(int officialId) async {
-    debugPrint('🔍 Getting home data for official $officialId');
 
     // Get accepted games
     final acceptedResults = await rawQuery('''
@@ -70,12 +69,6 @@ class GameAssignmentRepository extends BaseRepository {
       ORDER BY g.date ASC, g.time ASC
     ''', [officialId]);
 
-    debugPrint('📊 Found ${acceptedResults.length} accepted games');
-    if (acceptedResults.isNotEmpty) {
-      debugPrint('📝 First accepted game data: ${acceptedResults.first}');
-      debugPrint(
-          '💰 Fee amount in first game: ${acceptedResults.first['fee_amount']}');
-    }
 
     // Get pending games
     final pendingResults = await rawQuery('''
@@ -95,19 +88,11 @@ class GameAssignmentRepository extends BaseRepository {
       ORDER BY g.date ASC, g.time ASC
     ''', [officialId]);
 
-    debugPrint('📊 Found ${pendingResults.length} pending games');
-    if (pendingResults.isNotEmpty) {
-      debugPrint('📝 First pending game data: ${pendingResults.first}');
-    }
 
     // Get available games using Advanced Method filtering
     final availableResults =
         await _getAvailableGamesWithAdvancedFiltering(officialId);
 
-    debugPrint('📊 Found ${availableResults.length} available games');
-    if (availableResults.isNotEmpty) {
-      debugPrint('📝 First available game data: ${availableResults.first}');
-    }
 
     // Transform data
     final acceptedGames = acceptedResults
@@ -115,8 +100,7 @@ class GameAssignmentRepository extends BaseRepository {
           try {
             return GameAssignment.fromMap(data);
           } catch (e) {
-            debugPrint('❌ Error mapping accepted game: $e');
-            debugPrint('❌ Data that caused error: $data');
+            print('Error mapping accepted game: $e');
             return null;
           }
         })
@@ -128,8 +112,7 @@ class GameAssignmentRepository extends BaseRepository {
           try {
             return GameAssignment.fromMap(data);
           } catch (e) {
-            debugPrint('❌ Error mapping pending game: $e');
-            debugPrint('❌ Data that caused error: $data');
+            print('Error mapping pending game: $e');
             return null;
           }
         })
@@ -145,8 +128,6 @@ class GameAssignmentRepository extends BaseRepository {
       return Map<String, dynamic>.from(game)..['scheduler'] = scheduler;
     }).toList();
 
-    debugPrint(
-        '📊 Final counts - Accepted: ${acceptedGames.length}, Pending: ${pendingGames.length}, Available: ${availableGames.length}');
 
     return {
       'accepted': acceptedGames,
@@ -674,8 +655,6 @@ class GameAssignmentRepository extends BaseRepository {
   Future<List<Map<String, dynamic>>> _getAvailableGamesWithAdvancedFiltering(
       int officialId) async {
     try {
-      debugPrint(
-          '🔍 _getAvailableGamesWithAdvancedFiltering called for official $officialId');
 
       // First, get all potentially available games (basic filtering)
       final basicResults = await rawQuery('''
@@ -704,48 +683,7 @@ class GameAssignmentRepository extends BaseRepository {
         ORDER BY g.date ASC, g.time ASC
       ''', [officialId]);
 
-      debugPrint('📊 Found ${basicResults.length} potentially available games');
-      if (basicResults.isNotEmpty) {
-        debugPrint('📝 First available game data: ${basicResults.first}');
-      }
 
-      // Debug: Show all published games to understand why they're being filtered
-      if (basicResults.isEmpty) {
-        debugPrint(
-            '🔍 Debug: Checking why no games found. Let me query all published games...');
-        final allPublishedGames = await rawQuery('''
-          SELECT g.id, g.date, g.time, g.status, g.officials_required, g.officials_hired, g.method
-          FROM games g
-          WHERE g.status = 'Published'
-          ORDER BY g.id DESC
-        ''', []);
-
-        debugPrint('📊 All published games:');
-        for (final game in allPublishedGames) {
-          debugPrint(
-              '  Game ${game['id']}: date=${game['date']}, time=${game['time']}, status=${game['status']}, required=${game['officials_required']}, hired=${game['officials_hired']}, method=${game['method']}');
-        }
-
-        // Check if the game exists but is being filtered by date
-        final today = DateTime.now();
-        debugPrint('📅 Today\'s date: ${today.toIso8601String()}');
-
-        // Check if there are any games that should be visible
-        final gamesWithoutDateFilter = await rawQuery('''
-          SELECT g.id, g.date, g.time, g.status, g.officials_required, g.officials_hired, g.method
-          FROM games g
-          WHERE g.status = 'Published'
-          AND g.officials_required > g.officials_hired
-          ORDER BY g.id DESC
-        ''', []);
-
-        debugPrint(
-            '🎯 Games without date filter: ${gamesWithoutDateFilter.length}');
-        for (final game in gamesWithoutDateFilter) {
-          debugPrint(
-              '  Game ${game['id']}: date=${game['date']}, time=${game['time']}');
-        }
-      }
 
       // Apply Advanced Method filtering for each game
       final filteredResults = <Map<String, dynamic>>[];
@@ -754,36 +692,23 @@ class GameAssignmentRepository extends BaseRepository {
         final gameId = gameData['id'] as int?;
         final gameMethod = gameData['method'] as String?;
 
-        debugPrint('🎯 Processing game $gameId with method: $gameMethod');
 
         if (gameId != null) {
           if (gameMethod == 'advanced') {
-            debugPrint(
-                '🔧 Game $gameId uses Advanced Method - checking visibility...');
             // Use Advanced Method logic to determine visibility
             final isVisible = await _advancedMethodRepo.isGameVisibleToOfficial(
                 gameId, officialId);
-            debugPrint('✅ Game $gameId visibility result: $isVisible');
             if (isVisible) {
               filteredResults.add(gameData);
-              debugPrint('✅ Game $gameId added to available games');
-            } else {
-              debugPrint(
-                  '❌ Game $gameId filtered out - not visible to official');
             }
           } else {
-            debugPrint(
-                '📋 Game $gameId uses traditional method - adding to available games');
             // Traditional method - game is visible
             filteredResults.add(gameData);
           }
         } else {
-          debugPrint('⚠️ Skipping game with null ID');
         }
       }
 
-      debugPrint(
-          '🎯 Final result: ${filteredResults.length} available games for official $officialId');
       return filteredResults;
     } catch (e) {
       print('Error filtering available games with Advanced Method: $e');
@@ -860,8 +785,6 @@ class GameAssignmentRepository extends BaseRepository {
                   gameFeeResult.first['game_fee']?.toString() ?? '0')
               : 0.0;
 
-          debugPrint('📊 Claiming game $gameId with fee: $gameFee');
-
           // Create assignment with fee
           final assignmentId = await txn.insert('game_assignments', {
             'game_id': gameId,
@@ -873,15 +796,6 @@ class GameAssignmentRepository extends BaseRepository {
             'fee_amount': gameFee, // Add the fee amount
           });
 
-          debugPrint('📊 Created assignment $assignmentId with fee: $gameFee');
-
-          // Verify the fee was saved correctly
-          final verifyResult = await txn.query('game_assignments',
-              where: 'id = ?', whereArgs: [assignmentId]);
-          if (verifyResult.isNotEmpty) {
-            debugPrint(
-                '📊 Verified fee amount in assignment: ${verifyResult.first['fee_amount']}');
-          }
 
           // Add to game_officials table
           await txn.insert(
