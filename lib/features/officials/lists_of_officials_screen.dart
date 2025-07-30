@@ -163,10 +163,20 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
     final args =
         ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>?;
     final sport = args?['sport'] as String? ?? 'Unknown Sport';
+    final fromTemplateCreation = args?['fromTemplateCreation'] == true;
 
     // Filter out special items for the main list display
-    final actualLists =
+    List<Map<String, dynamic>> actualLists =
         lists.where((list) => list['id'] != 0 && list['id'] != -1).toList();
+    
+    // If coming from template creation, filter by sport
+    if (fromTemplateCreation && sport != 'Unknown Sport') {
+      actualLists = actualLists.where((list) {
+        final listSport = list['sport'] as String?;
+        // Show lists that match the sport or have no sport assigned (legacy lists)
+        return listSport == null || listSport.isEmpty || listSport == sport;
+      }).toList();
+    }
 
     return Scaffold(
       backgroundColor: darkBackground,

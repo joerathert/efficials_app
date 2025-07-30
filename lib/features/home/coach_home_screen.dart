@@ -573,12 +573,24 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
                         const Text('Away game',
                             style: TextStyle(fontSize: 14, color: Colors.grey))
                       else ...[
-                        Text('$hiredOfficials/$requiredOfficials Official(s)',
-                            style: TextStyle(
-                                fontSize: 14,
-                                color:
-                                    isFullyHired ? Colors.green : Colors.red)),
-                        if (!isFullyHired) ...[
+                        if (isFullyHired)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.green,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text('$hiredOfficials/$requiredOfficials Official(s)',
+                                style: const TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.white)),
+                          )
+                        else ...[
+                          Text('$hiredOfficials/$requiredOfficials Official(s)',
+                              style: const TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.red)),
                           const SizedBox(width: 8),
                           const Icon(Icons.warning_amber_rounded,
                               color: Colors.red, size: 16),

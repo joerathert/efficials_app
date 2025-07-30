@@ -287,6 +287,7 @@ class _LocationsScreenState extends State<LocationsScreen> {
                         Container(
                           margin: const EdgeInsets.only(bottom: 16),
                           constraints: const BoxConstraints(maxWidth: 200),
+                          width: double.infinity,
                           child: ElevatedButton(
                             onPressed: () {
                                 final selected = locations.firstWhere((l) => l['name'] == selectedLocation);
@@ -328,6 +329,7 @@ class _LocationsScreenState extends State<LocationsScreen> {
                         ),
                         Container(
                           constraints: const BoxConstraints(maxWidth: 200),
+                          width: double.infinity,
                           child: ElevatedButton(
                             onPressed: () {
                               final selected = locations.firstWhere((l) => l['name'] == selectedLocation);

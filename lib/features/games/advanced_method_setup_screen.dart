@@ -286,7 +286,11 @@ class _AdvancedMethodSetupScreenState extends State<AdvancedMethodSetupScreen> {
             const SizedBox(height: 24),
             ElevatedButton(
               onPressed: () {
-                Navigator.pushNamed(context, '/lists_of_officials');
+                Navigator.pushNamed(context, '/lists_of_officials', arguments: {
+                  'sport': sportName ?? 'Unknown Sport',
+                  'fromGameCreation': false,
+                  'fromTemplateCreation': false,
+                });
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: efficialsYellow,

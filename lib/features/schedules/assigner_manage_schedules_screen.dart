@@ -887,7 +887,7 @@ class _AssignerManageSchedulesScreenState
                                                   decoration: BoxDecoration(
                                                     color: hiredOfficials >=
                                                             requiredOfficials
-                                                        ? Colors.green[400]
+                                                        ? Colors.green
                                                         : Colors.red[400],
                                                     borderRadius:
                                                         BorderRadius.circular(
@@ -895,8 +895,11 @@ class _AssignerManageSchedulesScreenState
                                                   ),
                                                   child: Text(
                                                     '$hiredOfficials/$requiredOfficials officials',
-                                                    style: const TextStyle(
-                                                      color: darkSurface,
+                                                    style: TextStyle(
+                                                      color: hiredOfficials >=
+                                                              requiredOfficials
+                                                          ? Colors.white
+                                                          : darkSurface,
                                                       fontSize: 14,
                                                       fontWeight:
                                                           FontWeight.w500,

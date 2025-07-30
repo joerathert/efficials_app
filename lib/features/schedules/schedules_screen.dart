@@ -226,6 +226,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
           'gender': gender,
           'displayName': displayName,
           'gameCount': details['gameCount'] ?? 0,
+          'scheduleId': details['scheduleId'],
         });
       }
     }
@@ -269,16 +270,16 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
 
   Future<Map<String, int>> _getGroupGameCounts(
       List<Map<String, dynamic>> schedules) async {
-    int totalPublished = 0;
-    int totalUnpublished = 0;
+    int totalGames = 0;
 
     for (var schedule in schedules) {
-      final counts = await _getGameCounts(schedule['scheduleName'] as String? ?? 'Unknown');
-      totalPublished += counts['published']!;
-      totalUnpublished += counts['unpublished']!;
+      final gameCount = schedule['gameCount'] as int? ?? 0;
+      totalGames += gameCount;
     }
 
-    return {'published': totalPublished, 'unpublished': totalUnpublished};
+    // For now, treat all games as published since we're getting them from the database
+    // This matches the behavior in athletic_director_home_screen.dart
+    return {'published': totalGames, 'unpublished': 0};
   }
 
   Future<void> _deleteSchedule(String scheduleName, int scheduleId) async {

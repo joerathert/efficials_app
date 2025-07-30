@@ -353,6 +353,7 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
       arguments: {
         'sport': sport,
         'fromGameCreation': true,
+        'fromTemplateCreation': true, // Add flag to indicate this is from template creation
       },
     );
     if (result != null && result is Map<String, dynamic>) {
@@ -777,26 +778,31 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                       Expanded(
                         child: isLoadingLocations
                             ? const CircularProgressIndicator()
-                            : DropdownButtonFormField<String>(
-                                decoration: textFieldDecoration('Location'),
-                                value: location != null &&
-                                        locations.isNotEmpty &&
-                                        locations.any(
-                                            (loc) => loc['name'] == location &&
-                                                    loc['id'] != 0) // Exclude the "create new" option
-                                    ? location
-                                    : null,
-                                hint: locations.isEmpty ||
-                                        locations.length ==
-                                            1 // Only "+ Create new location"
-                                    ? const Text('No locations available',
-                                        style: TextStyle(color: Colors.grey))
-                                    : const Text('Select location',
-                                        style: TextStyle(color: efficialsGray)),
-                                style: const TextStyle(
-                                    color: Colors.white, fontSize: 16),
-                                dropdownColor: darkSurface,
-                                isExpanded: true,
+                            : Theme(
+                                data: Theme.of(context).copyWith(
+                                  splashColor: Colors.transparent,
+                                  highlightColor: Colors.transparent,
+                                ),
+                                child: DropdownButtonFormField<String>(
+                                  decoration: textFieldDecoration('Location'),
+                                  value: location != null &&
+                                          locations.isNotEmpty &&
+                                          locations.any(
+                                              (loc) => loc['name'] == location &&
+                                                      loc['id'] != 0) // Exclude the "create new" option
+                                      ? location
+                                      : null,
+                                  hint: locations.isEmpty ||
+                                          locations.length ==
+                                              1 // Only "+ Create new location"
+                                      ? const Text('No locations available',
+                                          style: TextStyle(color: Colors.grey))
+                                      : const Text('Select location',
+                                          style: TextStyle(color: efficialsGray)),
+                                  style: const TextStyle(
+                                      color: Colors.white, fontSize: 16),
+                                  dropdownColor: darkSurface,
+                                  isExpanded: true,
                                 onChanged: (newValue) {
                                   if (newValue == null) return;
                                   setState(() {
@@ -836,6 +842,7 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                                             overflow: TextOverflow.ellipsis),
                                       );
                                     }).toList(),
+                                ),
                               ),
                       ),
                     ],

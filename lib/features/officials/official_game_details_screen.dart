@@ -503,25 +503,6 @@ class _OfficialGameDetailsScreenState extends State<OfficialGameDetailsScreen> {
             ),
           ),
         ),
-        if (otherOfficials.isNotEmpty) ...[
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: _openCrewChat,
-              icon: const Icon(Icons.chat, size: 20),
-              label: const Text('Crew Chat'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: efficialsYellow,
-                side: const BorderSide(color: efficialsYellow),
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-          ),
-        ],
         const SizedBox(height: 12),
         if (assignment.id != null) // Only show back out button if assignment has valid ID
           SizedBox(
@@ -625,26 +606,35 @@ class _OfficialGameDetailsScreenState extends State<OfficialGameDetailsScreen> {
       return;
     }
     
-    // Show options dialog if both email and phone are available
-    if (email != null && phone != null) {
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          backgroundColor: darkSurface,
-          title: Text(
-            'Contact $name',
-            style: const TextStyle(color: efficialsYellow),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
+    // Always show the contact options dialog
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: darkSurface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: Row(
+          children: [
+            const Icon(Icons.contact_phone, color: efficialsYellow, size: 24),
+            const SizedBox(width: 8),
+            Text(
+              'Contact $name',
+              style: const TextStyle(color: efficialsYellow, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (phone != null) ...[
               ListTile(
-                leading: const Icon(Icons.email, color: efficialsYellow),
-                title: const Text('Send Email', style: TextStyle(color: Colors.white)),
-                subtitle: Text(email, style: TextStyle(color: Colors.grey[400])),
+                leading: const Icon(Icons.message, color: efficialsYellow),
+                title: const Text('Send Text Message', style: TextStyle(color: Colors.white)),
+                subtitle: Text(phone, style: TextStyle(color: Colors.grey[400])),
                 onTap: () {
                   Navigator.pop(context);
-                  _launchEmail(email, name);
+                  _launchSMS(phone, name);
                 },
               ),
               ListTile(
@@ -657,14 +647,35 @@ class _OfficialGameDetailsScreenState extends State<OfficialGameDetailsScreen> {
                 },
               ),
             ],
-          ),
+            if (email != null)
+              ListTile(
+                leading: const Icon(Icons.email, color: efficialsYellow),
+                title: const Text('Send Email', style: TextStyle(color: Colors.white)),
+                subtitle: Text(email, style: TextStyle(color: Colors.grey[400])),
+                onTap: () {
+                  Navigator.pop(context);
+                  _launchEmail(email, name);
+                },
+              ),
+            if (phone == null && email == null)
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  'No contact information available',
+                  style: TextStyle(color: Colors.grey[400]),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+          ],
         ),
-      );
-    } else if (email != null) {
-      await _launchEmail(email, name);
-    } else if (phone != null) {
-      await _launchPhone(phone);
-    }
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+          ),
+        ],
+      ),
+    );
   }
   
   Future<void> _launchEmail(String email, String schedulerName) async {
@@ -713,16 +724,30 @@ class _OfficialGameDetailsScreenState extends State<OfficialGameDetailsScreen> {
     }
   }
   
-  void _openCrewChat() {
-    // TODO: Implement crew chat functionality
-    // This could navigate to a new screen or use firebase_chat package
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Crew chat feature coming soon!'),
-        backgroundColor: Colors.orange,
-      ),
-    );
+  Future<void> _launchSMS(String phone, String schedulerName) async {
+    final gameTitle = _formatAssignmentTitle(assignment);
+    final message = Uri.encodeComponent('Hi $schedulerName, this is regarding the ${assignment.sportName} game: $gameTitle');
+    final url = 'sms:$phone?body=$message';
+    
+    try {
+      final uri = Uri.parse(url);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri);
+      } else {
+        throw Exception('Could not launch SMS');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Could not open messaging: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
+  
 
   void _showBackOutDialog() {
     final sportName = assignment.sportName ?? 'Sport';

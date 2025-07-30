@@ -1392,7 +1392,7 @@ class _AthleticDirectorHomeScreenState
                               horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
                             color: isFullyHired
-                                ? efficialsYellow.withOpacity(0.2)
+                                ? Colors.green
                                 : efficialsBlue.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(12),
                           ),
@@ -1404,7 +1404,7 @@ class _AthleticDirectorHomeScreenState
                                 style: TextStyle(
                                     fontSize: 12,
                                     color: isFullyHired
-                                        ? efficialsBlack
+                                        ? Colors.white
                                         : efficialsBlue),
                               ),
                               if (!isFullyHired) ...[

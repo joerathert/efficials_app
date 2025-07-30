@@ -309,6 +309,7 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
               'fromScheduleDetails':
                   args['fromScheduleDetails'] ?? false, // Add flag
               'scheduleId': args['scheduleId'], // Add scheduleId
+              'fromTemplateCreation': template != null, // Add template creation flag
             },
           ).then((result) {
             if (result != null) {
@@ -473,6 +474,7 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
                               'fromScheduleDetails':
                                   args['fromScheduleDetails'] ?? false, // Add flag
                               'scheduleId': args['scheduleId'], // Add scheduleId
+                              'fromTemplateCreation': template != null, // Add template creation flag
                             },
                           ).then((result) {
                             if (result != null) {

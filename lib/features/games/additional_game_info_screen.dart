@@ -491,6 +491,12 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
       }
 
       debugPrint('Navigating to: $nextRoute');
+      
+      // Add template creation flag for lists_of_officials screen
+      if (nextRoute == '/lists_of_officials' && template != null) {
+        updatedArgs['fromTemplateCreation'] = true;
+      }
+      
       Navigator.pushNamed(
         context,
         nextRoute,

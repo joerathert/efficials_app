@@ -27,8 +27,6 @@ class _SelectGameTemplateScreenState extends State<SelectGameTemplateScreen> {
   final TemplateRepository _templateRepository = TemplateRepository();
   final UserRepository _userRepository = UserRepository();
   
-  // Debug info for on-screen display
-  String debugInfo = 'Debug: Initializing...';
 
   @override
   void initState() {
@@ -46,17 +44,10 @@ class _SelectGameTemplateScreenState extends State<SelectGameTemplateScreen> {
       sport = args['sport'] as String?;
       isAssignerFlow = args['isAssignerFlow'] as bool? ?? false;
       
-      setState(() {
-        debugInfo = 'Args: scheduleName=$scheduleName, sport=$sport, isAssignerFlow=$isAssignerFlow';
-      });
       
       if (sport != null) {
         // Fix race condition: ensure templates are fetched before any navigation
-        _fetchTemplates().catchError((error) {
-          setState(() {
-            debugInfo += '\nError: $error';
-          });
-        });
+        _fetchTemplates();
       }
     }
   }
@@ -69,7 +60,6 @@ class _SelectGameTemplateScreenState extends State<SelectGameTemplateScreen> {
       // Use GameService to get templates from database
       final templatesData = await _gameService.getTemplates();
       
-      
       setState(() {
         templates.clear();
         // Convert Map data to GameTemplate objects
@@ -78,7 +68,7 @@ class _SelectGameTemplateScreenState extends State<SelectGameTemplateScreen> {
         // Apply sport filtering manually if sport is specified and valid
         if (sport != null && sport != 'Unknown' && sport!.isNotEmpty) {
           templates = allTemplates.where((template) => 
-            template.includeSport && template.sport == sport).toList();
+            !template.includeSport || template.sport == sport).toList();
         } else {
           // If sport is unknown/null, show all templates
           templates = allTemplates;
@@ -146,11 +136,6 @@ class _SelectGameTemplateScreenState extends State<SelectGameTemplateScreen> {
     if (selectedTemplateId == null) return;
     final prefs = await SharedPreferences.getInstance();
     
-    // Debug logging to track platform-specific behavior
-    
-    setState(() {
-      debugInfo += '\nAssociating: Platform=${Platform.operatingSystem}, scheduleName=$scheduleName';
-    });
 
     if (selectedTemplateId == '0') {
       if (mounted) {
@@ -161,9 +146,19 @@ class _SelectGameTemplateScreenState extends State<SelectGameTemplateScreen> {
             'scheduleName': scheduleName,
             'sport': sport,
           },
-        ).then((result) {
-          // Refresh templates after creation
-          _fetchTemplates();
+        ).then((result) async {
+          // Add a small delay to ensure database write completes
+          await Future.delayed(const Duration(milliseconds: 100));
+          
+          // Refresh templates after creation and wait for completion
+          await _fetchTemplates();
+          
+          // If a template was created, select it automatically
+          if (result != null && result is GameTemplate) {
+            setState(() {
+              selectedTemplateId = result.id;
+            });
+          }
         });
       }
     } else {
@@ -173,15 +168,8 @@ class _SelectGameTemplateScreenState extends State<SelectGameTemplateScreen> {
       // Check user role to determine correct routing
       final schedulerType = prefs.getString('schedulerType');
       
-      setState(() {
-        debugInfo += '\nSchedulerType: $schedulerType';
-      });
-      
       // If coming from a schedule (scheduleName != null), this is assigner/AD flow from schedule_details
       if (scheduleName != null) {
-        setState(() {
-          debugInfo += '\nRoute: schedule_details flow';
-        });
         // This is the Assigner/Athletic Director flow from schedule_details_screen
         try {
           final user = await _userRepository.getCurrentUser();
@@ -194,14 +182,7 @@ class _SelectGameTemplateScreenState extends State<SelectGameTemplateScreen> {
               selectedTemplate.toJson(),
             );
             
-            if (success) {
-              setState(() {
-                debugInfo += '\nTemplate associated successfully';
-              });
-            } else {
-              setState(() {
-                debugInfo += '\nFailed to associate template';
-              });
+            if (!success) {
               // Fallback to SharedPreferences if database fails
               String templateKey;
               if (isAssignerFlow) {
@@ -217,9 +198,6 @@ class _SelectGameTemplateScreenState extends State<SelectGameTemplateScreen> {
             }
           }
         } catch (e) {
-          setState(() {
-            debugInfo += '\nError: $e';
-          });
           // Fallback to SharedPreferences if there's an error
           String templateKey;
           if (isAssignerFlow) {
@@ -239,9 +217,6 @@ class _SelectGameTemplateScreenState extends State<SelectGameTemplateScreen> {
         }
       } else if (schedulerType == 'Coach') {
         // Coach flow - navigate directly to date_time with template data
-        setState(() {
-          debugInfo += '\nRoute: Coach flow -> /date_time';
-        });
         if (mounted) {
           Navigator.pushNamed(
             context,
@@ -254,9 +229,6 @@ class _SelectGameTemplateScreenState extends State<SelectGameTemplateScreen> {
         }
       } else {
         // Athletic Director flow when creating game from template - need to select schedule first
-        setState(() {
-          debugInfo += '\nRoute: AD flow -> /select_schedule';
-        });
         if (mounted) {
           Navigator.pushNamed(
             context,

@@ -524,15 +524,30 @@ class _TeamScheduleScreenState extends State<TeamScheduleScreen> {
                                                 fontSize: 16, color: Colors.white),
                                           ),
                                           const SizedBox(height: 4),
-                                          Text(
-                                            '$hiredOfficials/$requiredOfficials officials confirmed',
-                                            style: TextStyle(
-                                              fontSize: 16,
-                                              color: hiredOfficials >= requiredOfficials
-                                                  ? Colors.green
-                                                  : Colors.red,
+                                          if (hiredOfficials >= requiredOfficials)
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(
+                                                  horizontal: 8, vertical: 4),
+                                              decoration: BoxDecoration(
+                                                color: Colors.green,
+                                                borderRadius: BorderRadius.circular(12),
+                                              ),
+                                              child: Text(
+                                                '$hiredOfficials/$requiredOfficials officials confirmed',
+                                                style: const TextStyle(
+                                                  fontSize: 16,
+                                                  color: Colors.white,
+                                                ),
+                                              ),
+                                            )
+                                          else
+                                            Text(
+                                              '$hiredOfficials/$requiredOfficials officials confirmed',
+                                              style: const TextStyle(
+                                                fontSize: 16,
+                                                color: Colors.red,
+                                              ),
                                             ),
-                                          ),
                                         ],
                                       ),
                                     ),
