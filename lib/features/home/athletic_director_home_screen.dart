@@ -1387,36 +1387,61 @@ class _AthleticDirectorHomeScreenState
                           ),
                         )
                       else ...[
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: isFullyHired
-                                ? Colors.green
-                                : efficialsBlue.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                '$hiredOfficials/$requiredOfficials Officials',
-                                style: TextStyle(
-                                    fontSize: 12,
-                                    color: isFullyHired
-                                        ? Colors.white
-                                        : efficialsBlue),
+                        Builder(
+                          builder: (context) {
+                            // Check if game is within a week
+                            final now = DateTime.now();
+                            final isWithinWeek = game.date != null && 
+                                game.date!.difference(now).inDays <= 7 && 
+                                game.date!.isAfter(now.subtract(const Duration(days: 1)));
+                            
+                            // Determine background color
+                            Color backgroundColor;
+                            if (isFullyHired) {
+                              backgroundColor = Colors.green;
+                            } else if (isWithinWeek) {
+                              backgroundColor = Colors.red.withOpacity(0.7);
+                            } else {
+                              backgroundColor = efficialsBlue.withOpacity(0.1);
+                            }
+                            
+                            return Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: backgroundColor,
+                                borderRadius: BorderRadius.circular(12),
                               ),
-                              if (!isFullyHired) ...[
-                                const SizedBox(width: 4),
-                                const Icon(
-                                  Icons.warning_amber_rounded,
-                                  color: efficialsYellow,
-                                  size: 14,
-                                ),
-                              ],
-                            ],
-                          ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    '$hiredOfficials/$requiredOfficials Officials',
+                                    style: TextStyle(
+                                        fontSize: 12,
+                                        color: isFullyHired || isWithinWeek
+                                            ? Colors.white
+                                            : efficialsBlue),
+                                  ),
+                                  if (isFullyHired) ...[
+                                    const SizedBox(width: 4),
+                                    const Icon(
+                                      Icons.check_circle,
+                                      color: Colors.white,
+                                      size: 14,
+                                    ),
+                                  ] else if (isWithinWeek) ...[
+                                    const SizedBox(width: 4),
+                                    const Icon(
+                                      Icons.warning_amber_rounded,
+                                      color: efficialsYellow,
+                                      size: 14,
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            );
+                          },
                         ),
                       ],
                     ],

@@ -573,28 +573,64 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
                         const Text('Away game',
                             style: TextStyle(fontSize: 14, color: Colors.grey))
                       else ...[
-                        if (isFullyHired)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: Colors.green,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Text('$hiredOfficials/$requiredOfficials Official(s)',
-                                style: const TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.white)),
-                          )
-                        else ...[
-                          Text('$hiredOfficials/$requiredOfficials Official(s)',
-                              style: const TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.red)),
-                          const SizedBox(width: 8),
-                          const Icon(Icons.warning_amber_rounded,
-                              color: Colors.red, size: 16),
-                        ],
+                        Builder(
+                          builder: (context) {
+                            // Check if game is within a week
+                            final now = DateTime.now();
+                            final isWithinWeek = game.date != null && 
+                                game.date!.difference(now).inDays <= 7 && 
+                                game.date!.isAfter(now.subtract(const Duration(days: 1)));
+                            
+                            if (isFullyHired) {
+                              return Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.green,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text('$hiredOfficials/$requiredOfficials Official(s)',
+                                        style: const TextStyle(
+                                            fontSize: 14,
+                                            color: Colors.white)),
+                                    const SizedBox(width: 4),
+                                    const Icon(Icons.check_circle,
+                                        color: Colors.white, size: 16),
+                                  ],
+                                ),
+                              );
+                            } else if (isWithinWeek) {
+                              return Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.red.withOpacity(0.7),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text('$hiredOfficials/$requiredOfficials Official(s)',
+                                        style: const TextStyle(
+                                            fontSize: 14,
+                                            color: Colors.white)),
+                                    const SizedBox(width: 8),
+                                    const Icon(Icons.warning_amber_rounded,
+                                        color: efficialsYellow, size: 16),
+                                  ],
+                                ),
+                              );
+                            } else {
+                              return Text('$hiredOfficials/$requiredOfficials Official(s)',
+                                  style: const TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.red));
+                            }
+                          },
+                        ),
                       ],
                     ],
                   ),

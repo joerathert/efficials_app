@@ -423,9 +423,6 @@ class _SelectGameTemplateScreenState extends State<SelectGameTemplateScreen> {
                                   setState(() {
                                     selectedTemplateId = newValue;
                                   });
-                                  if (newValue == '0') {
-                                    _associateTemplate();
-                                  }
                                 },
                                 items: templates.map((template) {
                                   return DropdownMenuItem(
@@ -481,19 +478,16 @@ class _SelectGameTemplateScreenState extends State<SelectGameTemplateScreen> {
                   Container(
                     width: 200,
                     child: ElevatedButton(
-                      onPressed: selectedTemplateId != null &&
-                              selectedTemplateId != '0'
+                      onPressed: selectedTemplateId != null
                           ? () {
                               _associateTemplate();
                             }
                           : null,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: selectedTemplateId != null &&
-                                selectedTemplateId != '0'
+                        backgroundColor: selectedTemplateId != null
                             ? efficialsYellow
                             : Colors.grey[600],
-                        foregroundColor: selectedTemplateId != null &&
-                                selectedTemplateId != '0'
+                        foregroundColor: selectedTemplateId != null
                             ? efficialsBlack
                             : Colors.white,
                         padding: const EdgeInsets.symmetric(
@@ -502,9 +496,9 @@ class _SelectGameTemplateScreenState extends State<SelectGameTemplateScreen> {
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),
-                      child: const Text(
-                        'Continue',
-                        style: TextStyle(
+                      child: Text(
+                        selectedTemplateId == '0' ? 'Create Template' : 'Continue',
+                        style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),
