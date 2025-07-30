@@ -929,7 +929,9 @@ class GameAssignment {
           ? DateTime.parse(map['responded_at'])
           : null,
       responseNotes: map['response_notes'],
-      feeAmount: map['fee_amount']?.toDouble(),
+      feeAmount: map['fee_amount'] != null
+          ? double.tryParse(map['fee_amount'].toString()) ?? 0.0
+          : 0.0,
       backedOutAt: map['backed_out_at'] != null
           ? DateTime.parse(map['backed_out_at'])
           : null,

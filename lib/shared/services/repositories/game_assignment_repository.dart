@@ -46,11 +46,22 @@ class GameAssignmentRepository extends BaseRepository {
 
   // Optimized batch method to get all assignment data for home screen
   Future<Map<String, dynamic>> getOfficialHomeData(int officialId) async {
+    debugPrint('🔍 Getting home data for official $officialId');
+
     // Get accepted games
     final acceptedResults = await rawQuery('''
-      SELECT ga.*, g.date, g.time, g.opponent, g.home_team, g.game_fee, g.level_of_competition,
-             l.name as location_name, l.address as location_address,
-             s.name as sport_name
+      SELECT 
+        ga.id, ga.game_id, ga.official_id, ga.position, ga.status,
+        ga.assigned_by, ga.assigned_at, ga.responded_at, ga.response_notes,
+        ga.backed_out_at, ga.back_out_reason, ga.excused_backout,
+        ga.excused_at, ga.excused_by, ga.excuse_reason,
+        CASE 
+          WHEN ga.fee_amount IS NOT NULL AND ga.fee_amount > 0 THEN ga.fee_amount 
+          ELSE g.game_fee 
+        END as fee_amount,
+        g.date, g.time, g.opponent, g.home_team, g.level_of_competition,
+        l.name as location_name, l.address as location_address,
+        s.name as sport_name
       FROM game_assignments ga
       JOIN games g ON ga.game_id = g.id
       LEFT JOIN locations l ON g.location_id = l.id
@@ -59,9 +70,21 @@ class GameAssignmentRepository extends BaseRepository {
       ORDER BY g.date ASC, g.time ASC
     ''', [officialId]);
 
+    debugPrint('📊 Found ${acceptedResults.length} accepted games');
+    if (acceptedResults.isNotEmpty) {
+      debugPrint('📝 First accepted game data: ${acceptedResults.first}');
+      debugPrint(
+          '💰 Fee amount in first game: ${acceptedResults.first['fee_amount']}');
+    }
+
     // Get pending games
     final pendingResults = await rawQuery('''
-      SELECT ga.*, g.date, g.time, g.opponent, g.home_team, g.game_fee, g.level_of_competition,
+      SELECT ga.id, ga.game_id, ga.official_id, ga.position, ga.status,
+             ga.assigned_by, ga.assigned_at, ga.responded_at, ga.response_notes,
+             ga.backed_out_at, ga.back_out_reason, ga.excused_backout,
+             ga.excused_at, ga.excused_by, ga.excuse_reason,
+             ga.fee_amount,
+             g.date, g.time, g.opponent, g.home_team, g.level_of_competition, g.game_fee,
              l.name as location_name, l.address as location_address,
              s.name as sport_name
       FROM game_assignments ga
@@ -72,15 +95,46 @@ class GameAssignmentRepository extends BaseRepository {
       ORDER BY g.date ASC, g.time ASC
     ''', [officialId]);
 
+    debugPrint('📊 Found ${pendingResults.length} pending games');
+    if (pendingResults.isNotEmpty) {
+      debugPrint('📝 First pending game data: ${pendingResults.first}');
+    }
+
     // Get available games using Advanced Method filtering
     final availableResults =
         await _getAvailableGamesWithAdvancedFiltering(officialId);
 
+    debugPrint('📊 Found ${availableResults.length} available games');
+    if (availableResults.isNotEmpty) {
+      debugPrint('📝 First available game data: ${availableResults.first}');
+    }
+
     // Transform data
-    final acceptedGames =
-        acceptedResults.map((data) => GameAssignment.fromMap(data)).toList();
-    final pendingGames =
-        pendingResults.map((data) => GameAssignment.fromMap(data)).toList();
+    final acceptedGames = acceptedResults
+        .map((data) {
+          try {
+            return GameAssignment.fromMap(data);
+          } catch (e) {
+            debugPrint('❌ Error mapping accepted game: $e');
+            debugPrint('❌ Data that caused error: $data');
+            return null;
+          }
+        })
+        .whereType<GameAssignment>()
+        .toList();
+
+    final pendingGames = pendingResults
+        .map((data) {
+          try {
+            return GameAssignment.fromMap(data);
+          } catch (e) {
+            debugPrint('❌ Error mapping pending game: $e');
+            debugPrint('❌ Data that caused error: $data');
+            return null;
+          }
+        })
+        .whereType<GameAssignment>()
+        .toList();
 
     // Transform available games with scheduler info
     final availableGames = availableResults.map((game) {
@@ -90,6 +144,9 @@ class GameAssignmentRepository extends BaseRepository {
 
       return Map<String, dynamic>.from(game)..['scheduler'] = scheduler;
     }).toList();
+
+    debugPrint(
+        '📊 Final counts - Accepted: ${acceptedGames.length}, Pending: ${pendingGames.length}, Available: ${availableGames.length}');
 
     return {
       'accepted': acceptedGames,
@@ -421,9 +478,11 @@ class GameAssignmentRepository extends BaseRepository {
       if (gameMethod == 'advanced') {
         try {
           await _advancedMethodRepo.removeOfficialFromGame(gameId, officialId);
-          print('Updated Advanced Method quotas for game $gameId after official $officialId backed out');
+          print(
+              'Updated Advanced Method quotas for game $gameId after official $officialId backed out');
         } catch (e) {
-          print('Warning: Failed to update Advanced Method quotas after back out: $e');
+          print(
+              'Warning: Failed to update Advanced Method quotas after back out: $e');
           // Don't fail the entire back out if quota update fails
         }
       }
@@ -620,9 +679,16 @@ class GameAssignmentRepository extends BaseRepository {
 
       // First, get all potentially available games (basic filtering)
       final basicResults = await rawQuery('''
-        SELECT DISTINCT g.*, l.name as location_name, l.address as location_address,
-               s.name as sport_name, u.first_name, u.last_name,
-               'available' as assignment_status
+        SELECT DISTINCT 
+          g.id, g.sport_id, g.location_id, g.user_id,
+          g.date, g.time, g.is_away, g.level_of_competition,
+          g.gender, g.officials_required, g.officials_hired,
+          g.game_fee, g.opponent, g.home_team, g.hire_automatically,
+          g.method, g.status, g.created_at, g.updated_at,
+          l.name as location_name, l.address as location_address,
+          s.name as sport_name,
+          u.first_name, u.last_name,
+          'available' as assignment_status
         FROM games g
         LEFT JOIN locations l ON g.location_id = l.id
         LEFT JOIN sports s ON g.sport_id = s.id
@@ -633,13 +699,15 @@ class GameAssignmentRepository extends BaseRepository {
           WHERE ga.official_id = ?
         )
         AND g.status = 'Published'
-        -- AND g.date >= date('now')  -- Temporarily disabled for testing
+        AND g.date >= date('now')
         AND g.officials_required > g.officials_hired
         ORDER BY g.date ASC, g.time ASC
       ''', [officialId]);
 
-      debugPrint(
-          '🎮 Found ${basicResults.length} potentially available games for official $officialId');
+      debugPrint('📊 Found ${basicResults.length} potentially available games');
+      if (basicResults.isNotEmpty) {
+        debugPrint('📝 First available game data: ${basicResults.first}');
+      }
 
       // Debug: Show all published games to understand why they're being filtered
       if (basicResults.isEmpty) {
@@ -782,15 +850,38 @@ class GameAssignmentRepository extends BaseRepository {
       } else {
         // Traditional method - just assign directly
         await withTransaction((txn) async {
-          // Create assignment
-          await txn.insert('game_assignments', {
+          // Get the game fee first
+          final gameFeeResult = await txn.rawQuery('''
+            SELECT game_fee FROM games WHERE id = ?
+          ''', [gameId]);
+
+          final gameFee = gameFeeResult.isNotEmpty
+              ? double.tryParse(
+                  gameFeeResult.first['game_fee']?.toString() ?? '0')
+              : 0.0;
+
+          debugPrint('📊 Claiming game $gameId with fee: $gameFee');
+
+          // Create assignment with fee
+          final assignmentId = await txn.insert('game_assignments', {
             'game_id': gameId,
             'official_id': officialId,
             'status': 'accepted',
-            'assigned_by': 1, // System assigned
+            'assigned_by': officialId, // Official claimed it themselves
             'assigned_at': DateTime.now().toIso8601String(),
             'responded_at': DateTime.now().toIso8601String(),
+            'fee_amount': gameFee, // Add the fee amount
           });
+
+          debugPrint('📊 Created assignment $assignmentId with fee: $gameFee');
+
+          // Verify the fee was saved correctly
+          final verifyResult = await txn.query('game_assignments',
+              where: 'id = ?', whereArgs: [assignmentId]);
+          if (verifyResult.isNotEmpty) {
+            debugPrint(
+                '📊 Verified fee amount in assignment: ${verifyResult.first['fee_amount']}');
+          }
 
           // Add to game_officials table
           await txn.insert(
