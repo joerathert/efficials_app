@@ -37,7 +37,7 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
       setState(() {
         isFromGameCreation = args['fromGameCreation'] == true;
       });
-      
+
       // Handle new list creation from review_list_screen
       if (args['newListCreated'] != null) {
         final newListData = args['newListCreated'] as Map<String, dynamic>;
@@ -251,13 +251,15 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                                         '/create_new_list',
                                         arguments: {
                                           'existingLists': existingListNames,
-                                          'fromGameCreation': isFromGameCreation,
+                                          'fromGameCreation':
+                                              isFromGameCreation,
                                           'sport': sport,
                                           ...?args, // Pass through original game creation arguments
                                         },
                                       ).then((result) async {
                                         if (result != null) {
-                                          await _handleNewListResult(result, sport);
+                                          await _handleNewListResult(
+                                              result, sport);
                                         }
                                       });
                                     },
@@ -270,7 +272,8 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                                         borderRadius: BorderRadius.circular(8),
                                       ),
                                     ),
-                                    icon: const Icon(Icons.add, color: efficialsBlack),
+                                    icon: const Icon(Icons.add,
+                                        color: efficialsBlack),
                                     label: const Text(
                                       'Create New List',
                                       style: TextStyle(
@@ -286,17 +289,25 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                         : LayoutBuilder(
                             builder: (context, constraints) {
                               // Calculate available space for the list
-                              const buttonHeight = 60.0; // Approximate button height
-                              const padding = 20.0; // Padding between list and button
-                              const minBottomSpace = 100.0; // Minimum space from bottom to avoid navigation bar
-                              
-                              final maxListHeight = constraints.maxHeight - buttonHeight - padding - minBottomSpace;
-                              
+                              const buttonHeight =
+                                  60.0; // Approximate button height
+                              const padding =
+                                  20.0; // Padding between list and button
+                              const minBottomSpace =
+                                  100.0; // Minimum space from bottom to avoid navigation bar
+
+                              final maxListHeight = constraints.maxHeight -
+                                  buttonHeight -
+                                  padding -
+                                  minBottomSpace;
+
                               return Column(
                                 children: [
                                   Container(
                                     constraints: BoxConstraints(
-                                      maxHeight: maxListHeight > 0 ? maxListHeight : constraints.maxHeight * 0.6,
+                                      maxHeight: maxListHeight > 0
+                                          ? maxListHeight
+                                          : constraints.maxHeight * 0.6,
                                     ),
                                     child: ListView.builder(
                                       shrinkWrap: true,
@@ -304,19 +315,23 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                                       itemBuilder: (context, index) {
                                         final list = actualLists[index];
                                         final listName = list['name'] as String;
-                                        final officials =
-                                            list['officials'] as List<dynamic>? ?? [];
+                                        final officials = list['officials']
+                                                as List<dynamic>? ??
+                                            [];
                                         final officialCount = officials.length;
 
                                         return Padding(
-                                          padding: const EdgeInsets.only(bottom: 12.0),
+                                          padding: const EdgeInsets.only(
+                                              bottom: 12.0),
                                           child: Container(
                                             decoration: BoxDecoration(
                                               color: darkSurface,
-                                              borderRadius: BorderRadius.circular(12),
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
                                               boxShadow: [
                                                 BoxShadow(
-                                                  color: Colors.black.withOpacity(0.3),
+                                                  color: Colors.black
+                                                      .withOpacity(0.3),
                                                   spreadRadius: 1,
                                                   blurRadius: 3,
                                                   offset: const Offset(0, 1),
@@ -328,21 +343,26 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                                               child: Row(
                                                 children: [
                                                   Container(
-                                                    padding: const EdgeInsets.all(12),
+                                                    padding:
+                                                        const EdgeInsets.all(
+                                                            12),
                                                     decoration: BoxDecoration(
                                                       color: getSportIconColor(
-                                                              list['sport'] as String? ??
+                                                              list['sport']
+                                                                      as String? ??
                                                                   sport)
                                                           .withOpacity(0.1),
                                                       borderRadius:
-                                                          BorderRadius.circular(8),
+                                                          BorderRadius.circular(
+                                                              8),
                                                     ),
                                                     child: Icon(
-                                                      getSportIcon(
-                                                          list['sport'] as String? ??
-                                                              sport),
+                                                      getSportIcon(list['sport']
+                                                              as String? ??
+                                                          sport),
                                                       color: getSportIconColor(
-                                                          list['sport'] as String? ??
+                                                          list['sport']
+                                                                  as String? ??
                                                               sport),
                                                       size: 24,
                                                     ),
@@ -351,29 +371,37 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                                                   Expanded(
                                                     child: Column(
                                                       crossAxisAlignment:
-                                                          CrossAxisAlignment.start,
+                                                          CrossAxisAlignment
+                                                              .start,
                                                       children: [
                                                         Text(
                                                           listName,
-                                                          style: const TextStyle(
+                                                          style:
+                                                              const TextStyle(
                                                             fontSize: 18,
-                                                            fontWeight: FontWeight.bold,
-                                                            color: primaryTextColor,
+                                                            fontWeight:
+                                                                FontWeight.bold,
+                                                            color:
+                                                                primaryTextColor,
                                                           ),
                                                         ),
-                                                        const SizedBox(height: 4),
+                                                        const SizedBox(
+                                                            height: 4),
                                                         Text(
                                                           '$officialCount official${officialCount == 1 ? '' : 's'}',
-                                                          style: const TextStyle(
+                                                          style:
+                                                              const TextStyle(
                                                             fontSize: 14,
-                                                            color: secondaryTextColor,
+                                                            color:
+                                                                secondaryTextColor,
                                                           ),
                                                         ),
                                                       ],
                                                     ),
                                                   ),
                                                   Row(
-                                                    mainAxisSize: MainAxisSize.min,
+                                                    mainAxisSize:
+                                                        MainAxisSize.min,
                                                     children: [
                                                       IconButton(
                                                         onPressed: () {
@@ -381,17 +409,23 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                                                             context,
                                                             '/edit_list',
                                                             arguments: {
-                                                              'listName': listName,
-                                                              'listId': list['id'] as int,
+                                                              'listName':
+                                                                  listName,
+                                                              'listId':
+                                                                  list['id']
+                                                                      as int,
                                                               'officials': officials
                                                                   .map((official) => Map<
                                                                           String,
                                                                           dynamic>.from(
-                                                                      official as Map))
+                                                                      official
+                                                                          as Map))
                                                                   .toList(),
                                                             },
-                                                          ).then((result) async {
-                                                            if (result != null) {
+                                                          ).then(
+                                                              (result) async {
+                                                            if (result !=
+                                                                null) {
                                                               await _handleEditListResult(
                                                                   result, list);
                                                             }
@@ -399,7 +433,8 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                                                         },
                                                         icon: const Icon(
                                                           Icons.edit,
-                                                          color: efficialsYellow,
+                                                          color:
+                                                              efficialsYellow,
                                                           size: 20,
                                                         ),
                                                         tooltip: 'Edit List',
@@ -408,11 +443,13 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                                                         onPressed: () {
                                                           _showDeleteConfirmationDialog(
                                                               listName,
-                                                              list['id'] as int);
+                                                              list['id']
+                                                                  as int);
                                                         },
                                                         icon: Icon(
                                                           Icons.delete_outline,
-                                                          color: Colors.red.shade600,
+                                                          color: Colors
+                                                              .red.shade600,
                                                           size: 20,
                                                         ),
                                                         tooltip: 'Delete List',
@@ -421,7 +458,8 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                                                         IconButton(
                                                           onPressed: () {
                                                             setState(() {
-                                                              selectedList = listName;
+                                                              selectedList =
+                                                                  listName;
                                                             });
                                                             _handleContinue();
                                                           },
@@ -430,7 +468,8 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                                                             color: Colors.green,
                                                             size: 20,
                                                           ),
-                                                          tooltip: 'Use This List',
+                                                          tooltip:
+                                                              'Use This List',
                                                         ),
                                                     ],
                                                   ),
@@ -449,20 +488,24 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                                       child: ElevatedButton.icon(
                                         onPressed: () {
                                           final existingListNames = actualLists
-                                              .map((list) => list['name'] as String)
+                                              .map((list) =>
+                                                  list['name'] as String)
                                               .toList();
                                           Navigator.pushNamed(
                                             context,
                                             '/create_new_list',
                                             arguments: {
-                                              'existingLists': existingListNames,
-                                              'fromGameCreation': isFromGameCreation,
+                                              'existingLists':
+                                                  existingListNames,
+                                              'fromGameCreation':
+                                                  isFromGameCreation,
                                               'sport': sport,
                                               ...?args, // Pass through original game creation arguments
                                             },
                                           ).then((result) async {
                                             if (result != null) {
-                                              await _handleNewListResult(result, sport);
+                                              await _handleNewListResult(
+                                                  result, sport);
                                             }
                                           });
                                         },
@@ -472,10 +515,12 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                                           padding: const EdgeInsets.symmetric(
                                               vertical: 15, horizontal: 32),
                                           shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(8),
+                                            borderRadius:
+                                                BorderRadius.circular(8),
                                           ),
                                         ),
-                                        icon: const Icon(Icons.add, color: efficialsBlack),
+                                        icon: const Icon(Icons.add,
+                                            color: efficialsBlack),
                                         label: const Text(
                                           'Create New List',
                                           style: TextStyle(
@@ -509,7 +554,8 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
           'name': newList['listName'],
           'sport': newList['sport'] ?? sport,
           'officials': newList['officials'],
-          'id': lists.length + 1,
+          'id': newList['actualDatabaseId'] ??
+              (lists.length + 1), // Use actual database ID if available
         });
         selectedList = newList['listName'] as String;
       } else {
@@ -551,13 +597,14 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
     await _fetchLists();
   }
 
-  Future<void> _handleNewListFromReview(Map<String, dynamic> newListData) async {
+  Future<void> _handleNewListFromReview(
+      Map<String, dynamic> newListData) async {
     await _fetchLists(); // Refresh the lists from SharedPreferences
-    
+
     setState(() {
       selectedList = newListData['listName'] as String;
     });
-    
+
     // Show success message
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(

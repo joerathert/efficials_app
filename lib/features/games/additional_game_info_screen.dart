@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../shared/theme.dart';
-import 'game_template.dart'; // Import the GameTemplate model
+import '../../shared/models/database_models.dart' as db;
+import 'game_template.dart' as ui;
 
 class AdditionalGameInfoScreen extends StatefulWidget {
   const AdditionalGameInfoScreen({super.key});
@@ -24,7 +25,7 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
   bool _isFromEdit = false;
   bool _isInitialized = false;
   bool _isAwayGame = false;
-  GameTemplate? template; // Store the selected template
+  ui.GameTemplate? template; // Store the selected template
 
   final List<String> _competitionLevels = [
     '6U',
@@ -55,15 +56,16 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
   Future<Map<String, dynamic>> _loadAssignerDefaults() async {
     final prefs = await SharedPreferences.getInstance();
     final sport = prefs.getString('assigner_sport');
-    
+
     if (sport != null) {
       final defaultsKey = 'assigner_sport_defaults_${sport.toLowerCase()}';
       final defaultGender = prefs.getString('${defaultsKey}_gender');
       final defaultOfficials = prefs.getString('${defaultsKey}_officials');
       final defaultGameFee = prefs.getString('${defaultsKey}_game_fee');
-      
-      final defaultCompetitionLevel = prefs.getString('${defaultsKey}_competition_level');
-      
+
+      final defaultCompetitionLevel =
+          prefs.getString('${defaultsKey}_competition_level');
+
       // Map genders to match the screen's expected format
       String? mappedGender;
       if (defaultGender != null) {
@@ -75,15 +77,16 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
           mappedGender = 'Co-ed';
         }
       }
-      
+
       return {
         'gender': mappedGender,
-        'officials': defaultOfficials != null ? int.tryParse(defaultOfficials) : null,
+        'officials':
+            defaultOfficials != null ? int.tryParse(defaultOfficials) : null,
         'gameFee': defaultGameFee,
         'competitionLevel': defaultCompetitionLevel,
       };
     }
-    
+
     return {};
   }
 
@@ -103,8 +106,11 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: darkSurface,
-        title: const Text('Hire Automatically', 
-            style: TextStyle(color: efficialsYellow, fontSize: 20, fontWeight: FontWeight.bold)),
+        title: const Text('Hire Automatically',
+            style: TextStyle(
+                color: efficialsYellow,
+                fontSize: 20,
+                fontWeight: FontWeight.bold)),
         content: const Text(
           'When checked, the system will automatically assign officials based on your preferences and availability. Uncheck to manually select officials.',
           style: TextStyle(color: Colors.white),
@@ -112,7 +118,8 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Close', style: TextStyle(color: efficialsYellow)),
+            child:
+                const Text('Close', style: TextStyle(color: efficialsYellow)),
           ),
         ],
       ),
@@ -133,7 +140,73 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
     if (args != null) {
       _isFromEdit = args['isEdit'] == true;
       _isAwayGame = args['isAwayGame'] == true;
-      template = args['template'] as GameTemplate?; // Extract the template
+
+      // Convert database GameTemplate to UI GameTemplate if needed
+      if (args['template'] is db.GameTemplate) {
+        final dbTemplate = args['template'] as db.GameTemplate;
+
+        // Get selectedLists data from SharedPreferences if method is advanced
+        List<Map<String, dynamic>>? selectedLists;
+        if (dbTemplate.method == 'advanced' && dbTemplate.id != null) {
+          final prefs = await SharedPreferences.getInstance();
+          final key = 'template_selectedLists_${dbTemplate.id}';
+          final selectedListsJson = prefs.getString(key);
+          if (selectedListsJson != null) {
+            try {
+              selectedLists = List<Map<String, dynamic>>.from(
+                  jsonDecode(selectedListsJson));
+              debugPrint(
+                  'Loaded selectedLists from SharedPreferences: ${selectedLists.length} lists');
+            } catch (e) {
+              debugPrint('Error parsing selectedLists data: $e');
+            }
+          }
+        }
+
+        template = ui.GameTemplate(
+          id: dbTemplate.id?.toString() ?? '',
+          name: dbTemplate.name,
+          scheduleName: dbTemplate.scheduleName,
+          sport: dbTemplate.sportName,
+          date: dbTemplate.date,
+          time: dbTemplate.time,
+          location: dbTemplate.locationName,
+          isAwayGame: dbTemplate.isAwayGame,
+          levelOfCompetition: dbTemplate.levelOfCompetition,
+          gender: dbTemplate.gender,
+          officialsRequired: dbTemplate.officialsRequired,
+          gameFee: dbTemplate.gameFee,
+          opponent: dbTemplate.opponent,
+          hireAutomatically: dbTemplate.hireAutomatically,
+          method: dbTemplate.method,
+          selectedOfficials: dbTemplate.selectedOfficials,
+          selectedLists: selectedLists, // Use the loaded selectedLists data
+          officialsListName: dbTemplate.officialsListName,
+          includeScheduleName: dbTemplate.includeScheduleName,
+          includeSport: dbTemplate.includeSport,
+          includeDate: dbTemplate.includeDate,
+          includeTime: dbTemplate.includeTime,
+          includeLocation: dbTemplate.includeLocation,
+          includeIsAwayGame: dbTemplate.includeIsAwayGame,
+          includeLevelOfCompetition: dbTemplate.includeLevelOfCompetition,
+          includeGender: dbTemplate.includeGender,
+          includeOfficialsRequired: dbTemplate.includeOfficialsRequired,
+          includeGameFee: dbTemplate.includeGameFee,
+          includeOpponent: dbTemplate.includeOpponent,
+          includeHireAutomatically: dbTemplate.includeHireAutomatically,
+          includeSelectedOfficials: dbTemplate.includeSelectedOfficials,
+          includeOfficialsList: dbTemplate.includeOfficialsList,
+        );
+      } else {
+        template = args['template'] as ui.GameTemplate?;
+      }
+
+      debugPrint(
+          'Template in args: ${template != null ? 'Instance of GameTemplate' : 'null'}');
+      debugPrint('Template method: ${template?.method}');
+      debugPrint(
+          'Template selectedLists: ${template?.selectedLists?.length ?? 0}');
+      debugPrint('Template selectedLists content: ${template?.selectedLists}');
 
       // Load assigner defaults (only for assigner flow, not for edit mode)
       Map<String, dynamic> defaults = {};
@@ -147,7 +220,8 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
         _levelOfCompetition = template!.includeLevelOfCompetition &&
                 template!.levelOfCompetition != null
             ? template!.levelOfCompetition
-            : (args['levelOfCompetition'] as String? ?? defaults['competitionLevel']);
+            : (args['levelOfCompetition'] as String? ??
+                defaults['competitionLevel']);
         _updateCurrentGenders();
         _gender = template!.includeGender && template!.gender != null
             ? template!.gender
@@ -170,18 +244,21 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
             ? template!.hireAutomatically!
             : (args['hireAutomatically'] as bool? ?? false);
       } else {
-        _levelOfCompetition = args['levelOfCompetition'] as String? ?? defaults['competitionLevel'];
+        _levelOfCompetition = args['levelOfCompetition'] as String? ??
+            defaults['competitionLevel'];
         _updateCurrentGenders();
         final genderArg = args['gender'] as String?;
         _gender = (genderArg != null && _currentGenders.contains(genderArg))
             ? genderArg
-            : (defaults['gender'] != null && _currentGenders.contains(defaults['gender']))
+            : (defaults['gender'] != null &&
+                    _currentGenders.contains(defaults['gender']))
                 ? defaults['gender']
                 : null;
         _officialsRequired = args['officialsRequired'] != null
             ? int.tryParse(args['officialsRequired'].toString())
             : defaults['officials'];
-        _gameFeeController.text = args['gameFee']?.toString() ?? defaults['gameFee'] ?? '';
+        _gameFeeController.text =
+            args['gameFee']?.toString() ?? defaults['gameFee'] ?? '';
         _hireAutomatically = args['hireAutomatically'] as bool? ?? false;
       }
       // Opponent field should only be populated from args during edit flow
@@ -191,18 +268,21 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
       } else {
         _opponentController.text = '';
       }
-      
+
       // Validate that _officialsRequired is a valid option
-      if (_officialsRequired != null && !_officialsOptions.contains(_officialsRequired)) {
+      if (_officialsRequired != null &&
+          !_officialsOptions.contains(_officialsRequired)) {
         _officialsRequired = null;
       }
-      
+
       // Clear game fee if it's "0" (from away game) so hint text shows
-      if (_gameFeeController.text == '0' || _gameFeeController.text == '0.0' || _gameFeeController.text == '0.00') {
+      if (_gameFeeController.text == '0' ||
+          _gameFeeController.text == '0.0' ||
+          _gameFeeController.text == '0.00') {
         _gameFeeController.text = '';
       }
     }
-    
+
     setState(() {
       _isInitialized = true;
     });
@@ -212,30 +292,33 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
     if (template == null || template!.method != 'advanced') {
       return [];
     }
-    
+
     // Return the selectedLists directly from the template if available
-    if (template!.selectedLists != null && template!.selectedLists!.isNotEmpty) {
+    if (template!.selectedLists != null &&
+        template!.selectedLists!.isNotEmpty) {
       return List<Map<String, dynamic>>.from(template!.selectedLists!);
     }
-    
+
     return [];
   }
 
   Future<List<Map<String, dynamic>>> _getTemplateListOfficials() async {
-    if (template == null || template!.method != 'use_list' || template!.officialsListName == null) {
+    if (template == null ||
+        template!.method != 'use_list' ||
+        template!.officialsListName == null) {
       return [];
     }
 
     try {
       final prefs = await SharedPreferences.getInstance();
       final String? listsJson = prefs.getString('saved_lists');
-      
+
       if (listsJson == null || listsJson.isEmpty) {
         return [];
       }
-      
+
       final List<dynamic> lists = jsonDecode(listsJson);
-      
+
       // Find the list by name
       for (final list in lists) {
         if (list['name'] == template!.officialsListName) {
@@ -248,7 +331,7 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
           }
         }
       }
-      
+
       return [];
     } catch (e) {
       return [];
@@ -256,10 +339,12 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
   }
 
   List<Map<String, dynamic>> _getTemplateAdvancedOfficials() {
-    if (template == null || template!.method != 'advanced' || template!.selectedLists == null) {
+    if (template == null ||
+        template!.method != 'advanced' ||
+        template!.selectedLists == null) {
       return [];
     }
-    
+
     // Collect all officials from all selected lists in the template
     List<Map<String, dynamic>> allOfficials = [];
     for (var list in template!.selectedLists!) {
@@ -276,7 +361,6 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
   }
 
   Future<void> _handleContinue() async {
-    
     if (!_isAwayGame) {
       if (_levelOfCompetition == null ||
           _gender == null ||
@@ -309,15 +393,22 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
 
     final args =
         ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
-    
+
+    debugPrint('Template in args: ${args['template']}');
+    debugPrint('Template method: ${template?.method}');
+    debugPrint(
+        'Template selectedLists: ${template?.selectedLists?.length ?? 0}');
+    debugPrint('Template selectedLists content: ${template?.selectedLists}');
+
     // Load officials from template if needed
     List<Map<String, dynamic>> templateOfficials = [];
     if (template?.method == 'use_list' && template?.officialsListName != null) {
       templateOfficials = await _getTemplateListOfficials();
-    } else if (template?.method == 'advanced' && template?.selectedLists != null) {
+    } else if (template?.method == 'advanced' &&
+        template?.selectedLists != null) {
       templateOfficials = _getTemplateAdvancedOfficials();
     }
-    
+
     final updatedArgs = {
       ...args,
       'id': args['id'] ?? DateTime.now().millisecondsSinceEpoch,
@@ -329,19 +420,31 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
       'hireAutomatically': _isAwayGame ? false : _hireAutomatically,
       'isAway': _isAwayGame,
       'officialsHired': args['officialsHired'] ?? 0,
-      'selectedOfficials': (template?.method == 'use_list' || template?.method == 'advanced') && templateOfficials.isNotEmpty
-          ? templateOfficials
-          : (args['selectedOfficials'] ?? <Map<String, dynamic>>[]),
+      'selectedOfficials':
+          (template?.method == 'use_list' || template?.method == 'advanced') &&
+                  templateOfficials.isNotEmpty
+              ? templateOfficials
+              : (args['selectedOfficials'] ?? <Map<String, dynamic>>[]),
       'template': template,
       // Add template-specific data for advanced method
       'method': template?.method,
-      'selectedLists': template?.method == 'advanced' ? _getTemplateSelectedLists() : (args['selectedLists'] ?? []),
-      'selectedListName': template?.method == 'use_list' ? template?.officialsListName : args['selectedListName'],
+      'selectedLists': template?.method == 'advanced'
+          ? _getTemplateSelectedLists()
+          : (args['selectedLists'] ?? []),
+      'selectedListName': template?.method == 'use_list'
+          ? template?.officialsListName
+          : args['selectedListName'],
       'sport': template?.includeSport == true ? template?.sport : args['sport'],
+      'location': template?.includeLocation == true
+          ? template?.location
+          : args['location'],
       'fromScheduleDetails': args['fromScheduleDetails'] ?? false,
       'scheduleId': args['scheduleId'],
       'scheduleName': args['scheduleName'],
     };
+
+    debugPrint('Updated args method: ${updatedArgs['method']}');
+    debugPrint('Updated args selectedLists: ${updatedArgs['selectedLists']}');
 
     if (_isFromEdit) {
       // When editing an existing game, navigate directly to review screen
@@ -362,18 +465,30 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
       } else {
         // Check if template has a specific method for officials selection
         if (template?.method != null) {
+          debugPrint('Template method: ${template!.method}');
+          debugPrint(
+              'Template selectedLists: ${template!.selectedLists?.length ?? 0}');
+          debugPrint(
+              'Template selectedLists content: ${template!.selectedLists}');
+
           switch (template!.method) {
             case 'advanced':
               // If template has pre-configured selectedLists with min/max data, skip advanced selection
-              if (template!.selectedLists != null && template!.selectedLists!.isNotEmpty) {
+              if (template!.selectedLists != null &&
+                  template!.selectedLists!.isNotEmpty) {
+                debugPrint('Using pre-configured lists, skipping to review');
+                updatedArgs['selectedLists'] = template!.selectedLists;
                 nextRoute = '/review_game_info';
               } else {
+                debugPrint(
+                    'No pre-configured lists, going to advanced selection');
                 nextRoute = '/advanced_officials_selection';
               }
               break;
             case 'use_list':
               // If template has a pre-selected list, skip the list selection screen
-              if (template!.officialsListName != null && template!.officialsListName!.isNotEmpty) {
+              if (template!.officialsListName != null &&
+                  template!.officialsListName!.isNotEmpty) {
                 nextRoute = '/review_game_info';
               } else {
                 nextRoute = '/lists_of_officials';
@@ -389,7 +504,8 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
           nextRoute = '/select_officials';
         }
       }
-      
+
+      debugPrint('Navigating to: $nextRoute');
       Navigator.pushNamed(
         context,
         nextRoute,
@@ -457,11 +573,13 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
                     children: [
                       if (!_isAwayGame) ...[
                         DropdownButtonFormField<String>(
-                          decoration: textFieldDecoration('Level of competition'),
+                          decoration:
+                              textFieldDecoration('Level of competition'),
                           value: _levelOfCompetition,
                           hint: const Text('Level of competition',
                               style: TextStyle(color: efficialsGray)),
-                          style: const TextStyle(color: Colors.white, fontSize: 16),
+                          style: const TextStyle(
+                              color: Colors.white, fontSize: 16),
                           dropdownColor: darkSurface,
                           onChanged: (value) {
                             setState(() {
@@ -487,7 +605,8 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
                           value: _gender,
                           hint: const Text('Select gender',
                               style: TextStyle(color: efficialsGray)),
-                          style: const TextStyle(color: Colors.white, fontSize: 16),
+                          style: const TextStyle(
+                              color: Colors.white, fontSize: 16),
                           dropdownColor: darkSurface,
                           onChanged: (value) => setState(() => _gender = value),
                           items: _currentGenders
@@ -500,12 +619,13 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
                         ),
                         const SizedBox(height: 20),
                         DropdownButtonFormField<int>(
-                          decoration:
-                              textFieldDecoration('Required number of officials'),
+                          decoration: textFieldDecoration(
+                              'Required number of officials'),
                           value: _officialsRequired,
                           hint: const Text('Required number of officials',
                               style: TextStyle(color: efficialsGray)),
-                          style: const TextStyle(color: Colors.white, fontSize: 16),
+                          style: const TextStyle(
+                              color: Colors.white, fontSize: 16),
                           dropdownColor: darkSurface,
                           onChanged: (value) =>
                               setState(() => _officialsRequired = value),
@@ -523,16 +643,20 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
                           enabled: true,
                           autofocus: false,
                           decoration:
-                              textFieldDecoration('Game Fee per Official').copyWith(
+                              textFieldDecoration('Game Fee per Official')
+                                  .copyWith(
                             prefixText: '\$',
-                            prefixStyle: const TextStyle(color: fieldLineWhite, fontSize: 16),
+                            prefixStyle: const TextStyle(
+                                color: fieldLineWhite, fontSize: 16),
                             hintText: 'Enter fee (e.g., 50 or 50.00)',
                             hintStyle: const TextStyle(color: efficialsGray),
                           ),
-                          style: const TextStyle(color: fieldLineWhite, fontSize: 16),
+                          style: const TextStyle(
+                              color: fieldLineWhite, fontSize: 16),
                           keyboardType: TextInputType.number,
                           inputFormatters: [
-                            FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                            FilteringTextInputFormatter.allow(
+                                RegExp(r'[0-9.]')),
                             LengthLimitingTextInputFormatter(
                                 7), // Allow for "99999.99"
                           ],
@@ -544,7 +668,8 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
                         enabled: true,
                         autofocus: false,
                         decoration: textFieldDecoration('Opponent'),
-                        style: const TextStyle(color: Colors.white, fontSize: 16),
+                        style:
+                            const TextStyle(color: Colors.white, fontSize: 16),
                         keyboardType: TextInputType.text,
                       ),
                       const SizedBox(height: 8),
@@ -584,7 +709,8 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
                 ElevatedButton(
                   onPressed: _handleContinue,
                   style: elevatedButtonStyle(
-                    padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 50),
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 15, horizontal: 50),
                   ),
                   child: const Text('Continue', style: signInButtonTextStyle),
                 ),

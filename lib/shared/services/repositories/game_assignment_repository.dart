@@ -1,9 +1,14 @@
+import 'package:sqflite/sqflite.dart';
 import 'base_repository.dart';
 import '../../models/database_models.dart';
 import 'notification_repository.dart';
+import 'advanced_method_repository.dart';
+import 'package:flutter/foundation.dart'; // Added for debugPrint
 
 class GameAssignmentRepository extends BaseRepository {
-  
+  final AdvancedMethodRepository _advancedMethodRepo =
+      AdvancedMethodRepository();
+
   // Get all assignments for a specific official
   Future<List<GameAssignment>> getAssignmentsForOfficial(int officialId) async {
     final results = await rawQuery('''
@@ -17,12 +22,13 @@ class GameAssignmentRepository extends BaseRepository {
       WHERE ga.official_id = ?
       ORDER BY g.date ASC, g.time ASC
     ''', [officialId]);
-    
+
     return results.map((data) => GameAssignment.fromMap(data)).toList();
   }
-  
+
   // Get assignments by status for a specific official
-  Future<List<GameAssignment>> getAssignmentsByStatus(int officialId, String status) async {
+  Future<List<GameAssignment>> getAssignmentsByStatus(
+      int officialId, String status) async {
     final results = await rawQuery('''
       SELECT ga.*, g.date, g.time, g.opponent, g.home_team, g.game_fee, g.level_of_competition,
              l.name as location_name, l.address as location_address,
@@ -34,7 +40,7 @@ class GameAssignmentRepository extends BaseRepository {
       WHERE ga.official_id = ? AND ga.status = ?
       ORDER BY g.date ASC, g.time ASC
     ''', [officialId, status]);
-    
+
     return results.map((data) => GameAssignment.fromMap(data)).toList();
   }
 
@@ -66,36 +72,22 @@ class GameAssignmentRepository extends BaseRepository {
       ORDER BY g.date ASC, g.time ASC
     ''', [officialId]);
 
-    // Get available games
-    final availableResults = await rawQuery('''
-      SELECT DISTINCT g.*, l.name as location_name, l.address as location_address,
-             s.name as sport_name, u.first_name, u.last_name,
-             'available' as assignment_status
-      FROM games g
-      LEFT JOIN locations l ON g.location_id = l.id
-      LEFT JOIN sports s ON g.sport_id = s.id
-      LEFT JOIN users u ON g.user_id = u.id
-      WHERE g.id NOT IN (
-        SELECT ga.game_id 
-        FROM game_assignments ga 
-        WHERE ga.official_id = ?
-      )
-      AND g.status = 'Published'
-      AND g.date >= date('now')
-      AND g.officials_required > g.officials_hired
-      ORDER BY g.date ASC, g.time ASC
-    ''', [officialId]);
+    // Get available games using Advanced Method filtering
+    final availableResults =
+        await _getAvailableGamesWithAdvancedFiltering(officialId);
 
     // Transform data
-    final acceptedGames = acceptedResults.map((data) => GameAssignment.fromMap(data)).toList();
-    final pendingGames = pendingResults.map((data) => GameAssignment.fromMap(data)).toList();
-    
+    final acceptedGames =
+        acceptedResults.map((data) => GameAssignment.fromMap(data)).toList();
+    final pendingGames =
+        pendingResults.map((data) => GameAssignment.fromMap(data)).toList();
+
     // Transform available games with scheduler info
     final availableGames = availableResults.map((game) {
       final firstName = game['first_name'] ?? '';
       final lastName = game['last_name'] ?? '';
       final scheduler = '$firstName $lastName'.trim();
-      
+
       return Map<String, dynamic>.from(game)..['scheduler'] = scheduler;
     }).toList();
 
@@ -105,55 +97,39 @@ class GameAssignmentRepository extends BaseRepository {
       'available': availableGames,
     };
   }
-  
+
   // Get available games for an official (games that match their sports/criteria but aren't assigned yet)
-  Future<List<Map<String, dynamic>>> getAvailableGamesForOfficial(int officialId) async {
-    final results = await rawQuery('''
-      SELECT DISTINCT g.*, l.name as location_name, l.address as location_address,
-             s.name as sport_name, u.first_name, u.last_name,
-             'available' as assignment_status
-      FROM games g
-      LEFT JOIN locations l ON g.location_id = l.id
-      LEFT JOIN sports s ON g.sport_id = s.id
-      LEFT JOIN users u ON g.user_id = u.id
-      WHERE g.id NOT IN (
-        SELECT ga.game_id 
-        FROM game_assignments ga 
-        WHERE ga.official_id = ?
-      )
-      AND g.status = 'Published'
-      AND g.date >= date('now')
-      AND g.officials_required > g.officials_hired
-      ORDER BY g.date ASC, g.time ASC
-    ''', [officialId]);
-    
-    return results;
+  Future<List<Map<String, dynamic>>> getAvailableGamesForOfficial(
+      int officialId) async {
+    return await _getAvailableGamesWithAdvancedFiltering(officialId);
   }
-  
+
   // Create a new assignment
   Future<int> createAssignment(GameAssignment assignment) async {
     return await insert('game_assignments', assignment.toMap());
   }
-  
+
   // Update assignment status (accept/decline)
-  Future<int> updateAssignmentStatus(int assignmentId, String status, {String? responseNotes}) async {
+  Future<int> updateAssignmentStatus(int assignmentId, String status,
+      {String? responseNotes}) async {
     final data = {
       'status': status,
       'responded_at': DateTime.now().toIso8601String(),
     };
-    
+
     if (responseNotes != null) {
       data['response_notes'] = responseNotes;
     }
-    
-    final result = await update('game_assignments', data, 'id = ?', [assignmentId]);
-    
+
+    final result =
+        await update('game_assignments', data, 'id = ?', [assignmentId]);
+
     // If status is 'accepted', increment the official's accepted games count
     if (status == 'accepted') {
       final assignment = await rawQuery('''
         SELECT official_id FROM game_assignments WHERE id = ?
       ''', [assignmentId]);
-      
+
       if (assignment.isNotEmpty) {
         final officialId = assignment.first['official_id'];
         await rawQuery('''
@@ -161,38 +137,41 @@ class GameAssignmentRepository extends BaseRepository {
           SET total_accepted_games = total_accepted_games + 1
           WHERE id = ?
         ''', [officialId]);
-        
+
         // Recalculate follow-through rate
         await _updateOfficialFollowThroughRate(officialId);
       }
     }
-    
+
     return result;
   }
 
   // Get assignment by game and official
-  Future<GameAssignment?> getAssignmentByGameAndOfficial(int gameId, int officialId) async {
+  Future<GameAssignment?> getAssignmentByGameAndOfficial(
+      int gameId, int officialId) async {
     final results = await query(
       'game_assignments',
       where: 'game_id = ? AND official_id = ?',
       whereArgs: [gameId, officialId],
     );
-    
+
     if (results.isEmpty) return null;
     return GameAssignment.fromMap(results.first);
   }
-  
+
   // Express interest in a game (create pending assignment)
-  Future<int> expressInterest(int gameId, int officialId, double? feeAmount) async {
+  Future<int> expressInterest(
+      int gameId, int officialId, double? feeAmount) async {
     final assignment = GameAssignment(
       gameId: gameId,
       officialId: officialId,
       status: 'pending',
-      assignedBy: officialId, // Official is expressing interest, so they're the one initiating
+      assignedBy:
+          officialId, // Official is expressing interest, so they're the one initiating
       assignedAt: DateTime.now(),
       feeAmount: feeAmount,
     );
-    
+
     return await createAssignment(assignment);
   }
 
@@ -209,42 +188,45 @@ class GameAssignmentRepository extends BaseRepository {
         respondedAt: DateTime.now(),
         feeAmount: feeAmount,
       );
-      
+
       // Create the assignment
       final assignmentId = await createAssignment(assignment);
-      
+
       // Increment the officials_hired count for the game
       await rawQuery('''
         UPDATE games 
         SET officials_hired = officials_hired + 1 
         WHERE id = ?
       ''', [gameId]);
-      
+
       // Increment official's accepted games count
       await rawQuery('''
         UPDATE officials 
         SET total_accepted_games = total_accepted_games + 1
         WHERE id = ?
       ''', [officialId]);
-      
+
       // Recalculate follow-through rate (though it should stay the same since no backouts yet)
       await _updateOfficialFollowThroughRate(officialId);
-      
+
       return assignmentId;
     } catch (e) {
       print('Error claiming game: $e');
       throw Exception('Failed to claim game: ${e.toString()}');
     }
   }
-  
+
   // Withdraw interest in a game
   Future<int> withdrawInterest(int gameId, int officialId) async {
-    return await delete('game_assignments', 'game_id = ? AND official_id = ? AND status = ?', 
-                      [gameId, officialId, 'pending']);
+    return await delete(
+        'game_assignments',
+        'game_id = ? AND official_id = ? AND status = ?',
+        [gameId, officialId, 'pending']);
   }
-  
+
   // Get all interested officials for a specific game (pending assignments)
-  Future<List<Map<String, dynamic>>> getInterestedOfficialsForGame(int gameId) async {
+  Future<List<Map<String, dynamic>>> getInterestedOfficialsForGame(
+      int gameId) async {
     final results = await rawQuery('''
       SELECT o.id, o.name, o.phone, o.email, o.experience_years,
              ga.assigned_at, ga.fee_amount,
@@ -254,12 +236,13 @@ class GameAssignmentRepository extends BaseRepository {
       WHERE ga.game_id = ? AND ga.status = 'pending'
       ORDER BY ga.assigned_at ASC
     ''', [gameId]);
-    
+
     return results;
   }
 
   // Get all confirmed officials for a specific game (accepted assignments)
-  Future<List<Map<String, dynamic>>> getConfirmedOfficialsForGame(int gameId) async {
+  Future<List<Map<String, dynamic>>> getConfirmedOfficialsForGame(
+      int gameId) async {
     final results = await rawQuery('''
       SELECT o.id, o.name, o.phone, o.email, o.experience_years,
              ga.assigned_at, ga.responded_at, ga.fee_amount,
@@ -269,7 +252,7 @@ class GameAssignmentRepository extends BaseRepository {
       WHERE ga.game_id = ? AND ga.status = 'accepted'
       ORDER BY ga.responded_at ASC
     ''', [gameId]);
-    
+
     return results;
   }
 
@@ -283,17 +266,19 @@ class GameAssignmentRepository extends BaseRepository {
       WHERE g.id = ?
       LIMIT 1
     ''', [gameId]);
-    
+
     return results.isNotEmpty ? results.first : null;
   }
 
   // Create initial assignments for officials when a game is published with a list
-  Future<void> createInitialAssignmentsFromList(int gameId, List<Map<String, dynamic>> officials, int schedulerId) async {
+  Future<void> createInitialAssignmentsFromList(
+      int gameId, List<Map<String, dynamic>> officials, int schedulerId) async {
     for (final official in officials) {
       final officialId = official['id'] as int;
-      
+
       // Check if assignment already exists
-      final existingAssignment = await getAssignmentByGameAndOfficial(gameId, officialId);
+      final existingAssignment =
+          await getAssignmentByGameAndOfficial(gameId, officialId);
       if (existingAssignment == null) {
         // Create pending assignment
         final assignment = GameAssignment(
@@ -309,7 +294,11 @@ class GameAssignmentRepository extends BaseRepository {
   }
 
   // Update assignments when game list is changed
-  Future<void> updateAssignmentsForListChange(int gameId, List<Map<String, dynamic>> oldOfficials, List<Map<String, dynamic>> newOfficials, int schedulerId) async {
+  Future<void> updateAssignmentsForListChange(
+      int gameId,
+      List<Map<String, dynamic>> oldOfficials,
+      List<Map<String, dynamic>> newOfficials,
+      int schedulerId) async {
     // Get current assignments for this game
     final currentAssignments = await rawQuery('''
       SELECT * FROM game_assignments WHERE game_id = ?
@@ -318,9 +307,10 @@ class GameAssignmentRepository extends BaseRepository {
     final oldOfficialIds = oldOfficials.map((o) => o['id'] as int).toSet();
     final newOfficialIds = newOfficials.map((o) => o['id'] as int).toSet();
     final currentAssignmentsByOfficial = <int, Map<String, dynamic>>{};
-    
+
     for (final assignment in currentAssignments) {
-      currentAssignmentsByOfficial[assignment['official_id'] as int] = assignment;
+      currentAssignmentsByOfficial[assignment['official_id'] as int] =
+          assignment;
     }
 
     // Remove assignments for officials no longer in the list (but preserve confirmed officials)
@@ -329,7 +319,10 @@ class GameAssignmentRepository extends BaseRepository {
       final assignment = currentAssignmentsByOfficial[officialId];
       if (assignment != null && assignment['status'] == 'pending') {
         // Only remove pending assignments, preserve confirmed ones
-        await delete('game_assignments', 'game_id = ? AND official_id = ? AND status = ?', [gameId, officialId, 'pending']);
+        await delete(
+            'game_assignments',
+            'game_id = ? AND official_id = ? AND status = ?',
+            [gameId, officialId, 'pending']);
       }
       // Confirmed officials (status = 'accepted') are preserved even if removed from list
     }
@@ -355,11 +348,13 @@ class GameAssignmentRepository extends BaseRepository {
   Future<bool> removeOfficialFromGame(int gameId, int officialId) async {
     try {
       // Get the assignment
-      final assignment = await getAssignmentByGameAndOfficial(gameId, officialId);
+      final assignment =
+          await getAssignmentByGameAndOfficial(gameId, officialId);
       if (assignment == null) return false;
 
       // Delete the assignment
-      await delete('game_assignments', 'game_id = ? AND official_id = ?', [gameId, officialId]);
+      await delete('game_assignments', 'game_id = ? AND official_id = ?',
+          [gameId, officialId]);
 
       // If the official was confirmed, decrement officials_hired count
       if (assignment.status == 'accepted') {
@@ -368,14 +363,14 @@ class GameAssignmentRepository extends BaseRepository {
           SET officials_hired = officials_hired - 1 
           WHERE id = ?
         ''', [gameId]);
-        
+
         // Also decrement official's accepted games count
         await rawQuery('''
           UPDATE officials 
           SET total_accepted_games = total_accepted_games - 1
           WHERE id = ?
         ''', [officialId]);
-        
+
         // Recalculate follow-through rate
         await _updateOfficialFollowThroughRate(officialId);
       }
@@ -400,33 +395,35 @@ class GameAssignmentRepository extends BaseRepository {
         LEFT JOIN sports s ON g.sport_id = s.id
         WHERE ga.id = ?
       ''', [assignmentId]);
-      
+
       if (assignmentDetails.isEmpty) {
         throw Exception('Assignment not found');
       }
-      
+
       final assignment = assignmentDetails.first;
       final gameId = assignment['game_id'];
       final officialId = assignment['official_id'];
       final schedulerId = assignment['scheduler_id'];
       final backedOutAt = DateTime.now();
-      
+
       // Update the assignment status
       final data = {
         'status': 'backed_out',
         'backed_out_at': backedOutAt.toIso8601String(),
         'back_out_reason': reason,
       };
-      
-      final result = await update('game_assignments', data, 'id = ?', [assignmentId]);
-      
+
+      final result =
+          await update('game_assignments', data, 'id = ?', [assignmentId]);
+
       // Create backout notification using the proper notification system
       final notificationRepo = NotificationRepository();
       await notificationRepo.createBackoutNotification(
         schedulerId: schedulerId,
         officialName: assignment['official_name'] ?? 'Unknown Official',
         gameSport: assignment['sport_name'] ?? 'Game',
-        gameOpponent: assignment['opponent'] ?? assignment['home_team'] ?? 'TBD',
+        gameOpponent:
+            assignment['opponent'] ?? assignment['home_team'] ?? 'TBD',
         gameDate: DateTime.parse(assignment['date']),
         gameTime: assignment['time'] ?? 'TBD',
         reason: reason,
@@ -437,17 +434,17 @@ class GameAssignmentRepository extends BaseRepository {
           'backed_out_at': backedOutAt.toIso8601String(),
         },
       );
-      
+
       // Update official's stats (increase backed out games count)
       await rawQuery('''
         UPDATE officials 
         SET total_backed_out_games = total_backed_out_games + 1
         WHERE id = ?
       ''', [officialId]);
-      
+
       // Recalculate follow-through rate
       await _updateOfficialFollowThroughRate(officialId);
-      
+
       // Decrease the officials_hired count for the game to allow position to be refilled
       await rawQuery('''
         UPDATE games 
@@ -457,14 +454,14 @@ class GameAssignmentRepository extends BaseRepository {
         END 
         WHERE id = ?
       ''', [gameId]);
-      
+
       return result;
     } catch (e) {
       print('Error backing out of game: $e');
       throw Exception('Failed to back out of game: ${e.toString()}');
     }
   }
-  
+
   // Helper method to update official's follow-through rate
   Future<void> _updateOfficialFollowThroughRate(int officialId) async {
     // Get current stats
@@ -473,22 +470,22 @@ class GameAssignmentRepository extends BaseRepository {
       FROM officials 
       WHERE id = ?
     ''', [officialId]);
-    
+
     if (stats.isNotEmpty) {
       final totalAccepted = stats.first['total_accepted_games'] ?? 0;
       final totalBackedOut = stats.first['total_backed_out_games'] ?? 0;
-      
+
       // Calculate follow-through rate: (accepted - backed_out) / accepted * 100
       // If no games accepted yet, rate stays at 100%
       double followThroughRate = 100.0;
       if (totalAccepted > 0) {
         final successfulGames = totalAccepted - totalBackedOut;
         followThroughRate = (successfulGames / totalAccepted) * 100.0;
-        
+
         // Ensure rate is between 0 and 100
         followThroughRate = followThroughRate.clamp(0.0, 100.0);
       }
-      
+
       await rawQuery('''
         UPDATE officials 
         SET follow_through_rate = ?
@@ -496,9 +493,10 @@ class GameAssignmentRepository extends BaseRepository {
       ''', [followThroughRate, officialId]);
     }
   }
-  
+
   // Get pending backout notifications for a scheduler
-  Future<List<Map<String, dynamic>>> getPendingBackoutNotifications(int schedulerId) async {
+  Future<List<Map<String, dynamic>>> getPendingBackoutNotifications(
+      int schedulerId) async {
     return await rawQuery('''
       SELECT obn.*, o.name as official_name, s.name as sport_name,
              g.date, g.time, g.opponent, g.home_team
@@ -510,39 +508,48 @@ class GameAssignmentRepository extends BaseRepository {
       ORDER BY obn.backed_out_at DESC
     ''', [schedulerId]);
   }
-  
+
   // Excuse an official's backout
-  Future<int> excuseOfficialBackout(int notificationId, int excusedBy, String excuseReason) async {
+  Future<int> excuseOfficialBackout(
+      int notificationId, int excusedBy, String excuseReason) async {
     try {
       final excusedAt = DateTime.now();
-      
+
       // Get the notification details
       final notification = await rawQuery('''
         SELECT * FROM official_backout_notifications WHERE id = ?
       ''', [notificationId]);
-      
+
       if (notification.isEmpty) {
         throw Exception('Notification not found');
       }
-      
+
       final officialId = notification.first['official_id'];
       final assignmentId = notification.first['assignment_id'];
-      
+
       // Update the notification as excused
-      await update('official_backout_notifications', {
-        'excused_at': excusedAt.toIso8601String(),
-        'excused_by': excusedBy,
-        'excuse_reason': excuseReason,
-      }, 'id = ?', [notificationId]);
-      
+      await update(
+          'official_backout_notifications',
+          {
+            'excused_at': excusedAt.toIso8601String(),
+            'excused_by': excusedBy,
+            'excuse_reason': excuseReason,
+          },
+          'id = ?',
+          [notificationId]);
+
       // Update the game assignment to mark as excused
-      await update('game_assignments', {
-        'excused_backout': 1,
-        'excused_at': excusedAt.toIso8601String(),
-        'excused_by': excusedBy,
-        'excuse_reason': excuseReason,
-      }, 'id = ?', [assignmentId]);
-      
+      await update(
+          'game_assignments',
+          {
+            'excused_backout': 1,
+            'excused_at': excusedAt.toIso8601String(),
+            'excused_by': excusedBy,
+            'excuse_reason': excuseReason,
+          },
+          'id = ?',
+          [assignmentId]);
+
       // Decrease the official's backed out games count
       await rawQuery('''
         UPDATE officials 
@@ -552,26 +559,31 @@ class GameAssignmentRepository extends BaseRepository {
         END 
         WHERE id = ?
       ''', [officialId]);
-      
+
       // Recalculate follow-through rate
       await _updateOfficialFollowThroughRate(officialId);
-      
+
       return 1;
     } catch (e) {
       print('Error excusing official backout: $e');
       throw Exception('Failed to excuse official backout: ${e.toString()}');
     }
   }
-  
+
   // Mark notification as read
   Future<int> markNotificationAsRead(int notificationId) async {
-    return await update('official_backout_notifications', {
-      'notification_read_at': DateTime.now().toIso8601String(),
-    }, 'id = ?', [notificationId]);
+    return await update(
+        'official_backout_notifications',
+        {
+          'notification_read_at': DateTime.now().toIso8601String(),
+        },
+        'id = ?',
+        [notificationId]);
   }
-  
+
   // Get backout notification by ID
-  Future<Map<String, dynamic>?> getBackoutNotification(int notificationId) async {
+  Future<Map<String, dynamic>?> getBackoutNotification(
+      int notificationId) async {
     final results = await rawQuery('''
       SELECT obn.*, o.name as official_name, s.name as sport_name,
              g.date, g.time, g.opponent, g.home_team, g.location_id,
@@ -583,8 +595,271 @@ class GameAssignmentRepository extends BaseRepository {
       LEFT JOIN locations l ON g.location_id = l.id
       WHERE obn.id = ?
     ''', [notificationId]);
-    
+
     return results.isNotEmpty ? results.first : null;
   }
 
+  // Helper method to get available games with Advanced Method filtering
+  Future<List<Map<String, dynamic>>> _getAvailableGamesWithAdvancedFiltering(
+      int officialId) async {
+    try {
+      debugPrint(
+          '🔍 _getAvailableGamesWithAdvancedFiltering called for official $officialId');
+
+      // First, get all potentially available games (basic filtering)
+      final basicResults = await rawQuery('''
+        SELECT DISTINCT g.*, l.name as location_name, l.address as location_address,
+               s.name as sport_name, u.first_name, u.last_name,
+               'available' as assignment_status
+        FROM games g
+        LEFT JOIN locations l ON g.location_id = l.id
+        LEFT JOIN sports s ON g.sport_id = s.id
+        LEFT JOIN users u ON g.user_id = u.id
+        WHERE g.id NOT IN (
+          SELECT ga.game_id 
+          FROM game_assignments ga 
+          WHERE ga.official_id = ?
+        )
+        AND g.status = 'Published'
+        -- AND g.date >= date('now')  -- Temporarily disabled for testing
+        AND g.officials_required > g.officials_hired
+        ORDER BY g.date ASC, g.time ASC
+      ''', [officialId]);
+
+      debugPrint(
+          '🎮 Found ${basicResults.length} potentially available games for official $officialId');
+
+      // Debug: Show all published games to understand why they're being filtered
+      if (basicResults.isEmpty) {
+        debugPrint(
+            '🔍 Debug: Checking why no games found. Let me query all published games...');
+        final allPublishedGames = await rawQuery('''
+          SELECT g.id, g.date, g.time, g.status, g.officials_required, g.officials_hired, g.method
+          FROM games g
+          WHERE g.status = 'Published'
+          ORDER BY g.id DESC
+        ''', []);
+
+        debugPrint('📊 All published games:');
+        for (final game in allPublishedGames) {
+          debugPrint(
+              '  Game ${game['id']}: date=${game['date']}, time=${game['time']}, status=${game['status']}, required=${game['officials_required']}, hired=${game['officials_hired']}, method=${game['method']}');
+        }
+
+        // Check if the game exists but is being filtered by date
+        final today = DateTime.now();
+        debugPrint('📅 Today\'s date: ${today.toIso8601String()}');
+
+        // Check if there are any games that should be visible
+        final gamesWithoutDateFilter = await rawQuery('''
+          SELECT g.id, g.date, g.time, g.status, g.officials_required, g.officials_hired, g.method
+          FROM games g
+          WHERE g.status = 'Published'
+          AND g.officials_required > g.officials_hired
+          ORDER BY g.id DESC
+        ''', []);
+
+        debugPrint(
+            '🎯 Games without date filter: ${gamesWithoutDateFilter.length}');
+        for (final game in gamesWithoutDateFilter) {
+          debugPrint(
+              '  Game ${game['id']}: date=${game['date']}, time=${game['time']}');
+        }
+      }
+
+      // Apply Advanced Method filtering for each game
+      final filteredResults = <Map<String, dynamic>>[];
+
+      for (final gameData in basicResults) {
+        final gameId = gameData['id'] as int?;
+        final gameMethod = gameData['method'] as String?;
+
+        debugPrint('🎯 Processing game $gameId with method: $gameMethod');
+
+        if (gameId != null) {
+          if (gameMethod == 'advanced') {
+            debugPrint(
+                '🔧 Game $gameId uses Advanced Method - checking visibility...');
+            // Use Advanced Method logic to determine visibility
+            final isVisible = await _advancedMethodRepo.isGameVisibleToOfficial(
+                gameId, officialId);
+            debugPrint('✅ Game $gameId visibility result: $isVisible');
+            if (isVisible) {
+              filteredResults.add(gameData);
+              debugPrint('✅ Game $gameId added to available games');
+            } else {
+              debugPrint(
+                  '❌ Game $gameId filtered out - not visible to official');
+            }
+          } else {
+            debugPrint(
+                '📋 Game $gameId uses traditional method - adding to available games');
+            // Traditional method - game is visible
+            filteredResults.add(gameData);
+          }
+        } else {
+          debugPrint('⚠️ Skipping game with null ID');
+        }
+      }
+
+      debugPrint(
+          '🎯 Final result: ${filteredResults.length} available games for official $officialId');
+      return filteredResults;
+    } catch (e) {
+      print('Error filtering available games with Advanced Method: $e');
+      // Fallback to basic filtering if Advanced Method fails
+      return await rawQuery('''
+        SELECT DISTINCT g.*, l.name as location_name, l.address as location_address,
+               s.name as sport_name, u.first_name, u.last_name,
+               'available' as assignment_status
+        FROM games g
+        LEFT JOIN locations l ON g.location_id = l.id
+        LEFT JOIN sports s ON g.sport_id = s.id
+        LEFT JOIN users u ON g.user_id = u.id
+        WHERE g.id NOT IN (
+          SELECT ga.game_id 
+          FROM game_assignments ga 
+          WHERE ga.official_id = ?
+        )
+        AND g.status = 'Published'
+        AND g.date >= date('now')
+        AND g.officials_required > g.officials_hired
+        ORDER BY g.date ASC, g.time ASC
+      ''', [officialId]);
+    }
+  }
+
+  // Claim a game for an official using Advanced Method logic
+  Future<bool> claimGameForOfficial(int gameId, int officialId) async {
+    try {
+      // Get the game to check its method
+      final gameResults = await rawQuery('''
+        SELECT method FROM games WHERE id = ?
+      ''', [gameId]);
+
+      if (gameResults.isEmpty) {
+        print('Game $gameId not found');
+        return false;
+      }
+
+      final gameMethod = gameResults.first['method'] as String?;
+
+      if (gameMethod == 'advanced') {
+        // Use Advanced Method logic
+        final isVisible = await _advancedMethodRepo.isGameVisibleToOfficial(
+            gameId, officialId);
+        if (!isVisible) {
+          print('Game $gameId is no longer available to official $officialId');
+          return false;
+        }
+
+        // Determine which list to assign from and assign
+        final assignmentListId =
+            await _determineAssignmentList(gameId, officialId);
+        if (assignmentListId == null) {
+          print(
+              'No eligible list found for official $officialId in game $gameId');
+          return false;
+        }
+
+        await _advancedMethodRepo.assignOfficialFromList(
+          gameId: gameId,
+          officialId: officialId,
+          listId: assignmentListId,
+        );
+      } else {
+        // Traditional method - just assign directly
+        await withTransaction((txn) async {
+          // Create assignment
+          await txn.insert('game_assignments', {
+            'game_id': gameId,
+            'official_id': officialId,
+            'status': 'accepted',
+            'assigned_by': 1, // System assigned
+            'assigned_at': DateTime.now().toIso8601String(),
+            'responded_at': DateTime.now().toIso8601String(),
+          });
+
+          // Add to game_officials table
+          await txn.insert(
+              'game_officials',
+              {
+                'game_id': gameId,
+                'official_id': officialId,
+              },
+              conflictAlgorithm: ConflictAlgorithm.ignore);
+
+          // Update game's officials_hired count
+          await txn.rawUpdate('''
+            UPDATE games 
+            SET officials_hired = (
+              SELECT COUNT(*) 
+              FROM game_officials 
+              WHERE game_id = ?
+            ),
+            updated_at = ?
+            WHERE id = ?
+          ''', [gameId, DateTime.now().toIso8601String(), gameId]);
+        });
+      }
+
+      print('Successfully claimed game $gameId for official $officialId');
+      return true;
+    } catch (e) {
+      print('Error claiming game for official: $e');
+      return false;
+    }
+  }
+
+  // Helper method to determine which list to assign an official from
+  Future<int?> _determineAssignmentList(int gameId, int officialId) async {
+    try {
+      // Get all quotas for this game
+      final quotas = await _advancedMethodRepo.getGameListQuotas(gameId);
+
+      // Get all lists this official belongs to for this game's sport
+      final officialLists = await _getOfficialListsForGame(gameId, officialId);
+
+      // Filter quotas to only those where the official is a member and can accept more
+      final eligibleQuotas = quotas
+          .where((quota) =>
+              officialLists.contains(quota.listId) && quota.canAcceptMore)
+          .toList();
+
+      if (eligibleQuotas.isEmpty) {
+        return null;
+      }
+
+      // Prioritize lists that haven't met their minimum requirements
+      final unmetMinimums =
+          eligibleQuotas.where((quota) => !quota.isMinimumSatisfied).toList();
+
+      if (unmetMinimums.isNotEmpty) {
+        // Sort by urgency (highest shortfall first)
+        unmetMinimums.sort((a, b) => b.shortfall.compareTo(a.shortfall));
+        return unmetMinimums.first.listId;
+      }
+
+      // If all minimums are met, assign to the list with the most remaining capacity
+      eligibleQuotas
+          .sort((a, b) => b.remainingSlots.compareTo(a.remainingSlots));
+      return eligibleQuotas.first.listId;
+    } catch (e) {
+      print('Error determining assignment list: $e');
+      return null;
+    }
+  }
+
+  // Get all list IDs that an official belongs to for a specific game's sport
+  Future<List<int>> _getOfficialListsForGame(int gameId, int officialId) async {
+    final results = await rawQuery('''
+      SELECT DISTINCT olm.list_id
+      FROM official_list_members olm
+      INNER JOIN official_lists ol ON olm.list_id = ol.id
+      INNER JOIN games g ON ol.sport_id = g.sport_id
+      WHERE olm.official_id = ? AND g.id = ?
+    ''', [officialId, gameId]);
+
+    return results.map((row) => row['list_id'] as int).toList();
+  }
 }

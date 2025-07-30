@@ -1980,129 +1980,56 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
   void _claimGame(Map<String, dynamic> game) async {
     final gameId = game['game_id'] ?? game['id'];
     final officialId = _currentOfficial!.id!;
-    final feeAmount = _parseDoubleFromString(game['game_fee']);
     
-    
-    // Immediately update the UI state for responsive UX
-    setState(() {
-      // Remove from available games
-      final removedCount = availableGames.length;
-      availableGames.removeWhere((availableGame) => 
-        availableGame['id'] == game['id'] || 
-        (availableGame['game_id'] == game['game_id'] && game['game_id'] != null)
+    // Show loading indicator
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Claiming ${game['sport_name']} game...'),
+          backgroundColor: Colors.blue,
+          duration: const Duration(seconds: 1),
+        ),
       );
-      
-      // Create a GameAssignment object for accepted list using fromMap
-      final acceptedAssignmentMap = {
-        'id': null, // Will be set by database
-        'game_id': gameId,
-        'official_id': officialId,
-        'status': 'accepted',
-        'assigned_by': officialId, // Official is claiming the game
-        'assigned_at': DateTime.now().toIso8601String(),
-        'responded_at': DateTime.now().toIso8601String(),
-        'fee_amount': feeAmount,
-        // Additional fields from game data
-        'date': game['date'],
-        'time': game['time'],
-        'sport_name': game['sport_name'],
-        'opponent': game['opponent'],
-        'location_name': game['location_name'],
-      };
-      
-      final acceptedAssignment = GameAssignment.fromMap(acceptedAssignmentMap);
-      
-      // Add to accepted games and sort by date/time
-      acceptedGames.add(acceptedAssignment);
-      
-      // Sort accepted games by date and time (earliest first)
-      acceptedGames.sort((a, b) {
-        final aDate = a.gameDate;
-        final bDate = b.gameDate;
-        
-        if (aDate == null && bDate == null) return 0;
-        if (aDate == null) return 1;
-        if (bDate == null) return -1;
-        
-        final dateComparison = aDate.compareTo(bDate);
-        if (dateComparison != 0) return dateComparison;
-        
-        // If dates are the same, compare times
-        final aTime = a.gameTime;
-        final bTime = b.gameTime;
-        
-        if (aTime == null && bTime == null) return 0;
-        if (aTime == null) return 1;
-        if (bTime == null) return -1;
-        
-        return aTime.compareTo(bTime);
-      });
-      
-    });
+    }
     
-    // Show immediate feedback
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Successfully claimed ${game['sport_name']} game!'),
-        backgroundColor: Colors.green,
-        duration: const Duration(seconds: 2),
-      ),
-    );
-    
-    // Persist to database in the background
+    // Attempt to claim the game in the database
     try {
-      final assignmentId = await _assignmentRepo.claimGame(gameId, officialId, feeAmount);
-      print('Successfully persisted game claim to database with ID: $assignmentId');
-      
-      // Update the assignment in the UI with the actual database ID
-      if (mounted) {
-        setState(() {
-          final index = acceptedGames.indexWhere((assignment) => 
-            assignment.gameId == gameId && assignment.officialId == officialId && assignment.id == null
+      final success = await _assignmentRepo.claimGameForOfficial(gameId, officialId);
+      if (!success) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Game is no longer available or you are not eligible to claim it'),
+              backgroundColor: Colors.red,
+            ),
           );
-          
-          if (index != -1) {
-            // Create an updated assignment with the actual ID
-            final updatedAssignmentMap = {
-              'id': assignmentId,
-              'game_id': gameId,
-              'official_id': officialId,
-              'status': 'accepted',
-              'assigned_by': officialId,
-              'assigned_at': DateTime.now().toIso8601String(),
-              'responded_at': DateTime.now().toIso8601String(),
-              'fee_amount': feeAmount,
-              // Additional fields from game data
-              'date': game['date'],
-              'time': game['time'],
-              'sport_name': game['sport_name'],
-              'opponent': game['opponent'],
-              'location_name': game['location_name'],
-            };
-            
-            final updatedAssignment = GameAssignment.fromMap(updatedAssignmentMap);
-            acceptedGames[index] = updatedAssignment;
-          }
-        });
+        }
+        return;
+      }
+      
+      print('Successfully claimed game $gameId for official $officialId');
+      
+      // Reload the data to reflect the changes
+      if (mounted) {
+        await _loadData();
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Successfully claimed ${game['sport_name']} game!'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 2),
+          ),
+        );
       }
     } catch (e) {
       print('Error persisting game claim: $e');
       
-      // Revert UI changes if database operation failed
-      setState(() {
-        // Add the game back to available games
-        availableGames.add(game);
-        
-        // Remove from accepted games
-        acceptedGames.removeWhere((assignment) => 
-          assignment.gameId == gameId && assignment.officialId == officialId
-        );
-      });
-      
-      // Show error message
+      // Reload data to revert any UI changes
       if (mounted) {
+        await _loadData();
+        
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+          const SnackBar(
             content: Text('Failed to claim game. Please try again.'),
             backgroundColor: Colors.red,
             duration: const Duration(seconds: 3),

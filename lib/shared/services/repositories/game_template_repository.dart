@@ -12,8 +12,9 @@ class GameTemplateRepository extends BaseRepository {
 
   // Update an existing game template
   Future<int> updateGameTemplate(GameTemplate template) async {
-    if (template.id == null) throw ArgumentError('Template ID cannot be null for update');
-    
+    if (template.id == null)
+      throw ArgumentError('Template ID cannot be null for update');
+
     return await update(
       tableName,
       template.toMap(),
@@ -33,7 +34,8 @@ class GameTemplateRepository extends BaseRepository {
       SELECT gt.*, 
              sp.name as sport_name,
              l.name as location_name,
-             ol.name as officials_list_name
+             ol.name as officials_list_name,
+             gt.selected_lists as selected_lists
       FROM game_templates gt
       LEFT JOIN sports sp ON gt.sport_id = sp.id
       LEFT JOIN locations l ON gt.location_id = l.id
@@ -52,7 +54,8 @@ class GameTemplateRepository extends BaseRepository {
       SELECT gt.*, 
              sp.name as sport_name,
              l.name as location_name,
-             ol.name as officials_list_name
+             ol.name as officials_list_name,
+             gt.selected_lists as selected_lists
       FROM game_templates gt
       LEFT JOIN sports sp ON gt.sport_id = sp.id
       LEFT JOIN locations l ON gt.location_id = l.id
@@ -65,12 +68,14 @@ class GameTemplateRepository extends BaseRepository {
   }
 
   // Get templates by sport for a user
-  Future<List<GameTemplate>> getTemplatesBySport(int userId, int sportId) async {
+  Future<List<GameTemplate>> getTemplatesBySport(
+      int userId, int sportId) async {
     final results = await rawQuery('''
       SELECT gt.*, 
              sp.name as sport_name,
              l.name as location_name,
-             ol.name as officials_list_name
+             ol.name as officials_list_name,
+             gt.selected_lists as selected_lists
       FROM game_templates gt
       LEFT JOIN sports sp ON gt.sport_id = sp.id
       LEFT JOIN locations l ON gt.location_id = l.id
@@ -83,13 +88,15 @@ class GameTemplateRepository extends BaseRepository {
   }
 
   // Get templates by name search (kept for backward compatibility)
-  Future<List<GameTemplate>> searchTemplatesByName(int userId, String searchTerm) async {
+  Future<List<GameTemplate>> searchTemplatesByName(
+      int userId, String searchTerm) async {
     // Use the enhanced search method
     return await getTemplatesByNameSearch(userId, searchTerm);
   }
 
   // Check if template name already exists for user
-  Future<bool> doesTemplateExist(int userId, String name, {int? excludeId}) async {
+  Future<bool> doesTemplateExist(int userId, String name,
+      {int? excludeId}) async {
     String whereClause = 'user_id = ? AND name = ?';
     List<dynamic> whereArgs = [userId, name];
 
@@ -139,17 +146,21 @@ class GameTemplateRepository extends BaseRepository {
   }
 
   // Create game from template with transaction and database insertion
-  Future<Map<String, dynamic>> createGameFromTemplate(GameTemplate template, int userId) async {
+  Future<Map<String, dynamic>> createGameFromTemplate(
+      GameTemplate template, int userId) async {
     Map<String, dynamic>? gameResult;
-    
+
     await withTransaction((txn) async {
       // Prepare game data for database insertion
       final gameData = <String, dynamic>{
         'user_id': userId,
         'sport_id': template.sportId,
         'status': 'Unpublished',
-        'is_away': template.includeIsAwayGame ? (template.isAwayGame ? 1 : 0) : 0,
-        'officials_required': template.includeOfficialsRequired ? (template.officialsRequired ?? 1) : 1,
+        'is_away':
+            template.includeIsAwayGame ? (template.isAwayGame ? 1 : 0) : 0,
+        'officials_required': template.includeOfficialsRequired
+            ? (template.officialsRequired ?? 1)
+            : 1,
         'officials_hired': 0,
         'created_at': DateTime.now().toIso8601String(),
       };
@@ -173,7 +184,8 @@ class GameTemplateRepository extends BaseRepository {
         gameData['location_id'] = template.locationId;
       }
 
-      if (template.includeLevelOfCompetition && template.levelOfCompetition != null) {
+      if (template.includeLevelOfCompetition &&
+          template.levelOfCompetition != null) {
         gameData['level_of_competition'] = template.levelOfCompetition;
       }
 
@@ -192,7 +204,8 @@ class GameTemplateRepository extends BaseRepository {
       // Note: homeTeam not available in GameTemplate model
 
       if (template.includeHireAutomatically) {
-        gameData['hire_automatically'] = (template.hireAutomatically ?? false) ? 1 : 0;
+        gameData['hire_automatically'] =
+            (template.hireAutomatically ?? false) ? 1 : 0;
       }
 
       // Always include the method if it exists
@@ -202,7 +215,7 @@ class GameTemplateRepository extends BaseRepository {
 
       // Insert game into database
       final gameId = await txn.insert('games', gameData);
-      
+
       // Fetch the complete game record with joined data
       final gameResults = await txn.rawQuery('''
         SELECT g.*, 
@@ -214,11 +227,11 @@ class GameTemplateRepository extends BaseRepository {
         LEFT JOIN locations l ON g.location_id = l.id
         WHERE g.id = ?
       ''', [gameId]);
-      
+
       if (gameResults.isNotEmpty) {
         gameResult = Map<String, dynamic>.from(gameResults.first);
         gameResult!['id'] = gameId;
-        
+
         // Convert time back to TimeOfDay format for display
         if (gameResult!['time'] != null) {
           final timeMinutes = gameResult!['time'] as int;
@@ -226,18 +239,18 @@ class GameTemplateRepository extends BaseRepository {
           final minute = timeMinutes % 60;
           gameResult!['time'] = TimeOfDay(hour: hour, minute: minute);
         }
-        
+
         // Convert date string back to DateTime
         if (gameResult!['date'] != null) {
           gameResult!['date'] = DateTime.parse(gameResult!['date'] as String);
         }
       }
     });
-    
+
     if (gameResult == null) {
       throw Exception('Failed to create game from template');
     }
-    
+
     return gameResult!;
   }
 
@@ -258,7 +271,8 @@ class GameTemplateRepository extends BaseRepository {
       SELECT gt.*, 
              sp.name as sport_name,
              l.name as location_name,
-             ol.name as officials_list_name
+             ol.name as officials_list_name,
+             gt.selected_lists as selected_lists
       FROM game_templates gt
       LEFT JOIN sports sp ON gt.sport_id = sp.id
       LEFT JOIN locations l ON gt.location_id = l.id
@@ -277,17 +291,19 @@ class GameTemplateRepository extends BaseRepository {
 
     // Convert templates to maps
     final templateMaps = templates.map((template) => template.toMap()).toList();
-    
+
     return await batchInsert(tableName, templateMaps);
   }
 
   // Enhanced search by name and sport
-  Future<List<GameTemplate>> getTemplatesByNameSearch(int userId, String term) async {
+  Future<List<GameTemplate>> getTemplatesByNameSearch(
+      int userId, String term) async {
     final results = await rawQuery('''
       SELECT gt.*, 
              sp.name as sport_name,
              l.name as location_name,
-             ol.name as officials_list_name
+             ol.name as officials_list_name,
+             gt.selected_lists as selected_lists
       FROM game_templates gt
       LEFT JOIN sports sp ON gt.sport_id = sp.id
       LEFT JOIN locations l ON gt.location_id = l.id
@@ -335,7 +351,8 @@ class GameTemplateRepository extends BaseRepository {
       SELECT gt.*, 
              sp.name as sport_name,
              l.name as location_name,
-             ol.name as officials_list_name
+             ol.name as officials_list_name,
+             gt.selected_lists as selected_lists
       FROM game_templates gt
       LEFT JOIN sports sp ON gt.sport_id = sp.id
       LEFT JOIN locations l ON gt.location_id = l.id

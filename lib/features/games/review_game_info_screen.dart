@@ -5,6 +5,8 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../shared/theme.dart';
 import '../../shared/services/game_service.dart';
+import '../../shared/services/repositories/advanced_method_repository.dart';
+import '../../shared/services/repositories/list_repository.dart'; // Added import for ListRepository
 
 class ReviewGameInfoScreen extends StatefulWidget {
   const ReviewGameInfoScreen({super.key});
@@ -25,15 +27,18 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
   String? teamName;
   bool isUsingTemplate = false;
   bool isAssignerFlow = false;
-  bool _isPublishing = false; // Add loading state to prevent duplicate submissions
-  bool _showButtonLoading = false; // Separate state for button loading indicators
-  bool _hasInitialized = false; // Track if we've already initialized to prevent overwriting
+  bool _isPublishing =
+      false; // Add loading state to prevent duplicate submissions
+  bool _showButtonLoading =
+      false; // Separate state for button loading indicators
+  bool _hasInitialized =
+      false; // Track if we've already initialized to prevent overwriting
   final GameService _gameService = GameService();
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    
+
     // Only initialize once to prevent overwriting state updates from edit flows
     if (!_hasInitialized) {
       final newArgs =
@@ -82,8 +87,11 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           backgroundColor: darkSurface,
-          title: const Text('Create Game Template', 
-              style: TextStyle(color: efficialsYellow, fontSize: 20, fontWeight: FontWeight.bold)),
+          title: const Text('Create Game Template',
+              style: TextStyle(
+                  color: efficialsYellow,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -105,7 +113,8 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
                     checkColor: efficialsBlack,
                   ),
                   const Expanded(
-                    child: Text('Do not ask me again', style: TextStyle(color: Colors.white)),
+                    child: Text('Do not ask me again',
+                        style: TextStyle(color: Colors.white)),
                   ),
                 ],
               ),
@@ -134,7 +143,8 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
                   Navigator.pop(context, true);
                 }
               },
-              child: const Text('Yes', style: TextStyle(color: efficialsYellow)),
+              child:
+                  const Text('Yes', style: TextStyle(color: efficialsYellow)),
             ),
           ],
         ),
@@ -162,12 +172,12 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
   Future<void> _publishGame() async {
     // Prevent multiple simultaneous calls
     if (_isPublishing) return;
-    
+
     setState(() {
       _isPublishing = true;
       _showButtonLoading = true;
     });
-    
+
     try {
       if (!isAwayGame &&
           !(args['hireAutomatically'] == true) &&
@@ -181,134 +191,238 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
         return;
       }
 
-    final gameData = Map<String, dynamic>.from(args);
-    gameData['id'] = gameData['id'] ?? DateTime.now().millisecondsSinceEpoch;
-    gameData['createdAt'] = DateTime.now().toIso8601String();
-    gameData['officialsHired'] = gameData['officialsHired'] ?? 0;
-    gameData['status'] = 'Published';
+      final gameData = Map<String, dynamic>.from(args);
+      gameData['id'] = gameData['id'] ?? DateTime.now().millisecondsSinceEpoch;
+      gameData['createdAt'] = DateTime.now().toIso8601String();
+      gameData['officialsHired'] = gameData['officialsHired'] ?? 0;
+      gameData['status'] = 'Published';
 
-    // Ensure schedule name is set
-    if (gameData['scheduleName'] == null) {
-      if (isCoachScheduler == true) {
-        gameData['scheduleName'] = teamName ?? 'Team Schedule';
-      } else {
-        // For Athletic Director, require a schedule name
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Please set a schedule name before publishing.')),
-        );
-        return;
+      // Ensure schedule name is set
+      if (gameData['scheduleName'] == null) {
+        if (isCoachScheduler == true) {
+          gameData['scheduleName'] = teamName ?? 'Team Schedule';
+        } else {
+          // For Athletic Director, require a schedule name
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content: Text('Please set a schedule name before publishing.')),
+          );
+          return;
+        }
       }
-    }
 
-    // Save to database first with original data types
-    try {
-      final dbResult = await _gameService.createGame(gameData);
-      if (dbResult != null) {
-        final gameId = dbResult['id'] as int;
-        
-        // Create initial assignments for officials if not an away game
-        if (!isAwayGame && gameData['method'] != null) {
-          await _gameService.createInitialAssignments(gameId, gameData['method'] as String, gameData);
-        }
-        
-        // Save advanced selection data for later reconstruction
-        if (gameData['method'] == 'advanced' && gameData['selectedLists'] != null) {
-          final prefs = await SharedPreferences.getInstance();
-          final advancedData = {
-            'selectedLists': gameData['selectedLists'],
-            'selectedOfficials': gameData['selectedOfficials'] ?? [],
-          };
-          await prefs.setString('recent_advanced_selection_$gameId', jsonEncode(advancedData));
-          debugPrint('Saved advanced selection data for game $gameId');
-        } else if (gameData['method'] == 'use_list' && gameData['selectedListName'] != null) {
-          final prefs = await SharedPreferences.getInstance();
-          final useListData = {
-            'selectedListName': gameData['selectedListName'],
-            'selectedOfficials': gameData['selectedOfficials'] ?? [],
-          };
-          await prefs.setString('recent_use_list_selection_$gameId', jsonEncode(useListData));
-          debugPrint('Saved use_list selection data for game $gameId: ${gameData['selectedListName']}');
-        }
-      } else {
-        debugPrint('Failed to save game to database - result was null');
-      }
-    } catch (e) {
-      debugPrint('Error saving game to database: $e');
-      // Continue with SharedPreferences as fallback
-    }
+      // Save to database first with original data types
+      try {
+        final dbResult = await _gameService.createGame(gameData);
+        if (dbResult != null) {
+          final gameId = dbResult['id'] as int;
 
-    // Database storage is now the primary method - no longer saving to SharedPreferences to avoid duplicates
+          // IMPORTANT: For officials to see games in "Available Games", we should NOT create initial assignments
+          // Creating assignments puts games in "Pending Interest" instead of "Available Games"
+          // Let officials discover and claim games themselves through the Available Games interface
+          //
+          // The old logic was:
+          // - hireAutomatically = false → create assignments → Pending Interest
+          // - hireAutomatically = true → no assignments → Available Games
+          //
+          // New logic: NO initial assignments for any method - let officials claim games
+          final hireAutomatically = gameData['hireAutomatically'] ?? false;
+          final method = gameData['method'] as String?;
 
-    // Don't show template dialog if game was created using a template or is away game
-    bool? shouldCreateTemplate = false;
-    if (!isUsingTemplate && !isAwayGame) {
-      // Hide button loading before showing dialog
-      if (mounted) {
-        setState(() {
-          _showButtonLoading = false;
-        });
-      }
-      shouldCreateTemplate = await _showCreateTemplateDialog();
-    }
+          // Only create assignments for away games or other special cases if needed
+          // For now, commented out to let all games appear in Available Games
+          // if (!isAwayGame && method != null && !hireAutomatically && method != 'advanced') {
+          //   await _gameService.createInitialAssignments(gameId, method, gameData);
+          // }
 
-    if (shouldCreateTemplate == true && !isAwayGame) {
-      if (mounted) {
-        
-        // Prepare data for template creation (convert DateTime and TimeOfDay to strings)
-        final templateData = Map<String, dynamic>.from(gameData);
-        if (templateData['date'] != null) {
-          templateData['date'] = (templateData['date'] as DateTime).toIso8601String();
-        }
-        if (templateData['time'] != null) {
-          final time = templateData['time'] as TimeOfDay;
-          templateData['time'] = '${time.hour}:${time.minute}';
-        }
-        
-        Navigator.pushNamed(
-          context,
-          '/new_game_template',
-          arguments: templateData,
-        ).then((result) {
-          if (result == true && mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                  content: Text('Game Template created successfully!')),
-            );
+          // Save advanced selection data for later reconstruction AND create quota records
+          if (gameData['method'] == 'advanced' &&
+              gameData['selectedLists'] != null) {
+            final prefs = await SharedPreferences.getInstance();
+            final advancedData = {
+              'selectedLists': gameData['selectedLists'],
+              'selectedOfficials': gameData['selectedOfficials'] ?? [],
+            };
+            await prefs.setString(
+                'recent_advanced_selection_$gameId', jsonEncode(advancedData));
+            debugPrint('Saved advanced selection data for game $gameId');
+
+            // CREATE ACTUAL QUOTA RECORDS IN DATABASE WITH ENHANCED VALIDATION
+            try {
+              final selectedLists = gameData['selectedLists'] as List<dynamic>;
+              debugPrint(
+                  '🔍 Creating quotas for game $gameId with ${selectedLists.length} lists');
+
+              // RESOLVE LIST IDS TO ACTUAL DATABASE IDS
+              final resolvedLists = await _resolveListIds(selectedLists);
+              debugPrint(
+                  '✅ Resolved ${resolvedLists.length} list IDs to database IDs');
+
+              // Validate each list has required fields
+              final quotas = <Map<String, dynamic>>[];
+              for (int i = 0; i < resolvedLists.length; i++) {
+                final list = resolvedLists[i] as Map<String, dynamic>;
+                debugPrint('  📋 Processing list $i: ${list.toString()}');
+
+                // Validate required fields
+                if (!list.containsKey('id') || list['id'] == null) {
+                  debugPrint('  ❌ List $i missing required "id" field');
+                  continue;
+                }
+                if (!list.containsKey('minOfficials') ||
+                    list['minOfficials'] == null) {
+                  debugPrint(
+                      '  ❌ List $i missing required "minOfficials" field');
+                  continue;
+                }
+                if (!list.containsKey('maxOfficials') ||
+                    list['maxOfficials'] == null) {
+                  debugPrint(
+                      '  ❌ List $i missing required "maxOfficials" field');
+                  continue;
+                }
+
+                final quota = {
+                  'listId': list['id'] as int,
+                  'minOfficials': list['minOfficials'] as int,
+                  'maxOfficials': list['maxOfficials'] as int,
+                };
+                quotas.add(quota);
+                debugPrint(
+                    '  ✅ Valid quota: List ${quota['listId']} - ${quota['minOfficials']}/${quota['maxOfficials']}');
+              }
+
+              if (quotas.isEmpty) {
+                throw Exception('No valid quotas found in selectedLists data');
+              }
+
+              // Create quota records in database
+              debugPrint(
+                  '📝 Creating ${quotas.length} quota records for game $gameId');
+              final advancedRepo = AdvancedMethodRepository();
+              await advancedRepo.setGameListQuotas(gameId, quotas);
+              debugPrint(
+                  '✅ Successfully created ${quotas.length} quota records for game $gameId');
+
+              // Verify quota creation by reading back
+              final createdQuotas =
+                  await advancedRepo.getGameListQuotas(gameId);
+              debugPrint(
+                  '🔍 Verification: Found ${createdQuotas.length} quota records in database for game $gameId');
+            } catch (e, stackTrace) {
+              debugPrint(
+                  '❌ CRITICAL ERROR creating quota records for game $gameId: $e');
+              debugPrint('📚 Stack trace: $stackTrace');
+              debugPrint(
+                  '📋 Selected lists data: ${gameData['selectedLists']}');
+
+              // Show user-visible error for quota creation failure
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                        'Warning: Advanced Method quota setup failed. Game may not be visible to officials. Error: $e'),
+                    backgroundColor: Colors.orange,
+                    duration: const Duration(seconds: 5),
+                  ),
+                );
+              }
+            }
+          } else if (gameData['method'] == 'use_list' &&
+              gameData['selectedListName'] != null) {
+            final prefs = await SharedPreferences.getInstance();
+            final useListData = {
+              'selectedListName': gameData['selectedListName'],
+              'selectedOfficials': gameData['selectedOfficials'] ?? [],
+            };
+            await prefs.setString(
+                'recent_use_list_selection_$gameId', jsonEncode(useListData));
+            debugPrint(
+                'Saved use_list selection data for game $gameId: ${gameData['selectedListName']}');
           }
-          _navigateBack();
-        });
+        } else {
+          debugPrint('Failed to save game to database - result was null');
+        }
+      } catch (e) {
+        debugPrint('Error saving game to database: $e');
+        // Continue with SharedPreferences as fallback
       }
-    } else if (shouldCreateTemplate == true && isAwayGame) {
-      if (mounted) {
-        await showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            backgroundColor: darkSurface,
-            title: const Text('Away Game Template Not Supported',
-                style: TextStyle(color: efficialsYellow, fontSize: 18, fontWeight: FontWeight.bold)),
-            content: const Text(
-              'Game templates can only be created from Home Games. Away Games have different data requirements and cannot be used as template bases.\n\nTo create a template, please use a Home Game instead.',
-              style: TextStyle(color: Colors.white),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('OK', style: TextStyle(color: efficialsYellow)),
+
+      // Database storage is now the primary method - no longer saving to SharedPreferences to avoid duplicates
+
+      // Don't show template dialog if game was created using a template or is away game
+      bool? shouldCreateTemplate = false;
+      if (!isUsingTemplate && !isAwayGame) {
+        // Hide button loading before showing dialog
+        if (mounted) {
+          setState(() {
+            _showButtonLoading = false;
+          });
+        }
+        shouldCreateTemplate = await _showCreateTemplateDialog();
+      }
+
+      if (shouldCreateTemplate == true && !isAwayGame) {
+        if (mounted) {
+          // Prepare data for template creation (convert DateTime and TimeOfDay to strings)
+          final templateData = Map<String, dynamic>.from(gameData);
+          if (templateData['date'] != null) {
+            templateData['date'] =
+                (templateData['date'] as DateTime).toIso8601String();
+          }
+          if (templateData['time'] != null) {
+            final time = templateData['time'] as TimeOfDay;
+            templateData['time'] = '${time.hour}:${time.minute}';
+          }
+
+          Navigator.pushNamed(
+            context,
+            '/new_game_template',
+            arguments: templateData,
+          ).then((result) {
+            if (result == true && mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                    content: Text('Game Template created successfully!')),
+              );
+            }
+            _navigateBack();
+          });
+        }
+      } else if (shouldCreateTemplate == true && isAwayGame) {
+        if (mounted) {
+          await showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              backgroundColor: darkSurface,
+              title: const Text('Away Game Template Not Supported',
+                  style: TextStyle(
+                      color: efficialsYellow,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold)),
+              content: const Text(
+                'Game templates can only be created from Home Games. Away Games have different data requirements and cannot be used as template bases.\n\nTo create a template, please use a Home Game instead.',
+                style: TextStyle(color: Colors.white),
               ),
-            ],
-          ),
-        );
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('OK',
+                      style: TextStyle(color: efficialsYellow)),
+                ),
+              ],
+            ),
+          );
+        }
+        _navigateBack();
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Game published successfully!')),
+          );
+        }
+        _navigateBack();
       }
-      _navigateBack();
-    } else {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Game published successfully!')),
-        );
-      }
-      _navigateBack();
-    }
     } finally {
       // Always reset the publishing state
       if (mounted) {
@@ -323,133 +437,141 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
   Future<void> _publishLater() async {
     // Prevent multiple simultaneous calls
     if (_isPublishing) return;
-    
+
     setState(() {
       _isPublishing = true;
       _showButtonLoading = true;
     });
-    
+
     try {
       final gameData = Map<String, dynamic>.from(args);
-    gameData['id'] = gameData['id'] ?? DateTime.now().millisecondsSinceEpoch;
-    gameData['createdAt'] = DateTime.now().toIso8601String();
-    gameData['status'] = 'Unpublished';
+      gameData['id'] = gameData['id'] ?? DateTime.now().millisecondsSinceEpoch;
+      gameData['createdAt'] = DateTime.now().toIso8601String();
+      gameData['status'] = 'Unpublished';
 
-    // Ensure schedule name is set
-    if (gameData['scheduleName'] == null) {
+      // Ensure schedule name is set
+      if (gameData['scheduleName'] == null) {
+        if (isCoachScheduler == true) {
+          gameData['scheduleName'] = teamName ?? 'Team Schedule';
+        } else {
+          // For Athletic Director, require a schedule name
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content: Text('Please set a schedule name before saving.')),
+          );
+          return;
+        }
+      }
+
+      // Save to database first with original data types
+      try {
+        final dbResult = await _gameService.createGame(gameData);
+        if (dbResult != null) {
+          debugPrint(
+              'Unpublished game saved to database successfully with ID: ${dbResult['id']}');
+        } else {
+          debugPrint(
+              'Failed to save unpublished game to database - result was null');
+        }
+      } catch (e) {
+        debugPrint('Error saving unpublished game to database: $e');
+        // Continue with SharedPreferences as fallback
+      }
+
+      // Convert data for SharedPreferences storage
+      if (gameData['date'] != null) {
+        gameData['date'] = (gameData['date'] as DateTime).toIso8601String();
+      }
+      if (gameData['time'] != null) {
+        final time = gameData['time'] as TimeOfDay;
+        gameData['time'] = '${time.hour}:${time.minute}';
+      }
+
+      final prefs = await SharedPreferences.getInstance();
+
+      // Determine which storage key to use based on user role
+      String unpublishedGamesKey;
       if (isCoachScheduler == true) {
-        gameData['scheduleName'] = teamName ?? 'Team Schedule';
+        unpublishedGamesKey = 'coach_unpublished_games';
+      } else if (isAssignerFlow == true) {
+        unpublishedGamesKey = 'assigner_unpublished_games';
       } else {
-        // For Athletic Director, require a schedule name
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Please set a schedule name before saving.')),
-        );
-        return;
+        unpublishedGamesKey = 'ad_unpublished_games';
       }
-    }
 
-    // Save to database first with original data types
-    try {
-      final dbResult = await _gameService.createGame(gameData);
-      if (dbResult != null) {
-        debugPrint('Unpublished game saved to database successfully with ID: ${dbResult['id']}');
-      } else {
-        debugPrint('Failed to save unpublished game to database - result was null');
+      final String? gamesJson = prefs.getString(unpublishedGamesKey);
+      List<Map<String, dynamic>> unpublishedGames = [];
+      if (gamesJson != null && gamesJson.isNotEmpty) {
+        unpublishedGames =
+            List<Map<String, dynamic>>.from(jsonDecode(gamesJson));
       }
-    } catch (e) {
-      debugPrint('Error saving unpublished game to database: $e');
-      // Continue with SharedPreferences as fallback
-    }
 
-    // Convert data for SharedPreferences storage
-    if (gameData['date'] != null) {
-      gameData['date'] = (gameData['date'] as DateTime).toIso8601String();
-    }
-    if (gameData['time'] != null) {
-      final time = gameData['time'] as TimeOfDay;
-      gameData['time'] = '${time.hour}:${time.minute}';
-    }
+      unpublishedGames.add(gameData);
+      await prefs.setString(unpublishedGamesKey, jsonEncode(unpublishedGames));
 
-    final prefs = await SharedPreferences.getInstance();
-
-    // Determine which storage key to use based on user role
-    String unpublishedGamesKey;
-    if (isCoachScheduler == true) {
-      unpublishedGamesKey = 'coach_unpublished_games';
-    } else if (isAssignerFlow == true) {
-      unpublishedGamesKey = 'assigner_unpublished_games';
-    } else {
-      unpublishedGamesKey = 'ad_unpublished_games';
-    }
-
-    final String? gamesJson = prefs.getString(unpublishedGamesKey);
-    List<Map<String, dynamic>> unpublishedGames = [];
-    if (gamesJson != null && gamesJson.isNotEmpty) {
-      unpublishedGames = List<Map<String, dynamic>>.from(jsonDecode(gamesJson));
-    }
-
-    unpublishedGames.add(gameData);
-    await prefs.setString(unpublishedGamesKey, jsonEncode(unpublishedGames));
-
-    // Don't show template dialog if game was created using a template or is away game
-    bool? shouldCreateTemplate = false;
-    if (!isUsingTemplate && !isAwayGame) {
-      // Hide button loading before showing dialog
-      if (mounted) {
-        setState(() {
-          _showButtonLoading = false;
-        });
+      // Don't show template dialog if game was created using a template or is away game
+      bool? shouldCreateTemplate = false;
+      if (!isUsingTemplate && !isAwayGame) {
+        // Hide button loading before showing dialog
+        if (mounted) {
+          setState(() {
+            _showButtonLoading = false;
+          });
+        }
+        shouldCreateTemplate = await _showCreateTemplateDialog();
       }
-      shouldCreateTemplate = await _showCreateTemplateDialog();
-    }
 
-    if (shouldCreateTemplate == true && !isAwayGame) {
-      if (mounted) {
-        Navigator.pushNamed(
-          context,
-          '/new_game_template',
-          arguments: gameData,
-        ).then((result) {
-          if (result == true && mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                  content: Text('Game Template created successfully!')),
-            );
-          }
-          _navigateBack();
-        });
-      }
-    } else if (shouldCreateTemplate == true && isAwayGame) {
-      if (mounted) {
-        await showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            backgroundColor: darkSurface,
-            title: const Text('Away Game Template Not Supported',
-                style: TextStyle(color: efficialsYellow, fontSize: 18, fontWeight: FontWeight.bold)),
-            content: const Text(
-              'Game templates can only be created from Home Games. Away Games have different data requirements and cannot be used as template bases.\n\nTo create a template, please use a Home Game instead.',
-              style: TextStyle(color: Colors.white),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('OK', style: TextStyle(color: efficialsYellow)),
+      if (shouldCreateTemplate == true && !isAwayGame) {
+        if (mounted) {
+          Navigator.pushNamed(
+            context,
+            '/new_game_template',
+            arguments: gameData,
+          ).then((result) {
+            if (result == true && mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                    content: Text('Game Template created successfully!')),
+              );
+            }
+            _navigateBack();
+          });
+        }
+      } else if (shouldCreateTemplate == true && isAwayGame) {
+        if (mounted) {
+          await showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              backgroundColor: darkSurface,
+              title: const Text('Away Game Template Not Supported',
+                  style: TextStyle(
+                      color: efficialsYellow,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold)),
+              content: const Text(
+                'Game templates can only be created from Home Games. Away Games have different data requirements and cannot be used as template bases.\n\nTo create a template, please use a Home Game instead.',
+                style: TextStyle(color: Colors.white),
               ),
-            ],
-          ),
-        );
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('OK',
+                      style: TextStyle(color: efficialsYellow)),
+                ),
+              ],
+            ),
+          );
+        }
+        _navigateBack();
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content: Text('Game saved to Unpublished Games list!')),
+          );
+        }
+        _navigateBack();
       }
-      _navigateBack();
-    } else {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Game saved to Unpublished Games list!')),
-        );
-      }
-      _navigateBack();
-    }
     } finally {
       // Always reset the publishing state
       if (mounted) {
@@ -532,21 +654,22 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
     try {
       if (gameData['id'] != null) {
         final gameId = gameData['id'] as int;
-        
+
         // Get the original game data to compare for assignment updates
-        final originalGameData = await _gameService.getGameByIdWithOfficials(gameId);
-        
+        final originalGameData =
+            await _gameService.getGameByIdWithOfficials(gameId);
+
         await _gameService.updateGame(gameId, gameData);
         debugPrint('Game updated in database successfully with ID: $gameId');
-        
+
         // Update official assignments if the lists changed
         if (originalGameData != null && !isAwayGame) {
           final oldMethod = originalGameData['method'] as String? ?? '';
           final newMethod = gameData['method'] as String? ?? '';
-          
+
           // Check if assignment-affecting data changed
           bool shouldUpdateAssignments = false;
-          
+
           if (oldMethod == 'use_list' && newMethod == 'use_list') {
             // Check if selected list changed
             final oldListName = originalGameData['selectedListName'] as String?;
@@ -554,42 +677,122 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
             shouldUpdateAssignments = oldListName != newListName;
           } else if (oldMethod == 'advanced' && newMethod == 'advanced') {
             // Check if selected lists changed
-            final oldLists = originalGameData['selectedLists'] as List<dynamic>?;
+            final oldLists =
+                originalGameData['selectedLists'] as List<dynamic>?;
             final newLists = gameData['selectedLists'] as List<dynamic>?;
             shouldUpdateAssignments = !_listsEqual(oldLists, newLists);
           } else if (oldMethod != newMethod) {
             // Method changed completely
             shouldUpdateAssignments = true;
           }
-          
+
           if (shouldUpdateAssignments) {
-            debugPrint('Updating assignments for game $gameId due to list changes');
+            debugPrint(
+                'Updating assignments for game $gameId due to list changes');
             await _gameService.updateAssignmentsForListChange(
-              gameId, 
-              oldMethod, 
-              originalGameData, 
-              newMethod, 
-              gameData
-            );
+                gameId, oldMethod, originalGameData, newMethod, gameData);
           }
         }
-        
+
         // Update selection data cache for both advanced and use_list methods
         final prefs = await SharedPreferences.getInstance();
-        if (gameData['method'] == 'advanced' && gameData['selectedLists'] != null) {
+        if (gameData['method'] == 'advanced' &&
+            gameData['selectedLists'] != null) {
           final advancedData = {
             'selectedLists': gameData['selectedLists'],
             'selectedOfficials': gameData['selectedOfficials'] ?? [],
           };
-          await prefs.setString('recent_advanced_selection_$gameId', jsonEncode(advancedData));
+          await prefs.setString(
+              'recent_advanced_selection_$gameId', jsonEncode(advancedData));
           debugPrint('Updated advanced selection data for game $gameId');
-        } else if (gameData['method'] == 'use_list' && gameData['selectedListName'] != null) {
+
+          // UPDATE QUOTA RECORDS IN DATABASE WITH ENHANCED VALIDATION
+          try {
+            final selectedLists = gameData['selectedLists'] as List<dynamic>;
+            debugPrint(
+                '🔍 Updating quotas for game $gameId with ${selectedLists.length} lists');
+
+            // RESOLVE LIST IDS TO ACTUAL DATABASE IDS
+            final resolvedLists = await _resolveListIds(selectedLists);
+            debugPrint(
+                '✅ Resolved ${resolvedLists.length} list IDs to database IDs');
+
+            // Validate each list has required fields
+            final quotas = <Map<String, dynamic>>[];
+            for (int i = 0; i < resolvedLists.length; i++) {
+              final list = resolvedLists[i] as Map<String, dynamic>;
+              debugPrint('  📋 Processing list $i: ${list.toString()}');
+
+              // Validate required fields
+              if (!list.containsKey('id') || list['id'] == null) {
+                debugPrint('  ❌ List $i missing required "id" field');
+                continue;
+              }
+              if (!list.containsKey('minOfficials') ||
+                  list['minOfficials'] == null) {
+                debugPrint('  ❌ List $i missing required "minOfficials" field');
+                continue;
+              }
+              if (!list.containsKey('maxOfficials') ||
+                  list['maxOfficials'] == null) {
+                debugPrint('  ❌ List $i missing required "maxOfficials" field');
+                continue;
+              }
+
+              final quota = {
+                'listId': list['id'] as int,
+                'minOfficials': list['minOfficials'] as int,
+                'maxOfficials': list['maxOfficials'] as int,
+              };
+              quotas.add(quota);
+              debugPrint(
+                  '  ✅ Valid quota: List ${quota['listId']} - ${quota['minOfficials']}/${quota['maxOfficials']}');
+            }
+
+            if (quotas.isEmpty) {
+              throw Exception('No valid quotas found in selectedLists data');
+            }
+
+            // Update quota records in database
+            debugPrint(
+                '📝 Updating ${quotas.length} quota records for game $gameId');
+            final advancedRepo = AdvancedMethodRepository();
+            await advancedRepo.setGameListQuotas(gameId, quotas);
+            debugPrint(
+                '✅ Successfully updated ${quotas.length} quota records for game $gameId');
+
+            // Verify quota update by reading back
+            final updatedQuotas = await advancedRepo.getGameListQuotas(gameId);
+            debugPrint(
+                '🔍 Verification: Found ${updatedQuotas.length} quota records in database for game $gameId');
+          } catch (e, stackTrace) {
+            debugPrint(
+                '❌ CRITICAL ERROR updating quota records for game $gameId: $e');
+            debugPrint('📚 Stack trace: $stackTrace');
+            debugPrint('📋 Selected lists data: ${gameData['selectedLists']}');
+
+            // Show user-visible error for quota update failure
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                      'Warning: Advanced Method quota update failed. Game may not be visible to officials. Error: $e'),
+                  backgroundColor: Colors.orange,
+                  duration: const Duration(seconds: 5),
+                ),
+              );
+            }
+          }
+        } else if (gameData['method'] == 'use_list' &&
+            gameData['selectedListName'] != null) {
           final useListData = {
             'selectedListName': gameData['selectedListName'],
             'selectedOfficials': gameData['selectedOfficials'] ?? [],
           };
-          await prefs.setString('recent_use_list_selection_$gameId', jsonEncode(useListData));
-          debugPrint('Updated use_list selection data for game $gameId: ${gameData['selectedListName']}');
+          await prefs.setString(
+              'recent_use_list_selection_$gameId', jsonEncode(useListData));
+          debugPrint(
+              'Updated use_list selection data for game $gameId: ${gameData['selectedListName']}');
         }
       }
     } catch (e) {
@@ -606,20 +809,27 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
 
     // Create a copy of gameData with proper JSON formatting for SharedPreferences
     final gameDataForJson = Map<String, dynamic>.from(gameData);
-    
+
     // Convert DateTime and TimeOfDay objects to strings for JSON storage
-    if (gameDataForJson['date'] != null && gameDataForJson['date'] is DateTime) {
-      gameDataForJson['date'] = (gameDataForJson['date'] as DateTime).toIso8601String();
+    if (gameDataForJson['date'] != null &&
+        gameDataForJson['date'] is DateTime) {
+      gameDataForJson['date'] =
+          (gameDataForJson['date'] as DateTime).toIso8601String();
     }
-    if (gameDataForJson['time'] != null && gameDataForJson['time'] is TimeOfDay) {
+    if (gameDataForJson['time'] != null &&
+        gameDataForJson['time'] is TimeOfDay) {
       final time = gameDataForJson['time'] as TimeOfDay;
       gameDataForJson['time'] = '${time.hour}:${time.minute}';
     }
-    if (gameDataForJson['createdAt'] != null && gameDataForJson['createdAt'] is DateTime) {
-      gameDataForJson['createdAt'] = (gameDataForJson['createdAt'] as DateTime).toIso8601String();
+    if (gameDataForJson['createdAt'] != null &&
+        gameDataForJson['createdAt'] is DateTime) {
+      gameDataForJson['createdAt'] =
+          (gameDataForJson['createdAt'] as DateTime).toIso8601String();
     }
-    if (gameDataForJson['updatedAt'] != null && gameDataForJson['updatedAt'] is DateTime) {
-      gameDataForJson['updatedAt'] = (gameDataForJson['updatedAt'] as DateTime).toIso8601String();
+    if (gameDataForJson['updatedAt'] != null &&
+        gameDataForJson['updatedAt'] is DateTime) {
+      gameDataForJson['updatedAt'] =
+          (gameDataForJson['updatedAt'] as DateTime).toIso8601String();
     }
 
     final index = publishedGames.indexWhere((g) => g['id'] == gameData['id']);
@@ -640,7 +850,7 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
     if (isFromGameInfo) {
       // Navigate back to the original source screen
       final sourceScreen = args['sourceScreen'] as String?;
-      
+
       if (mounted) {
         if (sourceScreen == 'schedule_details') {
           // Navigate back to schedule details screen
@@ -679,14 +889,51 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
     if (list1 == null && list2 == null) return true;
     if (list1 == null || list2 == null) return false;
     if (list1.length != list2.length) return false;
-    
+
     for (int i = 0; i < list1.length; i++) {
       final item1 = list1[i] as Map<String, dynamic>;
       final item2 = list2[i] as Map<String, dynamic>;
       if (item1['name'] != item2['name']) return false;
     }
-    
+
     return true;
+  }
+
+  Future<List<Map<String, dynamic>>> _resolveListIds(
+      List<dynamic> selectedLists) async {
+    final resolvedLists = <Map<String, dynamic>>[];
+
+    try {
+      // Get the ListRepository to query actual database IDs
+      final listRepository = ListRepository();
+
+      for (final listItem in selectedLists) {
+        final list = Map<String, dynamic>.from(listItem as Map);
+        final listName = list['name'] as String;
+
+        // Query database to get actual list ID by name
+        final dbResults = await listRepository.rawQuery(
+            'SELECT id FROM official_lists WHERE name = ?', [listName]);
+
+        if (dbResults.isNotEmpty) {
+          final actualId = dbResults.first['id'] as int;
+          resolvedLists.add({...list, 'id': actualId});
+          debugPrint(
+              '  🔄 Resolved "$listName" from SharedPrefs ID ${list['id']} to database ID $actualId');
+        } else {
+          debugPrint(
+              '  ❌ List "$listName" not found in database. Skipping quota for this list.');
+        }
+      }
+    } catch (e) {
+      debugPrint('❌ Error resolving list IDs: $e');
+      // Fallback to original list if resolution fails
+      return selectedLists
+          .map((item) => Map<String, dynamic>.from(item as Map))
+          .toList();
+    }
+
+    return resolvedLists;
   }
 
   Future<bool> _onWillPop() async {
@@ -698,15 +945,19 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: darkSurface,
-        title: const Text('Unsaved Changes', 
-            style: TextStyle(color: efficialsYellow, fontSize: 20, fontWeight: FontWeight.bold)),
+        title: const Text('Unsaved Changes',
+            style: TextStyle(
+                color: efficialsYellow,
+                fontSize: 20,
+                fontWeight: FontWeight.bold)),
         content: const Text(
             'You have unsaved changes. Are you sure you want to discard them?',
             style: TextStyle(color: Colors.white)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel', style: TextStyle(color: efficialsYellow)),
+            child:
+                const Text('Cancel', style: TextStyle(color: efficialsYellow)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
@@ -805,7 +1056,9 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
                     children: [
                       const Text('Game Details',
                           style: TextStyle(
-                              fontSize: 20, fontWeight: FontWeight.bold, color: efficialsYellow)),
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: efficialsYellow)),
                       TextButton(
                         onPressed: () => Navigator.pushNamed(
                             context, '/edit_game_info',
@@ -818,7 +1071,6 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
                             }).then((result) {
                           if (result != null &&
                               result is Map<String, dynamic>) {
-                            
                             setState(() {
                               args = result;
                               fromScheduleDetails =
@@ -828,8 +1080,8 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
                           }
                         }),
                         child: const Text('Edit',
-                            style:
-                                TextStyle(color: efficialsYellow, fontSize: 18)),
+                            style: TextStyle(
+                                color: efficialsYellow, fontSize: 18)),
                       ),
                     ],
                   ),
@@ -861,7 +1113,8 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
                               ),
                               Expanded(
                                   child: Text(e.value,
-                                      style: const TextStyle(fontSize: 16, color: Colors.white))),
+                                      style: const TextStyle(
+                                          fontSize: 16, color: Colors.white))),
                             ],
                           ),
                         ),
@@ -869,7 +1122,9 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
                       const SizedBox(height: 20),
                       const Text('Selected Officials',
                           style: TextStyle(
-                              fontSize: 18, fontWeight: FontWeight.bold, color: efficialsYellow)),
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: efficialsYellow)),
                       const SizedBox(height: 10),
                       if (isAwayGame)
                         const Text('No officials needed for away games.',
@@ -877,14 +1132,14 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
                       else if (args['method'] == 'use_list' &&
                           args['selectedListName'] != null) ...[
                         Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 4),
-                            child: Text(
-                              'List Used: ${args['selectedListName']}',
-                              style: const TextStyle(fontSize: 16, color: Colors.white),
-                            ),
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: Text(
+                            'List Used: ${args['selectedListName']}',
+                            style: const TextStyle(
+                                fontSize: 16, color: Colors.white),
                           ),
-                      ]
-                      else if (args['selectedOfficials'] == null ||
+                        ),
+                      ] else if (args['selectedOfficials'] == null ||
                           (args['selectedOfficials'] as List).isEmpty)
                         const Text('No officials selected.',
                             style: TextStyle(fontSize: 16, color: Colors.grey))
@@ -897,7 +1152,8 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
                             padding: const EdgeInsets.symmetric(vertical: 4),
                             child: Text(
                               '${list['name']}: Min ${list['minOfficials']}, Max ${list['maxOfficials']}',
-                              style: const TextStyle(fontSize: 16, color: Colors.white),
+                              style: const TextStyle(
+                                  fontSize: 16, color: Colors.white),
                             ),
                           ),
                         )),
@@ -944,31 +1200,35 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
                 ElevatedButton(
                   onPressed: _isPublishing ? null : _publishGame,
                   style: elevatedButtonStyle(),
-                  child: _showButtonLoading 
+                  child: _showButtonLoading
                       ? const SizedBox(
                           width: 20,
                           height: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(Colors.white),
                           ),
                         )
-                      : const Text('Publish Game', style: signInButtonTextStyle),
+                      : const Text('Publish Game',
+                          style: signInButtonTextStyle),
                 ),
                 const SizedBox(height: 10),
                 ElevatedButton(
                   onPressed: _isPublishing ? null : _publishLater,
                   style: elevatedButtonStyle(),
-                  child: _showButtonLoading 
+                  child: _showButtonLoading
                       ? const SizedBox(
                           width: 20,
                           height: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(Colors.white),
                           ),
                         )
-                      : const Text('Publish Later', style: signInButtonTextStyle),
+                      : const Text('Publish Later',
+                          style: signInButtonTextStyle),
                 ),
               ],
             ],

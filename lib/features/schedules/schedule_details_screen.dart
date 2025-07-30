@@ -5,7 +5,10 @@ import '../../shared/models/database_models.dart';
 import '../../shared/services/schedule_service.dart';
 import '../../shared/services/game_service.dart';
 import '../../shared/services/repositories/template_repository.dart';
+import '../../shared/services/repositories/game_template_repository.dart';
 import '../../shared/services/repositories/user_repository.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 
 class ScheduleDetailsScreen extends StatefulWidget {
   const ScheduleDetailsScreen({super.key});
@@ -25,9 +28,12 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
   List<Map<String, dynamic>> _selectedDayGames = [];
   bool _showOnlyNeedsOfficials = false; // Toggle state for filtering
   String? associatedTemplateName; // Store the associated template name
+  GameTemplate? template; // Store the associated template object
   final ScheduleService _scheduleService = ScheduleService();
   final GameService _gameService = GameService();
   final TemplateRepository _templateRepository = TemplateRepository();
+  final GameTemplateRepository _gameTemplateRepository =
+      GameTemplateRepository();
   final UserRepository _userRepository = UserRepository();
 
   @override
@@ -45,12 +51,15 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
   Future<void> _loadScheduleDetails() async {
     if (scheduleId != null) {
       try {
-        final scheduleDetails = await _scheduleService.getScheduleById(scheduleId!);
+        final scheduleDetails =
+            await _scheduleService.getScheduleById(scheduleId!);
         if (scheduleDetails != null) {
           final scheduleSport = scheduleDetails['sport'] as String?;
-          
+
           // If schedule sport is null or empty, try to infer it from games
-          if (scheduleSport == null || scheduleSport.isEmpty || scheduleSport == 'null') {
+          if (scheduleSport == null ||
+              scheduleSport.isEmpty ||
+              scheduleSport == 'null') {
             await _inferAndUpdateScheduleSport();
           } else {
             setState(() {
@@ -64,19 +73,19 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
       }
     }
   }
-  
+
   Future<void> _inferAndUpdateScheduleSport() async {
     // Try to infer sport from existing games
     String? inferredSport;
     if (games.isNotEmpty) {
       inferredSport = games.first['sport'] as String?;
     }
-    
+
     // If we still don't have a sport, try to guess from schedule name
     if (inferredSport == null || inferredSport.isEmpty) {
       inferredSport = _inferSportFromScheduleName(scheduleName ?? '');
     }
-    
+
     if (inferredSport.isNotEmpty && inferredSport != 'Unknown') {
       try {
         // Update the schedule in the database with the inferred sport
@@ -94,7 +103,7 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
       });
     }
   }
-  
+
   String _inferSportFromScheduleName(String scheduleName) {
     final name = scheduleName.toLowerCase();
     if (name.contains('football')) return 'Football';
@@ -114,14 +123,14 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
   Future<void> _fetchGames() async {
     try {
       // Use GameService exclusively to get games for this schedule
-      final scheduleGames = scheduleName != null 
+      final scheduleGames = scheduleName != null
           ? await _gameService.getGamesByScheduleName(scheduleName!)
           : <Map<String, dynamic>>[];
-      
+
       setState(() {
         games.clear();
         games = scheduleGames;
-        
+
         // Ensure DateTime and TimeOfDay objects are properly parsed
         for (var game in games) {
           if (game['date'] != null && game['date'] is String) {
@@ -137,26 +146,28 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
         }
 
         if (games.isNotEmpty) {
-          games.sort(
-              (a, b) => (a['date'] as DateTime).compareTo(b['date'] as DateTime));
-          
+          games.sort((a, b) =>
+              (a['date'] as DateTime).compareTo(b['date'] as DateTime));
+
           // Find the next upcoming game (today or later)
           final now = DateTime.now();
           final today = DateTime(now.year, now.month, now.day);
-          
+
           DateTime? nextGameDate;
           for (var game in games) {
             final gameDate = game['date'] as DateTime;
-            final gameDateOnly = DateTime(gameDate.year, gameDate.month, gameDate.day);
-            if (gameDateOnly.isAtSameMomentAs(today) || gameDateOnly.isAfter(today)) {
+            final gameDateOnly =
+                DateTime(gameDate.year, gameDate.month, gameDate.day);
+            if (gameDateOnly.isAtSameMomentAs(today) ||
+                gameDateOnly.isAfter(today)) {
               nextGameDate = gameDate;
               break;
             }
           }
-          
+
           // Focus on the month containing the next upcoming game, or first game if all are past
           _focusedDay = nextGameDate ?? games.first['date'] as DateTime;
-          
+
           // Don't auto-select any date - let user manually select
           _selectedDay = null;
           _selectedDayGames = [];
@@ -176,16 +187,103 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
     }
   }
 
-
   Future<void> _loadAssociatedTemplate() async {
     if (scheduleName == null) return;
     try {
       final user = await _userRepository.getCurrentUser();
       if (user?.id != null) {
-        final templateName = await _templateRepository.getByScheduleName(user!.id!, scheduleName!);
-        setState(() {
-          associatedTemplateName = templateName;
-        });
+        debugPrint('Loading template name for schedule: $scheduleName');
+        // First get the template name from the association
+        final templateName = await _templateRepository.getByScheduleName(
+            user!.id!, scheduleName!);
+
+        if (templateName != null) {
+          debugPrint('Found template name: $templateName');
+          // Then get the full template data from game_templates table
+          final templates = await _gameTemplateRepository
+              .getTemplatesByNameSearch(user.id!, templateName);
+          if (templates.isNotEmpty) {
+            debugPrint('Found template data: ${templates.first}');
+
+            // Get selectedLists data from SharedPreferences if method is advanced
+            if (templates.first.method == 'advanced' &&
+                templates.first.id != null) {
+              final prefs = await SharedPreferences.getInstance();
+              final key = 'template_selectedLists_${templates.first.id}';
+              final selectedListsJson = prefs.getString(key);
+              if (selectedListsJson != null) {
+                try {
+                  final selectedLists = List<Map<String, dynamic>>.from(
+                      jsonDecode(selectedListsJson));
+                  templates.first = GameTemplate(
+                    id: templates.first.id,
+                    name: templates.first.name,
+                    sportId: templates.first.sportId,
+                    userId: templates.first.userId,
+                    scheduleName: templates.first.scheduleName,
+                    date: templates.first.date,
+                    time: templates.first.time,
+                    locationId: templates.first.locationId,
+                    isAwayGame: templates.first.isAwayGame,
+                    levelOfCompetition: templates.first.levelOfCompetition,
+                    gender: templates.first.gender,
+                    officialsRequired: templates.first.officialsRequired,
+                    gameFee: templates.first.gameFee,
+                    opponent: templates.first.opponent,
+                    hireAutomatically: templates.first.hireAutomatically,
+                    method: templates.first.method,
+                    officialsListId: templates.first.officialsListId,
+                    selectedOfficials: templates.first.selectedOfficials,
+                    selectedLists: selectedLists,
+                    officialsListName: templates.first.officialsListName,
+                    includeScheduleName: templates.first.includeScheduleName,
+                    includeSport: templates.first.includeSport,
+                    includeDate: templates.first.includeDate,
+                    includeTime: templates.first.includeTime,
+                    includeLocation: templates.first.includeLocation,
+                    includeIsAwayGame: templates.first.includeIsAwayGame,
+                    includeLevelOfCompetition:
+                        templates.first.includeLevelOfCompetition,
+                    includeGender: templates.first.includeGender,
+                    includeOfficialsRequired:
+                        templates.first.includeOfficialsRequired,
+                    includeGameFee: templates.first.includeGameFee,
+                    includeOpponent: templates.first.includeOpponent,
+                    includeHireAutomatically:
+                        templates.first.includeHireAutomatically,
+                    includeSelectedOfficials:
+                        templates.first.includeSelectedOfficials,
+                    includeOfficialsList: templates.first.includeOfficialsList,
+                    createdAt: templates.first.createdAt,
+                    sportName: templates.first.sportName,
+                    locationName: templates.first.locationName,
+                  );
+                  debugPrint(
+                      'Loaded selectedLists data: ${selectedLists.length} lists');
+                } catch (e) {
+                  debugPrint('Error parsing selectedLists data: $e');
+                }
+              }
+            }
+
+            setState(() {
+              template = templates.first;
+              associatedTemplateName = templateName;
+            });
+            debugPrint(
+                'Template loaded - includeTime: ${template?.includeTime}, time: ${template?.time}');
+            debugPrint('Template method: ${template?.method}');
+            debugPrint(
+                'Template selectedLists: ${template?.selectedLists?.length ?? 0}');
+            debugPrint(
+                'Template selectedLists content: ${template?.selectedLists}');
+          } else {
+            debugPrint('No template data found for name: $templateName');
+          }
+        } else {
+          debugPrint(
+              'No template association found for schedule: $scheduleName');
+        }
       }
     } catch (e) {
       debugPrint('Error loading associated template: $e');
@@ -200,6 +298,7 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
         await _templateRepository.removeAssociation(user!.id!, scheduleName!);
         setState(() {
           associatedTemplateName = null;
+          template = null; // Clear the template object
         });
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -280,15 +379,17 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
 
     try {
       final oldName = scheduleName!;
-      
+
       // Update schedule name using ScheduleService
-      final updatedSchedule = await _scheduleService.updateScheduleName(scheduleId!, newName);
-      
+      final updatedSchedule =
+          await _scheduleService.updateScheduleName(scheduleId!, newName);
+
       if (updatedSchedule != null) {
         // Update template association if it exists
         final user = await _userRepository.getCurrentUser();
         if (user?.id != null && associatedTemplateName != null) {
-          await _templateRepository.updateScheduleName(user!.id!, oldName, newName);
+          await _templateRepository.updateScheduleName(
+              user!.id!, oldName, newName);
         }
 
         // Update the current state
@@ -392,8 +493,8 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
             } else {
               // Fallback to AD home screen if navigation stack is empty
               Navigator.pushNamedAndRemoveUntil(
-                context, 
-                '/athletic_director_home', 
+                context,
+                '/athletic_director_home',
                 (route) => false,
               );
             }
@@ -416,7 +517,9 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                               child: Text(
                                 scheduleName ?? 'Unnamed Schedule',
                                 style: const TextStyle(
-                                    fontSize: 24, fontWeight: FontWeight.bold, color: efficialsYellow),
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.bold,
+                                    color: efficialsYellow),
                                 textAlign: TextAlign.center,
                               ),
                             ),
@@ -541,8 +644,10 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                           markersMaxCount: 0,
                         ),
                         daysOfWeekStyle: DaysOfWeekStyle(
-                          weekdayStyle: const TextStyle(fontSize: 14, color: Colors.white),
-                          weekendStyle: const TextStyle(fontSize: 14, color: Colors.white),
+                          weekdayStyle: const TextStyle(
+                              fontSize: 14, color: Colors.white),
+                          weekendStyle: const TextStyle(
+                              fontSize: 14, color: Colors.white),
                           dowTextFormatter: (date, locale) => date.weekday == 7
                               ? 'Sun'
                               : date.weekday == 1
@@ -560,7 +665,9 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                         headerStyle: const HeaderStyle(
                           formatButtonVisible: false,
                           titleTextStyle: TextStyle(
-                              fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white),
                           leftChevronIcon:
                               Icon(Icons.chevron_left, color: efficialsYellow),
                           rightChevronIcon:
@@ -681,7 +788,8 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                                   ),
                                 ),
                                 const SizedBox(width: 4),
-                                const Text('Away Game', style: TextStyle(color: Colors.white)),
+                                const Text('Away Game',
+                                    style: TextStyle(color: Colors.white)),
                               ],
                             ),
                             const SizedBox(width: 16),
@@ -696,7 +804,8 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                                   ),
                                 ),
                                 const SizedBox(width: 4),
-                                const Text('Fully Hired', style: TextStyle(color: Colors.white)),
+                                const Text('Fully Hired',
+                                    style: TextStyle(color: Colors.white)),
                               ],
                             ),
                             const SizedBox(width: 16),
@@ -711,7 +820,8 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                                   ),
                                 ),
                                 const SizedBox(width: 4),
-                                const Text('Needs Officials', style: TextStyle(color: Colors.white)),
+                                const Text('Needs Officials',
+                                    style: TextStyle(color: Colors.white)),
                               ],
                             ),
                           ],
@@ -739,7 +849,8 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                               activeColor: efficialsYellow,
                               checkColor: efficialsBlack,
                             ),
-                            const Text('Show only games needing officials', style: TextStyle(color: Colors.white)),
+                            const Text('Show only games needing officials',
+                                style: TextStyle(color: Colors.white)),
                           ],
                         ),
                       ),
@@ -750,7 +861,9 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                           child: ListView.builder(
                             shrinkWrap: true,
                             itemCount: _selectedDayGames.length,
-                            padding: const EdgeInsets.only(bottom: 140), // Add bottom padding to prevent FAB overlap
+                            padding: const EdgeInsets.only(
+                                bottom:
+                                    140), // Add bottom padding to prevent FAB overlap
                             itemBuilder: (context, index) {
                               final game = _selectedDayGames[index];
                               final gameTime = game['time'] != null
@@ -820,7 +933,8 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                                                 Text(
                                                   'Time: $gameTime',
                                                   style: const TextStyle(
-                                                      fontSize: 16, color: Colors.white),
+                                                      fontSize: 16,
+                                                      color: Colors.white),
                                                 ),
                                                 const SizedBox(height: 4),
                                                 Text(
@@ -837,13 +951,15 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                                                 Text(
                                                   'Location: $location',
                                                   style: const TextStyle(
-                                                      fontSize: 16, color: Colors.white),
+                                                      fontSize: 16,
+                                                      color: Colors.white),
                                                 ),
                                                 const SizedBox(height: 4),
                                                 Text(
                                                   'Opponent: $opponent',
                                                   style: const TextStyle(
-                                                      fontSize: 16, color: Colors.white),
+                                                      fontSize: 16,
+                                                      color: Colors.white),
                                                 ),
                                               ],
                                             ),
@@ -869,9 +985,10 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
             heroTag: 'setTemplate',
             onPressed: () {
               // Use the sport from the schedule itself, fallback to games if needed
-              final sportToUse = sport ?? (games.isNotEmpty
-                  ? games.first['sport'] as String? ?? 'Unknown'
-                  : 'Unknown');
+              final sportToUse = sport ??
+                  (games.isNotEmpty
+                      ? games.first['sport'] as String? ?? 'Unknown'
+                      : 'Unknown');
               Navigator.pushNamed(
                 context,
                 '/select_game_template',
@@ -893,50 +1010,57 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
             onPressed: _selectedDay == null
                 ? null
                 : () async {
-                    // Check for an associated template
-                    GameTemplate? template;
+                    // Ensure template is loaded before proceeding
                     if (scheduleName != null) {
-                      try {
-                        final user = await _userRepository.getCurrentUser();
-                        if (user?.id != null) {
-                          final templateData = await _templateRepository.getTemplateData(user!.id!, scheduleName!);
-                          if (templateData != null) {
-                            template = GameTemplate.fromMap(templateData);
-                          }
-                        }
-                      } catch (e) {
-                        debugPrint('Error loading template for game creation: $e');
-                      }
+                      await _loadAssociatedTemplate();
                     }
 
-                    // Navigate to the game creation flow with the template (if any)
-                    if (mounted) {
-                      // Check if we can skip date_time_screen
-                      bool canSkipDateTime = template != null && 
-                                           template.includeTime && 
-                                           template.time != null && 
-                                           _selectedDay != null;
-                      
-                      String nextRoute = canSkipDateTime ? '/choose_location' : '/date_time';
-                      
-                      Navigator.pushNamed(
-                        context,
-                        nextRoute,
-                        arguments: {
-                          'scheduleName': scheduleName,
-                          'scheduleId': scheduleId,
-                          'date': _selectedDay,
-                          'time': canSkipDateTime ? template.time : null,
-                          'fromScheduleDetails': true,
-                          'sport': sport ?? _inferSportFromScheduleName(scheduleName ?? ''),
-                          'template': template, // Pass the associated template
-                        },
-                      ).then((_) {
-                        _fetchGames();
-                      });
-                    }
+                    if (!mounted) return;
+
+                    // Check if we can skip straight to additional info
+                    bool canSkipToAdditionalInfo = template != null &&
+                        ((template!.includeTime && template!.time != null) ||
+                            (template!.method == 'advanced' &&
+                                template!.selectedLists != null &&
+                                template!.selectedLists!.isNotEmpty)) &&
+                        _selectedDay != null;
+
+                    debugPrint('Template after reload: ${template != null}');
+                    debugPrint(
+                        'Template includeTime: ${template?.includeTime}');
+                    debugPrint('Template time: ${template?.time}');
+                    debugPrint('Template method: ${template?.method}');
+                    debugPrint(
+                        'Template selectedLists: ${template?.selectedLists?.length ?? 0}');
+                    debugPrint('Selected day: $_selectedDay');
+                    debugPrint(
+                        'Can skip to additional info: $canSkipToAdditionalInfo');
+
+                    String nextRoute = canSkipToAdditionalInfo
+                        ? '/additional_game_info'
+                        : '/date_time';
+
+                    debugPrint('Next route: $nextRoute');
+
+                    Navigator.pushNamed(
+                      context,
+                      nextRoute,
+                      arguments: {
+                        'scheduleName': scheduleName,
+                        'scheduleId': scheduleId,
+                        'date': _selectedDay,
+                        'time': canSkipToAdditionalInfo ? template!.time : null,
+                        'fromScheduleDetails': true,
+                        'sport': sport ??
+                            _inferSportFromScheduleName(scheduleName ?? ''),
+                        'template': template,
+                      },
+                    ).then((_) {
+                      _fetchGames();
+                    });
                   },
-            backgroundColor: _selectedDay == null ? Colors.grey[800] : Colors.grey[600],
+            backgroundColor:
+                _selectedDay == null ? Colors.grey[800] : Colors.grey[600],
             tooltip: 'Add Game',
             child: const Icon(Icons.add, size: 30, color: efficialsYellow),
           ),

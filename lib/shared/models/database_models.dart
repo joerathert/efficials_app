@@ -85,7 +85,8 @@ class User {
       firstName: map['first_name'],
       lastName: map['last_name'],
       phone: map['phone'],
-      createdAt: DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
+      createdAt:
+          DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
     );
   }
 }
@@ -114,7 +115,8 @@ class Sport {
     return Sport(
       id: map['id']?.toInt(),
       name: map['name'] ?? '',
-      createdAt: DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
+      createdAt:
+          DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
     );
   }
 
@@ -167,7 +169,8 @@ class Schedule {
       name: map['name'] ?? '',
       sportId: map['sport_id']?.toInt() ?? 0,
       userId: map['user_id']?.toInt() ?? 0,
-      createdAt: DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
+      createdAt:
+          DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
       sportName: map['sport_name'],
     );
   }
@@ -227,7 +230,8 @@ class Location {
       address: map['address'],
       notes: map['notes'],
       userId: map['user_id']?.toInt() ?? 0,
-      createdAt: DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
+      createdAt:
+          DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
     );
   }
 }
@@ -320,7 +324,8 @@ class Official {
       followThroughRate: (map['follow_through_rate'] ?? 100.0).toDouble(),
       totalAcceptedGames: map['total_accepted_games']?.toInt() ?? 0,
       totalBackedOutGames: map['total_backed_out_games']?.toInt() ?? 0,
-      createdAt: DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
+      createdAt:
+          DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
       sportName: map['sport_name'],
     );
   }
@@ -380,11 +385,10 @@ class Game {
     this.sportName,
     this.locationName,
     this.assignedOfficials = const [],
-  }) : createdAt = createdAt ?? DateTime.now(),
-       updatedAt = updatedAt ?? DateTime.now();
+  })  : createdAt = createdAt ?? DateTime.now(),
+        updatedAt = updatedAt ?? DateTime.now();
 
   Map<String, dynamic> toMap() {
-    
     return {
       'id': id,
       'schedule_id': scheduleId,
@@ -392,7 +396,9 @@ class Game {
       'location_id': locationId,
       'user_id': userId,
       'date': date?.toIso8601String(),
-      'time': time != null ? '${time!.hour.toString().padLeft(2, '0')}:${time!.minute.toString().padLeft(2, '0')}' : null,
+      'time': time != null
+          ? '${time!.hour.toString().padLeft(2, '0')}:${time!.minute.toString().padLeft(2, '0')}'
+          : null,
       'is_away': isAway ? 1 : 0,
       'level_of_competition': levelOfCompetition,
       'gender': gender,
@@ -425,7 +431,7 @@ class Game {
         }
       }
     }
-    
+
     final homeTeamFromMap = map['home_team'];
 
     final game = Game(
@@ -434,8 +440,12 @@ class Game {
       sportId: map['sport_id']?.toInt() ?? 0,
       locationId: map['location_id']?.toInt(),
       userId: map['user_id']?.toInt() ?? 0,
-      date: map['date'] != null ? 
-        (map['date'] is DateTime ? map['date'] as DateTime : DateTime.parse((map['date'] as String?) ?? DateTime.now().toIso8601String())) : null,
+      date: map['date'] != null
+          ? (map['date'] is DateTime
+              ? map['date'] as DateTime
+              : DateTime.parse(
+                  (map['date'] as String?) ?? DateTime.now().toIso8601String()))
+          : null,
       time: gameTime,
       isAway: (map['is_away'] ?? 0) == 1,
       levelOfCompetition: map['level_of_competition'],
@@ -448,13 +458,15 @@ class Game {
       hireAutomatically: (map['hire_automatically'] ?? 0) == 1,
       method: map['method'],
       status: map['status'] ?? 'Unpublished',
-      createdAt: DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
-      updatedAt: DateTime.parse(map['updated_at'] ?? DateTime.now().toIso8601String()),
+      createdAt:
+          DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
+      updatedAt:
+          DateTime.parse(map['updated_at'] ?? DateTime.now().toIso8601String()),
       scheduleName: map['schedule_name'],
       sportName: map['sport_name'],
       locationName: map['location_name'],
     );
-    
+
     return game;
   }
 
@@ -531,8 +543,9 @@ class GameTemplate {
   final String? method;
   final int? officialsListId;
   final List<Map<String, dynamic>>? selectedOfficials;
+  final List<Map<String, dynamic>>? selectedLists; // Added for advanced method
   final String? officialsListName;
-  
+
   // Include flags
   final bool includeScheduleName;
   final bool includeSport;
@@ -548,7 +561,7 @@ class GameTemplate {
   final bool includeHireAutomatically;
   final bool includeSelectedOfficials;
   final bool includeOfficialsList;
-  
+
   final DateTime createdAt;
 
   // Joined data
@@ -574,6 +587,7 @@ class GameTemplate {
     this.method,
     this.officialsListId,
     this.selectedOfficials,
+    this.selectedLists, // Added for advanced method
     this.officialsListName,
     this.includeScheduleName = false,
     this.includeSport = false,
@@ -602,7 +616,9 @@ class GameTemplate {
       'user_id': userId,
       'schedule_name': scheduleName,
       'date': date?.toIso8601String(),
-      'time': time != null ? '${time!.hour.toString().padLeft(2, '0')}:${time!.minute.toString().padLeft(2, '0')}' : null,
+      'time': time != null
+          ? '${time!.hour.toString().padLeft(2, '0')}:${time!.minute.toString().padLeft(2, '0')}'
+          : null,
       'location_id': locationId,
       'is_away_game': isAwayGame ? 1 : 0,
       'level_of_competition': levelOfCompetition,
@@ -610,9 +626,12 @@ class GameTemplate {
       'officials_required': officialsRequired,
       'game_fee': gameFee,
       'opponent': opponent,
-      'hire_automatically': hireAutomatically != null ? (hireAutomatically! ? 1 : 0) : null,
+      'hire_automatically':
+          hireAutomatically != null ? (hireAutomatically! ? 1 : 0) : null,
       'method': method,
       'officials_list_id': officialsListId,
+      'selected_lists':
+          selectedLists != null ? jsonEncode(selectedLists) : null,
       'include_schedule_name': includeScheduleName ? 1 : 0,
       'include_sport': includeSport ? 1 : 0,
       'include_date': includeDate ? 1 : 0,
@@ -643,14 +662,42 @@ class GameTemplate {
       }
     }
 
+    List<Map<String, dynamic>>? selectedLists;
+    if (map['selected_lists'] != null) {
+      try {
+        final decoded = jsonDecode(map['selected_lists']);
+        if (decoded is List) {
+          selectedLists = List<Map<String, dynamic>>.from(decoded);
+        }
+      } catch (e) {
+        debugPrint('Error decoding selected_lists: $e');
+      }
+    }
+
+    List<Map<String, dynamic>>? selectedOfficials;
+    if (map['selected_officials'] != null) {
+      try {
+        final decoded = jsonDecode(map['selected_officials']);
+        if (decoded is List) {
+          selectedOfficials = List<Map<String, dynamic>>.from(decoded);
+        }
+      } catch (e) {
+        debugPrint('Error decoding selected_officials: $e');
+      }
+    }
+
     return GameTemplate(
       id: map['id']?.toInt(),
       name: map['name'] ?? '',
       sportId: map['sport_id']?.toInt() ?? 0,
       userId: map['user_id']?.toInt() ?? 0,
       scheduleName: map['schedule_name'],
-      date: map['date'] != null ? 
-        (map['date'] is DateTime ? map['date'] as DateTime : DateTime.parse((map['date'] as String?) ?? DateTime.now().toIso8601String())) : null,
+      date: map['date'] != null
+          ? (map['date'] is DateTime
+              ? map['date'] as DateTime
+              : DateTime.parse(
+                  (map['date'] as String?) ?? DateTime.now().toIso8601String()))
+          : null,
       time: gameTime,
       locationId: map['location_id']?.toInt(),
       isAwayGame: (map['is_away_game'] ?? 0) == 1,
@@ -659,16 +706,21 @@ class GameTemplate {
       officialsRequired: map['officials_required']?.toInt(),
       gameFee: map['game_fee'],
       opponent: map['opponent'],
-      hireAutomatically: map['hire_automatically'] != null ? (map['hire_automatically'] == 1) : null,
+      hireAutomatically: map['hire_automatically'] != null
+          ? (map['hire_automatically'] == 1)
+          : null,
       method: map['method'],
       officialsListId: map['officials_list_id']?.toInt(),
+      selectedOfficials: selectedOfficials,
+      selectedLists: selectedLists,
       includeScheduleName: (map['include_schedule_name'] ?? 0) == 1,
       includeSport: (map['include_sport'] ?? 0) == 1,
       includeDate: (map['include_date'] ?? 0) == 1,
       includeTime: (map['include_time'] ?? 0) == 1,
       includeLocation: (map['include_location'] ?? 0) == 1,
       includeIsAwayGame: (map['include_is_away_game'] ?? 0) == 1,
-      includeLevelOfCompetition: (map['include_level_of_competition'] ?? 0) == 1,
+      includeLevelOfCompetition:
+          (map['include_level_of_competition'] ?? 0) == 1,
       includeGender: (map['include_gender'] ?? 0) == 1,
       includeOfficialsRequired: (map['include_officials_required'] ?? 0) == 1,
       includeGameFee: (map['include_game_fee'] ?? 0) == 1,
@@ -676,7 +728,8 @@ class GameTemplate {
       includeHireAutomatically: (map['include_hire_automatically'] ?? 0) == 1,
       includeSelectedOfficials: (map['include_selected_officials'] ?? 0) == 1,
       includeOfficialsList: (map['include_officials_list'] ?? 0) == 1,
-      createdAt: DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
+      createdAt:
+          DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
       sportName: map['sport_name'],
       locationName: map['location_name'],
       officialsListName: map['officials_list_name'],
@@ -745,8 +798,8 @@ class OfficialUser {
     this.status = 'active',
     DateTime? createdAt,
     DateTime? updatedAt,
-  }) : createdAt = createdAt ?? DateTime.now(),
-       updatedAt = updatedAt ?? DateTime.now();
+  })  : createdAt = createdAt ?? DateTime.now(),
+        updatedAt = updatedAt ?? DateTime.now();
 
   Map<String, dynamic> toMap() {
     return {
@@ -777,8 +830,10 @@ class OfficialUser {
       emailVerified: (map['email_verified'] ?? 0) == 1,
       phoneVerified: (map['phone_verified'] ?? 0) == 1,
       status: map['status'] ?? 'active',
-      createdAt: DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
-      updatedAt: DateTime.parse(map['updated_at'] ?? DateTime.now().toIso8601String()),
+      createdAt:
+          DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
+      updatedAt:
+          DateTime.parse(map['updated_at'] ?? DateTime.now().toIso8601String()),
     );
   }
 }
@@ -801,7 +856,7 @@ class GameAssignment {
   final DateTime? excusedAt;
   final int? excusedBy;
   final String? excuseReason;
-  
+
   // Additional fields from JOIN queries
   DateTime? _gameDate;
   DateTime? _gameTime;
@@ -810,7 +865,7 @@ class GameAssignment {
   String? _homeTeam;
   String? _locationName;
   String? _locationAddress;
-  
+
   // Getters for the additional fields
   DateTime? get gameDate => _gameDate;
   DateTime? get gameTime => _gameTime;
@@ -868,24 +923,33 @@ class GameAssignment {
       position: map['position'],
       status: map['status'] ?? 'pending',
       assignedBy: map['assigned_by']?.toInt() ?? 0,
-      assignedAt: DateTime.parse(map['assigned_at'] ?? DateTime.now().toIso8601String()),
-      respondedAt: map['responded_at'] != null ? DateTime.parse(map['responded_at']) : null,
+      assignedAt: DateTime.parse(
+          map['assigned_at'] ?? DateTime.now().toIso8601String()),
+      respondedAt: map['responded_at'] != null
+          ? DateTime.parse(map['responded_at'])
+          : null,
       responseNotes: map['response_notes'],
       feeAmount: map['fee_amount']?.toDouble(),
-      backedOutAt: map['backed_out_at'] != null ? DateTime.parse(map['backed_out_at']) : null,
+      backedOutAt: map['backed_out_at'] != null
+          ? DateTime.parse(map['backed_out_at'])
+          : null,
       backOutReason: map['back_out_reason'],
       excusedBackout: (map['excused_backout'] ?? 0) == 1,
-      excusedAt: map['excused_at'] != null ? DateTime.parse(map['excused_at']) : null,
+      excusedAt:
+          map['excused_at'] != null ? DateTime.parse(map['excused_at']) : null,
       excusedBy: map['excused_by']?.toInt(),
       excuseReason: map['excuse_reason'],
     );
-    
+
     // Add additional fields from JOIN queries if they exist
     if (map.containsKey('date')) {
-      assignment._gameDate = map['date'] != null ? DateTime.parse(map['date']) : null;
+      assignment._gameDate =
+          map['date'] != null ? DateTime.parse(map['date']) : null;
     }
     if (map.containsKey('time')) {
-      assignment._gameTime = map['time'] != null ? DateTime.parse('1970-01-01 ${map['time']}') : null;
+      assignment._gameTime = map['time'] != null
+          ? DateTime.parse('1970-01-01 ${map['time']}')
+          : null;
     }
     if (map.containsKey('sport_name')) {
       assignment._sportName = map['sport_name'];
@@ -902,7 +966,7 @@ class GameAssignment {
     if (map.containsKey('location_address')) {
       assignment._locationAddress = map['location_address'];
     }
-    
+
     return assignment;
   }
 }
@@ -934,8 +998,10 @@ class OfficialAvailability {
       'id': id,
       'official_id': officialId,
       'date': date.toIso8601String().split('T')[0], // Date only
-      'start_time': startTime != null ? '${startTime!.hour}:${startTime!.minute}' : null,
-      'end_time': endTime != null ? '${endTime!.hour}:${endTime!.minute}' : null,
+      'start_time':
+          startTime != null ? '${startTime!.hour}:${startTime!.minute}' : null,
+      'end_time':
+          endTime != null ? '${endTime!.hour}:${endTime!.minute}' : null,
       'status': status,
       'notes': notes,
       'created_at': createdAt.toIso8601String(),
@@ -947,7 +1013,8 @@ class OfficialAvailability {
       if (timeStr == null || timeStr.isEmpty) return null;
       final parts = timeStr.split(':');
       if (parts.length == 2) {
-        return TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+        return TimeOfDay(
+            hour: int.parse(parts[0]), minute: int.parse(parts[1]));
       }
       return null;
     }
@@ -960,7 +1027,8 @@ class OfficialAvailability {
       endTime: parseTime(map['end_time']),
       status: map['status'] ?? 'available',
       notes: map['notes'],
-      createdAt: DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
+      createdAt:
+          DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
     );
   }
 }
@@ -1009,7 +1077,8 @@ class OfficialSport {
       certificationLevel: map['certification_level'],
       yearsExperience: map['years_experience']?.toInt(),
       isPrimary: (map['is_primary'] ?? 0) == 1,
-      createdAt: DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
+      createdAt:
+          DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
       sportName: map['sport_name'],
     );
   }
@@ -1059,7 +1128,8 @@ class OfficialNotification {
       message: map['message'] ?? '',
       relatedGameId: map['related_game_id']?.toInt(),
       readAt: map['read_at'] != null ? DateTime.parse(map['read_at']) : null,
-      createdAt: DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
+      createdAt:
+          DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
     );
   }
 }
@@ -1166,14 +1236,21 @@ class OfficialBackoutNotification {
       officialId: map['official_id']?.toInt() ?? 0,
       schedulerId: map['scheduler_id']?.toInt() ?? 0,
       gameId: map['game_id']?.toInt() ?? 0,
-      backedOutAt: DateTime.parse(map['backed_out_at'] ?? DateTime.now().toIso8601String()),
+      backedOutAt: DateTime.parse(
+          map['backed_out_at'] ?? DateTime.now().toIso8601String()),
       backOutReason: map['back_out_reason'] ?? '',
-      excusedAt: map['excused_at'] != null ? DateTime.parse(map['excused_at']) : null,
+      excusedAt:
+          map['excused_at'] != null ? DateTime.parse(map['excused_at']) : null,
       excusedBy: map['excused_by']?.toInt(),
       excuseReason: map['excuse_reason'],
-      notificationSentAt: map['notification_sent_at'] != null ? DateTime.parse(map['notification_sent_at']) : null,
-      notificationReadAt: map['notification_read_at'] != null ? DateTime.parse(map['notification_read_at']) : null,
-      createdAt: DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
+      notificationSentAt: map['notification_sent_at'] != null
+          ? DateTime.parse(map['notification_sent_at'])
+          : null,
+      notificationReadAt: map['notification_read_at'] != null
+          ? DateTime.parse(map['notification_read_at'])
+          : null,
+      createdAt:
+          DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
       officialName: map['official_name'],
       gameSport: map['game_sport'],
       gameOpponent: map['game_opponent'],
@@ -1266,7 +1343,8 @@ class OfficialEndorsement {
       endorsedOfficialId: map['endorsed_official_id']?.toInt() ?? 0,
       endorserUserId: map['endorser_user_id']?.toInt() ?? 0,
       endorserType: map['endorser_type'] ?? '',
-      createdAt: DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
+      createdAt:
+          DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
     );
   }
 }
@@ -1311,7 +1389,8 @@ class CrewType {
       levelOfCompetition: map['level_of_competition'] ?? '',
       requiredOfficials: map['required_officials']?.toInt() ?? 0,
       description: map['description'],
-      createdAt: DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
+      createdAt:
+          DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
       sportName: map['sport_name'],
     );
   }
@@ -1355,8 +1434,8 @@ class Crew {
     this.crewChiefName,
     this.members,
     this.competitionLevels,
-  }) : createdAt = createdAt ?? DateTime.now(),
-       updatedAt = updatedAt ?? DateTime.now();
+  })  : createdAt = createdAt ?? DateTime.now(),
+        updatedAt = updatedAt ?? DateTime.now();
 
   Map<String, dynamic> toMap() {
     return {
@@ -1368,7 +1447,8 @@ class Crew {
       'is_active': isActive ? 1 : 0,
       'payment_method': paymentMethod,
       'crew_fee_per_game': crewFeePerGame,
-      'competition_levels': competitionLevels != null ? jsonEncode(competitionLevels) : '[]',
+      'competition_levels':
+          competitionLevels != null ? jsonEncode(competitionLevels) : '[]',
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };
@@ -1384,20 +1464,23 @@ class Crew {
       isActive: (map['is_active'] ?? 1) == 1,
       paymentMethod: map['payment_method'] ?? 'equal_split',
       crewFeePerGame: map['crew_fee_per_game']?.toDouble(),
-      createdAt: DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
-      updatedAt: DateTime.parse(map['updated_at'] ?? DateTime.now().toIso8601String()),
+      createdAt:
+          DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
+      updatedAt:
+          DateTime.parse(map['updated_at'] ?? DateTime.now().toIso8601String()),
       sportName: map['sport_name'],
       levelOfCompetition: map['level_of_competition'],
       requiredOfficials: map['required_officials']?.toInt(),
       crewChiefName: map['crew_chief_name'],
-      competitionLevels: map['competition_levels'] != null 
+      competitionLevels: map['competition_levels'] != null
           ? List<String>.from(jsonDecode(map['competition_levels'] ?? '[]'))
           : null,
     );
   }
 
   // Computed properties
-  bool get isFullyStaffed => members != null && members!.length == requiredOfficials;
+  bool get isFullyStaffed =>
+      members != null && members!.length == requiredOfficials;
   bool get canBeHired => isActive && isFullyStaffed;
 }
 
@@ -1448,7 +1531,8 @@ class CrewMember {
       officialId: map['official_id']?.toInt() ?? 0,
       position: map['position'] ?? 'member',
       gamePosition: map['game_position'],
-      joinedAt: DateTime.parse(map['joined_at'] ?? DateTime.now().toIso8601String()),
+      joinedAt:
+          DateTime.parse(map['joined_at'] ?? DateTime.now().toIso8601String()),
       status: map['status'] ?? 'active',
       officialName: map['official_name'],
       phone: map['phone'],
@@ -1486,8 +1570,10 @@ class CrewAvailability {
       'id': id,
       'crew_id': crewId,
       'date': date.toIso8601String().split('T')[0],
-      'start_time': startTime != null ? '${startTime!.hour}:${startTime!.minute}' : null,
-      'end_time': endTime != null ? '${endTime!.hour}:${endTime!.minute}' : null,
+      'start_time':
+          startTime != null ? '${startTime!.hour}:${startTime!.minute}' : null,
+      'end_time':
+          endTime != null ? '${endTime!.hour}:${endTime!.minute}' : null,
       'status': status,
       'notes': notes,
       'set_by': setBy,
@@ -1500,7 +1586,8 @@ class CrewAvailability {
       if (timeStr == null || timeStr.isEmpty) return null;
       final parts = timeStr.split(':');
       if (parts.length == 2) {
-        return TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+        return TimeOfDay(
+            hour: int.parse(parts[0]), minute: int.parse(parts[1]));
       }
       return null;
     }
@@ -1514,7 +1601,8 @@ class CrewAvailability {
       status: map['status'] ?? 'available',
       notes: map['notes'],
       setBy: map['set_by']?.toInt() ?? 0,
-      createdAt: DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
+      createdAt:
+          DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
     );
   }
 }
@@ -1607,12 +1695,16 @@ class CrewAssignment {
       assignedBy: map['assigned_by']?.toInt() ?? 0,
       crewChiefId: map['crew_chief_id']?.toInt() ?? 0,
       status: map['status'] ?? 'pending',
-      assignedAt: DateTime.parse(map['assigned_at'] ?? DateTime.now().toIso8601String()),
-      respondedAt: map['responded_at'] != null ? DateTime.parse(map['responded_at']) : null,
+      assignedAt: DateTime.parse(
+          map['assigned_at'] ?? DateTime.now().toIso8601String()),
+      respondedAt: map['responded_at'] != null
+          ? DateTime.parse(map['responded_at'])
+          : null,
       responseNotes: map['response_notes'],
       totalFeeAmount: map['total_fee_amount']?.toDouble(),
       paymentMethod: map['payment_method'] ?? 'equal_split',
-      crewChiefResponseRequired: (map['crew_chief_response_required'] ?? 1) == 1,
+      crewChiefResponseRequired:
+          (map['crew_chief_response_required'] ?? 1) == 1,
       gameDate: map['date'] != null ? DateTime.parse(map['date']) : null,
       gameTime: gameTime,
       opponent: map['opponent'],
@@ -1665,7 +1757,8 @@ class PaymentDistribution {
       amount: map['amount']?.toDouble() ?? 0.0,
       notes: map['notes'],
       createdBy: map['created_by']?.toInt() ?? 0,
-      createdAt: DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
+      createdAt:
+          DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
     );
   }
 }
@@ -1682,7 +1775,7 @@ class CrewInvitation {
   final String? responseNotes;
   final String position;
   final String? gamePosition;
-  
+
   // Additional fields populated from joins
   final String? crewName;
   final String? invitedOfficialName;
@@ -1730,8 +1823,11 @@ class CrewInvitation {
       invitedOfficialId: map['invited_official_id']?.toInt() ?? 0,
       invitedBy: map['invited_by']?.toInt() ?? 0,
       status: map['status'] ?? 'pending',
-      invitedAt: DateTime.parse(map['invited_at'] ?? DateTime.now().toIso8601String()),
-      respondedAt: map['responded_at'] != null ? DateTime.parse(map['responded_at']) : null,
+      invitedAt:
+          DateTime.parse(map['invited_at'] ?? DateTime.now().toIso8601String()),
+      respondedAt: map['responded_at'] != null
+          ? DateTime.parse(map['responded_at'])
+          : null,
       responseNotes: map['response_notes'],
       position: map['position'] ?? 'member',
       gamePosition: map['game_position'],
@@ -1748,7 +1844,7 @@ class CrewInvitation {
 class UserSettings {
   final int? id;
   final int userId;
-  
+
   // Notification preferences
   final bool emailNotifications;
   final bool pushNotifications;
@@ -1757,12 +1853,12 @@ class UserSettings {
   final bool scheduleUpdates;
   final bool assignmentAlerts;
   final bool emergencyNotifications;
-  
+
   // Privacy preferences
   final bool shareProfile;
   final bool showAvailability;
   final bool allowContactFromOfficials;
-  
+
   // App preferences
   final bool defaultDarkMode;
   final String notificationSound;
@@ -1771,7 +1867,7 @@ class UserSettings {
   final String timeFormat;
   final bool autoRefresh;
   final int refreshInterval;
-  
+
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -1797,8 +1893,8 @@ class UserSettings {
     this.refreshInterval = 30,
     DateTime? createdAt,
     DateTime? updatedAt,
-  }) : createdAt = createdAt ?? DateTime.now(),
-       updatedAt = updatedAt ?? DateTime.now();
+  })  : createdAt = createdAt ?? DateTime.now(),
+        updatedAt = updatedAt ?? DateTime.now();
 
   Map<String, dynamic> toMap() {
     return {
@@ -1839,7 +1935,8 @@ class UserSettings {
       emergencyNotifications: (map['emergency_notifications'] ?? 1) == 1,
       shareProfile: (map['share_profile'] ?? 1) == 1,
       showAvailability: (map['show_availability'] ?? 1) == 1,
-      allowContactFromOfficials: (map['allow_contact_from_officials'] ?? 1) == 1,
+      allowContactFromOfficials:
+          (map['allow_contact_from_officials'] ?? 1) == 1,
       defaultDarkMode: (map['default_dark_mode'] ?? 0) == 1,
       notificationSound: map['notification_sound'] ?? 'default',
       vibrationEnabled: (map['vibration_enabled'] ?? 1) == 1,
@@ -1847,11 +1944,11 @@ class UserSettings {
       timeFormat: map['time_format'] ?? '12',
       autoRefresh: (map['auto_refresh'] ?? 1) == 1,
       refreshInterval: map['refresh_interval']?.toInt() ?? 30,
-      createdAt: map['created_at'] != null 
-          ? DateTime.parse(map['created_at']) 
+      createdAt: map['created_at'] != null
+          ? DateTime.parse(map['created_at'])
           : DateTime.now(),
-      updatedAt: map['updated_at'] != null 
-          ? DateTime.parse(map['updated_at']) 
+      updatedAt: map['updated_at'] != null
+          ? DateTime.parse(map['updated_at'])
           : DateTime.now(),
     );
   }
@@ -1861,7 +1958,8 @@ class UserSettings {
 class Notification {
   final int? id;
   final int recipientId; // scheduler user ID
-  final String type; // 'backout', 'game_filling', 'official_interest', 'official_claim'
+  final String
+      type; // 'backout', 'game_filling', 'official_interest', 'official_claim'
   final String title;
   final String message;
   final Map<String, dynamic>? data; // JSON data specific to notification type
@@ -1916,12 +2014,14 @@ class Notification {
       message: map['message'] ?? '',
       data: map['data'] != null ? jsonDecode(map['data']) : null,
       isRead: (map['is_read'] ?? 0) == 1,
-      createdAt: DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
+      createdAt:
+          DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
       readAt: map['read_at'] != null ? DateTime.parse(map['read_at']) : null,
       officialName: map['official_name'],
       gameSport: map['game_sport'],
       gameOpponent: map['game_opponent'],
-      gameDate: map['game_date'] != null ? DateTime.parse(map['game_date']) : null,
+      gameDate:
+          map['game_date'] != null ? DateTime.parse(map['game_date']) : null,
       gameTime: map['game_time'],
     );
   }
@@ -1941,7 +2041,8 @@ class Notification {
       recipientId: schedulerId,
       type: 'backout',
       title: 'Official Backed Out',
-      message: '$officialName backed out of $gameSport game ($gameOpponent) on ${gameDate.toString().split(' ')[0]} at $gameTime. Reason: $reason',
+      message:
+          '$officialName backed out of $gameSport game ($gameOpponent) on ${gameDate.toString().split(' ')[0]} at $gameTime. Reason: $reason',
       data: {
         'official_name': officialName,
         'game_sport': gameSport,
@@ -1969,7 +2070,8 @@ class Notification {
       recipientId: schedulerId,
       type: 'crew_backout',
       title: 'Crew Backed Out',
-      message: '$crewName backed out of $gameSport game ($gameOpponent) on ${gameDate.toString().split(' ')[0]} at $gameTime. Reason: $reason',
+      message:
+          '$crewName backed out of $gameSport game ($gameOpponent) on ${gameDate.toString().split(' ')[0]} at $gameTime. Reason: $reason',
       data: {
         'crew_name': crewName,
         'game_sport': gameSport,
@@ -1997,7 +2099,8 @@ class Notification {
       recipientId: schedulerId,
       type: 'game_filling',
       title: 'Game Needs Officials',
-      message: '$gameSport game ($gameOpponent) on ${gameDate.toString().split(' ')[0]} at $gameTime needs $officialsNeeded more official${officialsNeeded == 1 ? '' : 's'}. Game is in $daysUntilGame day${daysUntilGame == 1 ? '' : 's'}.',
+      message:
+          '$gameSport game ($gameOpponent) on ${gameDate.toString().split(' ')[0]} at $gameTime needs $officialsNeeded more official${officialsNeeded == 1 ? '' : 's'}. Game is in $daysUntilGame day${daysUntilGame == 1 ? '' : 's'}.',
       data: {
         'game_sport': gameSport,
         'game_opponent': gameOpponent,
@@ -2023,7 +2126,8 @@ class Notification {
       recipientId: schedulerId,
       type: 'official_interest',
       title: 'Official Expressed Interest',
-      message: '$officialName expressed interest in officiating $gameSport game ($gameOpponent) on ${gameDate.toString().split(' ')[0]} at $gameTime.',
+      message:
+          '$officialName expressed interest in officiating $gameSport game ($gameOpponent) on ${gameDate.toString().split(' ')[0]} at $gameTime.',
       data: {
         'official_name': officialName,
         'game_sport': gameSport,
@@ -2048,7 +2152,8 @@ class Notification {
       recipientId: schedulerId,
       type: 'official_claim',
       title: 'Official Claimed Game',
-      message: '$officialName claimed $gameSport game ($gameOpponent) on ${gameDate.toString().split(' ')[0]} at $gameTime.',
+      message:
+          '$officialName claimed $gameSport game ($gameOpponent) on ${gameDate.toString().split(' ')[0]} at $gameTime.',
       data: {
         'official_name': officialName,
         'game_sport': gameSport,
@@ -2074,7 +2179,8 @@ class Notification {
       recipientId: officialId,
       type: 'official_removal',
       title: 'Removed from Game',
-      message: 'You have been removed from the $gameSport game ($gameOpponent) on ${gameDate.toString().split(' ')[0]} at $gameTime by $schedulerName.',
+      message:
+          'You have been removed from the $gameSport game ($gameOpponent) on ${gameDate.toString().split(' ')[0]} at $gameTime by $schedulerName.',
       data: {
         'scheduler_name': schedulerName,
         'game_sport': gameSport,
@@ -2091,22 +2197,23 @@ class Notification {
 class NotificationSettings {
   final int? id;
   final int userId;
-  
+
   // Game filling notifications
   final bool gameFillingNotificationsEnabled;
-  final List<int> gameFillingReminderDays; // Days before game to send notifications
-  
+  final List<int>
+      gameFillingReminderDays; // Days before game to send notifications
+
   // Official activity notifications
   final bool officialInterestNotificationsEnabled;
   final bool officialClaimNotificationsEnabled;
-  
+
   // Backout notifications (always enabled for schedulers)
   final bool backoutNotificationsEnabled;
-  
+
   // Communication preferences
   final bool emailEnabled;
   final bool smsEnabled;
-  
+
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -2114,7 +2221,13 @@ class NotificationSettings {
     this.id,
     required this.userId,
     this.gameFillingNotificationsEnabled = true,
-    this.gameFillingReminderDays = const [14, 7, 3, 2, 1], // Default: 2 weeks, 1 week, 3/2/1 days
+    this.gameFillingReminderDays = const [
+      14,
+      7,
+      3,
+      2,
+      1
+    ], // Default: 2 weeks, 1 week, 3/2/1 days
     this.officialInterestNotificationsEnabled = false,
     this.officialClaimNotificationsEnabled = false,
     this.backoutNotificationsEnabled = true,
@@ -2122,17 +2235,20 @@ class NotificationSettings {
     this.smsEnabled = false,
     DateTime? createdAt,
     DateTime? updatedAt,
-  }) : createdAt = createdAt ?? DateTime.now(),
-       updatedAt = updatedAt ?? DateTime.now();
+  })  : createdAt = createdAt ?? DateTime.now(),
+        updatedAt = updatedAt ?? DateTime.now();
 
   Map<String, dynamic> toMap() {
     return {
       'id': id,
       'user_id': userId,
-      'game_filling_notifications_enabled': gameFillingNotificationsEnabled ? 1 : 0,
+      'game_filling_notifications_enabled':
+          gameFillingNotificationsEnabled ? 1 : 0,
       'game_filling_reminder_days': jsonEncode(gameFillingReminderDays),
-      'official_interest_notifications_enabled': officialInterestNotificationsEnabled ? 1 : 0,
-      'official_claim_notifications_enabled': officialClaimNotificationsEnabled ? 1 : 0,
+      'official_interest_notifications_enabled':
+          officialInterestNotificationsEnabled ? 1 : 0,
+      'official_claim_notifications_enabled':
+          officialClaimNotificationsEnabled ? 1 : 0,
       'backout_notifications_enabled': backoutNotificationsEnabled ? 1 : 0,
       'email_enabled': emailEnabled ? 1 : 0,
       'sms_enabled': smsEnabled ? 1 : 0,
@@ -2145,17 +2261,23 @@ class NotificationSettings {
     return NotificationSettings(
       id: map['id']?.toInt(),
       userId: map['user_id']?.toInt() ?? 0,
-      gameFillingNotificationsEnabled: (map['game_filling_notifications_enabled'] ?? 1) == 1,
-      gameFillingReminderDays: map['game_filling_reminder_days'] != null 
+      gameFillingNotificationsEnabled:
+          (map['game_filling_notifications_enabled'] ?? 1) == 1,
+      gameFillingReminderDays: map['game_filling_reminder_days'] != null
           ? List<int>.from(jsonDecode(map['game_filling_reminder_days']))
           : [14, 7, 3, 2, 1],
-      officialInterestNotificationsEnabled: (map['official_interest_notifications_enabled'] ?? 0) == 1,
-      officialClaimNotificationsEnabled: (map['official_claim_notifications_enabled'] ?? 0) == 1,
-      backoutNotificationsEnabled: (map['backout_notifications_enabled'] ?? 1) == 1,
+      officialInterestNotificationsEnabled:
+          (map['official_interest_notifications_enabled'] ?? 0) == 1,
+      officialClaimNotificationsEnabled:
+          (map['official_claim_notifications_enabled'] ?? 0) == 1,
+      backoutNotificationsEnabled:
+          (map['backout_notifications_enabled'] ?? 1) == 1,
       emailEnabled: (map['email_enabled'] ?? 0) == 1,
       smsEnabled: (map['sms_enabled'] ?? 0) == 1,
-      createdAt: DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
-      updatedAt: DateTime.parse(map['updated_at'] ?? DateTime.now().toIso8601String()),
+      createdAt:
+          DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
+      updatedAt:
+          DateTime.parse(map['updated_at'] ?? DateTime.now().toIso8601String()),
     );
   }
 
@@ -2175,15 +2297,169 @@ class NotificationSettings {
     return NotificationSettings(
       id: id ?? this.id,
       userId: userId ?? this.userId,
-      gameFillingNotificationsEnabled: gameFillingNotificationsEnabled ?? this.gameFillingNotificationsEnabled,
-      gameFillingReminderDays: gameFillingReminderDays ?? this.gameFillingReminderDays,
-      officialInterestNotificationsEnabled: officialInterestNotificationsEnabled ?? this.officialInterestNotificationsEnabled,
-      officialClaimNotificationsEnabled: officialClaimNotificationsEnabled ?? this.officialClaimNotificationsEnabled,
-      backoutNotificationsEnabled: backoutNotificationsEnabled ?? this.backoutNotificationsEnabled,
+      gameFillingNotificationsEnabled: gameFillingNotificationsEnabled ??
+          this.gameFillingNotificationsEnabled,
+      gameFillingReminderDays:
+          gameFillingReminderDays ?? this.gameFillingReminderDays,
+      officialInterestNotificationsEnabled:
+          officialInterestNotificationsEnabled ??
+              this.officialInterestNotificationsEnabled,
+      officialClaimNotificationsEnabled: officialClaimNotificationsEnabled ??
+          this.officialClaimNotificationsEnabled,
+      backoutNotificationsEnabled:
+          backoutNotificationsEnabled ?? this.backoutNotificationsEnabled,
       emailEnabled: emailEnabled ?? this.emailEnabled,
       smsEnabled: smsEnabled ?? this.smsEnabled,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+}
+
+// Game List Quota model for Advanced Method (Multiple Lists)
+class GameListQuota {
+  final int? id;
+  final int gameId;
+  final int listId;
+  final int minOfficials;
+  final int maxOfficials;
+  final int currentOfficials;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+
+  // Joined data
+  final String? listName;
+  final String? sportName;
+
+  GameListQuota({
+    this.id,
+    required this.gameId,
+    required this.listId,
+    required this.minOfficials,
+    required this.maxOfficials,
+    this.currentOfficials = 0,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    this.listName,
+    this.sportName,
+  })  : createdAt = createdAt ?? DateTime.now(),
+        updatedAt = updatedAt ?? DateTime.now();
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'game_id': gameId,
+      'list_id': listId,
+      'min_officials': minOfficials,
+      'max_officials': maxOfficials,
+      'current_officials': currentOfficials,
+      'created_at': createdAt.toIso8601String(),
+      'updated_at': updatedAt.toIso8601String(),
+    };
+  }
+
+  factory GameListQuota.fromMap(Map<String, dynamic> map) {
+    return GameListQuota(
+      id: map['id']?.toInt(),
+      gameId: map['game_id']?.toInt() ?? 0,
+      listId: map['list_id']?.toInt() ?? 0,
+      minOfficials: map['min_officials']?.toInt() ?? 0,
+      maxOfficials: map['max_officials']?.toInt() ?? 0,
+      currentOfficials: map['current_officials']?.toInt() ?? 0,
+      createdAt:
+          DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
+      updatedAt:
+          DateTime.parse(map['updated_at'] ?? DateTime.now().toIso8601String()),
+      listName: map['list_name'],
+      sportName: map['sport_name'],
+    );
+  }
+
+  GameListQuota copyWith({
+    int? id,
+    int? gameId,
+    int? listId,
+    int? minOfficials,
+    int? maxOfficials,
+    int? currentOfficials,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    String? listName,
+    String? sportName,
+  }) {
+    return GameListQuota(
+      id: id ?? this.id,
+      gameId: gameId ?? this.gameId,
+      listId: listId ?? this.listId,
+      minOfficials: minOfficials ?? this.minOfficials,
+      maxOfficials: maxOfficials ?? this.maxOfficials,
+      currentOfficials: currentOfficials ?? this.currentOfficials,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? DateTime.now(),
+      listName: listName ?? this.listName,
+      sportName: sportName ?? this.sportName,
+    );
+  }
+
+  // Check if this quota has been satisfied (min requirement met)
+  bool get isMinimumSatisfied => currentOfficials >= minOfficials;
+
+  // Check if this quota is at maximum capacity
+  bool get isAtMaximum => currentOfficials >= maxOfficials;
+
+  // Check if this quota can accept more officials
+  bool get canAcceptMore => currentOfficials < maxOfficials;
+
+  // Get remaining slots available
+  int get remainingSlots => maxOfficials - currentOfficials;
+
+  // Get shortfall (how many more needed to meet minimum)
+  int get shortfall =>
+      minOfficials > currentOfficials ? minOfficials - currentOfficials : 0;
+}
+
+// Official List Assignment model to track which officials from which lists are assigned to games
+class OfficialListAssignment {
+  final int? id;
+  final int gameId;
+  final int officialId;
+  final int listId;
+  final DateTime assignedAt;
+
+  // Joined data
+  final String? officialName;
+  final String? listName;
+
+  OfficialListAssignment({
+    this.id,
+    required this.gameId,
+    required this.officialId,
+    required this.listId,
+    DateTime? assignedAt,
+    this.officialName,
+    this.listName,
+  }) : assignedAt = assignedAt ?? DateTime.now();
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'game_id': gameId,
+      'official_id': officialId,
+      'list_id': listId,
+      'assigned_at': assignedAt.toIso8601String(),
+    };
+  }
+
+  factory OfficialListAssignment.fromMap(Map<String, dynamic> map) {
+    return OfficialListAssignment(
+      id: map['id']?.toInt(),
+      gameId: map['game_id']?.toInt() ?? 0,
+      officialId: map['official_id']?.toInt() ?? 0,
+      listId: map['list_id']?.toInt() ?? 0,
+      assignedAt: DateTime.parse(
+          map['assigned_at'] ?? DateTime.now().toIso8601String()),
+      officialName: map['official_name'],
+      listName: map['list_name'],
     );
   }
 }
@@ -2220,7 +2496,8 @@ class Team {
       name: map['name'],
       userId: map['user_id'],
       createdAt: DateTime.parse(map['created_at']),
-      updatedAt: map['updated_at'] != null ? DateTime.parse(map['updated_at']) : null,
+      updatedAt:
+          map['updated_at'] != null ? DateTime.parse(map['updated_at']) : null,
     );
   }
 

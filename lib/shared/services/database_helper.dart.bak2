@@ -24,7 +24,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 17,
+      version: 16,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -424,14 +424,34 @@ class DatabaseHelper {
       await db
           .execute('ALTER TABLE game_templates ADD COLUMN selected_lists TEXT');
     }
-
-    if (oldVersion < 17) {
-      // Add Advanced Method (Multiple Lists) support
-      await _addAdvancedMethodTables(db);
-    }
   }
 
   Future<void> _createTables(Database db) async {
+    // Add new tables for list quotas and memberships
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS list_quotas (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        game_id INTEGER NOT NULL,
+        list_id INTEGER NOT NULL,
+        min_officials INTEGER NOT NULL DEFAULT 0,
+        max_officials INTEGER NOT NULL,
+        current_count INTEGER NOT NULL DEFAULT 0,
+        FOREIGN KEY (game_id) REFERENCES games (id) ON DELETE CASCADE,
+        FOREIGN KEY (list_id) REFERENCES official_lists (id) ON DELETE CASCADE
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS official_list_memberships (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        official_id INTEGER NOT NULL,
+        list_id INTEGER NOT NULL,
+        UNIQUE(official_id, list_id),
+        FOREIGN KEY (official_id) REFERENCES officials (id) ON DELETE CASCADE,
+        FOREIGN KEY (list_id) REFERENCES official_lists (id) ON DELETE CASCADE
+      )
+    ''');
+
     // Users table
     await db.execute('''
       CREATE TABLE users (
@@ -802,8 +822,30 @@ class DatabaseHelper {
       )
     ''');
 
-    // Add Advanced Method (Multiple Lists) tables
-    await _addAdvancedMethodTables(db);
+    // Add new tables for list quotas and memberships
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS list_quotas (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        game_id INTEGER NOT NULL,
+        list_id INTEGER NOT NULL,
+        min_officials INTEGER NOT NULL DEFAULT 0,
+        max_officials INTEGER NOT NULL,
+        current_count INTEGER NOT NULL DEFAULT 0,
+        FOREIGN KEY (game_id) REFERENCES games (id) ON DELETE CASCADE,
+        FOREIGN KEY (list_id) REFERENCES official_lists (id) ON DELETE CASCADE
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS official_list_memberships (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        official_id INTEGER NOT NULL,
+        list_id INTEGER NOT NULL,
+        UNIQUE(official_id, list_id),
+        FOREIGN KEY (official_id) REFERENCES officials (id) ON DELETE CASCADE,
+        FOREIGN KEY (list_id) REFERENCES official_lists (id) ON DELETE CASCADE
+      )
+    ''');
 
     // Create indexes for better performance
     await _createIndexes(db);
@@ -1652,61 +1694,6 @@ class DatabaseHelper {
         "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
         [tableName]);
     return result.isNotEmpty;
-  }
-
-  Future<void> _addAdvancedMethodTables(Database db) async {
-    try {
-      print('Adding Advanced Method (Multiple Lists) tables...');
-
-      // Game List Quotas table - tracks quotas for each list per game
-      await db.execute('''
-        CREATE TABLE IF NOT EXISTS game_list_quotas (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          game_id INTEGER NOT NULL REFERENCES games(id) ON DELETE CASCADE,
-          list_id INTEGER NOT NULL REFERENCES official_lists(id) ON DELETE CASCADE,
-          min_officials INTEGER NOT NULL DEFAULT 0,
-          max_officials INTEGER NOT NULL DEFAULT 0,
-          current_officials INTEGER NOT NULL DEFAULT 0,
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          UNIQUE(game_id, list_id)
-        )
-      ''');
-
-      // Official List Assignments table - tracks which list an official was assigned from
-      await db.execute('''
-        CREATE TABLE IF NOT EXISTS official_list_assignments (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          game_id INTEGER NOT NULL REFERENCES games(id) ON DELETE CASCADE,
-          official_id INTEGER NOT NULL REFERENCES officials(id) ON DELETE CASCADE,
-          list_id INTEGER NOT NULL REFERENCES official_lists(id) ON DELETE CASCADE,
-          assigned_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          UNIQUE(game_id, official_id)
-        )
-      ''');
-
-      // Create indexes for performance
-      await db.execute(
-          'CREATE INDEX IF NOT EXISTS idx_game_list_quotas_game_id ON game_list_quotas(game_id)');
-      await db.execute(
-          'CREATE INDEX IF NOT EXISTS idx_game_list_quotas_list_id ON game_list_quotas(list_id)');
-      await db.execute(
-          'CREATE INDEX IF NOT EXISTS idx_game_list_quotas_game_list ON game_list_quotas(game_id, list_id)');
-      
-      await db.execute(
-          'CREATE INDEX IF NOT EXISTS idx_official_list_assignments_game_id ON official_list_assignments(game_id)');
-      await db.execute(
-          'CREATE INDEX IF NOT EXISTS idx_official_list_assignments_official_id ON official_list_assignments(official_id)');
-      await db.execute(
-          'CREATE INDEX IF NOT EXISTS idx_official_list_assignments_list_id ON official_list_assignments(list_id)');
-      await db.execute(
-          'CREATE INDEX IF NOT EXISTS idx_official_list_assignments_game_official ON official_list_assignments(game_id, official_id)');
-
-      print('✅ Advanced Method (Multiple Lists) tables created successfully');
-    } catch (e) {
-      print('❌ Error creating Advanced Method tables: $e');
-      rethrow;
-    }
   }
 
   // Utility methods

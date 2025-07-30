@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../shared/theme.dart';
 import '../../shared/services/repositories/official_repository.dart';
+import '../../shared/services/repositories/list_repository.dart';
 import '../../shared/services/user_session_service.dart';
+import '../../shared/models/database_models.dart';
 
 class ReviewListScreen extends StatefulWidget {
   const ReviewListScreen({super.key});
@@ -42,12 +44,12 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final String? listsJson = prefs.getString('saved_lists');
-      
+
       if (listsJson == null || listsJson.isEmpty) return 0;
-      
-      final List<Map<String, dynamic>> existingLists = 
+
+      final List<Map<String, dynamic>> existingLists =
           List<Map<String, dynamic>>.from(jsonDecode(listsJson));
-      
+
       // Count lists for the specific sport
       return existingLists.where((list) => list['sport'] == sport).length;
     } catch (e) {
@@ -63,7 +65,10 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
         backgroundColor: darkSurface,
         title: Center(
           child: Text('Create Second List',
-              style: TextStyle(color: efficialsYellow, fontSize: 20, fontWeight: FontWeight.bold)),
+              style: TextStyle(
+                  color: efficialsYellow,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold)),
         ),
         content: Text(
             'You need at least two lists to use Multiple Lists. Let\'s create your second one.',
@@ -82,7 +87,8 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
                 },
               );
             },
-            child: const Text('Continue', style: TextStyle(color: efficialsYellow)),
+            child: const Text('Continue',
+                style: TextStyle(color: efficialsYellow)),
           ),
         ],
       ),
@@ -94,16 +100,17 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
     super.didChangeDependencies();
     if (!isInitialized) {
       try {
-        final arguments = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
-        
+        final arguments =
+            ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+
         sport = arguments['sport'] as String? ?? 'Football';
         listName = arguments['listName'] as String? ?? 'Unnamed List';
         listId = arguments['listId'] as int?;
         isEdit = arguments['isEdit'] as bool? ?? false;
-        
+
         // Handle the selectedOfficials casting more safely
         final selectedOfficialsRaw = arguments['selectedOfficials'];
-        
+
         if (selectedOfficialsRaw is List) {
           selectedOfficialsList = selectedOfficialsRaw.map((item) {
             if (item is Map<String, dynamic>) {
@@ -111,22 +118,24 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
             } else if (item is Map) {
               return Map<String, dynamic>.from(item);
             } else {
-              throw Exception('Invalid official data type: ${item.runtimeType}');
+              throw Exception(
+                  'Invalid official data type: ${item.runtimeType}');
             }
           }).toList();
         } else {
-          throw Exception('selectedOfficials is not a List: ${selectedOfficialsRaw.runtimeType}');
+          throw Exception(
+              'selectedOfficials is not a List: ${selectedOfficialsRaw.runtimeType}');
         }
-        
+
         filteredOfficials = List.from(selectedOfficialsList);
-        
+
         for (var official in selectedOfficialsList) {
           final officialId = official['id'];
           if (officialId is int) {
             selectedOfficials[officialId] = true;
           }
         }
-        
+
         isInitialized = true;
       } catch (e, stackTrace) {
         rethrow;
@@ -140,7 +149,8 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
       filteredOfficials = List.from(selectedOfficialsList);
       if (query.isNotEmpty) {
         filteredOfficials = filteredOfficials
-            .where((official) => official['name'].toLowerCase().contains(query.toLowerCase()))
+            .where((official) =>
+                official['name'].toLowerCase().contains(query.toLowerCase()))
             .toList();
       }
     });
@@ -151,28 +161,37 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
         .where((official) => selectedOfficials[official['id'] as int] ?? false)
         .toList();
 
-    // Save the list to shared_preferences
-    final prefs = await SharedPreferences.getInstance();
-    final String? listsJson = prefs.getString('saved_lists');
-    List<Map<String, dynamic>> existingLists = [];
-    if (listsJson != null && listsJson.isNotEmpty) {
-      existingLists = List<Map<String, dynamic>>.from(jsonDecode(listsJson));
-    }
+    try {
+      // Save the list to shared_preferences (for UI compatibility)
+      final prefs = await SharedPreferences.getInstance();
+      final String? listsJson = prefs.getString('saved_lists');
+      List<Map<String, dynamic>> existingLists = [];
+      if (listsJson != null && listsJson.isNotEmpty) {
+        existingLists = List<Map<String, dynamic>>.from(jsonDecode(listsJson));
+      }
 
-    if (isEdit && listId != null) {
-      // Update existing list
-      final updatedList = {
-        'name': listName,
-        'sport': sport,
-        'officials': selectedOfficialsData,
-        'id': listId,
-      };
+      // ALSO save to database (for actual functionality)
+      final listRepository = ListRepository();
 
-      // Find and update the existing list
-      final index = existingLists.indexWhere((list) => list['id'] == listId);
-      if (index != -1) {
+      // Get current user ID
+      final userId = _currentUserId ??
+          await UserSessionService.instance.getCurrentUserId();
+      if (userId == null) {
+        throw Exception('No current user found');
+      }
+
+      if (isEdit && listId != null) {
+        // Update existing list
+        final updatedList = {
+          'name': listName,
+          'sport': sport,
+          'officials': selectedOfficialsData,
+          'id': listId,
+        };
+
         // Check for duplicate names (excluding the current list)
-        if (existingLists.any((list) => list['name'] == listName && list['id'] != listId)) {
+        if (existingLists
+            .any((list) => list['name'] == listName && list['id'] != listId)) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -183,126 +202,170 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
           }
           return;
         }
-        existingLists[index] = updatedList;
-      } else {
-        existingLists.add(updatedList);
-      }
 
-      await prefs.setString('saved_lists', jsonEncode(existingLists));
+        // Update in SharedPreferences
+        final index = existingLists.indexWhere((list) => list['id'] == listId);
+        if (index != -1) {
+          existingLists[index] = updatedList;
+        } else {
+          existingLists.add(updatedList);
+        }
 
-      if (mounted) {
-        // Navigate back to the lists screen after updating
-        Navigator.popUntil(context, (route) {
-          return route.settings.name == '/lists_of_officials' || route.isFirst;
-        });
+        // Update in database
+        await listRepository.updateList(listName!, selectedOfficialsData);
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Your list was updated!'),
-            backgroundColor: darkSurface,
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
-    } else {
-      // Create new list
-      final newList = {
-        'name': listName,
-        'sport': sport,
-        'officials': selectedOfficialsData,
-        'id': existingLists.isEmpty ? 1 : (existingLists
-            .map((list) => (list['id'] as int?) ?? 0)
-            .reduce((a, b) => a > b ? a : b) + 1),
-      };
+        await prefs.setString('saved_lists', jsonEncode(existingLists));
 
-      // Check for duplicate names
-      if (existingLists.any((list) => list['name'] == listName)) {
         if (mounted) {
+          // Navigate back to the lists screen after updating
+          Navigator.popUntil(context, (route) {
+            return route.settings.name == '/lists_of_officials' ||
+                route.isFirst;
+          });
+
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: const Text('A list with this name already exists!'),
+              content: const Text('Your list was updated!'),
               backgroundColor: darkSurface,
+              duration: const Duration(seconds: 2),
             ),
           );
         }
-        return;
-      }
+      } else {
+        // Create new list
+        // Check for duplicate names
+        if (existingLists.any((list) => list['name'] == listName)) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text('A list with this name already exists!'),
+                backgroundColor: darkSurface,
+              ),
+            );
+          }
+          return;
+        }
 
-      existingLists.add(newList);
-      await prefs.setString('saved_lists', jsonEncode(existingLists));
+        // Save to database first to get actual ID
+        final selectedOfficialsObjects = selectedOfficialsData
+            .map((officialData) => Official(
+                  id: officialData['id'],
+                  name: officialData['name'],
+                  email: officialData['email'],
+                  phone: officialData['phone'],
+                  userId: userId,
+                ))
+            .toList();
 
-      if (mounted) {
-        // Get the arguments to check if we're coming from game creation
-        final arguments = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
-        final fromGameCreation = arguments['fromGameCreation'] == true;
-        
-        // Check for special navigation logic for sports lists from game creation
-        if (fromGameCreation && sport != null) {
-          final currentSportListsCount = await _getListsCountBySport(sport!);
-          final method = arguments['method'] as String?;
-          
-          // Only show second list dialog for 'advanced' (Multiple Lists) method
-          if (method == 'advanced' && currentSportListsCount == 1) {
-            // First list of this sport created for Multiple Lists method - navigate to name_list_screen for second list
-            if (mounted) {
-              _showSecondListCreationDialog(arguments);
+        final actualDatabaseId = await listRepository.createList(
+            listName!, sport!, selectedOfficialsObjects);
+
+        // Create new list with actual database ID
+        final newList = {
+          'name': listName,
+          'sport': sport,
+          'officials': selectedOfficialsData,
+          'id':
+              actualDatabaseId, // Use actual database ID instead of generated one
+        };
+
+        // Save to SharedPreferences with actual database ID
+        existingLists.add(newList);
+
+        await prefs.setString('saved_lists', jsonEncode(existingLists));
+
+        if (mounted) {
+          // Get the arguments to check if we're coming from game creation
+          final arguments = ModalRoute.of(context)!.settings.arguments
+              as Map<String, dynamic>;
+          final fromGameCreation = arguments['fromGameCreation'] == true;
+
+          // Check for special navigation logic for sports lists from game creation
+          if (fromGameCreation && sport != null) {
+            final currentSportListsCount = await _getListsCountBySport(sport!);
+            final method = arguments['method'] as String?;
+
+            // Only show second list dialog for 'advanced' (Multiple Lists) method
+            if (method == 'advanced' && currentSportListsCount == 1) {
+              // First list of this sport created for Multiple Lists method - navigate to name_list_screen for second list
+              if (mounted) {
+                _showSecondListCreationDialog(arguments);
+              }
+              return;
+            } else if (method == 'advanced' && currentSportListsCount >= 2) {
+              // Second+ list of this sport created for Multiple Lists method - navigate to advanced_officials_selection
+              if (mounted) {
+                Navigator.pushReplacementNamed(
+                  context,
+                  '/advanced_officials_selection',
+                  arguments: arguments,
+                );
+              }
+              return;
             }
-            return;
-          } else if (method == 'advanced' && currentSportListsCount >= 2) {
-            // Second+ list of this sport created for Multiple Lists method - navigate to advanced_officials_selection
-            if (mounted) {
+          }
+
+          if (fromGameCreation) {
+            final method = arguments['method'] as String?;
+
+            // For Single List method, navigate to lists_of_officials so user can select with green arrow
+            if (method == 'use_list') {
               Navigator.pushReplacementNamed(
                 context,
-                '/advanced_officials_selection',
-                arguments: arguments,
-              );
-            }
-            return;
-          }
-        }
-        
-        if (fromGameCreation) {
-          final method = arguments['method'] as String?;
-          
-          // For Single List method, navigate to lists_of_officials so user can select with green arrow
-          if (method == 'use_list') {
-            Navigator.pushReplacementNamed(
-              context,
-              '/lists_of_officials',
-              arguments: {
-                'sport': sport,
-                'fromGameCreation': true,
-                'method': method,
-                'newListCreated': {
-                  'listName': listName,
+                '/lists_of_officials',
+                arguments: {
                   'sport': sport,
-                  'officials': selectedOfficialsData,
+                  'fromGameCreation': true,
+                  'method': method,
+                  'newListCreated': {
+                    'listName': listName,
+                    'sport': sport,
+                    'officials': selectedOfficialsData,
+                    'actualDatabaseId':
+                        actualDatabaseId, // Include actual database ID
+                  },
                 },
-              },
-            );
-            return;
-          }
-          
-          // For other methods, just pop back with the list data
-          Navigator.pop(context, {
-            'listName': listName,
-            'sport': sport,
-            'officials': selectedOfficialsData,
-          });
-        } else {
-          // Regular pop for non-game creation flows
-          Navigator.pop(context, {
-            'listName': listName,
-            'sport': sport,
-            'officials': selectedOfficialsData,
-          });
-        }
+              );
+              return;
+            }
 
+            // For other methods, return the list data with actual database ID
+            Navigator.pop(context, {
+              'listName': listName,
+              'sport': sport,
+              'officials': selectedOfficialsData,
+              'actualDatabaseId':
+                  actualDatabaseId, // Include actual database ID
+            });
+          } else {
+            // Regular pop for non-game creation flows
+            Navigator.pop(context, {
+              'listName': listName,
+              'sport': sport,
+              'officials': selectedOfficialsData,
+              'actualDatabaseId':
+                  actualDatabaseId, // Include actual database ID
+            });
+          }
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content:
+                  const Text('Your list was created and saved to database!'),
+              backgroundColor: darkSurface,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      print('Error saving list: $e');
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Your list was created!'),
-            backgroundColor: darkSurface,
-            duration: const Duration(seconds: 2),
+            content: Text('Error saving list: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
           ),
         );
       }
@@ -311,7 +374,8 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final int selectedCount = selectedOfficials.values.where((selected) => selected).length;
+    final int selectedCount =
+        selectedOfficials.values.where((selected) => selected).length;
 
     return Scaffold(
       backgroundColor: darkBackground,
@@ -398,16 +462,22 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
                               children: [
                                 Checkbox(
                                   value: filteredOfficials.isNotEmpty &&
-                                      filteredOfficials.every((official) => selectedOfficials[official['id']] ?? false),
+                                      filteredOfficials.every((official) =>
+                                          selectedOfficials[official['id']] ??
+                                          false),
                                   onChanged: (bool? value) {
                                     setState(() {
                                       if (value == true) {
-                                        for (final official in filteredOfficials) {
-                                          selectedOfficials[official['id']] = true;
+                                        for (final official
+                                            in filteredOfficials) {
+                                          selectedOfficials[official['id']] =
+                                              true;
                                         }
                                       } else {
-                                        for (final official in filteredOfficials) {
-                                          selectedOfficials.remove(official['id']);
+                                        for (final official
+                                            in filteredOfficials) {
+                                          selectedOfficials
+                                              .remove(official['id']);
                                         }
                                       }
                                     });
@@ -434,26 +504,37 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
                                     key: ValueKey(officialId),
                                     leading: IconButton(
                                       icon: Icon(
-                                        selectedOfficials[officialId] ?? false ? Icons.check_circle : Icons.add_circle,
-                                        color: selectedOfficials[officialId] ?? false ? Colors.green : efficialsYellow,
+                                        selectedOfficials[officialId] ?? false
+                                            ? Icons.check_circle
+                                            : Icons.add_circle,
+                                        color: selectedOfficials[officialId] ??
+                                                false
+                                            ? Colors.green
+                                            : efficialsYellow,
                                         size: 36,
                                       ),
                                       onPressed: () {
                                         setState(() {
-                                          selectedOfficials[officialId] = !(selectedOfficials[officialId] ?? false);
-                                          if (selectedOfficials[officialId] == false) {
-                                            selectedOfficials.remove(officialId);
+                                          selectedOfficials[officialId] =
+                                              !(selectedOfficials[officialId] ??
+                                                  false);
+                                          if (selectedOfficials[officialId] ==
+                                              false) {
+                                            selectedOfficials
+                                                .remove(officialId);
                                           }
                                         });
                                       },
                                     ),
                                     title: Text(
                                       '${official['name']} (${official['cityState'] ?? 'Unknown'})',
-                                      style: const TextStyle(color: Colors.white),
+                                      style:
+                                          const TextStyle(color: Colors.white),
                                     ),
                                     subtitle: Text(
                                       'Distance: ${official['distance'] != null ? (official['distance'] as num).toStringAsFixed(1) : '0.0'} mi, Experience: ${official['yearsExperience'] ?? 0} yrs',
-                                      style: const TextStyle(color: Colors.grey),
+                                      style:
+                                          const TextStyle(color: Colors.grey),
                                     ),
                                   );
                                 },
@@ -494,7 +575,8 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
                       child: ElevatedButton(
                         onPressed: selectedCount > 0 ? _confirmList : null,
                         style: elevatedButtonStyle(),
-                        child: Text(isEdit ? 'Update List' : 'Save List', style: signInButtonTextStyle),
+                        child: Text(isEdit ? 'Update List' : 'Save List',
+                            style: signInButtonTextStyle),
                       ),
                     ),
                   ],
