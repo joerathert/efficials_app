@@ -3,6 +3,8 @@ import 'package:intl/intl.dart';
 import '../../shared/theme.dart';
 import '../../shared/models/database_models.dart';
 import '../../shared/services/repositories/game_assignment_repository.dart';
+import '../../shared/services/repositories/official_repository.dart';
+import '../../shared/services/user_session_service.dart';
 
 class AvailableGameDetailsScreen extends StatefulWidget {
   const AvailableGameDetailsScreen({super.key});
@@ -18,6 +20,7 @@ class _AvailableGameDetailsScreenState extends State<AvailableGameDetailsScreen>
   bool _isLoading = true;
   
   final GameAssignmentRepository _assignmentRepo = GameAssignmentRepository();
+  final OfficialRepository _officialRepo = OfficialRepository();
 
   @override
   void didChangeDependencies() {
@@ -477,7 +480,7 @@ class _AvailableGameDetailsScreenState extends State<AvailableGameDetailsScreen>
           width: double.infinity,
           child: ElevatedButton.icon(
             onPressed: _expressInterest,
-icon: null,
+            icon: const Icon(Icons.add, size: 20),
             label: const Text('Express Interest'),
             style: ElevatedButton.styleFrom(
               backgroundColor: efficialsYellow,
@@ -523,6 +526,23 @@ icon: null,
             ),
           ),
         ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: _dismissGame,
+            icon: const Icon(Icons.remove_circle_outline, size: 20),
+            label: const Text('Dismiss Game'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.red,
+              side: const BorderSide(color: Colors.red),
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -555,6 +575,186 @@ icon: null,
         backgroundColor: Colors.orange,
       ),
     );
+  }
+
+  void _dismissGame() {
+    _showDismissDialog();
+  }
+
+  void _showDismissDialog() {
+    final sportName = assignment.sportName ?? 'Sport';
+    final gameTitle = _formatAssignmentTitle(assignment);
+    final gameDate = assignment.gameDate != null 
+        ? DateFormat('EEEE, MMMM d, yyyy').format(assignment.gameDate!) 
+        : 'TBD';
+    final gameTime = assignment.gameTime != null 
+        ? DateFormat('h:mm a').format(assignment.gameTime!) 
+        : 'TBD';
+    final locationName = assignment.locationName ?? 'TBD';
+    
+    showDialog<void>(
+      context: context,
+      builder: (BuildContext context) {
+        String? selectedReason;
+        String? customReason;
+        final reasonController = TextEditingController();
+        
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              backgroundColor: darkSurface,
+              title: const Text(
+                'Dismiss Game',
+                style: TextStyle(color: efficialsYellow, fontWeight: FontWeight.bold),
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: darkBackground,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '$sportName: $gameTitle',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '$gameDate at $gameTime',
+                            style: TextStyle(color: Colors.grey[400]),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            locationName,
+                            style: TextStyle(color: Colors.grey[400]),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Why are you dismissing this game? (Optional)',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                    const SizedBox(height: 12),
+                    ...['Not interested in this sport', 'Location too far', 'Time conflict', 'Level not suitable', 'Other'].map((reason) => 
+                      RadioListTile<String>(
+                        title: Text(reason, style: const TextStyle(color: Colors.white)),
+                        value: reason,
+                        groupValue: selectedReason,
+                        activeColor: efficialsYellow,
+                        onChanged: (value) {
+                          setState(() {
+                            selectedReason = value;
+                            if (value != 'Other') {
+                              customReason = null;
+                              reasonController.clear();
+                            }
+                          });
+                        },
+                      ),
+                    ).toList(),
+                    if (selectedReason == 'Other') ...[
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: reasonController,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: InputDecoration(
+                          hintText: 'Please specify...',
+                          hintStyle: TextStyle(color: Colors.grey[400]),
+                          border: OutlineInputBorder(
+                            borderSide: BorderSide(color: Colors.grey[600]!),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderSide: BorderSide(color: Colors.grey[600]!),
+                          ),
+                          focusedBorder: const OutlineInputBorder(
+                            borderSide: BorderSide(color: efficialsYellow),
+                          ),
+                        ),
+                        onChanged: (value) {
+                          customReason = value;
+                        },
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+                ),
+                ElevatedButton(
+                  onPressed: () => _handleDismiss(
+                    selectedReason == 'Other' ? customReason : selectedReason,
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Dismiss'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _handleDismiss(String? reason) async {
+    try {
+      Navigator.of(context).pop(); // Close dialog
+      
+      // Get current user and official info
+      final userSession = UserSessionService.instance;
+      final userId = await userSession.getCurrentUserId();
+      
+      if (userId == null) {
+        throw Exception('No user logged in');
+      }
+      
+      final official = await _officialRepo.getOfficialByOfficialUserId(userId);
+      
+      if (official?.id == null || assignment.gameId == null) {
+        throw Exception('Missing required information');
+      }
+      
+      await _assignmentRepo.dismissGame(
+        assignment.gameId!,
+        official!.id!,
+        reason,
+      );
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Game dismissed successfully'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      
+      // Go back to previous screen
+      Navigator.of(context).pop();
+      
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to dismiss game: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   // Helper methods for sports

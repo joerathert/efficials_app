@@ -24,7 +24,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 17,
+      version: 18,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -429,6 +429,11 @@ class DatabaseHelper {
       // Add Advanced Method (Multiple Lists) support
       await _addAdvancedMethodTables(db);
     }
+
+    if (oldVersion < 18) {
+      // Add game dismissals table for officials to dismiss games they don't want
+      await _addGameDismissalsTable(db);
+    }
   }
 
   Future<void> _createTables(Database db) async {
@@ -804,6 +809,9 @@ class DatabaseHelper {
 
     // Add Advanced Method (Multiple Lists) tables
     await _addAdvancedMethodTables(db);
+
+    // Add game dismissals table
+    await _addGameDismissalsTable(db);
 
     // Create indexes for better performance
     await _createIndexes(db);
@@ -1705,6 +1713,37 @@ class DatabaseHelper {
       print('✅ Advanced Method (Multiple Lists) tables created successfully');
     } catch (e) {
       print('❌ Error creating Advanced Method tables: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> _addGameDismissalsTable(Database db) async {
+    try {
+      print('Adding game dismissals table...');
+
+      // Game Dismissals table - tracks which games officials have dismissed
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS game_dismissals (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          game_id INTEGER NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+          official_id INTEGER NOT NULL REFERENCES officials(id) ON DELETE CASCADE,
+          reason TEXT,
+          dismissed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(game_id, official_id)
+        )
+      ''');
+
+      // Create indexes for performance
+      await db.execute(
+          'CREATE INDEX IF NOT EXISTS idx_game_dismissals_game_id ON game_dismissals(game_id)');
+      await db.execute(
+          'CREATE INDEX IF NOT EXISTS idx_game_dismissals_official_id ON game_dismissals(official_id)');
+      await db.execute(
+          'CREATE INDEX IF NOT EXISTS idx_game_dismissals_game_official ON game_dismissals(game_id, official_id)');
+
+      print('✅ Game dismissals table created successfully');
+    } catch (e) {
+      print('❌ Error creating game dismissals table: $e');
       rethrow;
     }
   }

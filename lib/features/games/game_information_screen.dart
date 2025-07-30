@@ -33,6 +33,7 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
   late int officialsHired;
   List<Map<String, dynamic>> interestedOfficials = [];
   List<Map<String, dynamic>> confirmedOfficialsFromDB = [];
+  List<Map<String, dynamic>> dismissedOfficials = [];
   Map<int, bool> selectedForHire = {};
   
   // Repository for fetching real interested officials data
@@ -209,11 +210,13 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
       if (databaseGameId != null && databaseGameId < 1000000000000) {
         final interestedOfficials = await _gameAssignmentRepo.getInterestedOfficialsForGame(databaseGameId);
         final confirmedOfficials = await _gameAssignmentRepo.getConfirmedOfficialsForGame(databaseGameId);
+        final dismissedOfficials = await _gameAssignmentRepo.getGameDismissals(databaseGameId);
         
         setState(() {
           // Create mutable copies of the query results
           this.interestedOfficials = List<Map<String, dynamic>>.from(interestedOfficials);
           confirmedOfficialsFromDB = List<Map<String, dynamic>>.from(confirmedOfficials);
+          this.dismissedOfficials = List<Map<String, dynamic>>.from(dismissedOfficials);
           selectedForHire = {};
           for (var official in this.interestedOfficials) {
             selectedForHire[official['id'] as int] = false;
@@ -224,6 +227,7 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
         // as they use a different storage system
         setState(() {
           interestedOfficials = [];
+          dismissedOfficials = [];
           selectedForHire = {};
         });
       }
@@ -231,6 +235,7 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
       print('Error loading interested officials: $e');
       setState(() {
         interestedOfficials = [];
+        dismissedOfficials = [];
         selectedForHire = {};
       });
     }
@@ -714,6 +719,9 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
       // Get the names of officials actually selected for this game
       final gameOfficialNames = gameSpecificOfficials.map((o) => o['name'] as String?).toSet();
       
+      // Get the names of officials who dismissed this game
+      final dismissedOfficialNames = dismissedOfficials.map((d) => d['official_name'] as String?).toSet();
+      
       if (mounted) {
         showDialog(
           context: context,
@@ -739,18 +747,39 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                               final official = fullOfficialsList[index];
                               final officialName = official['name'] as String? ?? 'Unknown Official';
                               final isSelectedForGame = gameOfficialNames.contains(officialName);
+                              final isDismissed = dismissedOfficialNames.contains(officialName);
+                              
+                              // Determine display style based on status
+                              Color textColor;
+                              TextDecoration decoration;
+                              Color? decorationColor;
+                              
+                              if (isDismissed) {
+                                // Dismissed officials: red with strikethrough
+                                textColor = Colors.red;
+                                decoration = TextDecoration.lineThrough;
+                                decorationColor = Colors.red;
+                              } else if (isSelectedForGame) {
+                                // Selected officials: white text
+                                textColor = Colors.white;
+                                decoration = TextDecoration.none;
+                                decorationColor = null;
+                              } else {
+                                // Other officials: grey text
+                                textColor = Colors.grey;
+                                decoration = TextDecoration.none;
+                                decorationColor = null;
+                              }
                               
                               return Padding(
                                 padding: const EdgeInsets.symmetric(vertical: 4),
                                 child: Text(
                                   '• $officialName (${official['distance']?.toStringAsFixed(1) ?? '0.0'} mi)',
                                   style: TextStyle(
-                                    color: isSelectedForGame ? Colors.white : Colors.grey,
+                                    color: textColor,
                                     fontSize: 16,
-                                    decoration: isSelectedForGame 
-                                        ? TextDecoration.none 
-                                        : TextDecoration.lineThrough,
-                                    decorationColor: Colors.grey,
+                                    decoration: decoration,
+                                    decorationColor: decorationColor,
                                     decorationThickness: 2.0,
                                   ),
                                 ),
@@ -758,6 +787,20 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                             },
                           ),
                         ),
+                        // Add legend if there are dismissed officials
+                        if (dismissedOfficials.isNotEmpty) ...[
+                          const SizedBox(height: 16),
+                          const Divider(color: Colors.grey),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Names with red strikethrough have dismissed this game',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[500],
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
+                        ],
                       ],
                     ),
             ),
@@ -822,16 +865,62 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
     }
 
     // For manual selection, show individual officials
-    if (selectedOfficials.isNotEmpty) {
+    if (selectedOfficials.isNotEmpty || dismissedOfficials.isNotEmpty) {
+      final allOfficials = <Widget>[];
+      
+      // Add selected officials
+      for (final official in selectedOfficials) {
+        allOfficials.add(
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Text(
+              '• ${official['name']} (${(official['distance'] as num?)?.toStringAsFixed(1) ?? '0.0'} mi)',
+              style: const TextStyle(fontSize: 16, color: Colors.white),
+            ),
+          ),
+        );
+      }
+      
+      // Add dismissed officials with strikethrough
+      for (final dismissal in dismissedOfficials) {
+        final officialName = dismissal['official_name'] as String? ?? 'Unknown';
+        allOfficials.add(
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Text(
+              '• $officialName',
+              style: const TextStyle(
+                fontSize: 16,
+                color: Colors.red,
+                decoration: TextDecoration.lineThrough,
+                decorationColor: Colors.red,
+                decorationThickness: 2,
+              ),
+            ),
+          ),
+        );
+      }
+      
+      // Add legend if there are dismissed officials
+      if (dismissedOfficials.isNotEmpty) {
+        allOfficials.add(
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: Text(
+              '• Names with strikethrough have dismissed this game',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[500],
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ),
+        );
+      }
+      
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: selectedOfficials.map((official) => Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4),
-          child: Text(
-            '• ${official['name']} (${(official['distance'] as num?)?.toStringAsFixed(1) ?? '0.0'} mi)',
-            style: const TextStyle(fontSize: 16, color: Colors.white),
-          ),
-        )).toList(),
+        children: allOfficials,
       );
     }
 
@@ -1362,6 +1451,8 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                           ),
                         ],
                       ],
+                      
+                      
                       const SizedBox(height: 20),
                     ],
                     const Text('Selected Officials', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: efficialsYellow)),

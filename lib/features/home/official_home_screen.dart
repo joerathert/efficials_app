@@ -254,9 +254,21 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
             onSelected: (value) {
               if (value == 'logout') {
                 _handleLogout();
+              } else if (value == 'dismissed_games') {
+                _showDismissedGames();
               }
             },
             itemBuilder: (BuildContext context) => [
+              const PopupMenuItem<String>(
+                value: 'dismissed_games',
+                child: Row(
+                  children: [
+                    Icon(Icons.remove_circle_outline, color: Colors.orange),
+                    SizedBox(width: 8),
+                    Text('Dismissed Games', style: TextStyle(color: Colors.white)),
+                  ],
+                ),
+              ),
               const PopupMenuItem<String>(
                 value: 'logout',
                 child: Row(
@@ -786,24 +798,39 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                   color: Colors.green,
                 ),
               ),
-              ElevatedButton(
-                onPressed: () => game['hire_automatically'] == 1 
-                    ? _showClaimGameDialog(game)
-                    : _showExpressInterestDialog(game),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: game['hire_automatically'] == 1 
-                      ? Colors.green 
-                      : efficialsYellow,
-                  foregroundColor: game['hire_automatically'] == 1 
-                      ? Colors.white 
-                      : efficialsBlack,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  minimumSize: Size.zero,
-                ),
-                child: Text(
-                  game['hire_automatically'] == 1 ? 'Claim Game' : 'Express Interest', 
-                  style: const TextStyle(fontSize: 12)
-                ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ElevatedButton(
+                    onPressed: () => _dismissGame(game),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      minimumSize: Size.zero,
+                    ),
+                    child: const Text(
+                      'Dismiss',
+                      style: TextStyle(fontSize: 12),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    onPressed: () => game['hire_automatically'] == 1 
+                        ? _showClaimGameDialog(game)
+                        : _showExpressInterestDialog(game),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      minimumSize: Size.zero,
+                    ),
+                    child: const Text(
+                      'Claim',
+                      style: TextStyle(fontSize: 12),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -1668,6 +1695,189 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
     if (result == true) {
       // Show a subtle loading indicator while refreshing
       await _loadData();
+    }
+  }
+
+  void _showDismissedGames() async {
+    try {
+      if (_currentOfficial?.id == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Official information not found')),
+        );
+        return;
+      }
+
+      final dismissedGames = await _assignmentRepo.getDismissedGamesForOfficial(_currentOfficial!.id!);
+      
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            backgroundColor: darkSurface,
+            title: const Text(
+              'Dismissed Games',
+              style: TextStyle(color: efficialsYellow, fontWeight: FontWeight.bold),
+            ),
+            content: SizedBox(
+              width: double.maxFinite,
+              height: 400,
+              child: dismissedGames.isEmpty
+                  ? const Center(
+                      child: Text(
+                        'No dismissed games',
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                    )
+                  : ListView.builder(
+                      itemCount: dismissedGames.length,
+                      itemBuilder: (context, index) {
+                        final dismissal = dismissedGames[index];
+                        final sportName = dismissal.sportName ?? 'Sport';
+                        final opponent = dismissal.opponent ?? 'TBD';
+                        final homeTeam = dismissal.homeTeam ?? 'TBD';
+                        final gameTitle = opponent != 'TBD' && homeTeam != 'TBD' 
+                            ? '$opponent @ $homeTeam' 
+                            : (opponent != 'TBD' ? opponent : homeTeam);
+                        
+                        return Card(
+                          color: darkBackground,
+                          child: ListTile(
+                            leading: const Icon(Icons.remove_circle_outline, color: Colors.red),
+                            title: Text(
+                              '$sportName: $gameTitle',
+                              style: const TextStyle(color: Colors.white),
+                            ),
+                            subtitle: dismissal.reason != null 
+                                ? Text(
+                                    'Reason: ${dismissal.reason}',
+                                    style: TextStyle(color: Colors.grey[400]),
+                                  )
+                                : null,
+                            trailing: TextButton(
+                              onPressed: () => _undismissFromDialog(dismissal),
+                              child: const Text(
+                                'Restore',
+                                style: TextStyle(color: efficialsYellow),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Close', style: TextStyle(color: Colors.grey)),
+              ),
+            ],
+          );
+        },
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to load dismissed games: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void _undismissFromDialog(GameDismissal dismissal) async {
+    try {
+      await _assignmentRepo.undismissGame(dismissal.gameId, dismissal.officialId);
+      
+      Navigator.of(context).pop(); // Close dialog
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Game restored to available list'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      
+      // Reload data to refresh available games
+      await _loadData();
+      
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to restore game: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void _dismissGame(Map<String, dynamic> game) async {
+    try {
+      final gameId = game['id'] as int?;
+      if (gameId == null || _currentOfficial?.id == null) {
+        throw Exception('Missing required information');
+      }
+      
+      await _assignmentRepo.dismissGame(gameId, _currentOfficial!.id!, null);
+      
+      // Remove from UI immediately
+      setState(() {
+        availableGames.removeWhere((g) => g['id'] == gameId);
+      });
+      
+      // Show undo option briefly
+      ScaffoldMessenger.of(context).clearSnackBars();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Game dismissed'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 3),
+          action: SnackBarAction(
+            label: 'Undo',
+            textColor: Colors.white,
+            onPressed: () => _undismissGame(gameId, game),
+          ),
+        ),
+      );
+      
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to dismiss game: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void _undismissGame(int gameId, Map<String, dynamic> game) async {
+    try {
+      if (_currentOfficial?.id == null) {
+        throw Exception('Missing official information');
+      }
+      
+      await _assignmentRepo.undismissGame(gameId, _currentOfficial!.id!);
+      
+      // Add back to UI
+      setState(() {
+        availableGames.add(game);
+      });
+      
+      ScaffoldMessenger.of(context).clearSnackBars();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Game restored to available list'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 2),
+        ),
+      );
+      
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to restore game: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 

@@ -677,11 +677,16 @@ class GameAssignmentRepository extends BaseRepository {
           FROM game_assignments ga 
           WHERE ga.official_id = ?
         )
+        AND g.id NOT IN (
+          SELECT gd.game_id 
+          FROM game_dismissals gd 
+          WHERE gd.official_id = ?
+        )
         AND g.status = 'Published'
         AND g.date >= date('now')
         AND g.officials_required > g.officials_hired
         ORDER BY g.date ASC, g.time ASC
-      ''', [officialId]);
+      ''', [officialId, officialId]);
 
 
 
@@ -726,11 +731,16 @@ class GameAssignmentRepository extends BaseRepository {
           FROM game_assignments ga 
           WHERE ga.official_id = ?
         )
+        AND g.id NOT IN (
+          SELECT gd.game_id 
+          FROM game_dismissals gd 
+          WHERE gd.official_id = ?
+        )
         AND g.status = 'Published'
         AND g.date >= date('now')
         AND g.officials_required > g.officials_hired
         ORDER BY g.date ASC, g.time ASC
-      ''', [officialId]);
+      ''', [officialId, officialId]);
     }
   }
 
@@ -878,5 +888,102 @@ class GameAssignmentRepository extends BaseRepository {
     ''', [officialId, gameId]);
 
     return results.map((row) => row['list_id'] as int).toList();
+  }
+
+  // ===== GAME DISMISSAL METHODS =====
+
+  /// Dismiss a game for an official (official doesn't want to officiate it)
+  Future<int> dismissGame(int gameId, int officialId, String? reason) async {
+    try {
+      final dismissal = GameDismissal(
+        gameId: gameId,
+        officialId: officialId,
+        reason: reason,
+      );
+
+      return await insert('game_dismissals', dismissal.toMap());
+    } catch (e) {
+      print('Error dismissing game: $e');
+      throw Exception('Failed to dismiss game: ${e.toString()}');
+    }
+  }
+
+  /// Get all dismissed games for an official
+  Future<List<GameDismissal>> getDismissedGamesForOfficial(int officialId) async {
+    final results = await rawQuery('''
+      SELECT gd.*, g.date, g.time, g.opponent, g.home_team,
+             l.name as location_name, s.name as sport_name
+      FROM game_dismissals gd
+      JOIN games g ON gd.game_id = g.id
+      LEFT JOIN locations l ON g.location_id = l.id
+      LEFT JOIN sports s ON g.sport_id = s.id
+      WHERE gd.official_id = ?
+      ORDER BY gd.dismissed_at DESC
+    ''', [officialId]);
+
+    return results.map((data) => GameDismissal.fromMap(data)).toList();
+  }
+
+  /// Get all dismissals for a specific game (scheduler view)
+  Future<List<Map<String, dynamic>>> getGameDismissals(int gameId) async {
+    final results = await rawQuery('''
+      SELECT gd.*, o.name as official_name, o.phone, o.email,
+             gd.reason, gd.dismissed_at
+      FROM game_dismissals gd
+      JOIN officials o ON gd.official_id = o.id
+      WHERE gd.game_id = ?
+      ORDER BY gd.dismissed_at DESC
+    ''', [gameId]);
+
+    return results;
+  }
+
+  /// Check if an official has dismissed a specific game
+  Future<bool> hasOfficialDismissedGame(int gameId, int officialId) async {
+    final results = await query(
+      'game_dismissals',
+      where: 'game_id = ? AND official_id = ?',
+      whereArgs: [gameId, officialId],
+    );
+
+    return results.isNotEmpty;
+  }
+
+  /// Remove a dismissal (allow official to see game again)
+  Future<int> undismissGame(int gameId, int officialId) async {
+    return await delete(
+      'game_dismissals',
+      'game_id = ? AND official_id = ?',
+      [gameId, officialId],
+    );
+  }
+
+  /// Get dismissal statistics for a game (for scheduler analytics)
+  Future<Map<String, dynamic>> getGameDismissalStats(int gameId) async {
+    final results = await rawQuery('''
+      SELECT 
+        COUNT(*) as total_dismissals,
+        COUNT(CASE WHEN reason IS NOT NULL THEN 1 END) as dismissals_with_reason,
+        GROUP_CONCAT(DISTINCT reason) as reasons
+      FROM game_dismissals 
+      WHERE game_id = ?
+    ''', [gameId]);
+
+    if (results.isNotEmpty) {
+      final row = results.first;
+      return {
+        'total_dismissals': row['total_dismissals'] ?? 0,
+        'dismissals_with_reason': row['dismissals_with_reason'] ?? 0,
+        'reasons': row['reasons'] != null 
+            ? (row['reasons'] as String).split(',').where((r) => r.trim().isNotEmpty).toList()
+            : <String>[],
+      };
+    }
+    
+    return {
+      'total_dismissals': 0,
+      'dismissals_with_reason': 0,
+      'reasons': <String>[],
+    };
   }
 }

@@ -2466,6 +2466,101 @@ class OfficialListAssignment {
   }
 }
 
+// Game Dismissal model
+class GameDismissal {
+  final int? id;
+  final int gameId;
+  final int officialId;
+  final String? reason;
+  final DateTime dismissedAt;
+
+  // Additional fields from JOIN queries
+  String? _sportName;
+  String? _opponent;
+  String? _homeTeam;
+  DateTime? _gameDate;
+  DateTime? _gameTime;
+  String? _locationName;
+
+  // Getters for the additional fields
+  String? get sportName => _sportName;
+  String? get opponent => _opponent;
+  String? get homeTeam => _homeTeam;
+  DateTime? get gameDate => _gameDate;
+  DateTime? get gameTime => _gameTime;
+  String? get locationName => _locationName;
+
+  GameDismissal({
+    this.id,
+    required this.gameId,
+    required this.officialId,
+    this.reason,
+    DateTime? dismissedAt,
+  }) : dismissedAt = dismissedAt ?? DateTime.now();
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'game_id': gameId,
+      'official_id': officialId,
+      'reason': reason,
+      'dismissed_at': dismissedAt.toIso8601String(),
+    };
+  }
+
+  factory GameDismissal.fromMap(Map<String, dynamic> map) {
+    final dismissal = GameDismissal(
+      id: map['id']?.toInt(),
+      gameId: map['game_id']?.toInt() ?? 0,
+      officialId: map['official_id']?.toInt() ?? 0,
+      reason: map['reason'],
+      dismissedAt: DateTime.parse(
+          map['dismissed_at'] ?? DateTime.now().toIso8601String()),
+    );
+
+    // Add additional fields from JOIN queries if they exist
+    if (map.containsKey('sport_name')) {
+      dismissal._sportName = map['sport_name'];
+    }
+    if (map.containsKey('opponent')) {
+      dismissal._opponent = map['opponent'];
+    }
+    if (map.containsKey('home_team')) {
+      dismissal._homeTeam = map['home_team'];
+    }
+    if (map.containsKey('date')) {
+      dismissal._gameDate =
+          map['date'] != null ? DateTime.parse(map['date']) : null;
+    }
+    if (map.containsKey('time')) {
+      dismissal._gameTime = map['time'] != null
+          ? DateTime.parse('1970-01-01 ${map['time']}')
+          : null;
+    }
+    if (map.containsKey('location_name')) {
+      dismissal._locationName = map['location_name'];
+    }
+
+    return dismissal;
+  }
+
+  GameDismissal copyWith({
+    int? id,
+    int? gameId,
+    int? officialId,
+    String? reason,
+    DateTime? dismissedAt,
+  }) {
+    return GameDismissal(
+      id: id ?? this.id,
+      gameId: gameId ?? this.gameId,
+      officialId: officialId ?? this.officialId,
+      reason: reason ?? this.reason,
+      dismissedAt: dismissedAt ?? this.dismissedAt,
+    );
+  }
+}
+
 // Team model
 class Team {
   final int? id;
