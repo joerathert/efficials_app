@@ -5,6 +5,7 @@ import '../../shared/services/user_session_service.dart';
 import '../../shared/services/repositories/official_repository.dart';
 import '../../shared/services/repositories/endorsement_repository.dart';
 import '../../shared/services/repositories/user_repository.dart';
+import '../../shared/services/verification_service.dart';
 import 'dart:convert';
 import '../../shared/models/database_models.dart';
 
@@ -25,10 +26,11 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
   bool _hasLoadedOtherProfileData = false; // Track if other profile data has been loaded
   Official? _currentOfficial;
   
-  // Repositories
+  // Repositories and services
   final OfficialRepository _officialRepo = OfficialRepository();
-  final EndorsementRepository _endorsementRepo = EndorsementRepository();
+  final EndorsementRepository _endorsementRepo = EndorsementRepository();  
   final UserRepository _userRepo = UserRepository();
+  final VerificationService _verificationService = VerificationService();
   
   // Profile data will be loaded from the database
   Map<String, dynamic> profileData = {};
@@ -139,6 +141,9 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
         return;
       }
       
+      // Get the official user record for verification status
+      final officialUser = await _officialRepo.getOfficialUserById(userId);
+      
       // Get endorsement counts from the database
       final endorsementCounts = await _endorsementRepo.getEndorsementCounts(_currentOfficial!.id!);
       
@@ -169,9 +174,9 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
         'totalGames': _currentOfficial!.totalAcceptedGames ?? 0,
         'schedulerEndorsements': endorsementCounts['schedulerEndorsements'] ?? 0,
         'officialEndorsements': endorsementCounts['officialEndorsements'] ?? 0,
-        'profileVerified': false, // These are in OfficialUser model, not Official
-        'emailVerified': false, // These are in OfficialUser model, not Official
-        'phoneVerified': false, // These are in OfficialUser model, not Official
+        'profileVerified': officialUser?.profileVerified ?? false,
+        'emailVerified': officialUser?.emailVerified ?? false,
+        'phoneVerified': officialUser?.phoneVerified ?? false,
         'showCareerStats': showCareerStats,
         'followThroughRate': _currentOfficial!.followThroughRate ?? 100.0,
       };
@@ -506,9 +511,7 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
           ),
           if (!isVerified)
             TextButton(
-              onPressed: () {
-                // TODO: Handle verification
-              },
+              onPressed: () => _handleVerificationRequest(title),
               child: const Text(
                 'Verify',
                 style: TextStyle(color: efficialsYellow),
@@ -1390,5 +1393,288 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _handleVerificationRequest(String verificationType) async {
+    try {
+      final userSession = UserSessionService.instance;
+      final userId = await userSession.getCurrentUserId();
+      
+      if (userId == null) {
+        _showErrorMessage('User not logged in');
+        return;
+      }
+
+      switch (verificationType) {
+        case 'Email Verified':
+          await _requestEmailVerification(userId);
+          break;
+        case 'Phone Verified':
+          await _requestPhoneVerification(userId);
+          break;
+        case 'Profile Verified':
+          await _requestProfileVerification(userId);
+          break;
+      }
+    } catch (e) {
+      print('Error handling verification request: $e');
+      _showErrorMessage('Verification request failed. Please try again.');
+    }
+  }
+
+  Future<void> _requestEmailVerification(int userId) async {
+    try {
+      // Get the official user's email
+      final officialUser = await _officialRepo.getOfficialUserById(userId);
+      if (officialUser?.email == null) {
+        _showErrorMessage('Email address not found');
+        return;
+      }
+
+      // Request email verification
+      final token = await _verificationService.requestEmailVerification(
+        userId, 
+        officialUser!.email
+      );
+      
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          backgroundColor: darkSurface,
+          title: const Text(
+            'Email Verification Sent',
+            style: TextStyle(color: efficialsYellow),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'A verification link has been sent to ${officialUser.email}.',
+                style: const TextStyle(color: Colors.white),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Please check your email and click the verification link. The link will expire in 24 hours.',
+                style: TextStyle(color: Colors.grey),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  'Development Note: Verification token is $token (for testing)',
+                  style: TextStyle(
+                    color: Colors.blue[300],
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('OK', style: TextStyle(color: efficialsYellow)),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      print('Error requesting email verification: $e');
+      _showErrorMessage('Failed to send verification email. Please try again.');
+    }
+  }
+
+  Future<void> _requestPhoneVerification(int userId) async {
+    try {
+      // Get the official user's phone
+      final officialUser = await _officialRepo.getOfficialUserById(userId);
+      if (officialUser?.phone == null) {
+        _showErrorMessage('Phone number not found');
+        return;
+      }
+
+      // Request phone verification
+      final code = await _verificationService.requestPhoneVerification(
+        userId, 
+        officialUser!.phone!
+      );
+      
+      _showPhoneVerificationDialog(userId, code, officialUser.phone!);
+    } catch (e) {
+      print('Error requesting phone verification: $e');
+      _showErrorMessage('Failed to send verification code. Please try again.');
+    }
+  }
+
+  void _showPhoneVerificationDialog(int userId, String sentCode, String phoneNumber) {
+    final TextEditingController codeController = TextEditingController();
+    
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        backgroundColor: darkSurface,
+        title: const Text(
+          'Phone Verification',
+          style: TextStyle(color: efficialsYellow),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'A verification code has been sent to $phoneNumber.',
+              style: const TextStyle(color: Colors.white),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Please enter the 6-digit code:',
+              style: TextStyle(color: Colors.grey),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: codeController,
+              keyboardType: TextInputType.number,
+              maxLength: 6,
+              style: const TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                hintText: 'Enter code',
+                hintStyle: const TextStyle(color: Colors.grey),
+                border: OutlineInputBorder(
+                  borderSide: const BorderSide(color: efficialsYellow),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderSide: const BorderSide(color: efficialsYellow),
+                ),
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.blue.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                'Development Note: Code is $sentCode (for testing)',
+                style: TextStyle(
+                  color: Colors.blue[300],
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final enteredCode = codeController.text.trim();
+              if (enteredCode.length != 6) {
+                _showErrorMessage('Please enter a 6-digit code');
+                return;
+              }
+              
+              try {
+                final success = await _verificationService.verifyPhone(userId, enteredCode);
+                Navigator.pop(context);
+                
+                if (success) {
+                  // Reload profile data to show updated verification status
+                  await _loadData();
+                  
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Phone number verified successfully!'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }
+                } else {
+                  _showErrorMessage('Invalid or expired verification code');
+                }
+              } catch (e) {
+                Navigator.pop(context);
+                _showErrorMessage('Verification failed. Please try again.');
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: efficialsYellow),
+            child: const Text('Verify', style: TextStyle(color: efficialsBlack)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _requestProfileVerification(int userId) async {
+    // Profile verification requires admin approval
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: darkSurface,
+        title: const Text(
+          'Profile Verification',
+          style: TextStyle(color: efficialsYellow),
+        ),
+        content: const Text(
+          'Profile verification is done by administrators. Your profile will be reviewed and verified based on your experience, certifications, and game history. This process typically takes 1-3 business days.',
+          style: TextStyle(color: Colors.white),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _submitProfileForVerification(userId);
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: efficialsYellow),
+            child: const Text('Submit for Review', style: TextStyle(color: efficialsBlack)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _submitProfileForVerification(int userId) async {
+    try {
+      // TODO: Implement admin notification system
+      // For now, just show a success message
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Profile submitted for verification. You will be notified once it\'s reviewed.'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      print('Error submitting profile for verification: $e');
+      _showErrorMessage('Failed to submit profile for verification');
+    }
+  }
+
+  void _showErrorMessage(String message) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
   }
 }

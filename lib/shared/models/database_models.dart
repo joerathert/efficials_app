@@ -246,6 +246,8 @@ class Official {
   final int? officialUserId;
   final String? email;
   final String? phone;
+  final String? city;
+  final String? state;
   final String availabilityStatus;
   final String? profileImageUrl;
   final String? bio;
@@ -269,6 +271,8 @@ class Official {
     this.officialUserId,
     this.email,
     this.phone,
+    this.city,
+    this.state,
     this.availabilityStatus = 'available',
     this.profileImageUrl,
     this.bio,
@@ -292,6 +296,8 @@ class Official {
       'official_user_id': officialUserId,
       'email': email,
       'phone': phone,
+      'city': city,
+      'state': state,
       'availability_status': availabilityStatus,
       'profile_image_url': profileImageUrl,
       'bio': bio,
@@ -315,6 +321,8 @@ class Official {
       officialUserId: map['official_user_id']?.toInt(),
       email: map['email'],
       phone: map['phone'],
+      city: map['city'],
+      state: map['state'],
       availabilityStatus: map['availability_status'] ?? 'available',
       profileImageUrl: map['profile_image_url'],
       bio: map['bio'],

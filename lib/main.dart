@@ -77,6 +77,11 @@ import 'features/debug/database_test_screen.dart';
 // Crew screens
 import 'features/crews/select_crew_screen.dart';
 import 'features/crews/filter_crews_screen.dart';
+import 'features/crews/crew_dashboard_screen.dart';
+import 'features/crews/create_crew_screen.dart';
+import 'features/crews/select_crew_members_screen.dart';
+import 'features/crews/crew_invitations_screen.dart';
+import 'features/crews/crew_details_screen.dart';
 
 // Scheduler screens
 import 'features/schedulers/backout_notifications_screen.dart';
@@ -84,6 +89,7 @@ import 'features/settings/notification_settings_screen.dart';
 
 // Shared
 import 'shared/theme.dart';
+import 'shared/models/database_models.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -222,6 +228,22 @@ class EfficialsApp extends StatelessWidget {
         '/official_notifications': (context) => const OfficialNotificationsScreen(),
         '/select_crew': (context) => const SelectCrewScreen(),
         '/filter_crews_settings': (context) => const FilterCrewsScreen(),
+        '/crew_dashboard': (context) => const CrewDashboardScreen(),
+        '/create_crew': (context) => const CreateCrewScreen(),
+        '/select_crew_members': (context) {
+          final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+          return SelectCrewMembersScreen(
+            crewName: args['crewName'],
+            crewType: args['crewType'],
+            competitionLevels: args['competitionLevels'],
+            currentUserId: args['currentUserId'],
+          );
+        },
+        '/crew_invitations': (context) => const CrewInvitationsScreen(),
+        '/crew_details': (context) {
+          final crew = ModalRoute.of(context)!.settings.arguments as Crew;
+          return CrewDetailsScreen(crew: crew);
+        },
         '/backout_notifications': (context) => const BackoutNotificationsScreen(),
         '/notification_settings': (context) => const NotificationSettingsScreen(),
       },

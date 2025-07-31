@@ -4,6 +4,7 @@ import '../../shared/services/repositories/crew_repository.dart';
 import '../../shared/services/repositories/official_repository.dart';
 import '../../shared/services/user_session_service.dart';
 import '../../shared/models/database_models.dart';
+import '../../shared/services/database_helper.dart';
 
 class CreateCrewScreen extends StatefulWidget {
   const CreateCrewScreen({super.key});
@@ -17,16 +18,11 @@ class _CreateCrewScreenState extends State<CreateCrewScreen> {
   final OfficialRepository _officialRepo = OfficialRepository();
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
-  final _searchController = TextEditingController();
 
   List<CrewType> _crewTypes = [];
-  List<Official> _availableOfficials = [];
-  List<Official> _filteredOfficials = [];
-  List<Official> _selectedMembers = [];
   CrewType? _selectedCrewType;
   List<String> _selectedCompetitionLevels = [];
   bool _isLoading = true;
-  bool _isCreating = false;
   int? _currentUserId;
 
   final List<String> _competitionLevels = [
@@ -48,37 +44,59 @@ class _CreateCrewScreenState extends State<CreateCrewScreen> {
   @override
   void dispose() {
     _nameController.dispose();
-    _searchController.dispose();
     super.dispose();
   }
 
   Future<void> _loadData() async {
     try {
+      print('Starting to load create crew data...');
       setState(() {
         _isLoading = true;
       });
 
+      print('Getting user session...');
       final userSession = UserSessionService.instance;
       _currentUserId = await userSession.getCurrentUserId();
+      print('Current user ID: $_currentUserId');
 
+      print('Loading crew types...');
       final crewTypes = await _crewRepo.getAllCrewTypes();
-      final officials = await _officialRepo.getAllOfficials();
+
+      print('Loaded ${crewTypes.length} crew types');
+      
+      if (crewTypes.isEmpty) {
+        print('WARNING: No crew types found in database');
+        await _debugDatabaseState();
+      }
 
       if (mounted) {
         setState(() {
           _crewTypes = crewTypes;
-          _availableOfficials = officials;
-          _filteredOfficials = officials;
           _isLoading = false;
         });
       }
     } catch (e) {
       print('Error loading data: $e');
+      print('Stack trace: ${StackTrace.current}');
+      
+      // Check if it's a missing table error
+      if (e.toString().contains('no such table: crew_types')) {
+        print('Crew types table missing - forcing database upgrade...');
+        try {
+          await DatabaseHelper().forceUpgrade();
+          print('Database upgrade completed, retrying data load...');
+          await _loadData(); // Retry loading data
+          return;
+        } catch (upgradeError) {
+          print('Database upgrade failed: $upgradeError');
+        }
+      }
+      
       if (mounted) {
         setState(() {
           _isLoading = false;
         });
-        _showErrorDialog('Failed to load data. Please try again.');
+        _showErrorDialog('Failed to load data: ${e.toString()}');
       }
     }
   }
@@ -118,10 +136,8 @@ class _CreateCrewScreenState extends State<CreateCrewScreen> {
             _buildRequiredMembersInfo(),
             const SizedBox(height: 24),
             _buildCompetitionLevelsSelector(),
-            const SizedBox(height: 24),
-            _buildMemberSelector(),
             const SizedBox(height: 32),
-            _buildCreateButton(),
+            _buildNextButton(),
           ],
         ],
       ),
@@ -198,21 +214,28 @@ class _CreateCrewScreenState extends State<CreateCrewScreen> {
               ),
               dropdownColor: efficialsBlack,
               style: const TextStyle(color: efficialsWhite),
-              items: _crewTypes.map((crewType) {
-                return DropdownMenuItem<CrewType>(
-                  value: crewType,
-                  child: Text(
-                    '${crewType.sportName} - ${crewType.requiredOfficials} Officials',
-                  ),
-                );
-              }).toList(),
+              items: _crewTypes.isEmpty 
+                  ? [
+                      DropdownMenuItem<CrewType>(
+                        value: null,
+                        child: Text(
+                          'No crew types available - check database setup',
+                          style: TextStyle(color: Colors.red[300]),
+                        ),
+                      )
+                    ]
+                  : _crewTypes.map((crewType) {
+                      return DropdownMenuItem<CrewType>(
+                        value: crewType,
+                        child: Text(
+                          '${crewType.sportName} - ${crewType.requiredOfficials} Officials',
+                        ),
+                      );
+                    }).toList(),
               onChanged: (CrewType? newValue) {
                 setState(() {
                   _selectedCrewType = newValue;
-                  _selectedMembers.clear(); // Reset member selection
                   _selectedCompetitionLevels.clear(); // Reset competition levels
-                  _searchController.clear();
-                  _filteredOfficials = _availableOfficials;
                 });
               },
             ),
@@ -329,190 +352,34 @@ class _CreateCrewScreenState extends State<CreateCrewScreen> {
     );
   }
 
-  Widget _buildMemberSelector() {
-    final requiredCount = _selectedCrewType!.requiredOfficials;
-    final needToSelect = requiredCount - 1; // Subtract 1 for crew chief (current user)
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Select Crew Members (${_selectedMembers.length} of $needToSelect selected)',
-          style: const TextStyle(
-            color: efficialsWhite,
+  Widget _buildNextButton() {
+    final canProceed = _selectedCrewType != null && _selectedCompetitionLevels.isNotEmpty;
+    
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        onPressed: canProceed ? _proceedToMemberSelection : null,
+        icon: const Icon(Icons.arrow_forward, size: 20),
+        label: const Text(
+          'Next: Select Members',
+          style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.bold,
           ),
         ),
-        const SizedBox(height: 8),
-        Text(
-          'You will be the crew chief. Select ${needToSelect - _selectedMembers.length} additional members:',
-          style: TextStyle(
-            color: Colors.grey[400],
-            fontSize: 14,
-          ),
-        ),
-        const SizedBox(height: 16),
-        // Search TextField
-        TextFormField(
-          controller: _searchController,
-          style: const TextStyle(color: efficialsWhite),
-          decoration: InputDecoration(
-            hintText: 'Search officials by name...',
-            hintStyle: TextStyle(color: Colors.grey[600]),
-            prefixIcon: const Icon(Icons.search, color: efficialsYellow),
-            suffixIcon: _searchController.text.isNotEmpty
-                ? IconButton(
-                    icon: const Icon(Icons.clear, color: efficialsYellow),
-                    onPressed: () {
-                      setState(() {
-                        _searchController.clear();
-                        _filteredOfficials = _availableOfficials;
-                      });
-                    },
-                  )
-                : null,
-            filled: true,
-            fillColor: efficialsBlack,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide.none,
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: efficialsYellow),
-            ),
-          ),
-          onChanged: (value) {
-            setState(() {
-              if (value.isEmpty) {
-                _filteredOfficials = _availableOfficials;
-              } else {
-                _filteredOfficials = _availableOfficials
-                    .where((official) => official.name
-                        .toLowerCase()
-                        .contains(value.toLowerCase()))
-                    .toList();
-              }
-            });
-          },
-        ),
-        const SizedBox(height: 16),
-        Container(
-          constraints: const BoxConstraints(maxHeight: 300),
-          clipBehavior: Clip.none,
-          child: ListView.builder(
-            shrinkWrap: true,
-            padding: EdgeInsets.zero,
-            itemCount: _filteredOfficials.length,
-            itemBuilder: (context, index) {
-              final official = _filteredOfficials[index];
-              final isCurrentUser = official.id == _currentUserId;
-              final isSelected = _selectedMembers.contains(official);
-              final canSelect = !isCurrentUser && (_selectedMembers.length < needToSelect || isSelected);
-
-              return Container(
-                margin: const EdgeInsets.symmetric(vertical: 2),
-                decoration: BoxDecoration(
-                  color: isSelected ? efficialsYellow.withOpacity(0.1) : null,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: CheckboxListTile(
-                  title: Text(
-                    isCurrentUser ? "${official.name} (You - Crew Chief)" : official.name,
-                    style: TextStyle(
-                      color: canSelect ? efficialsWhite : Colors.grey[600],
-                    ),
-                  ),
-                  subtitle: official.phone != null
-                      ? Text(
-                          official.phone!,
-                          style: TextStyle(
-                            color: canSelect ? Colors.grey[400] : Colors.grey[700],
-                          ),
-                        )
-                      : null,
-                  value: isSelected,
-                  activeColor: efficialsYellow,
-                  checkColor: efficialsBlack,
-                  onChanged: canSelect
-                      ? (bool? value) {
-                          setState(() {
-                            if (value == true) {
-                              _selectedMembers.add(official);
-                            } else {
-                              _selectedMembers.remove(official);
-                            }
-                          });
-                        }
-                      : null,
-                ),
-              );
-            },
-          ),
-        ),
-        // Validation error for insufficient members
-        if (_selectedCrewType != null && _selectedMembers.length < needToSelect)
-          Container(
-            padding: const EdgeInsets.all(12),
-            margin: const EdgeInsets.only(top: 8),
-            decoration: BoxDecoration(
-              color: Colors.red.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.red.withOpacity(0.3)),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.error_outline, color: Colors.red, size: 16),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Select ${needToSelect - _selectedMembers.length} more member(s) to complete the crew.',
-                    style: const TextStyle(color: Colors.red, fontSize: 12),
-                  ),
-                ),
-              ],
-            ),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildCreateButton() {
-    return SizedBox(
-      width: double.infinity,
-      child: ElevatedButton(
-        onPressed: !_isCreating ? _createCrew : null,
         style: ElevatedButton.styleFrom(
-          backgroundColor: efficialsYellow,
+          backgroundColor: canProceed ? efficialsYellow : Colors.grey[700],
           foregroundColor: efficialsBlack,
           padding: const EdgeInsets.symmetric(vertical: 16),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(8),
           ),
         ),
-        child: _isCreating
-            ? const SizedBox(
-                height: 20,
-                width: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(efficialsBlack),
-                ),
-              )
-            : const Text(
-                'Create Crew',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
       ),
     );
   }
 
-  Future<void> _createCrew() async {
-    // Enhanced validation
+  void _proceedToMemberSelection() {
     if (!_formKey.currentState!.validate()) {
       _showValidationError('Please fix the form errors before proceeding.');
       return;
@@ -533,61 +400,18 @@ class _CreateCrewScreenState extends State<CreateCrewScreen> {
       return;
     }
 
-    final requiredCount = _selectedCrewType!.requiredOfficials;
-    final needToSelect = requiredCount - 1; // Subtract 1 for crew chief
-    
-    if (_selectedMembers.length < needToSelect) {
-      _showValidationError('Please select $needToSelect crew members to complete the crew.');
-      return;
-    }
-
-    if (_selectedMembers.length > needToSelect) {
-      _showValidationError('Too many members selected. Please select exactly $needToSelect members.');
-      return;
-    }
-
-    setState(() {
-      _isCreating = true;
-    });
-
-    try {
-      // Create the crew with atomic transaction
-      final crew = Crew(
-        name: _nameController.text.trim(),
-        crewTypeId: _selectedCrewType!.id!,
-        crewChiefId: _currentUserId!,
-        createdBy: _currentUserId!,
-        competitionLevels: _selectedCompetitionLevels,
-      );
-
-      await _crewRepo.createCrewWithMembersAndInvitations(
-        crew: crew,
-        selectedMembers: _selectedMembers,
-        crewChiefId: _currentUserId!,
-      );
-
-      if (mounted) {
-        Navigator.pop(context, true); // Return true to indicate success
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Crew "${crew.name}" created and invitations sent!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-    } catch (e) {
-      print('Error creating crew: $e');
-      if (mounted) {
-        _showErrorDialog('Failed to create crew. Please try again.');
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isCreating = false;
-        });
-      }
-    }
+    Navigator.pushNamed(
+      context,
+      '/select_crew_members',
+      arguments: {
+        'crewName': _nameController.text.trim(),
+        'crewType': _selectedCrewType!,
+        'competitionLevels': _selectedCompetitionLevels,
+        'currentUserId': _currentUserId!,
+      },
+    );
   }
+
 
   void _showValidationError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -623,5 +447,77 @@ class _CreateCrewScreenState extends State<CreateCrewScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _debugDatabaseState() async {
+    try {
+      // Check sports table
+      final sportsCount = await _crewRepo.rawQuery('SELECT COUNT(*) as count FROM sports');
+      final crewTypesCount = await _crewRepo.rawQuery('SELECT COUNT(*) as count FROM crew_types');
+      
+      print('Sports count: ${sportsCount.first['count']}');
+      print('Crew types count: ${crewTypesCount.first['count']}');
+      
+      if (sportsCount.first['count'] == 0) {
+        print('Sports table is empty - initializing default sports...');
+        await _initializeDefaultSports();
+      }
+      
+      if (crewTypesCount.first['count'] == 0) {
+        print('Crew types table is empty - initializing default crew types...');
+        await _initializeDefaultCrewTypes();
+        
+        // Reload crew types after initialization
+        final newCrewTypes = await _crewRepo.getAllCrewTypes();
+        if (mounted) {
+          setState(() {
+            _crewTypes = newCrewTypes;
+          });
+        }
+        print('Reloaded ${newCrewTypes.length} crew types after initialization');
+      }
+    } catch (e) {
+      print('Error debugging database state: $e');
+    }
+  }
+
+  Future<void> _initializeDefaultSports() async {
+    final sports = [
+      'Football', 'Basketball', 'Baseball', 'Softball', 'Soccer', 
+      'Volleyball', 'Tennis', 'Track & Field', 'Swimming', 'Wrestling',
+      'Cross Country', 'Golf', 'Hockey', 'Lacrosse'
+    ];
+    
+    for (final sport in sports) {
+      await _crewRepo.rawQuery('INSERT OR IGNORE INTO sports (name) VALUES (?)', [sport]);
+    }
+    print('✅ Default sports initialized');
+  }
+
+  Future<void> _initializeDefaultCrewTypes() async {
+    // Get sport IDs
+    final sportsQuery = await _crewRepo.rawQuery('SELECT id, name FROM sports');
+    final sportMap = Map.fromIterable(sportsQuery,
+        key: (s) => s['name'], value: (s) => s['id']);
+
+    final defaultCrewTypes = [
+      {'sport': 'Football', 'level': 'Varsity', 'officials': 5, 'desc': 'Varsity Football - 5 Officials'},
+      {'sport': 'Football', 'level': 'Underclass', 'officials': 4, 'desc': 'JV/Freshman Football - 4 Officials'},
+      {'sport': 'Baseball', 'level': 'All', 'officials': 2, 'desc': 'All Baseball Levels - 2 Officials'},
+      {'sport': 'Basketball', 'level': 'Varsity', 'officials': 3, 'desc': 'Varsity Basketball - 3 Officials'},
+      {'sport': 'Basketball', 'level': 'JV', 'officials': 3, 'desc': 'JV Basketball - 3 Officials'},
+      {'sport': 'Basketball', 'level': 'Other', 'officials': 2, 'desc': 'Freshman/Middle School Basketball - 2 Officials'},
+    ];
+
+    for (final crewType in defaultCrewTypes) {
+      final sportId = sportMap[crewType['sport']];
+      if (sportId != null) {
+        await _crewRepo.rawQuery('''
+          INSERT OR IGNORE INTO crew_types (sport_id, level_of_competition, required_officials, description)
+          VALUES (?, ?, ?, ?)
+        ''', [sportId, crewType['level'], crewType['officials'], crewType['desc']]);
+      }
+    }
+    print('✅ Default crew types initialized');
   }
 }

@@ -24,7 +24,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 18,
+      version: 25,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -32,6 +32,8 @@ class DatabaseHelper {
 
   Future<void> _onCreate(Database db, int version) async {
     await _createTables(db);
+    // Add sample officials for testing crew functionality
+    await _addSampleOfficials(db);
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
@@ -434,6 +436,41 @@ class DatabaseHelper {
       // Add game dismissals table for officials to dismiss games they don't want
       await _addGameDismissalsTable(db);
     }
+
+    if (oldVersion < 19) {
+      // Add verification tokens table for email and phone verification
+      await _addVerificationTokensTable(db);
+    }
+
+    if (oldVersion < 20) {
+      // Add updated_at column to teams table
+      await db.execute('ALTER TABLE teams ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP');
+    }
+
+    if (oldVersion < 21) {
+      // Add crew system tables
+      await _addCrewSystemTables(db);
+    }
+    if (oldVersion < 22) {
+      // Add city and state columns to officials table
+      await db.execute('ALTER TABLE officials ADD COLUMN city TEXT');
+      await db.execute('ALTER TABLE officials ADD COLUMN state TEXT');
+      
+      // Add sample location data for existing officials (for testing)
+      await _addSampleLocationData(db);
+    }
+    if (oldVersion < 23) {
+      // Add sample officials for testing crew functionality
+      await _addSampleOfficials(db);
+    }
+    if (oldVersion < 24) {
+      // Update existing officials with location data (fix null string issue)
+      await _updateExistingOfficialsWithLocations(db);
+    }
+    if (oldVersion < 25) {
+      // Update all officials with Illinois locations within 100 miles of Edwardsville, IL
+      await _updateOfficialsWithEdwardsvilleAreaLocations(db);
+    }
   }
 
   Future<void> _createTables(Database db) async {
@@ -516,6 +553,8 @@ class DatabaseHelper {
         official_user_id INTEGER REFERENCES official_users(id),
         email TEXT,
         phone TEXT,
+        city TEXT,
+        state TEXT,
         availability_status TEXT DEFAULT 'available',
         profile_image_url TEXT,
         bio TEXT,
@@ -645,7 +684,8 @@ class DatabaseHelper {
         grade TEXT,
         gender TEXT,
         user_id INTEGER REFERENCES users(id),
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     ''');
 
@@ -818,6 +858,9 @@ class DatabaseHelper {
 
     // Insert default sports
     await _insertDefaultSports(db);
+    
+    // Add crew system tables
+    await _addCrewSystemTables(db);
   }
 
   Future<void> _createIndexes(Database db) async {
@@ -1748,6 +1791,40 @@ class DatabaseHelper {
     }
   }
 
+  Future<void> _addVerificationTokensTable(Database db) async {
+    try {
+      print('Adding verification tokens table...');
+
+      // Verification tokens table - stores email and phone verification tokens
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS verification_tokens (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          official_user_id INTEGER NOT NULL REFERENCES official_users(id) ON DELETE CASCADE,
+          type TEXT NOT NULL,
+          token TEXT NOT NULL,
+          expires_at DATETIME NOT NULL,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(token)
+        )
+      ''');
+
+      // Create indexes for performance
+      await db.execute(
+          'CREATE INDEX IF NOT EXISTS idx_verification_tokens_official_user_id ON verification_tokens(official_user_id)');
+      await db.execute(
+          'CREATE INDEX IF NOT EXISTS idx_verification_tokens_type ON verification_tokens(type)');
+      await db.execute(
+          'CREATE INDEX IF NOT EXISTS idx_verification_tokens_token ON verification_tokens(token)');
+      await db.execute(
+          'CREATE INDEX IF NOT EXISTS idx_verification_tokens_expires_at ON verification_tokens(expires_at)');
+
+      print('✅ Verification tokens table created successfully');
+    } catch (e) {
+      print('❌ Error creating verification tokens table: $e');
+      rethrow;
+    }
+  }
+
   // Utility methods
   Future<void> close() async {
     final db = await database;
@@ -1758,5 +1835,290 @@ class DatabaseHelper {
     String path = join(await getDatabasesPath(), 'efficials.db');
     await databaseFactory.deleteDatabase(path);
     _database = null;
+  }
+
+  Future<void> _addSampleOfficials(Database db) async {
+    try {
+      // Check if we already have officials to avoid duplicates
+      final existingOfficials = await db.query('officials');
+      if (existingOfficials.isNotEmpty) {
+        print('Officials already exist, skipping sample data creation');
+        return;
+      }
+
+      // Get first sport ID for sample officials
+      final sportsQuery = await db.query('sports', limit: 1);
+      if (sportsQuery.isEmpty) {
+        print('No sports found, creating default sports first');
+        // Create some basic sports
+        await db.insert('sports', {'name': 'Football'});
+        await db.insert('sports', {'name': 'Basketball'});
+        await db.insert('sports', {'name': 'Baseball'});
+      }
+      
+      final sportId = (await db.query('sports', limit: 1)).first['id'] as int;
+
+      // Sample officials with location data
+      final sampleOfficials = [
+        {
+          'name': 'John Smith',
+          'email': 'john.smith@email.com',
+          'phone': '555-0101',
+          'city': 'Chicago',
+          'state': 'IL',
+          'user_id': 1,
+          'sport_id': sportId,
+        },
+        {
+          'name': 'Mike Johnson',
+          'email': 'mike.johnson@email.com',
+          'phone': '555-0102',
+          'city': 'Milwaukee',
+          'state': 'WI',
+          'user_id': 1,
+          'sport_id': sportId,
+        },
+        {
+          'name': 'Sarah Davis',
+          'email': 'sarah.davis@email.com',
+          'phone': '555-0103',
+          'city': 'Madison',
+          'state': 'WI',
+          'user_id': 1,
+          'sport_id': sportId,
+        },
+        {
+          'name': 'Robert Wilson',
+          'email': 'robert.wilson@email.com',
+          'phone': '555-0104',
+          'city': 'Springfield',
+          'state': 'IL',
+          'user_id': 1,
+          'sport_id': sportId,
+        },
+        {
+          'name': 'Jennifer Brown',
+          'email': 'jennifer.brown@email.com',
+          'phone': '555-0105',
+          'city': 'Rockford',
+          'state': 'IL',
+          'user_id': 1,
+          'sport_id': sportId,
+        },
+        {
+          'name': 'David Miller',
+          'email': 'david.miller@email.com',
+          'phone': '555-0106',
+          'city': 'Green Bay',
+          'state': 'WI',
+          'user_id': 1,
+          'sport_id': sportId,
+        },
+        {
+          'name': 'Lisa Garcia',
+          'email': 'lisa.garcia@email.com',
+          'phone': '555-0107',
+          'city': 'Peoria',
+          'state': 'IL',
+          'user_id': 1,
+          'sport_id': sportId,
+        },
+        {
+          'name': 'James Anderson',
+          'email': 'james.anderson@email.com',
+          'phone': '555-0108',
+          'city': 'Kenosha',
+          'state': 'WI',
+          'user_id': 1,
+          'sport_id': sportId,
+        },
+      ];
+
+      // Insert sample officials
+      for (final official in sampleOfficials) {
+        await db.insert('officials', official);
+      }
+
+      print('✅ Created ${sampleOfficials.length} sample officials with location data');
+    } catch (e) {
+      print('Error adding sample officials: $e');
+    }
+  }
+
+  Future<void> _updateOfficialsWithEdwardsvilleAreaLocations(Database db) async {
+    try {
+      // Get all officials (update everyone with new Illinois locations)
+      final officials = await db.query('officials');
+      
+      if (officials.isEmpty) {
+        print('No officials found to update with Edwardsville area locations');
+        return;
+      }
+      
+      // Illinois cities within 100 miles of Edwardsville, IL
+      // (Edwardsville is in southwestern Illinois, near St. Louis)
+      final illinoisLocations = [
+        {'city': 'Edwardsville', 'state': 'IL'},        // 0 miles - the center point
+        {'city': 'Alton', 'state': 'IL'},               // ~15 miles
+        {'city': 'Collinsville', 'state': 'IL'},        // ~20 miles
+        {'city': 'Belleville', 'state': 'IL'},          // ~25 miles
+        {'city': 'O\'Fallon', 'state': 'IL'},           // ~30 miles
+        {'city': 'Glen Carbon', 'state': 'IL'},         // ~8 miles
+        {'city': 'Granite City', 'state': 'IL'},        // ~18 miles
+        {'city': 'Wood River', 'state': 'IL'},          // ~12 miles
+        {'city': 'Godfrey', 'state': 'IL'},             // ~20 miles
+        {'city': 'Bethalto', 'state': 'IL'},            // ~10 miles
+        {'city': 'Highland', 'state': 'IL'},            // ~35 miles
+        {'city': 'Greenville', 'state': 'IL'},          // ~45 miles  
+        {'city': 'Vandalia', 'state': 'IL'},            // ~60 miles
+        {'city': 'Centralia', 'state': 'IL'},           // ~75 miles
+        {'city': 'Effingham', 'state': 'IL'},           // ~85 miles
+        {'city': 'Mattoon', 'state': 'IL'},             // ~95 miles
+        {'city': 'Charleston', 'state': 'IL'},          // ~90 miles
+        {'city': 'Taylorville', 'state': 'IL'},         // ~80 miles
+        {'city': 'Pana', 'state': 'IL'},                // ~70 miles
+        {'city': 'Hillsboro', 'state': 'IL'},           // ~65 miles
+        {'city': 'Litchfield', 'state': 'IL'},          // ~50 miles
+        {'city': 'Carlinville', 'state': 'IL'},         // ~40 miles
+        {'city': 'Springfield', 'state': 'IL'},         // ~95 miles
+        {'city': 'Decatur', 'state': 'IL'},             // ~100 miles
+        {'city': 'Shelbyville', 'state': 'IL'},         // ~85 miles
+        {'city': 'Salem', 'state': 'IL'},               // ~80 miles
+        {'city': 'Mount Vernon', 'state': 'IL'},        // ~90 miles
+        {'city': 'Carbondale', 'state': 'IL'},          // ~95 miles
+        {'city': 'Chester', 'state': 'IL'},             // ~75 miles
+        {'city': 'Red Bud', 'state': 'IL'},             // ~45 miles
+      ];
+      
+      // Update all officials with Illinois locations
+      for (int i = 0; i < officials.length; i++) {
+        final official = officials[i];
+        final location = illinoisLocations[i % illinoisLocations.length];
+        
+        await db.update(
+          'officials',
+          {
+            'city': location['city'],
+            'state': location['state'],
+          },
+          where: 'id = ?',
+          whereArgs: [official['id']],
+        );
+      }
+      
+      print('✅ Updated ${officials.length} officials with Edwardsville area Illinois locations');
+    } catch (e) {
+      print('Error updating officials with Edwardsville area locations: $e');
+    }
+  }
+
+  Future<void> _updateExistingOfficialsWithLocations(Database db) async {
+    try {
+      // Get all officials without proper location data (including 'null' strings)
+      final officials = await db.query('officials', 
+        where: 'city IS NULL OR city = "" OR city = "null" OR state IS NULL OR state = "" OR state = "null"');
+      
+      if (officials.isEmpty) {
+        print('No officials found needing location updates');
+        return;
+      }
+      
+      // Extended sample locations for more variety
+      final sampleLocations = [
+        {'city': 'Chicago', 'state': 'IL'},
+        {'city': 'Milwaukee', 'state': 'WI'},
+        {'city': 'Madison', 'state': 'WI'},
+        {'city': 'Springfield', 'state': 'IL'},
+        {'city': 'Rockford', 'state': 'IL'},
+        {'city': 'Green Bay', 'state': 'WI'},
+        {'city': 'Peoria', 'state': 'IL'},
+        {'city': 'Kenosha', 'state': 'WI'},
+        {'city': 'Naperville', 'state': 'IL'},
+        {'city': 'Waukegan', 'state': 'IL'},
+        {'city': 'Oshkosh', 'state': 'WI'},
+        {'city': 'Appleton', 'state': 'WI'},
+        {'city': 'Joliet', 'state': 'IL'},
+        {'city': 'Elgin', 'state': 'IL'},
+        {'city': 'Eau Claire', 'state': 'WI'},
+        {'city': 'La Crosse', 'state': 'WI'},
+        {'city': 'Decatur', 'state': 'IL'},
+        {'city': 'Aurora', 'state': 'IL'},
+        {'city': 'Racine', 'state': 'WI'},
+        {'city': 'Champaign', 'state': 'IL'},
+      ];
+      
+      // Update all officials without location data
+      for (int i = 0; i < officials.length; i++) {
+        final official = officials[i];
+        final location = sampleLocations[i % sampleLocations.length];
+        
+        await db.update(
+          'officials',
+          {
+            'city': location['city'],
+            'state': location['state'],
+          },
+          where: 'id = ?',
+          whereArgs: [official['id']],
+        );
+      }
+      
+      print('✅ Updated ${officials.length} officials with location data');
+    } catch (e) {
+      print('Error updating officials with locations: $e');
+    }
+  }
+
+  Future<void> _addSampleLocationData(Database db) async {
+    try {
+      // Get all existing officials without location data (including those with 'null' string values)
+      final officials = await db.query('officials', where: 'city IS NULL OR city = "" OR city = "null"');
+      
+      if (officials.isEmpty) {
+        print('No officials found to update with location data');
+        return;
+      }
+      
+      // Sample cities and states for testing
+      final sampleLocations = [
+        {'city': 'Chicago', 'state': 'IL'},
+        {'city': 'Milwaukee', 'state': 'WI'},
+        {'city': 'Madison', 'state': 'WI'},
+        {'city': 'Springfield', 'state': 'IL'},
+        {'city': 'Rockford', 'state': 'IL'},
+        {'city': 'Green Bay', 'state': 'WI'},
+        {'city': 'Peoria', 'state': 'IL'},
+        {'city': 'Kenosha', 'state': 'WI'},
+        {'city': 'Naperville', 'state': 'IL'},
+        {'city': 'Waukegan', 'state': 'IL'},
+      ];
+      
+      // Assign random locations to existing officials
+      for (int i = 0; i < officials.length; i++) {
+        final official = officials[i];
+        final location = sampleLocations[i % sampleLocations.length];
+        
+        await db.update(
+          'officials',
+          {
+            'city': location['city'],
+            'state': location['state'],
+          },
+          where: 'id = ?',
+          whereArgs: [official['id']],
+        );
+      }
+      
+      print('✅ Updated ${officials.length} officials with sample location data');
+    } catch (e) {
+      print('Error adding sample location data: $e');
+    }
+  }
+
+  Future<void> forceUpgrade() async {
+    await _database?.close();
+    _database = null;
+    // Next access to database will trigger re-initialization
+    await database;
   }
 }
