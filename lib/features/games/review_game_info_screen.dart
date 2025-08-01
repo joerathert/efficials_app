@@ -181,6 +181,8 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
     try {
       if (!isAwayGame &&
           !(args['hireAutomatically'] == true) &&
+          args['selectedCrew'] == null &&
+          (args['selectedCrews'] == null || (args['selectedCrews'] as List).isEmpty) &&
           (args['selectedOfficials'] == null ||
               (args['selectedOfficials'] as List).isEmpty)) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1129,7 +1131,38 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
                       if (isAwayGame)
                         const Text('No officials needed for away games.',
                             style: TextStyle(fontSize: 16, color: Colors.grey))
-                      else if (args['method'] == 'use_list' &&
+                      else if (args['method'] == 'hire_crew' && 
+                          (args['selectedCrews'] != null || args['selectedCrew'] != null)) ...[
+                        if (args['selectedCrews'] != null) ...[
+                          ...((args['selectedCrews'] as List<dynamic>).map((crewData) {
+                            // Handle both Crew objects and Map data
+                            final crewName = crewData is Map<String, dynamic> 
+                                ? crewData['name'] as String? ?? 'Unknown Crew'
+                                : (crewData as dynamic).name ?? 'Unknown Crew';
+                            final memberCount = crewData is Map<String, dynamic>
+                                ? (crewData['members'] as List?)?.length ?? 0
+                                : ((crewData as dynamic).members as List?)?.length ?? 0;
+                            
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 4),
+                              child: Text(
+                                'Crew: $crewName ($memberCount officials)',
+                                style: const TextStyle(
+                                    fontSize: 16, color: Colors.white),
+                              ),
+                            );
+                          })),
+                        ] else if (args['selectedCrew'] != null) ...[
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            child: Text(
+                              'Crew: ${(args['selectedCrew'] as dynamic).name} (${((args['selectedCrew'] as dynamic).members as List?)?.length ?? 0} officials)',
+                              style: const TextStyle(
+                                  fontSize: 16, color: Colors.white),
+                            ),
+                          ),
+                        ],
+                      ] else if (args['method'] == 'use_list' &&
                           args['selectedListName'] != null) ...[
                         Padding(
                           padding: const EdgeInsets.symmetric(vertical: 4),

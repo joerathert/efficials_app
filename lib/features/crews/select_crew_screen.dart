@@ -14,6 +14,7 @@ class _SelectCrewScreenState extends State<SelectCrewScreen> {
   final CrewRepository _crewRepo = CrewRepository();
   List<Crew> _availableCrews = [];
   List<Crew> _filteredCrews = [];
+  List<Crew> _selectedCrews = [];
   bool _isLoading = true;
   String _searchQuery = '';
   bool _filtersApplied = false;
@@ -131,8 +132,26 @@ class _SelectCrewScreenState extends State<SelectCrewScreen> {
                     fontSize: 14,
                   ),
                 ),
+                if (_selectedCrews.isNotEmpty) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: efficialsYellow.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '${_selectedCrews.length} selected',
+                      style: const TextStyle(
+                        color: efficialsYellow,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+                const Spacer(),
                 if (_filtersApplied) ...[
-                  const Spacer(),
                   GestureDetector(
                     onTap: _clearFilters,
                     child: const Text(
@@ -175,18 +194,48 @@ class _SelectCrewScreenState extends State<SelectCrewScreen> {
         child: const Icon(Icons.filter_list, size: 30, color: efficialsYellow),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+      bottomNavigationBar: _selectedCrews.isNotEmpty
+          ? Container(
+              color: efficialsBlack,
+              padding: EdgeInsets.only(
+                left: 16,
+                right: 16,
+                top: 16,
+                bottom: MediaQuery.of(context).padding.bottom + 16,
+              ),
+              child: ElevatedButton(
+                onPressed: _proceedWithSelectedCrews,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: efficialsYellow,
+                  foregroundColor: efficialsBlack,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: Text(
+                  'Continue with ${_selectedCrews.length} ${_selectedCrews.length == 1 ? 'Crew' : 'Crews'}',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            )
+          : null,
     );
   }
 
   Widget _buildCrewCard(Crew crew, Map<String, dynamic> args) {
     final memberCount = crew.members?.length ?? 0;
     final requiredCount = crew.requiredOfficials ?? 0;
+    final isSelected = _selectedCrews.any((c) => c.id == crew.id);
 
     return Card(
-      color: efficialsBlack,
+      color: isSelected ? efficialsYellow.withOpacity(0.1) : efficialsBlack,
       margin: const EdgeInsets.only(bottom: 12),
       child: InkWell(
-        onTap: () => _selectCrew(crew, args),
+        onTap: () => _toggleCrewSelection(crew),
         borderRadius: BorderRadius.circular(8),
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -195,6 +244,13 @@ class _SelectCrewScreenState extends State<SelectCrewScreen> {
             children: [
               Row(
                 children: [
+                  Checkbox(
+                    value: isSelected,
+                    onChanged: (value) => _toggleCrewSelection(crew),
+                    activeColor: efficialsYellow,
+                    checkColor: efficialsBlack,
+                  ),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       crew.name,
@@ -226,54 +282,65 @@ class _SelectCrewScreenState extends State<SelectCrewScreen> {
                 ],
               ),
               const SizedBox(height: 8),
-              Row(
-                children: [
-                  Icon(
-                    Icons.sports,
-                    color: Colors.grey[400],
-                    size: 16,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    '${crew.sportName}',
-                    style: TextStyle(
-                      color: Colors.grey[400],
-                      fontSize: 14,
+              Padding(
+                padding: const EdgeInsets.only(left: 48), // Align with text after checkbox
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.sports,
+                          color: Colors.grey[400],
+                          size: 16,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '${crew.sportName}',
+                          style: TextStyle(
+                            color: Colors.grey[400],
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  Icon(
-                    Icons.people,
-                    color: Colors.grey[400],
-                    size: 16,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    '$memberCount officials',
-                    style: TextStyle(
-                      color: Colors.grey[400],
-                      fontSize: 14,
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.people,
+                          color: Colors.grey[400],
+                          size: 16,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '$memberCount officials',
+                          style: TextStyle(
+                            color: Colors.grey[400],
+                            fontSize: 14,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Icon(
+                          Icons.person,
+                          color: Colors.grey[400],
+                          size: 16,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Chief: ${crew.crewChiefName}',
+                            style: TextStyle(
+                              color: Colors.grey[400],
+                              fontSize: 14,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(width: 16),
-                  Icon(
-                    Icons.person,
-                    color: Colors.grey[400],
-                    size: 16,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Chief: ${crew.crewChiefName}',
-                    style: TextStyle(
-                      color: Colors.grey[400],
-                      fontSize: 14,
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ],
           ),
@@ -431,14 +498,36 @@ class _SelectCrewScreenState extends State<SelectCrewScreen> {
     });
   }
 
-  void _selectCrew(Crew crew, Map<String, dynamic> args) async {
-    // Navigate to review game info with selected crew
+  void _toggleCrewSelection(Crew crew) {
+    setState(() {
+      final isSelected = _selectedCrews.any((c) => c.id == crew.id);
+      if (isSelected) {
+        _selectedCrews.removeWhere((c) => c.id == crew.id);
+      } else {
+        _selectedCrews.add(crew);
+      }
+    });
+  }
+
+  void _proceedWithSelectedCrews() {
+    if (_selectedCrews.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select at least one crew to proceed.'),
+        ),
+      );
+      return;
+    }
+
+    final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+    
     Navigator.pushNamed(
       context,
       '/review_game_info',
       arguments: {
         ...args,
-        'selectedCrew': crew,
+        'selectedCrews': _selectedCrews,
+        'selectedCrew': _selectedCrews.length == 1 ? _selectedCrews.first : null, // For backward compatibility
         'method': 'hire_crew',
       },
     );
