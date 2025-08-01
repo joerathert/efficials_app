@@ -131,8 +131,68 @@ class MigrationService {
   // Reset database (for testing purposes)
   Future<void> resetDatabase() async {
     try {
+      // COMPREHENSIVE reset - clear ALL data sources that could contain Wolf Branch
+      try {
+        final db = await _databaseHelper.database;
+        
+        // Debug: Check what's in the database before clearing
+        debugPrint('=== CHECKING DATABASE BEFORE RESET ===');
+        
+        final schedules = await db.query('schedules');
+        debugPrint('Schedules table: ${schedules.length} entries');
+        for (var schedule in schedules) {
+          if (schedule['name'].toString().toLowerCase().contains('wolf')) {
+            debugPrint('FOUND Wolf schedule in schedules table: ${schedule['name']}');
+          }
+        }
+        
+        final games = await db.query('games');
+        debugPrint('Games table: ${games.length} entries');
+        for (var game in games) {
+          final scheduleName = game['schedule_name'] ?? game['opponent'] ?? '';
+          if (scheduleName.toString().toLowerCase().contains('wolf')) {
+            debugPrint('FOUND Wolf game in games table: $scheduleName');
+          }
+        }
+        
+        final userSettings = await db.query('user_settings', where: 'key LIKE ?', whereArgs: ['schedule_template_%']);
+        debugPrint('Schedule template associations: ${userSettings.length} entries');
+        for (var setting in userSettings) {
+          if (setting['key'].toString().toLowerCase().contains('wolf')) {
+            debugPrint('FOUND Wolf template association: ${setting['key']}');
+          }
+        }
+        
+        // Clear specific data that could contain Wolf Branch
+        await db.delete('schedules');
+        await db.delete('games'); 
+        await db.delete('user_settings', where: 'key LIKE ?', whereArgs: ['schedule_template_%']);
+        debugPrint('Cleared schedules, games, and template associations from database before full reset');
+        
+      } catch (e) {
+        debugPrint('Error clearing data before reset (database may not exist yet): $e');
+      }
+      
       await _databaseHelper.deleteDatabase();
       final prefs = await SharedPreferences.getInstance();
+      
+      // Debug: Check ALL SharedPreferences keys for Wolf Branch data before clearing
+      debugPrint('=== CHECKING ALL SHAREDPREFERENCES BEFORE CLEARING ===');
+      final allKeys = prefs.getKeys();
+      for (final key in allKeys) {
+        try {
+          final value = prefs.getString(key);
+          if (value != null && value.toLowerCase().contains('wolf')) {
+            debugPrint('FOUND Wolf data in SharedPreferences key "$key": ${value.substring(0, value.length > 200 ? 200 : value.length)}...');
+          }
+        } catch (e) {
+          // Skip non-string values
+        }
+      }
+      
+      // CRITICAL: Set migration completed flag FIRST to prevent migration from running
+      await prefs.setBool('database_migration_completed', true);
+      debugPrint('Set migration_completed to TRUE to prevent re-migration');
       
       // Clear all SharedPreferences data that gets migrated back to database
       await prefs.remove('saved_locations');
@@ -142,16 +202,21 @@ class MigrationService {
       await prefs.remove('ad_unpublished_games');
       await prefs.remove('coach_published_games');
       await prefs.remove('assigner_published_games');
+      await prefs.remove('coach_unpublished_games');
+      await prefs.remove('assigner_unpublished_games');
       
-      // Clear all schedule template associations
-      final allKeys = prefs.getKeys();
-      for (final key in allKeys) {
+      // Clear all schedule template associations from SharedPreferences too
+      final remainingKeys = prefs.getKeys();
+      for (final key in remainingKeys) {
         if (key.startsWith('schedule_template_')) {
           await prefs.remove(key);
         }
       }
       
+      // THEN set migration flag back to false for future fresh installs
       await prefs.setBool('database_migration_completed', false);
+      debugPrint('=== DATABASE RESET COMPLETED ===');
+      debugPrint('Cleared: schedules table, games table, user_settings, and all SharedPreferences');
     } catch (e) {
       rethrow;
     }
@@ -164,11 +229,14 @@ class MigrationService {
       final db = await _databaseHelper.database;
       await db.delete('game_templates');
       
+      // Clear schedule template associations from database user_settings table
+      await db.delete('user_settings', where: 'key LIKE ?', whereArgs: ['schedule_template_%']);
+      
       // Clear templates from SharedPreferences
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove('game_templates');
       
-      // Clear all schedule template associations
+      // Clear all schedule template associations from SharedPreferences
       final allKeys = prefs.getKeys();
       for (final key in allKeys) {
         if (key.startsWith('schedule_template_')) {
@@ -176,7 +244,7 @@ class MigrationService {
         }
       }
       
-      debugPrint('Templates cleared successfully (officials preserved)');
+      debugPrint('Templates cleared successfully (officials preserved) - including schedule associations');
     } catch (e) {
       debugPrint('Template clearing failed: $e');
       rethrow;

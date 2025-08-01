@@ -22,18 +22,26 @@ class DatabaseHelper {
   Future<Database> _initDatabase() async {
     String path = join(await getDatabasesPath(), 'efficials.db');
 
-    return await openDatabase(
+    final db = await openDatabase(
       path,
       version: 25,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
+    
+    // Auto-fix database schema issues
+    try {
+      await _autoFixSchema(db);
+    } catch (e) {
+      debugPrint('Auto-fix schema error (non-critical): $e');
+    }
+    
+    return db;
   }
 
   Future<void> _onCreate(Database db, int version) async {
     await _createTables(db);
-    // Add sample officials for testing crew functionality
-    await _addSampleOfficials(db);
+    // Sample officials removed - use "Create Test Users" button instead
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
@@ -460,8 +468,7 @@ class DatabaseHelper {
       await _addSampleLocationData(db);
     }
     if (oldVersion < 23) {
-      // Add sample officials for testing crew functionality
-      await _addSampleOfficials(db);
+      // Sample officials removed - use "Create Test Users" button instead
     }
     if (oldVersion < 24) {
       // Update existing officials with location data (fix null string issue)
@@ -1017,7 +1024,7 @@ class DatabaseHelper {
 
     final userData = <String, dynamic>{
       'scheduler_type': schedulerType,
-      'setup_completed': false,
+      'setup_completed': 0,
     };
 
     // Add role-specific data
@@ -1026,7 +1033,7 @@ class DatabaseHelper {
         userData['school_name'] = prefs.getString('ad_school_name');
         userData['mascot'] = prefs.getString('ad_mascot');
         userData['setup_completed'] =
-            prefs.getBool('ad_setup_completed') ?? false;
+            (prefs.getBool('ad_setup_completed') ?? false) ? 1 : 0;
         break;
       case 'Coach':
         userData['team_name'] = prefs.getString('team_name');
@@ -1034,13 +1041,13 @@ class DatabaseHelper {
         userData['grade'] = prefs.getString('grade');
         userData['gender'] = prefs.getString('gender');
         userData['setup_completed'] =
-            prefs.getBool('team_setup_completed') ?? false;
+            (prefs.getBool('team_setup_completed') ?? false) ? 1 : 0;
         break;
       case 'Assigner':
         userData['sport'] = prefs.getString('assigner_sport');
         userData['league_name'] = prefs.getString('league_name');
         userData['setup_completed'] =
-            prefs.getBool('assigner_setup_completed') ?? false;
+            (prefs.getBool('assigner_setup_completed') ?? false) ? 1 : 0;
         break;
     }
 
@@ -1339,7 +1346,7 @@ class DatabaseHelper {
   Future<void> _addCrewSystemTables(Database db) async {
     // Create crew_types table with default data
     await db.execute('''
-      CREATE TABLE crew_types (
+      CREATE TABLE IF NOT EXISTS crew_types (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         sport_id INTEGER REFERENCES sports(id),
         level_of_competition TEXT NOT NULL,
@@ -1352,7 +1359,7 @@ class DatabaseHelper {
 
     // Create crews table
     await db.execute('''
-      CREATE TABLE crews (
+      CREATE TABLE IF NOT EXISTS crews (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
         crew_type_id INTEGER REFERENCES crew_types(id),
@@ -1368,7 +1375,7 @@ class DatabaseHelper {
 
     // Create crew_members table
     await db.execute('''
-      CREATE TABLE crew_members (
+      CREATE TABLE IF NOT EXISTS crew_members (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         crew_id INTEGER REFERENCES crews(id),
         official_id INTEGER REFERENCES officials(id),
@@ -1382,7 +1389,7 @@ class DatabaseHelper {
 
     // Create crew_availability table
     await db.execute('''
-      CREATE TABLE crew_availability (
+      CREATE TABLE IF NOT EXISTS crew_availability (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         crew_id INTEGER REFERENCES crews(id),
         date DATE NOT NULL,
@@ -1398,7 +1405,7 @@ class DatabaseHelper {
 
     // Create crew_assignments table
     await db.execute('''
-      CREATE TABLE crew_assignments (
+      CREATE TABLE IF NOT EXISTS crew_assignments (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         game_id INTEGER REFERENCES games(id),
         crew_id INTEGER REFERENCES crews(id),
@@ -1523,7 +1530,7 @@ class DatabaseHelper {
   Future<void> _addCrewInvitationsTable(Database db) async {
     // Create crew_invitations table
     await db.execute('''
-      CREATE TABLE crew_invitations (
+      CREATE TABLE IF NOT EXISTS crew_invitations (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         crew_id INTEGER REFERENCES crews(id),
         invited_official_id INTEGER REFERENCES officials(id),
@@ -1837,7 +1844,9 @@ class DatabaseHelper {
     _database = null;
   }
 
+  // DEPRECATED: Use "Create Test Users" button instead for exactly 100 officials
   Future<void> _addSampleOfficials(Database db) async {
+    return; // DISABLED - use "Create Test Users" button instead
     try {
       // Check if we already have officials to avoid duplicates
       final existingOfficials = await db.query('officials');
@@ -1864,7 +1873,7 @@ class DatabaseHelper {
           'name': 'John Smith',
           'email': 'john.smith@email.com',
           'phone': '555-0101',
-          'city': 'Chicago',
+          'city': 'Edwardsville',
           'state': 'IL',
           'user_id': 1,
           'sport_id': sportId,
@@ -1873,17 +1882,17 @@ class DatabaseHelper {
           'name': 'Mike Johnson',
           'email': 'mike.johnson@email.com',
           'phone': '555-0102',
-          'city': 'Milwaukee',
-          'state': 'WI',
+          'city': 'Alton',
+          'state': 'IL',
           'user_id': 1,
           'sport_id': sportId,
         },
         {
-          'name': 'Sarah Davis',
-          'email': 'sarah.davis@email.com',
+          'name': 'David Davis',
+          'email': 'david.davis@email.com',
           'phone': '555-0103',
-          'city': 'Madison',
-          'state': 'WI',
+          'city': 'Collinsville',
+          'state': 'IL',
           'user_id': 1,
           'sport_id': sportId,
         },
@@ -1897,10 +1906,10 @@ class DatabaseHelper {
           'sport_id': sportId,
         },
         {
-          'name': 'Jennifer Brown',
-          'email': 'jennifer.brown@email.com',
+          'name': 'James Brown',
+          'email': 'james.brown@email.com',
           'phone': '555-0105',
-          'city': 'Rockford',
+          'city': 'Belleville',
           'state': 'IL',
           'user_id': 1,
           'sport_id': sportId,
@@ -1909,16 +1918,16 @@ class DatabaseHelper {
           'name': 'David Miller',
           'email': 'david.miller@email.com',
           'phone': '555-0106',
-          'city': 'Green Bay',
-          'state': 'WI',
+          'city': 'Glen Carbon',
+          'state': 'IL',
           'user_id': 1,
           'sport_id': sportId,
         },
         {
-          'name': 'Lisa Garcia',
-          'email': 'lisa.garcia@email.com',
+          'name': 'Luis Garcia',
+          'email': 'luis.garcia@email.com',
           'phone': '555-0107',
-          'city': 'Peoria',
+          'city': 'Highland',
           'state': 'IL',
           'user_id': 1,
           'sport_id': sportId,
@@ -1927,8 +1936,8 @@ class DatabaseHelper {
           'name': 'James Anderson',
           'email': 'james.anderson@email.com',
           'phone': '555-0108',
-          'city': 'Kenosha',
-          'state': 'WI',
+          'city': 'Greenville',
+          'state': 'IL',
           'user_id': 1,
           'sport_id': sportId,
         },
@@ -1981,7 +1990,7 @@ class DatabaseHelper {
         {'city': 'Litchfield', 'state': 'IL'},          // ~50 miles
         {'city': 'Carlinville', 'state': 'IL'},         // ~40 miles
         {'city': 'Springfield', 'state': 'IL'},         // ~95 miles
-        {'city': 'Decatur', 'state': 'IL'},             // ~100 miles
+        {'city': 'Centralia', 'state': 'IL'},           // ~75 miles
         {'city': 'Shelbyville', 'state': 'IL'},         // ~85 miles
         {'city': 'Salem', 'state': 'IL'},               // ~80 miles
         {'city': 'Mount Vernon', 'state': 'IL'},        // ~90 miles
@@ -2023,28 +2032,28 @@ class DatabaseHelper {
         return;
       }
       
-      // Extended sample locations for more variety
+      // Illinois locations within 100 miles of Edwardsville, IL
       final sampleLocations = [
-        {'city': 'Chicago', 'state': 'IL'},
-        {'city': 'Milwaukee', 'state': 'WI'},
-        {'city': 'Madison', 'state': 'WI'},
-        {'city': 'Springfield', 'state': 'IL'},
-        {'city': 'Rockford', 'state': 'IL'},
-        {'city': 'Green Bay', 'state': 'WI'},
-        {'city': 'Peoria', 'state': 'IL'},
-        {'city': 'Kenosha', 'state': 'WI'},
-        {'city': 'Naperville', 'state': 'IL'},
-        {'city': 'Waukegan', 'state': 'IL'},
-        {'city': 'Oshkosh', 'state': 'WI'},
-        {'city': 'Appleton', 'state': 'WI'},
-        {'city': 'Joliet', 'state': 'IL'},
-        {'city': 'Elgin', 'state': 'IL'},
-        {'city': 'Eau Claire', 'state': 'WI'},
-        {'city': 'La Crosse', 'state': 'WI'},
-        {'city': 'Decatur', 'state': 'IL'},
-        {'city': 'Aurora', 'state': 'IL'},
-        {'city': 'Racine', 'state': 'WI'},
-        {'city': 'Champaign', 'state': 'IL'},
+        {'city': 'Edwardsville', 'state': 'IL'},
+        {'city': 'Alton', 'state': 'IL'},
+        {'city': 'Collinsville', 'state': 'IL'},
+        {'city': 'Belleville', 'state': 'IL'},
+        {'city': 'O\'Fallon', 'state': 'IL'},
+        {'city': 'Glen Carbon', 'state': 'IL'},
+        {'city': 'Granite City', 'state': 'IL'},
+        {'city': 'Wood River', 'state': 'IL'},
+        {'city': 'Godfrey', 'state': 'IL'},
+        {'city': 'Bethalto', 'state': 'IL'},
+        {'city': 'Highland', 'state': 'IL'},
+        {'city': 'Greenville', 'state': 'IL'},
+        {'city': 'Vandalia', 'state': 'IL'},
+        {'city': 'Centralia', 'state': 'IL'},
+        {'city': 'Effingham', 'state': 'IL'},
+        {'city': 'Mattoon', 'state': 'IL'},
+        {'city': 'Charleston', 'state': 'IL'},
+        {'city': 'Taylorville', 'state': 'IL'},
+        {'city': 'Hillsboro', 'state': 'IL'},
+        {'city': 'Litchfield', 'state': 'IL'},
       ];
       
       // Update all officials without location data
@@ -2079,18 +2088,18 @@ class DatabaseHelper {
         return;
       }
       
-      // Sample cities and states for testing
+      // Illinois locations within 100 miles of Edwardsville, IL
       final sampleLocations = [
-        {'city': 'Chicago', 'state': 'IL'},
-        {'city': 'Milwaukee', 'state': 'WI'},
-        {'city': 'Madison', 'state': 'WI'},
-        {'city': 'Springfield', 'state': 'IL'},
-        {'city': 'Rockford', 'state': 'IL'},
-        {'city': 'Green Bay', 'state': 'WI'},
-        {'city': 'Peoria', 'state': 'IL'},
-        {'city': 'Kenosha', 'state': 'WI'},
-        {'city': 'Naperville', 'state': 'IL'},
-        {'city': 'Waukegan', 'state': 'IL'},
+        {'city': 'Edwardsville', 'state': 'IL'},
+        {'city': 'Alton', 'state': 'IL'},
+        {'city': 'Collinsville', 'state': 'IL'},
+        {'city': 'Belleville', 'state': 'IL'},
+        {'city': 'Glen Carbon', 'state': 'IL'},
+        {'city': 'Highland', 'state': 'IL'},
+        {'city': 'Greenville', 'state': 'IL'},
+        {'city': 'Litchfield', 'state': 'IL'},
+        {'city': 'Centralia', 'state': 'IL'},
+        {'city': 'Effingham', 'state': 'IL'},
       ];
       
       // Assign random locations to existing officials
@@ -2120,5 +2129,77 @@ class DatabaseHelper {
     _database = null;
     // Next access to database will trigger re-initialization
     await database;
+  }
+
+  // Auto-fix database schema issues (called on initialization)
+  Future<void> _autoFixSchema(Database db) async {
+    try {
+      // Check if competition_levels column exists in crews table
+      final crewsTableInfo = await db.rawQuery("PRAGMA table_info(crews)");
+      bool hasCompetitionLevels = false;
+      
+      for (final column in crewsTableInfo) {
+        if (column['name'] == 'competition_levels') {
+          hasCompetitionLevels = true;
+          break;
+        }
+      }
+      
+      if (!hasCompetitionLevels) {
+        debugPrint('Auto-adding missing competition_levels column to crews table...');
+        await db.execute('ALTER TABLE crews ADD COLUMN competition_levels TEXT DEFAULT \'[]\'');
+        debugPrint('✅ competition_levels column added successfully');
+      }
+      
+      // Check if crew_invitations table exists
+      final tables = await db.rawQuery("SELECT name FROM sqlite_master WHERE type='table' AND name='crew_invitations'");
+      
+      if (tables.isEmpty) {
+        debugPrint('Auto-creating missing crew_invitations table...');
+        await _addCrewInvitationsTable(db);
+        // Table creation success message already printed by _addCrewInvitationsTable()
+      }
+      
+    } catch (e) {
+      debugPrint('Error in auto-fix schema: $e');
+      // Don't rethrow - this is non-critical during initialization
+    }
+  }
+
+  // Fix missing database schema columns (manual trigger)
+  Future<void> fixDatabaseSchema() async {
+    final db = await database;
+    
+    try {
+      // Check if competition_levels column exists in crews table
+      final crewsTableInfo = await db.rawQuery("PRAGMA table_info(crews)");
+      bool hasCompetitionLevels = false;
+      
+      for (final column in crewsTableInfo) {
+        if (column['name'] == 'competition_levels') {
+          hasCompetitionLevels = true;
+          break;
+        }
+      }
+      
+      if (!hasCompetitionLevels) {
+        debugPrint('Adding missing competition_levels column to crews table...');
+        await db.execute('ALTER TABLE crews ADD COLUMN competition_levels TEXT DEFAULT \'[]\'');
+        // Column addition success message already printed by auto-fix
+      }
+      
+      // Check if crew_invitations table exists
+      final tables = await db.rawQuery("SELECT name FROM sqlite_master WHERE type='table' AND name='crew_invitations'");
+      
+      if (tables.isEmpty) {
+        debugPrint('Creating missing crew_invitations table...');
+        await _addCrewInvitationsTable(db);
+        // Table creation success message already printed by _addCrewInvitationsTable()
+      }
+      
+    } catch (e) {
+      debugPrint('Error fixing database schema: $e');
+      rethrow;
+    }
   }
 }

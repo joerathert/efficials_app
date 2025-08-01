@@ -405,12 +405,124 @@ class _DatabaseTestScreenState extends State<DatabaseTestScreen> {
     }
   }
 
+  Future<void> _fixDatabaseSchema() async {
+    setState(() {
+      isLoading = true;
+      testResult = 'Fixing database schema...';
+    });
+
+    try {
+      await DatabaseHelper().fixDatabaseSchema();
+      setState(() {
+        testResult = '✅ Database schema fixed successfully!\n\nMissing columns and tables have been added.';
+        isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        testResult = '❌ Error fixing database schema: $e';
+        isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _showDatabasePath() async {
+    setState(() {
+      isLoading = true;
+      testResult = 'Finding database path...';
+    });
+
+    try {
+      final db = await DatabaseHelper().database;
+      final dbPath = db.path;
+      
+      setState(() {
+        testResult = '=== DATABASE LOCATION ===\n\n'
+                    'Database File: efficials.db\n'
+                    'Full Path: $dbPath\n\n'
+                    'You can use SQLite tools like:\n'
+                    '• DB Browser for SQLite\n'
+                    '• SQLite Expert\n'
+                    '• SQLiteStudio\n'
+                    '• VS Code SQLite extension\n\n'
+                    'to view and edit this database directly.';
+        isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        testResult = 'Error finding database path: $e';
+        isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _viewAllOfficials() async {
+    setState(() {
+      isLoading = true;
+      testResult = 'Loading all officials...';
+    });
+
+    try {
+      final db = await DatabaseHelper().database;
+      
+      // First check database version
+      final dbVersion = await db.getVersion();
+      
+      final officials = await db.rawQuery('''
+        SELECT 
+          o.id,
+          o.name,
+          o.email,
+          o.phone,
+          o.city,
+          o.state,
+          o.availability_status,
+          o.created_at
+        FROM officials o
+        ORDER BY o.email ASC
+      ''');
+
+      String result = '=== ALL OFFICIALS (${officials.length}) ===\n';
+      result += 'Database Version: $dbVersion\n\n';
+      
+      for (int i = 0; i < officials.length; i++) {
+        final official = officials[i];
+        final num = (i + 1).toString().padLeft(3, ' ');
+        
+        result += '$num. ${official['name']}\n';
+        result += '     Email: ${official['email'] ?? 'Not provided'}\n';
+        result += '     Phone: ${official['phone'] ?? 'Not provided'}\n';
+        
+        final city = official['city'];
+        final state = official['state'];
+        String location = 'Not provided';
+        if (city != null && city.toString().isNotEmpty && city != 'null') {
+          location = city.toString();
+          if (state != null && state.toString().isNotEmpty && state != 'null') {
+            location += ', $state';
+          }
+        }
+        result += '     Location: $location\n';
+        result += '     Status: ${official['availability_status'] ?? 'Unknown'}\n\n';
+      }
+
+      setState(() {
+        testResult = result;
+        isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        testResult = 'Error loading officials: $e';
+        isLoading = false;
+      });
+    }
+  }
+
   Future<void> _createTestUsers() async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Create Test Users'),
-        content: const Text('This will create 3 Scheduler users and 10 Official users for testing. All will have password "test123". Continue?'),
+        content: const Text('This will create 3 Scheduler users and 100 Official users for testing. All will have password "test123". Continue?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -450,6 +562,461 @@ class _DatabaseTestScreenState extends State<DatabaseTestScreen> {
 
   String _hashPassword(String password) {
     return AuthService.hashPassword(password);
+  }
+
+  Map<String, String> _getRandomIllinoisLocation(int index) {
+    // Illinois cities within 100 miles of Edwardsville, IL
+    final illinoisLocations = [
+      {'city': 'Edwardsville', 'state': 'IL'},
+      {'city': 'St. Louis', 'state': 'MO'},
+      {'city': 'Alton', 'state': 'IL'},
+      {'city': 'Belleville', 'state': 'IL'},
+      {'city': 'Granite City', 'state': 'IL'},
+      {'city': 'Collinsville', 'state': 'IL'},
+      {'city': 'Glen Carbon', 'state': 'IL'},
+      {'city': 'Wood River', 'state': 'IL'},
+      {'city': 'Bethalto', 'state': 'IL'},
+      {'city': 'Godfrey', 'state': 'IL'},
+      {'city': 'Troy', 'state': 'IL'},
+      {'city': 'Maryville', 'state': 'IL'},
+      {'city': 'Highland', 'state': 'IL'},
+      {'city': 'Greenville', 'state': 'IL'},
+      {'city': 'Jerseyville', 'state': 'IL'},
+      {'city': 'Carlinville', 'state': 'IL'},
+      {'city': 'Litchfield', 'state': 'IL'},
+      {'city': 'Staunton', 'state': 'IL'},
+      {'city': 'Gillespie', 'state': 'IL'},
+      {'city': 'Mount Olive', 'state': 'IL'},
+      {'city': 'Hillsboro', 'state': 'IL'},
+      {'city': 'Taylorville', 'state': 'IL'},
+      {'city': 'Springfield', 'state': 'IL'},
+      {'city': 'Decatur', 'state': 'IL'},
+      {'city': 'Champaign', 'state': 'IL'},
+      {'city': 'Urbana', 'state': 'IL'},
+      {'city': 'Effingham', 'state': 'IL'},
+      {'city': 'Mattoon', 'state': 'IL'},
+      {'city': 'Charleston', 'state': 'IL'},
+      {'city': 'Vandalia', 'state': 'IL'},
+      {'city': 'Centralia', 'state': 'IL'},
+      {'city': 'Salem', 'state': 'IL'},
+      {'city': 'Mount Vernon', 'state': 'IL'},
+      {'city': 'Carbondale', 'state': 'IL'},
+      {'city': 'Marion', 'state': 'IL'},
+      {'city': 'O\'Fallon', 'state': 'IL'},
+      {'city': 'Fairview Heights', 'state': 'IL'},
+      {'city': 'Swansea', 'state': 'IL'},
+      {'city': 'Mascoutah', 'state': 'IL'},
+      {'city': 'Lebanon', 'state': 'IL'},
+      {'city': 'Breese', 'state': 'IL'},
+      {'city': 'Trenton', 'state': 'IL'},
+      {'city': 'Nashville', 'state': 'IL'},
+      {'city': 'Red Bud', 'state': 'IL'},
+      {'city': 'Waterloo', 'state': 'IL'},
+      {'city': 'Columbia', 'state': 'IL'},
+      {'city': 'Dupo', 'state': 'IL'},
+      {'city': 'East St. Louis', 'state': 'IL'},
+      {'city': 'Washington', 'state': 'MO'},
+      {'city': 'Union', 'state': 'MO'},
+    ];
+    
+    // Use index to get consistent location for each official
+    return illinoisLocations[index % illinoisLocations.length];
+  }
+
+  Map<String, String> _getCorrectEdwardsvilleLocation(int index) {
+    // CORRECT Illinois cities within 100 miles of Edwardsville, IL
+    final edwardsvilleAreaLocations = [
+      {'city': 'Edwardsville', 'state': 'IL'},        // 0 miles - the center point
+      {'city': 'Alton', 'state': 'IL'},               // ~15 miles
+      {'city': 'Collinsville', 'state': 'IL'},        // ~20 miles
+      {'city': 'Belleville', 'state': 'IL'},          // ~25 miles
+      {'city': 'O\'Fallon', 'state': 'IL'},           // ~30 miles
+      {'city': 'Glen Carbon', 'state': 'IL'},         // ~8 miles
+      {'city': 'Granite City', 'state': 'IL'},        // ~18 miles
+      {'city': 'Wood River', 'state': 'IL'},          // ~12 miles
+      {'city': 'Godfrey', 'state': 'IL'},             // ~20 miles
+      {'city': 'Bethalto', 'state': 'IL'},            // ~10 miles
+      {'city': 'Highland', 'state': 'IL'},            // ~35 miles
+      {'city': 'Greenville', 'state': 'IL'},          // ~45 miles  
+      {'city': 'Vandalia', 'state': 'IL'},            // ~60 miles
+      {'city': 'Centralia', 'state': 'IL'},           // ~75 miles
+      {'city': 'Effingham', 'state': 'IL'},           // ~85 miles
+      {'city': 'Mattoon', 'state': 'IL'},             // ~95 miles
+      {'city': 'Charleston', 'state': 'IL'},          // ~90 miles
+      {'city': 'Taylorville', 'state': 'IL'},         // ~80 miles
+      {'city': 'Pana', 'state': 'IL'},                // ~70 miles
+      {'city': 'Hillsboro', 'state': 'IL'},           // ~65 miles
+      {'city': 'Litchfield', 'state': 'IL'},          // ~50 miles
+      {'city': 'Carlinville', 'state': 'IL'},         // ~40 miles
+      {'city': 'Springfield', 'state': 'IL'},         // ~95 miles
+      {'city': 'Shelbyville', 'state': 'IL'},         // ~85 miles
+      {'city': 'Salem', 'state': 'IL'},               // ~80 miles
+      {'city': 'Mount Vernon', 'state': 'IL'},        // ~90 miles
+      {'city': 'Chester', 'state': 'IL'},             // ~75 miles
+      {'city': 'Red Bud', 'state': 'IL'},             // ~45 miles
+      {'city': 'Waterloo', 'state': 'IL'},            // ~40 miles
+      {'city': 'Columbia', 'state': 'IL'},            // ~35 miles
+    ];
+    
+    // Use index to get consistent location for each official
+    return edwardsvilleAreaLocations[index % edwardsvilleAreaLocations.length];
+  }
+
+  Future<void> _updateOfficialsWithLocations() async {
+    setState(() {
+      isLoading = true;
+      testResult = 'Updating officials with location data...';
+    });
+
+    try {
+      final db = await DatabaseHelper().database;
+      
+      // Get all officials without proper location data
+      final officialsNeedingUpdate = await db.rawQuery('''
+        SELECT id, name FROM officials 
+        WHERE city IS NULL OR city = '' OR city = 'null' OR state IS NULL OR state = '' OR state = 'null'
+      ''');
+
+      int updateCount = 0;
+      
+      for (int i = 0; i < officialsNeedingUpdate.length; i++) {
+        final official = officialsNeedingUpdate[i];
+        final location = _getRandomIllinoisLocation(i);
+        
+        await db.update(
+          'officials',
+          {
+            'city': location['city'],
+            'state': location['state'],
+          },
+          where: 'id = ?',
+          whereArgs: [official['id']],
+        );
+        
+        updateCount++;
+      }
+
+      setState(() {
+        testResult = '''✅ OFFICIALS LOCATION UPDATE COMPLETE!
+
+Updated $updateCount officials with location data.
+
+Your officials now have cities/states like:
+• Edwardsville, IL
+• St. Louis, MO  
+• Alton, IL
+• Belleville, IL
+• Collinsville, IL
+... and more Illinois/Missouri locations
+
+Click "View All Officials" to see the updated locations!''';
+        isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        testResult = 'Error updating official locations: $e';
+        isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _debugLocationData() async {
+    setState(() {
+      isLoading = true;
+      testResult = 'Debugging location data...';
+    });
+
+    try {
+      final db = await DatabaseHelper().database;
+      final dbVersion = await db.getVersion();
+      
+      // Check location data distribution
+      final locationStats = await db.rawQuery('''
+        SELECT 
+          CASE 
+            WHEN city IS NULL OR city = '' OR city = 'null' THEN 'Empty/Null'
+            ELSE 'Has Location'
+          END as location_status,
+          COUNT(*) as count
+        FROM officials
+        GROUP BY location_status
+      ''');
+      
+      // Sample officials with location data
+      final sampleWithLocations = await db.rawQuery('''
+        SELECT id, name, city, state, created_at
+        FROM officials 
+        WHERE city IS NOT NULL AND city != '' AND city != 'null'
+        ORDER BY id ASC
+        LIMIT 5
+      ''');
+      
+      // Sample officials without location data
+      final sampleWithoutLocations = await db.rawQuery('''
+        SELECT id, name, city, state, created_at
+        FROM officials 
+        WHERE city IS NULL OR city = '' OR city = 'null'
+        ORDER BY id ASC
+        LIMIT 5
+      ''');
+
+      String result = '=== LOCATION DATA DEBUG ===\n\n';
+      result += 'Database Version: $dbVersion\n';
+      result += 'Expected: Version 25 (includes Edwardsville area locations)\n\n';
+      
+      result += 'LOCATION STATUS:\n';
+      for (final stat in locationStats) {
+        result += '• ${stat['location_status']}: ${stat['count']} officials\n';
+      }
+      
+      if (sampleWithLocations.isNotEmpty) {
+        result += '\nSAMPLE OFFICIALS WITH LOCATIONS:\n';
+        for (final official in sampleWithLocations) {
+          result += '• ${official['name']}: ${official['city']}, ${official['state']}\n';
+        }
+      }
+      
+      if (sampleWithoutLocations.isNotEmpty) {
+        result += '\nSAMPLE OFFICIALS WITHOUT LOCATIONS:\n';
+        for (final official in sampleWithoutLocations) {
+          result += '• ${official['name']}: city="${official['city']}", state="${official['state']}"\n';
+        }
+        
+        result += '\n🔍 DIAGNOSIS:\n';
+        if (dbVersion < 25) {
+          result += '❌ Database not fully migrated! Run migration to version 25.\n';
+        } else {
+          result += '⚠️ Officials created after migration without location data.\n';
+          result += 'The "Create Test Users" function bypassed location assignment.\n';
+        }
+      }
+
+      setState(() {
+        testResult = result;
+        isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        testResult = 'Error debugging location data: $e';
+        isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _applyCorrectEdwardsvilleLocations() async {
+    setState(() {
+      isLoading = true;
+      testResult = 'Applying correct Edwardsville-area locations...';
+    });
+
+    try {
+      final db = await DatabaseHelper().database;
+      
+      // Get all officials
+      final officials = await db.query('officials');
+      
+      // CORRECT Illinois cities within 100 miles of Edwardsville, IL
+      // (Edwardsville is in southwestern Illinois, near St. Louis)
+      final edwardsvilleAreaLocations = [
+        {'city': 'Edwardsville', 'state': 'IL'},        // 0 miles - the center point
+        {'city': 'Alton', 'state': 'IL'},               // ~15 miles
+        {'city': 'Collinsville', 'state': 'IL'},        // ~20 miles
+        {'city': 'Belleville', 'state': 'IL'},          // ~25 miles
+        {'city': 'O\'Fallon', 'state': 'IL'},           // ~30 miles
+        {'city': 'Glen Carbon', 'state': 'IL'},         // ~8 miles
+        {'city': 'Granite City', 'state': 'IL'},        // ~18 miles
+        {'city': 'Wood River', 'state': 'IL'},          // ~12 miles
+        {'city': 'Godfrey', 'state': 'IL'},             // ~20 miles
+        {'city': 'Bethalto', 'state': 'IL'},            // ~10 miles
+        {'city': 'Highland', 'state': 'IL'},            // ~35 miles
+        {'city': 'Greenville', 'state': 'IL'},          // ~45 miles  
+        {'city': 'Vandalia', 'state': 'IL'},            // ~60 miles
+        {'city': 'Centralia', 'state': 'IL'},           // ~75 miles
+        {'city': 'Effingham', 'state': 'IL'},           // ~85 miles
+        {'city': 'Mattoon', 'state': 'IL'},             // ~95 miles
+        {'city': 'Charleston', 'state': 'IL'},          // ~90 miles
+        {'city': 'Taylorville', 'state': 'IL'},         // ~80 miles
+        {'city': 'Pana', 'state': 'IL'},                // ~70 miles
+        {'city': 'Hillsboro', 'state': 'IL'},           // ~65 miles
+        {'city': 'Litchfield', 'state': 'IL'},          // ~50 miles
+        {'city': 'Carlinville', 'state': 'IL'},         // ~40 miles
+        {'city': 'Springfield', 'state': 'IL'},         // ~95 miles
+        {'city': 'Shelbyville', 'state': 'IL'},         // ~85 miles
+        {'city': 'Salem', 'state': 'IL'},               // ~80 miles
+        {'city': 'Mount Vernon', 'state': 'IL'},        // ~90 miles
+        {'city': 'Chester', 'state': 'IL'},             // ~75 miles
+        {'city': 'Red Bud', 'state': 'IL'},             // ~45 miles
+        {'city': 'Waterloo', 'state': 'IL'},            // ~40 miles
+        {'city': 'Columbia', 'state': 'IL'},            // ~35 miles
+      ];
+      
+      int updateCount = 0;
+      
+      // Update all officials with CORRECT Edwardsville-area locations
+      for (int i = 0; i < officials.length; i++) {
+        final official = officials[i];
+        final location = edwardsvilleAreaLocations[i % edwardsvilleAreaLocations.length];
+        
+        await db.update(
+          'officials',
+          {
+            'city': location['city'],
+            'state': location['state'],
+          },
+          where: 'id = ?',
+          whereArgs: [official['id']],
+        );
+        
+        updateCount++;
+      }
+
+      setState(() {
+        testResult = '''✅ CORRECT EDWARDSVILLE LOCATIONS APPLIED!
+
+Updated $updateCount officials with proper locations within 100 miles of Edwardsville, IL.
+
+Your officials now have CORRECT locations like:
+• Edwardsville, IL (0 miles)
+• Alton, IL (~15 miles)
+• Collinsville, IL (~20 miles)  
+• Belleville, IL (~25 miles)
+• Glen Carbon, IL (~8 miles)
+• Highland, IL (~35 miles)
+• Greenville, IL (~45 miles)
+• Litchfield, IL (~50 miles)
+... and more within 100 miles
+
+❌ REMOVED incorrect distant locations like:
+• Chicago, IL (300+ miles)
+• Milwaukee, WI (350+ miles) 
+• Madison, WI (300+ miles)
+
+Click "View All Officials" to see the corrected locations!''';
+        isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        testResult = 'Error applying Edwardsville locations: $e';
+        isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _forceWriteToDatabase() async {
+    setState(() {
+      isLoading = true;
+      testResult = 'Forcing database write to update file timestamp...';
+    });
+
+    try {
+      final db = await DatabaseHelper().database;
+      
+      // Make a small change to force database file update (using availability_status which exists)
+      final currentStatus = await db.rawQuery('SELECT availability_status FROM officials WHERE id = 1 LIMIT 1');
+      if (currentStatus.isNotEmpty) {
+        // Just update the same value to force file write
+        await db.execute('UPDATE officials SET availability_status = ? WHERE id = 1', [currentStatus.first['availability_status']]);
+      }
+      
+      // Close and reopen database to force file sync
+      await db.close();
+      final freshDb = await DatabaseHelper().database;
+      
+      final dbPath = freshDb.path;
+      final timestamp = DateTime.now().toString();
+      
+      setState(() {
+        testResult = '''✅ DATABASE FILE FORCED UPDATE!
+
+Database Path: $dbPath
+Timestamp: $timestamp
+
+The database file should now have an updated timestamp.
+You can re-download it from Android Studio Device File Explorer.
+
+Check Device File Explorer - the timestamp should be newer now!''';
+        isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        testResult = 'Error forcing database write: $e';
+        isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _compareDatabaseContent() async {
+    setState(() {
+      isLoading = true;
+      testResult = 'Analyzing database content...';
+    });
+
+    try {
+      final db = await DatabaseHelper().database;
+      
+      // Get sample officials with exact data the app sees
+      final sampleOfficials = await db.rawQuery('''
+        SELECT id, name, city, state, created_at
+        FROM officials 
+        ORDER BY id ASC
+        LIMIT 10
+      ''');
+      
+      // Get location distribution
+      final locationStats = await db.rawQuery('''
+        SELECT city, state, COUNT(*) as count
+        FROM officials 
+        WHERE city IS NOT NULL AND city != '' AND city != 'null'
+        GROUP BY city, state
+        ORDER BY count DESC
+        LIMIT 10
+      ''');
+      
+      // Get total counts
+      final totalCount = (await db.rawQuery('SELECT COUNT(*) as count FROM officials')).first['count'];
+      
+      String result = '''🔍 LIVE DATABASE CONTENT (What App Sees):
+
+TOTAL OFFICIALS: $totalCount
+
+FIRST 10 OFFICIALS:
+''';
+      
+      for (final official in sampleOfficials) {
+        final location = official['city'] != null && official['city'] != '' && official['city'] != 'null' 
+            ? '${official['city']}, ${official['state']}'
+            : 'No location';
+        result += '• ${official['name']}: $location\n';
+      }
+      
+      result += '\nTOP LOCATIONS:\n';
+      for (final loc in locationStats) {
+        result += '• ${loc['city']}, ${loc['state']}: ${loc['count']} officials\n';
+      }
+      
+      result += '''
+
+📋 INSTRUCTIONS:
+1. Compare this with your SQLite Browser data
+2. If they differ, the database file is outdated
+3. Note exactly which locations/names are different
+4. This shows what's ACTUALLY in the live database
+
+💡 If SQLite Browser shows different data:
+- The file you downloaded is from an earlier state
+- Try stopping/restarting your app
+- Or we need to find why the file isn't updating''';
+
+      setState(() {
+        testResult = result;
+        isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        testResult = 'Error analyzing database: $e';
+        isLoading = false;
+      });
+    }
   }
 
   Future<String> _generateTestUsers() async {
@@ -508,41 +1075,41 @@ class _DatabaseTestScreenState extends State<DatabaseTestScreen> {
 
       // No need for SharedPreferences setup - using database setupCompleted field
 
-      // Create exactly 100 Official users
+      // Create exactly 100 Official users - ALL MEN'S NAMES
       final officialNames = [
-        // Original 10 officials
-        ['John', 'Smith'], ['Sarah', 'Johnson'], ['Mike', 'Williams'], ['Lisa', 'Brown'],
-        ['David', 'Jones'], ['Amy', 'Miller'], ['Chris', 'Davis'], ['Jennifer', 'Garcia'],
-        ['Robert', 'Rodriguez'], ['Michelle', 'Wilson'],
+        // First 10 officials (for Quick Access buttons)
+        ['David', 'Davis'], ['David', 'Miller'], ['Mike', 'Williams'], ['John', 'Smith'],
+        ['Robert', 'Jones'], ['James', 'Brown'], ['Chris', 'Johnson'], ['William', 'Garcia'],
+        ['Richard', 'Rodriguez'], ['Joseph', 'Wilson'],
         // Additional 90 officials
-        ['Michael', 'Anderson'], ['Ashley', 'Thompson'], ['James', 'Martinez'], ['Jessica', 'Taylor'],
-        ['William', 'Moore'], ['Amanda', 'Jackson'], ['Richard', 'White'], ['Nicole', 'Harris'],
-        ['Joseph', 'Clark'], ['Stephanie', 'Lewis'], ['Thomas', 'Walker'], ['Melissa', 'Hall'],
-        ['Christopher', 'Allen'], ['Rebecca', 'Young'], ['Daniel', 'King'], ['Laura', 'Wright'],
-        ['Matthew', 'Lopez'], ['Sharon', 'Hill'], ['Anthony', 'Scott'], ['Donna', 'Green'],
-        ['Mark', 'Adams'], ['Carol', 'Baker'], ['Donald', 'Gonzalez'], ['Ruth', 'Nelson'],
-        ['Steven', 'Carter'], ['Sandra', 'Mitchell'], ['Paul', 'Perez'], ['Maria', 'Roberts'],
-        ['Andrew', 'Turner'], ['Lisa', 'Phillips'], ['Kenneth', 'Campbell'], ['Helen', 'Parker'],
-        ['Joshua', 'Evans'], ['Nancy', 'Edwards'], ['Kevin', 'Collins'], ['Betty', 'Stewart'],
-        ['Brian', 'Sanchez'], ['Dorothy', 'Morris'], ['George', 'Rogers'], ['Susan', 'Reed'],
-        ['Edward', 'Cook'], ['Anna', 'Morgan'], ['Ronald', 'Bell'], ['Margaret', 'Murphy'],
-        ['Timothy', 'Bailey'], ['Kimberly', 'Rivera'], ['Jason', 'Richardson'], ['Elizabeth', 'Cooper'],
-        ['Jeffrey', 'Cox'], ['Linda', 'Howard'], ['Ryan', 'Ward'], ['Barbara', 'Torres'],
-        ['Jacob', 'Peterson'], ['Patricia', 'Gray'], ['Gary', 'Ramirez'], ['Mary', 'James'],
-        ['Nicholas', 'Watson'], ['Jennifer', 'Brooks'], ['Eric', 'Kelly'], ['Julie', 'Sanders'],
-        ['Jonathan', 'Price'], ['Christine', 'Bennett'], ['Stephen', 'Wood'], ['Deborah', 'Barnes'],
-        ['Larry', 'Ross'], ['Rachel', 'Henderson'], ['Justin', 'Coleman'], ['Carolyn', 'Jenkins'],
-        ['Scott', 'Perry'], ['Janet', 'Powell'], ['Brandon', 'Long'], ['Virginia', 'Patterson'],
-        ['Benjamin', 'Hughes'], ['Diane', 'Flores'], ['Samuel', 'Washington'], ['Joyce', 'Butler'],
-        ['Gregory', 'Simmons'], ['Kathleen', 'Foster'], ['Frank', 'Gonzales'], ['Martha', 'Bryant'],
-        ['Raymond', 'Alexander'], ['Gloria', 'Russell'], ['Alexander', 'Griffin'], ['Cheryl', 'Diaz'],
-        ['Patrick', 'Hayes'], ['Mildred', 'Myers'], ['Jack', 'Ford'], ['Katherine', 'Hamilton'],
-        ['Dennis', 'Graham'], ['Frances', 'Sullivan']
+        ['Thomas', 'Anderson'], ['Charles', 'Thompson'], ['Christopher', 'Martinez'], ['Daniel', 'Taylor'],
+        ['Matthew', 'Moore'], ['Anthony', 'Jackson'], ['Mark', 'White'], ['Donald', 'Harris'],
+        ['Steven', 'Clark'], ['Paul', 'Lewis'], ['Andrew', 'Walker'], ['Joshua', 'Hall'],
+        ['Kenneth', 'Allen'], ['Kevin', 'Young'], ['Brian', 'King'], ['George', 'Wright'],
+        ['Timothy', 'Lopez'], ['Ronald', 'Hill'], ['Jason', 'Scott'], ['Edward', 'Green'],
+        ['Jeffrey', 'Adams'], ['Ryan', 'Baker'], ['Jacob', 'Gonzalez'], ['Gary', 'Nelson'],
+        ['Nicholas', 'Carter'], ['Eric', 'Mitchell'], ['Jonathan', 'Perez'], ['Stephen', 'Roberts'],
+        ['Larry', 'Turner'], ['Justin', 'Phillips'], ['Scott', 'Campbell'], ['Brandon', 'Parker'],
+        ['Benjamin', 'Evans'], ['Samuel', 'Edwards'], ['Gregory', 'Collins'], ['Frank', 'Stewart'],
+        ['Raymond', 'Sanchez'], ['Alexander', 'Morris'], ['Patrick', 'Rogers'], ['Jack', 'Reed'],
+        ['Dennis', 'Cook'], ['Jerry', 'Morgan'], ['Tyler', 'Bell'], ['Aaron', 'Murphy'],
+        ['Jose', 'Bailey'], ['Henry', 'Rivera'], ['Adam', 'Richardson'], ['Douglas', 'Cooper'],
+        ['Nathan', 'Cox'], ['Peter', 'Howard'], ['Zachary', 'Ward'], ['Kyle', 'Torres'],
+        ['Walter', 'Peterson'], ['Harold', 'Gray'], ['Jeremy', 'Ramirez'], ['Carl', 'James'],
+        ['Arthur', 'Watson'], ['Lawrence', 'Brooks'], ['Sean', 'Kelly'], ['Christian', 'Sanders'],
+        ['Albert', 'Price'], ['Wayne', 'Bennett'], ['Ralph', 'Wood'], ['Roy', 'Barnes'],
+        ['Eugene', 'Ross'], ['Louis', 'Henderson'], ['Philip', 'Coleman'], ['Bobby', 'Jenkins'],
+        ['Johnny', 'Perry'], ['Mason', 'Powell'], ['Wayne', 'Long'], ['Ralph', 'Patterson'],
+        ['Mason', 'Hughes'], ['Eugene', 'Flores'], ['Louis', 'Washington'], ['Philip', 'Butler'],
+        ['Bobby', 'Simmons'], ['Johnny', 'Foster'], ['Willie', 'Gonzales'], ['Wayne', 'Bryant'],
+        ['Ralph', 'Alexander'], ['Mason', 'Russell'], ['Eugene', 'Griffin'], ['Louis', 'Diaz'],
+        ['Philip', 'Hayes'], ['Bobby', 'Myers'], ['Johnny', 'Ford'], ['Willie', 'Hamilton'],
+        ['Wayne', 'Graham'], ['Ralph', 'Sullivan']
       ];
 
       for (int i = 0; i < officialNames.length; i++) {
         final official = OfficialUser(
-          email: 'official${i + 1}@test.com',
+          email: 'official${(i + 1).toString().padLeft(3, '0')}@test.com',
           passwordHash: _hashPassword('test123'),
           firstName: officialNames[i][0],
           lastName: officialNames[i][1],
@@ -556,12 +1123,17 @@ class _DatabaseTestScreenState extends State<DatabaseTestScreen> {
         final officialUserId = await db.insert('official_users', official.toMap());
         officialCount++;
 
+        // Get a location within 100 miles of Edwardsville, IL (use correct locations)
+        final location = _getCorrectEdwardsvilleLocation(i);
+        
         // Create Official profile record
         final officialProfileData = {
           'name': '${officialNames[i][0]} ${officialNames[i][1]}',
           'official_user_id': officialUserId,
-          'email': 'official${i + 1}@test.com',
+          'email': 'official${(i + 1).toString().padLeft(3, '0')}@test.com',
           'phone': '555-02${i.toString().padLeft(2, '0')}',
+          'city': location['city'],
+          'state': location['state'],
           'availability_status': 'available',
         };
 
@@ -887,12 +1459,120 @@ All users have password: test123''';
         SizedBox(
           width: double.infinity,
           child: ElevatedButton(
+            onPressed: () => Navigator.pushNamed(context, '/update_addresses'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('🏠 Update Official Addresses'),
+          ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: _fixDatabaseSchema,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Fix Database Schema'),
+          ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
             onPressed: _createTestUsers,
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.green,
               foregroundColor: Colors.white,
             ),
             child: const Text('Create Test Users'),
+          ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: _viewAllOfficials,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('View All Officials'),
+          ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: _showDatabasePath,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.purple,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Show Database Path'),
+          ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: _updateOfficialsWithLocations,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Fix Official Locations'),
+          ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: _debugLocationData,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Debug Location Data'),
+          ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: _applyCorrectEdwardsvilleLocations,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Apply Correct Edwardsville Locations'),
+          ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: _forceWriteToDatabase,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.teal,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Force Database Write (Test)'),
+          ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: _compareDatabaseContent,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.indigo,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Compare: What App Sees vs File'),
           ),
         ),
         const SizedBox(height: 12),
@@ -971,6 +1651,18 @@ All users have password: test123''';
         SizedBox(
           width: double.infinity,
           child: ElevatedButton(
+            onPressed: _viewOfficialSportsDetails,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.cyan,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('View Officials Sports Details'),
+          ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
             onPressed: _resetDatabase,
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,
@@ -981,6 +1673,88 @@ All users have password: test123''';
         ),
       ],
     );
+  }
+
+  Future<void> _viewOfficialSportsDetails() async {
+    setState(() {
+      isLoading = true;
+      testResult = 'Loading officials sports details...';
+    });
+
+    try {
+      final db = await DatabaseHelper().database;
+      
+      // Get officials with their sports data, ordered by email
+      final officials = await db.rawQuery('''
+        SELECT 
+          o.id,
+          o.name,
+          o.email,
+          o.city,
+          o.state,
+          s.name as sport_name,
+          os.certification_level,
+          os.years_experience,
+          os.competition_levels,
+          os.is_primary
+        FROM officials o
+        LEFT JOIN official_sports os ON o.id = os.official_id
+        LEFT JOIN sports s ON os.sport_id = s.id
+        ORDER BY o.email ASC, os.is_primary DESC, s.name ASC
+      ''');
+
+      Map<String, List<Map<String, dynamic>>> officialGroups = {};
+      
+      // Group sports by official
+      for (final row in officials) {
+        final key = '${row['email']}';
+        if (!officialGroups.containsKey(key)) {
+          officialGroups[key] = [];
+        }
+        if (row['sport_name'] != null) {
+          officialGroups[key]!.add(row);
+        }
+      }
+
+      String result = '=== OFFICIALS SPORTS DETAILS (${officialGroups.length} Officials) ===\n\n';
+      
+      int count = 1;
+      for (final entry in officialGroups.entries) {
+        if (entry.value.isEmpty) continue;
+        
+        final firstRow = entry.value.first;
+        result += '$count. ${firstRow['name']} (${entry.key})\n';
+        result += '   Location: ${firstRow['city']}, ${firstRow['state']}\n';
+        result += '   Sports:\n';
+        
+        for (final sport in entry.value) {
+          final isPrimary = sport['is_primary'] == 1 ? ' ⭐PRIMARY' : '';
+          result += '   • ${sport['sport_name']}$isPrimary\n';
+          result += '     - Level: ${sport['certification_level']}\n';
+          result += '     - Experience: ${sport['years_experience']} years\n';
+          result += '     - Levels: ${sport['competition_levels']}\n';
+        }
+        result += '\n';
+        count++;
+        
+        // Limit to first 20 to avoid too much text
+        if (count > 20) {
+          result += '... and ${officialGroups.length - 20} more officials\n';
+          result += '\n(Showing first 20 officials only)';
+          break;
+        }
+      }
+
+      setState(() {
+        testResult = result;
+        isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        testResult = 'Error loading sports details: $e';
+        isLoading = false;
+      });
+    }
   }
 
   Future<void> _debugInterestIssue() async {

@@ -64,13 +64,21 @@ class _SelectCrewMembersScreenState extends State<SelectCrewMembersScreen> {
         _currentUserOfficialId = currentUserOfficial.first['id'] as int;
       }
 
-      // Use the same method as populate_roster_screen to get officials with city/state data
-      final allSports = await _officialRepo.rawQuery('SELECT id FROM sports LIMIT 1');
-      if (allSports.isEmpty) {
-        throw Exception('No sports found in database');
+      // Get officials for the specific sport selected for this crew
+      final sportQuery = await _officialRepo.rawQuery(
+        'SELECT id FROM sports WHERE name = ?', 
+        [widget.crewType.sportName]
+      );
+      if (sportQuery.isEmpty) {
+        throw Exception('Sport "${widget.crewType.sportName}" not found in database');
       }
-      final sportId = allSports.first['id'] as int;
+      final sportId = sportQuery.first['id'] as int;
       final allOfficials = await _officialRepo.getOfficialsBySport(sportId);
+      
+      // Debug: Print sample official data to check location fields
+      if (allOfficials.isNotEmpty) {
+        print('Sample official data: ${allOfficials.first}');
+      }
       
       // Filter out the current user (crew chief) from the available officials
       final officials = allOfficials.where((official) {
@@ -467,7 +475,7 @@ class _SelectCrewMembersScreenState extends State<SelectCrewMembersScreen> {
       final crew = Crew(
         name: widget.crewName,
         crewTypeId: widget.crewType.id!,
-        crewChiefId: widget.currentUserId,
+        crewChiefId: _currentUserOfficialId!,
         createdBy: widget.currentUserId,
         competitionLevels: widget.competitionLevels,
       );
@@ -479,14 +487,14 @@ class _SelectCrewMembersScreenState extends State<SelectCrewMembersScreen> {
                 name: member['name'],
                 email: member['email'],
                 phone: member['phone'],
-                userId: widget.currentUserId, // Required field
+                userId: member['user_id'] ?? member['official_user_id'] ?? 0, // Use the official's actual user ID
               ))
           .toList();
 
       await _crewRepo.createCrewWithMembersAndInvitations(
         crew: crew,
         selectedMembers: selectedOfficials,
-        crewChiefId: widget.currentUserId,
+        crewChiefId: _currentUserOfficialId!,
       );
 
       if (mounted) {
@@ -516,7 +524,23 @@ class _SelectCrewMembersScreenState extends State<SelectCrewMembersScreen> {
   }
 
   Widget _buildOfficialLocation(Map<String, dynamic> official, bool canSelect) {
-    final locationText = official['cityState'] ?? 'Location not available';
+    // Try multiple possible location fields
+    String locationText = official['cityState'] ?? '';
+    
+    // If cityState is empty or "Location not available", try individual fields
+    if (locationText.isEmpty || locationText == 'Location not available') {
+      final city = official['city'] as String?;
+      final state = official['state'] as String?;
+      
+      if (city != null && city.isNotEmpty && city != 'null') {
+        locationText = city;
+        if (state != null && state.isNotEmpty && state != 'null') {
+          locationText += ', $state';
+        }
+      } else {
+        locationText = 'Location not available';
+      }
+    }
 
     return Text(
       locationText,

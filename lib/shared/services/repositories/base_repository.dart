@@ -8,10 +8,10 @@ abstract class BaseRepository {
   Future<Database> get database async => await _databaseHelper.database;
 
   // Transaction wrapper
-  Future<void> withTransaction(Function(Transaction) callback) async {
+  Future<T> withTransaction<T>(Future<T> Function(Transaction) callback) async {
     final db = await database;
-    await db.transaction((txn) async {
-      await callback(txn);
+    return await db.transaction<T>((txn) async {
+      return await callback(txn);
     });
   }
 

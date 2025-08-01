@@ -73,6 +73,7 @@ import 'features/locations/edit_location_screen.dart';
 
 // Debug screens
 import 'features/debug/database_test_screen.dart';
+import 'features/debug/update_addresses_screen.dart';
 
 // Crew screens
 import 'features/crews/select_crew_screen.dart';
@@ -222,6 +223,7 @@ class EfficialsApp extends StatelessWidget {
         '/settings': (context) => const SettingsScreen(),
         '/assigner_sport_defaults': (context) => const AssignerSportDefaultsScreen(),
         '/database_test': (context) => const DatabaseTestScreen(),
+        '/update_addresses': (context) => const UpdateAddressesScreen(),
         '/official_game_details': (context) => const OfficialGameDetailsScreen(),
         '/available_game_details': (context) => const AvailableGameDetailsScreen(),
         '/official_profile': (context) => const OfficialProfileScreen(),

@@ -24,6 +24,8 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
 
   List<CrewMember> _members = [];
   List<CrewMember> _filteredMembers = [];
+  List<CrewInvitation> _pendingInvitations = [];
+  List<CrewInvitation> _filteredInvitations = [];
   Map<String, dynamic> _performanceStats = {};
   bool _isLoading = true;
   bool _isCrewChief = false;
@@ -53,9 +55,15 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
   void _filterMembers() {
     if (_searchQuery.isEmpty) {
       _filteredMembers = List.from(_members);
+      _filteredInvitations = List.from(_pendingInvitations);
     } else {
       _filteredMembers = _members.where((member) {
         final name = member.officialName?.toLowerCase() ?? '';
+        return name.contains(_searchQuery.toLowerCase());
+      }).toList();
+      
+      _filteredInvitations = _pendingInvitations.where((invitation) {
+        final name = invitation.invitedOfficialName?.toLowerCase() ?? '';
         return name.contains(_searchQuery.toLowerCase());
       }).toList();
     }
@@ -74,6 +82,7 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
         final isChief = await _crewChiefService.isCrewChief(
             _currentOfficialId!, widget.crew.id!);
         final members = await _crewRepo.getCrewMembers(widget.crew.id!);
+        final pendingInvitations = await _crewRepo.getCrewInvitations(widget.crew.id!);
 
         Map<String, dynamic> stats = {};
         if (isChief) {
@@ -86,6 +95,8 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
             _isCrewChief = isChief;
             _members = members;
             _filteredMembers = List.from(members);
+            _pendingInvitations = pendingInvitations.where((inv) => inv.status == 'pending').toList();
+            _filteredInvitations = List.from(_pendingInvitations);
             _performanceStats = stats;
             _isLoading = false;
           });
@@ -183,8 +194,11 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
 
   Widget _buildCrewInfo() {
     final memberCount = _members.length;
+    final pendingCount = _pendingInvitations.length;
+    final totalCount = memberCount + pendingCount;
     final requiredCount = widget.crew.requiredOfficials ?? 0;
     final isFullyStaffed = memberCount == requiredCount;
+    final hasPendingInvitations = pendingCount > 0;
 
     return Card(
       color: efficialsBlack,
@@ -231,10 +245,17 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
             _buildInfoRow(Icons.sports, 'Sport', '${widget.crew.sportName}'),
             const SizedBox(height: 8),
             _buildInfoRow(
-                Icons.people, 'Members', '$memberCount of $requiredCount'),
+                Icons.people, 
+                'Members', 
+                hasPendingInvitations 
+                  ? '$memberCount active + $pendingCount pending ($totalCount of $requiredCount)'
+                  : '$memberCount of $requiredCount'
+              ),
             const SizedBox(height: 8),
             _buildInfoRow(
                 Icons.person, 'Crew Chief', '${widget.crew.crewChiefName}'),
+            const SizedBox(height: 8),
+            _buildCompetitionLevelsRow(),
           ],
         ),
       ),
@@ -266,6 +287,61 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
             fontWeight: FontWeight.w500,
           ),
         ),
+      ],
+    );
+  }
+
+  Widget _buildCompetitionLevelsRow() {
+    final competitionLevels = widget.crew.competitionLevels;
+    String displayText;
+    
+    if (competitionLevels == null || competitionLevels.isEmpty) {
+      displayText = 'No competition levels set';
+    } else {
+      displayText = competitionLevels.join(', ');
+    }
+    
+    return Row(
+      children: [
+        Icon(
+          Icons.military_tech,
+          color: Colors.grey[400],
+          size: 20,
+        ),
+        const SizedBox(width: 12),
+        Text(
+          'Competition Levels:',
+          style: TextStyle(
+            color: Colors.grey[400],
+            fontSize: 14,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            displayText,
+            style: TextStyle(
+              color: competitionLevels == null || competitionLevels.isEmpty 
+                  ? Colors.orange 
+                  : efficialsWhite,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+        if (competitionLevels == null || competitionLevels.isEmpty)
+          if (_isCrewChief)
+            TextButton(
+              onPressed: () => _showEditCompetitionLevelsDialog(),
+              child: const Text(
+                'SET LEVELS',
+                style: TextStyle(
+                  color: efficialsYellow,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
       ],
     );
   }
@@ -324,13 +400,51 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            if (_filteredMembers.isEmpty)
+            if (_filteredMembers.isEmpty && _filteredInvitations.isEmpty)
               Text(
                 _searchQuery.isEmpty ? 'No members added yet' : 'No members found matching "$_searchQuery"',
                 style: const TextStyle(color: Colors.grey),
               )
             else
-              ..._filteredMembers.map((member) => _buildMemberTile(member)),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Active Members
+                  if (_filteredMembers.isNotEmpty) ...[
+                    if (_filteredInvitations.isNotEmpty)
+                      const Padding(
+                        padding: EdgeInsets.only(bottom: 12),
+                        child: Text(
+                          'Active Members',
+                          style: TextStyle(
+                            color: efficialsYellow,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ..._filteredMembers.map((member) => _buildMemberTile(member)),
+                  ],
+                  
+                  // Pending Invitations
+                  if (_filteredInvitations.isNotEmpty) ...[
+                    if (_filteredMembers.isNotEmpty)
+                      const SizedBox(height: 16),
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: 12),
+                      child: Text(
+                        'Pending Invitations',
+                        style: TextStyle(
+                          color: Colors.orange,
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    ..._filteredInvitations.map((invitation) => _buildInvitationTile(invitation)),
+                  ],
+                ],
+              ),
           ],
         ),
       ),
@@ -404,6 +518,155 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
         ],
       ),
     );
+  }
+
+  Widget _buildInvitationTile(CrewInvitation invitation) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        children: [
+          CircleAvatar(
+            backgroundColor: Colors.orange.withOpacity(0.2),
+            child: Icon(
+              Icons.mail_outline,
+              color: Colors.orange,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  invitation.invitedOfficialName ?? 'Unknown',
+                  style: const TextStyle(
+                    color: efficialsWhite,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                Text(
+                  'Invitation sent ${_formatDate(invitation.invitedAt)}',
+                  style: TextStyle(
+                    color: Colors.grey[400],
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.orange.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.orange.withOpacity(0.5)),
+            ),
+            child: const Text(
+              'PENDING',
+              style: TextStyle(
+                color: Colors.orange,
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          if (_isCrewChief)
+            IconButton(
+              onPressed: () => _cancelInvitation(invitation),
+              icon: Icon(
+                Icons.cancel_outlined,
+                color: Colors.red[400],
+                size: 20,
+              ),
+              tooltip: 'Cancel Invitation',
+            ),
+        ],
+      ),
+    );
+  }
+
+  String _formatDate(DateTime date) {
+    final now = DateTime.now();
+    final difference = now.difference(date);
+    
+    if (difference.inDays > 0) {
+      return '${difference.inDays} day${difference.inDays == 1 ? '' : 's'} ago';
+    } else if (difference.inHours > 0) {
+      return '${difference.inHours} hour${difference.inHours == 1 ? '' : 's'} ago';
+    } else if (difference.inMinutes > 0) {
+      return '${difference.inMinutes} minute${difference.inMinutes == 1 ? '' : 's'} ago';
+    } else {
+      return 'Just now';
+    }
+  }
+
+  Future<void> _cancelInvitation(CrewInvitation invitation) async {
+    try {
+      // Show confirmation dialog
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          backgroundColor: efficialsBlack,
+          title: const Text(
+            'Cancel Invitation',
+            style: TextStyle(color: efficialsWhite),
+          ),
+          content: Text(
+            'Are you sure you want to cancel the invitation to ${invitation.invitedOfficialName}?',
+            style: const TextStyle(color: efficialsWhite),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text(
+                'No',
+                style: TextStyle(color: efficialsYellow),
+              ),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text(
+                'Yes, Cancel',
+                style: TextStyle(color: Colors.red),
+              ),
+            ),
+          ],
+        ),
+      );
+
+      if (confirmed == true) {
+        // Update invitation status to cancelled  
+        await _crewRepo.respondToInvitation(
+          invitation.id!,
+          'cancelled',
+          'Cancelled by crew chief',
+          invitation.invitedOfficialId,
+        );
+
+        // Refresh the crew details
+        await _loadCrewDetails();
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Invitation to ${invitation.invitedOfficialName} has been cancelled'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error cancelling invitation: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   Widget _buildPerformanceSection() {
@@ -813,6 +1076,116 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
             ),
           );
         }
+      }
+    }
+  }
+
+  Future<void> _showEditCompetitionLevelsDialog() async {
+    final competitionLevelOptions = [
+      'Grade School (6U-11U)',
+      'Middle School (12U-14U)', 
+      'Junior Varsity',
+      'Varsity',
+      'Semi Pro/College'
+    ];
+
+    List<String> selectedLevels = List.from(widget.crew.competitionLevels ?? []);
+
+    final result = await showDialog<List<String>>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          backgroundColor: efficialsBlack,
+          title: const Text(
+            'Edit Competition Levels',
+            style: TextStyle(color: efficialsWhite),
+          ),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Select the competition levels this crew can officiate:',
+                  style: TextStyle(color: Colors.grey[400]),
+                ),
+                const SizedBox(height: 16),
+                ...competitionLevelOptions.map((level) {
+                  final isSelected = selectedLevels.contains(level);
+                  return CheckboxListTile(
+                    title: Text(
+                      level,
+                      style: const TextStyle(color: efficialsWhite),
+                    ),
+                    value: isSelected,
+                    activeColor: efficialsYellow,
+                    checkColor: efficialsBlack,
+                    onChanged: (bool? value) {
+                      setState(() {
+                        if (value == true) {
+                          selectedLevels.add(level);
+                        } else {
+                          selectedLevels.remove(level);
+                        }
+                      });
+                    },
+                  );
+                }).toList(),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, null),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(color: Colors.grey),
+              ),
+            ),
+            TextButton(
+              onPressed: selectedLevels.isEmpty 
+                  ? null 
+                  : () => Navigator.pop(context, selectedLevels),
+              child: Text(
+                'Save',
+                style: TextStyle(
+                  color: selectedLevels.isEmpty ? Colors.grey : efficialsYellow,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (result != null) {
+      await _updateCrewCompetitionLevels(result);
+    }
+  }
+
+  Future<void> _updateCrewCompetitionLevels(List<String> competitionLevels) async {
+    try {
+      await _crewRepo.updateCrewCompetitionLevels(widget.crew.id!, competitionLevels);
+      
+      // Reload crew details to reflect changes
+      await _loadCrewDetails();
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Competition levels updated successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to update competition levels: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     }
   }

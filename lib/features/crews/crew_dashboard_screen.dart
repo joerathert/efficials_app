@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../shared/theme.dart';
 import '../../shared/services/repositories/crew_repository.dart';
+import '../../shared/services/repositories/official_repository.dart';
 import '../../shared/services/user_session_service.dart';
 import '../../shared/models/database_models.dart';
 
@@ -13,8 +14,11 @@ class CrewDashboardScreen extends StatefulWidget {
 
 class _CrewDashboardScreenState extends State<CrewDashboardScreen> {
   final CrewRepository _crewRepo = CrewRepository();
+  final OfficialRepository _officialRepo = OfficialRepository();
   List<Crew> _allCrews = [];
+  List<CrewInvitation> _pendingInvitations = [];
   bool _isLoading = true;
+  int? _currentUserId;
   int? _currentOfficialId;
   DateTime? _lastRefresh;
 
@@ -31,13 +35,38 @@ class _CrewDashboardScreenState extends State<CrewDashboardScreen> {
       });
 
       final userSession = UserSessionService.instance;
-      _currentOfficialId = await userSession.getCurrentUserId();
+      _currentUserId = await userSession.getCurrentUserId();
+      
+      if (_currentUserId != null) {
+        // Get the official ID for the current user
+        final currentUserOfficial = await _officialRepo.rawQuery(
+          'SELECT id FROM officials WHERE user_id = ? OR official_user_id = ?', 
+          [_currentUserId, _currentUserId]
+        );
+        
+        if (currentUserOfficial.isNotEmpty) {
+          _currentOfficialId = currentUserOfficial.first['id'] as int;
+        } else {
+          // No official record found for this user
+          debugPrint('No official record found for user ID: $_currentUserId');
+          setState(() {
+            _isLoading = false;
+          });
+          return;
+        }
+        
+      } else {
+        setState(() {
+          _isLoading = false;
+        });
+        return;
+      }
       
       if (_currentOfficialId != null) {
-        // Simple caching: avoid frequent refreshes
+        // Simple caching: avoid frequent refreshes (but always refresh if no crews loaded)
         final now = DateTime.now();
         if (_lastRefresh != null && 
-            now.difference(_lastRefresh!).inMinutes < 2 && 
+            now.difference(_lastRefresh!).inSeconds < 30 && 
             _allCrews.isNotEmpty) {
           setState(() {
             _isLoading = false;
@@ -46,6 +75,7 @@ class _CrewDashboardScreenState extends State<CrewDashboardScreen> {
         }
         final crewsAsChief = await _crewRepo.getCrewsWhereChief(_currentOfficialId!);
         final crewsAsMember = await _crewRepo.getCrewsForOfficial(_currentOfficialId!);
+        final pendingInvitations = await _crewRepo.getPendingInvitations(_currentOfficialId!);
         
         // Combine all crews into one list, removing duplicates
         final allCrews = <Crew>[];
@@ -62,6 +92,7 @@ class _CrewDashboardScreenState extends State<CrewDashboardScreen> {
           _lastRefresh = now;
           setState(() {
             _allCrews = allCrews;
+            _pendingInvitations = pendingInvitations;
             _isLoading = false;
           });
         }
@@ -90,14 +121,14 @@ class _CrewDashboardScreenState extends State<CrewDashboardScreen> {
         elevation: 0,
         actions: [
           IconButton(
+            icon: const Icon(Icons.refresh, color: efficialsYellow),
+            onPressed: () => _forceRefresh(),
+            tooltip: 'Refresh Crews',
+          ),
+          IconButton(
             icon: const Icon(Icons.mail, color: efficialsYellow),
             onPressed: () => _navigateToInvitations(),
             tooltip: 'View Invitations',
-          ),
-          IconButton(
-            icon: const Icon(Icons.add, color: efficialsYellow),
-            onPressed: () => _navigateToCreateCrew(),
-            tooltip: 'Create New Crew',
           ),
         ],
       ),
@@ -125,17 +156,35 @@ class _CrewDashboardScreenState extends State<CrewDashboardScreen> {
   }
 
   Widget _buildCrewsList() {
-    if (_allCrews.isEmpty) {
+    final hasCrews = _allCrews.isNotEmpty;
+    final hasInvitations = _pendingInvitations.isNotEmpty;
+    
+    if (!hasCrews && !hasInvitations) {
       return _buildEmptyState();
     }
 
     return ListView(
       padding: const EdgeInsets.all(16),
-      children: _allCrews.map((crew) {
-        // Check if current user is crew chief
-        final isChief = crew.crewChiefId == _currentOfficialId;
-        return _buildCrewCard(crew, isChief: isChief);
-      }).toList(),
+      children: [
+        // Pending Invitations Section
+        if (hasInvitations) ...[
+          _buildSectionHeader('Crew Invitations', _pendingInvitations.length),
+          const SizedBox(height: 8),
+          ..._pendingInvitations.map((invitation) => _buildInvitationCard(invitation)),
+          if (hasCrews) const SizedBox(height: 24),
+        ],
+        
+        // My Crews Section  
+        if (hasCrews) ...[
+          _buildSectionHeader('My Crews', _allCrews.length),
+          const SizedBox(height: 8),
+          ..._allCrews.map((crew) {
+            // Check if current user is crew chief
+            final isChief = crew.crewChiefId == _currentOfficialId;
+            return _buildCrewCard(crew, isChief: isChief);
+          }),
+        ],
+      ],
     );
   }
 
@@ -333,6 +382,162 @@ class _CrewDashboardScreenState extends State<CrewDashboardScreen> {
     );
   }
 
+  Widget _buildSectionHeader(String title, int count) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              color: efficialsYellow,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+              color: efficialsYellow.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              count.toString(),
+              style: const TextStyle(
+                color: efficialsYellow,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInvitationCard(CrewInvitation invitation) {
+    return Card(
+      color: efficialsBlack,
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.group_add,
+                    color: Colors.orange,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        invitation.crewName ?? 'Unknown Crew',
+                        style: const TextStyle(
+                          color: efficialsWhite,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        'Invited by ${invitation.inviterName ?? 'Unknown'}',
+                        style: TextStyle(
+                          color: Colors.grey[400],
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.orange.withOpacity(0.5)),
+                  ),
+                  child: const Text(
+                    'PENDING',
+                    style: TextStyle(
+                      color: Colors.orange,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            if (invitation.sportName != null || invitation.levelOfCompetition != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Row(
+                  children: [
+                    if (invitation.sportName != null) ...[
+                      Icon(Icons.sports, color: Colors.grey[400], size: 16),
+                      const SizedBox(width: 4),
+                      Text(
+                        invitation.sportName!,
+                        style: TextStyle(color: Colors.grey[400], fontSize: 14),
+                      ),
+                    ],
+                    if (invitation.sportName != null && invitation.levelOfCompetition != null)
+                      Text(' • ', style: TextStyle(color: Colors.grey[400])),
+                    if (invitation.levelOfCompetition != null) ...[
+                      Icon(Icons.emoji_events, color: Colors.grey[400], size: 16),
+                      const SizedBox(width: 4),
+                      Text(
+                        invitation.levelOfCompetition!,
+                        style: TextStyle(color: Colors.grey[400], fontSize: 14),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () => _respondToInvitation(invitation, 'accepted'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                    ),
+                    child: const Text('Accept'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () => _respondToInvitation(invitation, 'declined'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                      foregroundColor: Colors.white,
+                    ),
+                    child: const Text('Decline'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildEmptyState() {
     return Center(
       child: Padding(
@@ -434,11 +639,57 @@ class _CrewDashboardScreenState extends State<CrewDashboardScreen> {
     );
   }
 
+  void _forceRefresh() {
+    _lastRefresh = null; // Reset cache
+    _loadCrews();
+  }
+
   void _navigateToCreateCrew() async {
     final result = await Navigator.pushNamed(context, '/create_crew');
     
     if (result == true) {
       _loadCrews(); // Refresh the list
+    }
+  }
+
+  Future<void> _respondToInvitation(CrewInvitation invitation, String response) async {
+    try {
+      setState(() {
+        _isLoading = true;
+      });
+
+      await _crewRepo.respondToInvitation(
+        invitation.id!,
+        response,
+        null, // no notes needed for accept/decline
+        _currentOfficialId!,
+      );
+
+      // Refresh the crew list to show updated state
+      await _loadCrews();
+
+      if (mounted) {
+        final action = response == 'accepted' ? 'accepted' : 'declined';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('You have $action the invitation to join ${invitation.crewName}'),
+            backgroundColor: response == 'accepted' ? Colors.green : Colors.orange,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error responding to invitation: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error responding to invitation: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 

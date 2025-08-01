@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
 import 'base_repository.dart';
 import '../../models/database_models.dart';
 
@@ -81,7 +82,7 @@ class CrewRepository extends BaseRepository {
 
       debugPrint('Crew creation transaction completed successfully');
       return crewId;
-    }) as int;
+    });
   }
 
   // Batch operations
@@ -318,7 +319,7 @@ class CrewRepository extends BaseRepository {
       
       debugPrint('Crew member added successfully with ID: $result');
       return result;
-    }) as int;
+    });
   }
   
   Future<int> removeCrewMember(int crewId, int officialId) async {
@@ -332,7 +333,7 @@ class CrewRepository extends BaseRepository {
       
       debugPrint('Crew member removal result: $result rows affected');
       return result;
-    }) as int;
+    });
   }
   
   Future<List<CrewMember>> getCrewMembers(int crewId, {String? nameFilter}) async {
@@ -764,8 +765,15 @@ class CrewRepository extends BaseRepository {
     int? maxDistanceMiles,
     Map<String, dynamic>? gameLocation,
   }) async {
+    debugPrint('🔍 getFilteredCrews called with:');
+    debugPrint('  - ihsaCertifications: $ihsaCertifications');
+    debugPrint('  - competitionLevels: $competitionLevels');
+    debugPrint('  - maxDistanceMiles: $maxDistanceMiles');
+    debugPrint('  - gameLocation: $gameLocation');
+    
     // Start with all active crews with members loaded
     List<Crew> allCrews = await getAllCrews();
+    debugPrint('📋 Found ${allCrews.length} total crews');
     
     // Filter by certification level (lowest common level logic)
     if (ihsaCertifications != null && ihsaCertifications.isNotEmpty) {
@@ -776,33 +784,51 @@ class CrewRepository extends BaseRepository {
         }
       }
       allCrews = certifiedCrews;
+      debugPrint('🎯 After IHSA certification filter: ${allCrews.length} crews');
     }
     
     // Filter by competition levels
     if (competitionLevels != null && competitionLevels.isNotEmpty) {
+      final beforeCount = allCrews.length;
       allCrews = allCrews.where((crew) {
         if (crew.competitionLevels == null || crew.competitionLevels!.isEmpty) {
+          debugPrint('❌ Crew "${crew.name}" excluded: no competition levels set');
           return false;
         }
         // Check if any of the crew's selected levels match the filter
-        return crew.competitionLevels!.any((crewLevel) =>
+        final hasMatch = crew.competitionLevels!.any((crewLevel) =>
           competitionLevels.contains(crewLevel));
+        debugPrint('${hasMatch ? '✅' : '❌'} Crew "${crew.name}": levels=${crew.competitionLevels}, filter=$competitionLevels, match=$hasMatch');
+        return hasMatch;
       }).toList();
+      debugPrint('🏆 After competition level filter: ${allCrews.length} crews (was $beforeCount)');
     }
     
     // Filter by distance (using crew chief's address)
     if (maxDistanceMiles != null && gameLocation != null) {
+      final beforeCount = allCrews.length;
       List<Crew> nearbyCrews = [];
       for (final crew in allCrews) {
-        if (await _crewWithinDistance(crew, gameLocation, maxDistanceMiles)) {
+        final withinDistance = await _crewWithinDistance(crew, gameLocation, maxDistanceMiles);
+        debugPrint('${withinDistance ? '✅' : '❌'} Crew "${crew.name}": distance check = $withinDistance');
+        if (withinDistance) {
           nearbyCrews.add(crew);
         }
       }
       allCrews = nearbyCrews;
+      debugPrint('📍 After distance filter: ${allCrews.length} crews (was $beforeCount)');
     }
     
     // Only return crews that can be hired (fully staffed and active)
-    return allCrews.where((crew) => crew.canBeHired).toList();
+    final beforeCount = allCrews.length;
+    final finalCrews = allCrews.where((crew) {
+      final canHire = crew.canBeHired;
+      debugPrint('${canHire ? '✅' : '❌'} Crew "${crew.name}": canBeHired=$canHire (active=${crew.isActive}, fullStaffed=${crew.isFullyStaffed})');
+      return canHire;
+    }).toList();
+    debugPrint('🚀 Final result: ${finalCrews.length} crews (was $beforeCount)');
+    
+    return finalCrews;
   }
 
   // Check if crew meets IHSA certification requirements (lowest common level)
@@ -900,18 +926,24 @@ class CrewRepository extends BaseRepository {
   // Check if crew chief is within distance of game location
   Future<bool> _crewWithinDistance(Crew crew, Map<String, dynamic> gameLocation, int maxMiles) async {
     try {
+      debugPrint('🗺️ Checking distance for crew "${crew.name}" (chief ID: ${crew.crewChiefId})');
       // Get crew chief's address
       final crewChiefAddress = await _getCrewChiefAddress(crew.crewChiefId);
+      debugPrint('📍 Crew chief address: $crewChiefAddress');
+      debugPrint('🎯 Game location: ${gameLocation['address']}');
+      debugPrint('📏 Max distance: ${maxMiles}mi');
+      
       if (crewChiefAddress == null) {
-        return false; // No address available
+        debugPrint('⚠️ No crew chief address - allowing crew (TODO: require addresses)');
+        return true; // Temporarily allow crews without addresses
       }
       
       // For now, return true - actual distance calculation would require geocoding
       // TODO: Implement actual distance calculation using geocoding service
-      print('Distance filtering: Crew chief at $crewChiefAddress, Game at ${gameLocation['address']}, Max: ${maxMiles}mi');
+      debugPrint('✅ Distance check passed (TODO: implement actual distance calculation)');
       return true;
     } catch (e) {
-      print('Error calculating distance for crew ${crew.id}: $e');
+      debugPrint('❌ Error calculating distance for crew ${crew.id}: $e');
       return false;
     }
   }
@@ -932,5 +964,24 @@ class CrewRepository extends BaseRepository {
     }
     
     return null;
+  }
+
+  // Update crew competition levels
+  Future<int> updateCrewCompetitionLevels(int crewId, List<String> competitionLevels) async {
+    debugPrint('Updating competition levels for crew ID: $crewId');
+    debugPrint('Competition levels: $competitionLevels');
+    
+    final result = await update(
+      'crews',
+      {
+        'competition_levels': jsonEncode(competitionLevels),
+        'updated_at': DateTime.now().toIso8601String(),
+      },
+      'id = ?',
+      [crewId],
+    );
+    
+    debugPrint('Updated $result row(s)');
+    return result;
   }
 }
