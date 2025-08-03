@@ -1424,6 +1424,8 @@ class Crew {
   final String? levelOfCompetition;
   final int? requiredOfficials;
   final String? crewChiefName;
+  final String? crewChiefCity;
+  final String? crewChiefState;
   final List<CrewMember>? members;
   final List<String>? competitionLevels;
 
@@ -1442,6 +1444,8 @@ class Crew {
     this.levelOfCompetition,
     this.requiredOfficials,
     this.crewChiefName,
+    this.crewChiefCity,
+    this.crewChiefState,
     this.members,
     this.competitionLevels,
   })  : createdAt = createdAt ?? DateTime.now(),
@@ -1482,6 +1486,8 @@ class Crew {
       levelOfCompetition: map['level_of_competition'],
       requiredOfficials: map['required_officials']?.toInt(),
       crewChiefName: map['crew_chief_name'],
+      crewChiefCity: map['crew_chief_city'],
+      crewChiefState: map['crew_chief_state'],
       competitionLevels: map['competition_levels'] != null
           ? List<String>.from(jsonDecode(map['competition_levels'] ?? '[]'))
           : null,

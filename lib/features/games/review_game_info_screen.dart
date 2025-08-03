@@ -7,6 +7,9 @@ import '../../shared/theme.dart';
 import '../../shared/services/game_service.dart';
 import '../../shared/services/repositories/advanced_method_repository.dart';
 import '../../shared/services/repositories/list_repository.dart'; // Added import for ListRepository
+import '../../shared/services/repositories/game_assignment_repository.dart';
+import '../../shared/services/repositories/notification_repository.dart';
+import '../../shared/models/database_models.dart';
 
 class ReviewGameInfoScreen extends StatefulWidget {
   const ReviewGameInfoScreen({super.key});
@@ -34,6 +37,8 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
   bool _hasInitialized =
       false; // Track if we've already initialized to prevent overwriting
   final GameService _gameService = GameService();
+  final GameAssignmentRepository _gameAssignmentRepository = GameAssignmentRepository();
+  final NotificationRepository _notificationRepository = NotificationRepository();
 
   @override
   void didChangeDependencies() {
@@ -231,11 +236,16 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
           final hireAutomatically = gameData['hireAutomatically'] ?? false;
           final method = gameData['method'] as String?;
 
-          // Only create assignments for away games or other special cases if needed
-          // For now, commented out to let all games appear in Available Games
-          // if (!isAwayGame && method != null && !hireAutomatically && method != 'advanced') {
-          //   await _gameService.createInitialAssignments(gameId, method, gameData);
-          // }
+          // Create assignments based on method type
+          if (!isAwayGame && method != null && !hireAutomatically) {
+            if (method == 'hire_crew') {
+              // For crew hiring, only create assignments for crew chiefs
+              await _createCrewChiefAssignments(gameId, gameData);
+            } else if (method != 'advanced') {
+              // For other methods (use_list, standard), create normal assignments
+              await _gameService.createInitialAssignments(gameId, method, gameData);
+            }
+          }
 
           // Save advanced selection data for later reconstruction AND create quota records
           if (gameData['method'] == 'advanced' &&
@@ -936,6 +946,93 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
     }
 
     return resolvedLists;
+  }
+
+  Future<void> _createCrewChiefAssignments(int gameId, Map<String, dynamic> gameData) async {
+    try {
+      final selectedCrews = gameData['selectedCrews'] as List<dynamic>?;
+      final selectedCrew = gameData['selectedCrew'];
+      
+      List<dynamic> crewsToProcess = [];
+      if (selectedCrews != null) {
+        crewsToProcess = selectedCrews;
+      } else if (selectedCrew != null) {
+        crewsToProcess = [selectedCrew];
+      }
+      
+      if (crewsToProcess.isEmpty) {
+        debugPrint('No crews selected for game $gameId');
+        return;
+      }
+      
+      // Create assignments only for crew chiefs
+      for (final crewData in crewsToProcess) {
+        final crewChiefId = crewData is Map<String, dynamic> 
+            ? crewData['crewChiefId'] as int?
+            : (crewData as dynamic).crewChiefId as int?;
+            
+        if (crewChiefId != null) {
+          final assignment = GameAssignment(
+            gameId: gameId,
+            officialId: crewChiefId,
+            status: 'pending',
+            assignedBy: await _getCurrentUserId(),
+            assignedAt: DateTime.now(),
+            feeAmount: (gameData['gameFee'] as num?)?.toDouble(),
+            position: 'Crew Chief', // Mark as crew chief assignment
+            responseNotes: 'Crew hiring - notification sent to crew chief',
+            excusedBackout: false,
+          );
+          
+          await _gameAssignmentRepository.createAssignment(assignment);
+          debugPrint('Created crew chief assignment for official $crewChiefId on game $gameId');
+          
+          // Create notification for crew chief
+          await _createCrewChiefNotification(crewChiefId, gameData);
+        }
+      }
+    } catch (e) {
+      debugPrint('Error creating crew chief assignments: $e');
+    }
+  }
+  
+  Future<void> _createCrewChiefNotification(int crewChiefId, Map<String, dynamic> gameData) async {
+    try {
+      final sportName = gameData['sport'] as String? ?? 'Game';
+      final opponent = gameData['opponent'] as String? ?? 'TBD';
+      final homeTeam = gameData['homeTeam'] as String? ?? 'TBD';
+      final gameDate = gameData['date'] as DateTime?;
+      final gameTime = gameData['time'] as TimeOfDay?;
+      final gameFee = gameData['gameFee'] as num? ?? 0;
+      
+      final gameTitle = opponent != 'TBD' && homeTeam != 'TBD' 
+          ? '$opponent @ $homeTeam' 
+          : (opponent != 'TBD' ? opponent : homeTeam);
+      
+      final dateStr = gameDate != null 
+          ? DateFormat('MMMM d, yyyy').format(gameDate)
+          : 'TBD';
+      final timeStr = gameTime != null 
+          ? gameTime.format(context)
+          : 'TBD';
+      
+      await _notificationRepository.createOfficialNotification(
+        officialId: crewChiefId,
+        type: 'crew_game_available',
+        title: 'Crew Game Available',
+        message: 'A $sportName game ($gameTitle) is available for your crew on $dateStr at $timeStr. Fee: \$${gameFee.toStringAsFixed(2)}. Tap to view and claim for your crew.',
+        relatedGameId: gameData['id'] as int?,
+      );
+      debugPrint('Created crew chief notification for official $crewChiefId');
+    } catch (e) {
+      debugPrint('Error creating crew chief notification: $e');
+    }
+  }
+  
+  Future<int> _getCurrentUserId() async {
+    // This should get the current scheduler's user ID
+    // For now, return a default value, but this should be implemented properly
+    return 1; // TODO: Implement proper user ID retrieval
   }
 
   Future<bool> _onWillPop() async {

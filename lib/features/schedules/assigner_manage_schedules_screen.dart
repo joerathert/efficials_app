@@ -4,8 +4,11 @@ import '../../shared/theme.dart';
 import '../../shared/models/database_models.dart';
 import '../../shared/services/repositories/team_repository.dart';
 import '../../shared/services/repositories/template_repository.dart';
+import '../../shared/services/repositories/user_repository.dart';
 import '../../shared/services/game_service.dart';
 import '../../shared/services/user_session_service.dart';
+import '../../shared/utils/utils.dart';
+import '../games/game_template.dart' as ui;
 
 class AssignerManageSchedulesScreen extends StatefulWidget {
   const AssignerManageSchedulesScreen({super.key});
@@ -35,6 +38,7 @@ class _AssignerManageSchedulesScreenState
   final TemplateRepository _templateRepository = TemplateRepository();
   final GameService _gameService = GameService();
   final UserSessionService _userSessionService = UserSessionService.instance;
+  final UserRepository _userRepository = UserRepository();
 
   @override
   void initState() {
@@ -71,12 +75,10 @@ class _AssignerManageSchedulesScreenState
 
   Future<void> _loadAssignerInfo() async {
     try {
-      // Get current user info
-      final userId = await _userSessionService.getCurrentUserId();
-      if (userId != null) {
-        // You might want to get sport from user profile or settings
-        // For now, we'll assume it's stored in user session or use a default
-        assignerSport = 'Basketball'; // Default or get from user settings
+      // Get current user info and sport from database
+      final currentUser = await _userRepository.getCurrentUser();
+      if (currentUser != null) {
+        assignerSport = currentUser.sport;
       }
       
       await _fetchTeams();
@@ -329,9 +331,9 @@ class _AssignerManageSchedulesScreenState
                           child: Column(
                             children: [
                               Icon(
-                                Icons.sports_basketball,
+                                getSportIcon(assignerSport ?? ''),
                                 size: 80,
-                                color: efficialsBlue.withOpacity(0.6),
+                                color: getSportIconColor(assignerSport ?? '').withOpacity(0.6),
                               ),
                               const SizedBox(height: 24),
                               const Text(
@@ -501,15 +503,7 @@ class _AssignerManageSchedulesScreenState
                             ],
                             if (selectedTeam != null) ...[
                               const SizedBox(height: 16),
-                              Text(
-                                '$selectedTeam Schedule',
-                                style: const TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                  color: efficialsBlue,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
+                              _buildAdaptiveScheduleTitle(selectedTeam!),
                             ],
                           ],
                         ),
@@ -1009,9 +1003,9 @@ class _AssignerManageSchedulesScreenState
                       _loadAssociatedTemplate();
                     });
                   },
-                  backgroundColor: efficialsBlack,
+                  backgroundColor: efficialsYellow,
                   tooltip: 'Set Template',
-                  child: const Icon(Icons.link, color: Colors.white),
+                  child: const Icon(Icons.link, color: efficialsBlack),
                 ),
                 const SizedBox(height: 10),
                 FloatingActionButton(
@@ -1019,35 +1013,67 @@ class _AssignerManageSchedulesScreenState
                   onPressed: _selectedDay == null
                       ? null
                       : () async {
-                          // For now, pass null template as the template system 
-                          // may need additional work to fully integrate with database
-                          GameTemplate? template;
+                          // Load template from database if one is associated with this team
+                          ui.GameTemplate? template;
                           
-                          // TODO: If needed, implement template loading from database
-                          // This would require additional work to integrate the 
-                          // game template system with the database
+                          if (associatedTemplateName != null) {
+                            try {
+                              final userId = await _userSessionService.getCurrentUserId();
+                              if (userId != null) {
+                                final templateData = await _templateRepository.getTemplateData(userId, selectedTeam!);
+                                if (templateData != null) {
+                                  template = ui.GameTemplate.fromJson(templateData);
+                                }
+                              }
+                            } catch (e) {
+                              debugPrint('Error loading template: $e');
+                            }
+                          }
 
                           if (mounted) {
-                            // ignore: use_build_context_synchronously
-                            Navigator.pushNamed(
-                              context,
-                              '/date_time',
-                              arguments: {
-                                'scheduleName': selectedTeam,
-                                'date': _selectedDay,
-                                'fromScheduleDetails': true,
-                                'template': template,
-                                'isAssignerFlow': true,
-                                'opponent': selectedTeam,
-                                'sport': assignerSport,
-                              },
-                            ).then((_) {
-                              _fetchGames();
-                            });
+                            // Check if template has time set and we can skip date_time screen
+                            if (template != null && template.includeTime && template.time != null) {
+                              // Skip date_time screen and go directly to additional_game_info
+                              // ignore: use_build_context_synchronously
+                              Navigator.pushNamed(
+                                context,
+                                '/additional_game_info',
+                                arguments: {
+                                  'scheduleName': selectedTeam,
+                                  'date': _selectedDay,
+                                  'time': template.time, // Use template time
+                                  'fromScheduleDetails': true,
+                                  'template': template,
+                                  'isAssignerFlow': true,
+                                  'opponent': selectedTeam,
+                                  'sport': assignerSport,
+                                },
+                              ).then((_) {
+                                _fetchGames();
+                              });
+                            } else {
+                              // Normal flow through date_time screen
+                              // ignore: use_build_context_synchronously
+                              Navigator.pushNamed(
+                                context,
+                                '/date_time',
+                                arguments: {
+                                  'scheduleName': selectedTeam,
+                                  'date': _selectedDay,
+                                  'fromScheduleDetails': true,
+                                  'template': template,
+                                  'isAssignerFlow': true,
+                                  'opponent': selectedTeam,
+                                  'sport': assignerSport,
+                                },
+                              ).then((_) {
+                                _fetchGames();
+                              });
+                            }
                           }
                         },
                   backgroundColor:
-                      _selectedDay == null ? Colors.grey : efficialsBlue,
+                      _selectedDay == null ? Colors.grey : efficialsYellow,
                   tooltip: 'Add Game',
                   child: const Icon(Icons.add, size: 30, color: efficialsBlack),
                 ),
@@ -1075,6 +1101,64 @@ class _AssignerManageSchedulesScreenState
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildAdaptiveScheduleTitle(String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // Account for container padding
+          final availableWidth = constraints.maxWidth - 32; // 16px padding on each side
+          
+          // Start with maximum font size and work down
+          double fontSize = 28; // Start with a reasonable max size
+          const double minFontSize = 14; // Minimum readable size
+          const double stepSize = 0.5; // Smaller steps for more precision
+          
+          // Find the largest font size that fits
+          while (fontSize >= minFontSize) {
+            final textPainter = TextPainter(
+              text: TextSpan(
+                text: text,
+                style: TextStyle(
+                  fontSize: fontSize,
+                  fontWeight: FontWeight.bold,
+                  color: efficialsBlue,
+                ),
+              ),
+              maxLines: 1,
+              textDirection: TextDirection.ltr,
+            );
+            
+            textPainter.layout(maxWidth: double.infinity);
+            
+            // If text width fits within available width, use this font size
+            if (textPainter.width <= availableWidth) {
+              break;
+            }
+            
+            // Reduce font size and try again
+            fontSize -= stepSize;
+          }
+          
+          // Ensure we don't go below minimum
+          fontSize = fontSize.clamp(minFontSize, 28.0);
+          
+          return Text(
+            text,
+            style: TextStyle(
+              fontSize: fontSize,
+              fontWeight: FontWeight.bold,
+              color: efficialsBlue,
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.clip, // Changed from ellipsis to clip since we're sizing to fit
+          );
+        },
+      ),
     );
   }
 }

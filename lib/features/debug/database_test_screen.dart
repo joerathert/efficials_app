@@ -54,12 +54,12 @@ class _DatabaseTestScreenState extends State<DatabaseTestScreen> {
     try {
       final success = await MigrationService().testDatabaseFunctionality();
       setState(() {
-        testResult = success 
-          ? 'Database test completed successfully!' 
-          : 'Database test failed!';
+        testResult = success
+            ? 'Database test completed successfully!'
+            : 'Database test failed!';
         isLoading = false;
       });
-      
+
       // Reload status after test
       await _loadMigrationStatus();
     } catch (e) {
@@ -82,7 +82,7 @@ class _DatabaseTestScreenState extends State<DatabaseTestScreen> {
         testResult = 'Migration completed successfully!';
         isLoading = false;
       });
-      
+
       // Reload status after migration
       await _loadMigrationStatus();
     } catch (e) {
@@ -98,7 +98,8 @@ class _DatabaseTestScreenState extends State<DatabaseTestScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Cleanup Duplicate Games'),
-        content: const Text('This will remove duplicate games and fix missing home team information. This action cannot be undone. Continue?'),
+        content: const Text(
+            'This will remove duplicate games and fix missing home team information. This action cannot be undone. Continue?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -121,7 +122,7 @@ class _DatabaseTestScreenState extends State<DatabaseTestScreen> {
       try {
         // First, let's check what duplicates exist
         final duplicates = await DatabaseCleanup.findPotentialDuplicates();
-        
+
         if (duplicates.isEmpty) {
           setState(() {
             testResult = 'No duplicate games found.';
@@ -132,25 +133,26 @@ class _DatabaseTestScreenState extends State<DatabaseTestScreen> {
 
         // Show the duplicates found
         StringBuffer result = StringBuffer();
-        result.writeln('Found ${duplicates.length} sets of potential duplicates:');
+        result.writeln(
+            'Found ${duplicates.length} sets of potential duplicates:');
         for (var duplicate in duplicates) {
-          result.writeln('- ${duplicate['opponent']} on ${duplicate['date']} (${duplicate['count']} copies)');
+          result.writeln(
+              '- ${duplicate['opponent']} on ${duplicate['date']} (${duplicate['count']} copies)');
         }
         result.writeln('\nPerforming cleanup...');
-        
+
         // Perform the cleanup
         await DatabaseCleanup.cleanupDuplicateGames();
-        
+
         result.writeln('Cleanup completed successfully!');
-        
+
         setState(() {
           testResult = result.toString();
           isLoading = false;
         });
-        
+
         // Reload migration status
         await _loadMigrationStatus();
-        
       } catch (e) {
         setState(() {
           testResult = 'Error during cleanup: $e';
@@ -170,11 +172,11 @@ class _DatabaseTestScreenState extends State<DatabaseTestScreen> {
       print('DEBUG: Starting to fetch recent games...');
       final recentGames = await DatabaseCleanup.getRecentGamesWithDetails();
       print('DEBUG: Fetched ${recentGames.length} recent games');
-      
+
       StringBuffer result = StringBuffer();
       result.writeln('=== RECENT GAMES (Last Hour) ===');
       result.writeln('Found ${recentGames.length} games:\n');
-      
+
       for (int i = 0; i < recentGames.length; i++) {
         final game = recentGames[i];
         result.writeln('${i + 1}. Game ID: ${game['id']}');
@@ -185,37 +187,41 @@ class _DatabaseTestScreenState extends State<DatabaseTestScreen> {
         result.writeln('   Time: ${game['time']}');
         result.writeln('   Status: ${game['status']}');
         result.writeln('   Location: ${game['location_name']}');
-        result.writeln('   Posted by: ${game['first_name']} ${game['last_name']}');
+        result.writeln(
+            '   Posted by: ${game['first_name']} ${game['last_name']}');
         result.writeln('   Created: ${game['created_at']}');
         result.writeln('');
       }
-      
+
       // Check for potential duplicates
       final duplicates = <String, List<Map<String, dynamic>>>{};
       for (final game in recentGames) {
-        final key = '${game['opponent']}_${game['date']}_${game['time']}_${game['sport_name']}';
+        final key =
+            '${game['opponent']}_${game['date']}_${game['time']}_${game['sport_name']}';
         duplicates[key] ??= [];
         duplicates[key]!.add(game);
       }
-      
-      final actualDuplicates = duplicates.entries.where((entry) => entry.value.length > 1).toList();
+
+      final actualDuplicates =
+          duplicates.entries.where((entry) => entry.value.length > 1).toList();
       if (actualDuplicates.isNotEmpty) {
         result.writeln('⚠️ POTENTIAL DUPLICATES DETECTED:');
         for (final duplicate in actualDuplicates) {
-          result.writeln('- ${duplicate.value.length} games with same opponent/date/time:');
+          result.writeln(
+              '- ${duplicate.value.length} games with same opponent/date/time:');
           for (final game in duplicate.value) {
-            result.writeln('  ID ${game['id']}: opponent="${game['opponent']}", home_team="${game['home_team']}"');
+            result.writeln(
+                '  ID ${game['id']}: opponent="${game['opponent']}", home_team="${game['home_team']}"');
           }
         }
       } else {
         result.writeln('✅ No duplicates detected in recent games.');
       }
-      
+
       setState(() {
         testResult = result.toString();
         isLoading = false;
       });
-      
     } catch (e) {
       setState(() {
         testResult = 'Error loading recent games: $e';
@@ -233,7 +239,7 @@ class _DatabaseTestScreenState extends State<DatabaseTestScreen> {
     try {
       print('DEBUG: Starting to fetch all games...');
       final db = await DatabaseHelper().database;
-      
+
       final allGames = await db.rawQuery('''
         SELECT g.id, g.opponent, g.home_team, g.date, g.time, g.status, 
                g.created_at, s.name as sport_name
@@ -242,13 +248,13 @@ class _DatabaseTestScreenState extends State<DatabaseTestScreen> {
         ORDER BY g.created_at DESC
         LIMIT 20
       ''');
-      
+
       print('DEBUG: Fetched ${allGames.length} games');
-      
+
       StringBuffer result = StringBuffer();
       result.writeln('=== ALL GAMES (Last 20) ===');
       result.writeln('Found ${allGames.length} games:\n');
-      
+
       for (int i = 0; i < allGames.length; i++) {
         final game = allGames[i];
         result.writeln('${i + 1}. ID: ${game['id']}');
@@ -259,12 +265,11 @@ class _DatabaseTestScreenState extends State<DatabaseTestScreen> {
         result.writeln('   Created: ${game['created_at']}');
         result.writeln('');
       }
-      
+
       setState(() {
         testResult = result.toString();
         isLoading = false;
       });
-      
     } catch (e) {
       print('DEBUG: Error in _showAllGames: $e');
       setState(() {
@@ -279,7 +284,8 @@ class _DatabaseTestScreenState extends State<DatabaseTestScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Remove Invalid Games'),
-        content: const Text('This will remove games that have null or empty home team values. These games appear as duplicates to officials. Continue?'),
+        content: const Text(
+            'This will remove games that have null or empty home team values. These games appear as duplicates to officials. Continue?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -301,15 +307,15 @@ class _DatabaseTestScreenState extends State<DatabaseTestScreen> {
 
       try {
         await DatabaseCleanup.removeGamesWithNullHomeTeam();
-        
+
         setState(() {
-          testResult = 'Successfully removed games with null home team. Check the console for details.';
+          testResult =
+              'Successfully removed games with null home team. Check the console for details.';
           isLoading = false;
         });
-        
+
         // Reload migration status
         await _loadMigrationStatus();
-        
       } catch (e) {
         setState(() {
           testResult = 'Error removing games: $e';
@@ -324,7 +330,8 @@ class _DatabaseTestScreenState extends State<DatabaseTestScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Reset Database'),
-        content: const Text('This will delete all database data. Are you sure?'),
+        content:
+            const Text('This will delete all database data. Are you sure?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -350,7 +357,7 @@ class _DatabaseTestScreenState extends State<DatabaseTestScreen> {
           testResult = 'Database reset completed!';
           isLoading = false;
         });
-        
+
         // Reload status after reset
         await _loadMigrationStatus();
       } catch (e) {
@@ -367,7 +374,8 @@ class _DatabaseTestScreenState extends State<DatabaseTestScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Clear Templates Only'),
-        content: const Text('This will delete only game templates while preserving officials and other data. Are you sure?'),
+        content: const Text(
+            'This will delete only game templates while preserving officials and other data. Are you sure?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -393,7 +401,7 @@ class _DatabaseTestScreenState extends State<DatabaseTestScreen> {
           testResult = 'Templates cleared successfully! (Officials preserved)';
           isLoading = false;
         });
-        
+
         // Reload status after clearing
         await _loadMigrationStatus();
       } catch (e) {
@@ -414,7 +422,8 @@ class _DatabaseTestScreenState extends State<DatabaseTestScreen> {
     try {
       await DatabaseHelper().fixDatabaseSchema();
       setState(() {
-        testResult = '✅ Database schema fixed successfully!\n\nMissing columns and tables have been added.';
+        testResult =
+            '✅ Database schema fixed successfully!\n\nMissing columns and tables have been added.';
         isLoading = false;
       });
     } catch (e) {
@@ -434,17 +443,17 @@ class _DatabaseTestScreenState extends State<DatabaseTestScreen> {
     try {
       final db = await DatabaseHelper().database;
       final dbPath = db.path;
-      
+
       setState(() {
         testResult = '=== DATABASE LOCATION ===\n\n'
-                    'Database File: efficials.db\n'
-                    'Full Path: $dbPath\n\n'
-                    'You can use SQLite tools like:\n'
-                    '• DB Browser for SQLite\n'
-                    '• SQLite Expert\n'
-                    '• SQLiteStudio\n'
-                    '• VS Code SQLite extension\n\n'
-                    'to view and edit this database directly.';
+            'Database File: efficials.db\n'
+            'Full Path: $dbPath\n\n'
+            'You can use SQLite tools like:\n'
+            '• DB Browser for SQLite\n'
+            '• SQLite Expert\n'
+            '• SQLiteStudio\n'
+            '• VS Code SQLite extension\n\n'
+            'to view and edit this database directly.';
         isLoading = false;
       });
     } catch (e) {
@@ -463,10 +472,10 @@ class _DatabaseTestScreenState extends State<DatabaseTestScreen> {
 
     try {
       final db = await DatabaseHelper().database;
-      
+
       // First check database version
       final dbVersion = await db.getVersion();
-      
+
       final officials = await db.rawQuery('''
         SELECT 
           o.id,
@@ -483,15 +492,15 @@ class _DatabaseTestScreenState extends State<DatabaseTestScreen> {
 
       String result = '=== ALL OFFICIALS (${officials.length}) ===\n';
       result += 'Database Version: $dbVersion\n\n';
-      
+
       for (int i = 0; i < officials.length; i++) {
         final official = officials[i];
         final num = (i + 1).toString().padLeft(3, ' ');
-        
+
         result += '$num. ${official['name']}\n';
         result += '     Email: ${official['email'] ?? 'Not provided'}\n';
         result += '     Phone: ${official['phone'] ?? 'Not provided'}\n';
-        
+
         final city = official['city'];
         final state = official['state'];
         String location = 'Not provided';
@@ -502,7 +511,8 @@ class _DatabaseTestScreenState extends State<DatabaseTestScreen> {
           }
         }
         result += '     Location: $location\n';
-        result += '     Status: ${official['availability_status'] ?? 'Unknown'}\n\n';
+        result +=
+            '     Status: ${official['availability_status'] ?? 'Unknown'}\n\n';
       }
 
       setState(() {
@@ -522,7 +532,8 @@ class _DatabaseTestScreenState extends State<DatabaseTestScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Create Test Users'),
-        content: const Text('This will create 3 Scheduler users and 100 Official users for testing. All will have password "test123". Continue?'),
+        content: const Text(
+            'This will create 3 Scheduler users and 100 Official users for testing. All will have password "test123". Continue?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -548,7 +559,7 @@ class _DatabaseTestScreenState extends State<DatabaseTestScreen> {
           testResult = result;
           isLoading = false;
         });
-        
+
         // Reload status after creating users
         await _loadMigrationStatus();
       } catch (e) {
@@ -618,7 +629,7 @@ class _DatabaseTestScreenState extends State<DatabaseTestScreen> {
       {'city': 'Washington', 'state': 'MO'},
       {'city': 'Union', 'state': 'MO'},
     ];
-    
+
     // Use index to get consistent location for each official
     return illinoisLocations[index % illinoisLocations.length];
   }
@@ -626,38 +637,38 @@ class _DatabaseTestScreenState extends State<DatabaseTestScreen> {
   Map<String, String> _getCorrectEdwardsvilleLocation(int index) {
     // CORRECT Illinois cities within 100 miles of Edwardsville, IL
     final edwardsvilleAreaLocations = [
-      {'city': 'Edwardsville', 'state': 'IL'},        // 0 miles - the center point
-      {'city': 'Alton', 'state': 'IL'},               // ~15 miles
-      {'city': 'Collinsville', 'state': 'IL'},        // ~20 miles
-      {'city': 'Belleville', 'state': 'IL'},          // ~25 miles
-      {'city': 'O\'Fallon', 'state': 'IL'},           // ~30 miles
-      {'city': 'Glen Carbon', 'state': 'IL'},         // ~8 miles
-      {'city': 'Granite City', 'state': 'IL'},        // ~18 miles
-      {'city': 'Wood River', 'state': 'IL'},          // ~12 miles
-      {'city': 'Godfrey', 'state': 'IL'},             // ~20 miles
-      {'city': 'Bethalto', 'state': 'IL'},            // ~10 miles
-      {'city': 'Highland', 'state': 'IL'},            // ~35 miles
-      {'city': 'Greenville', 'state': 'IL'},          // ~45 miles  
-      {'city': 'Vandalia', 'state': 'IL'},            // ~60 miles
-      {'city': 'Centralia', 'state': 'IL'},           // ~75 miles
-      {'city': 'Effingham', 'state': 'IL'},           // ~85 miles
-      {'city': 'Mattoon', 'state': 'IL'},             // ~95 miles
-      {'city': 'Charleston', 'state': 'IL'},          // ~90 miles
-      {'city': 'Taylorville', 'state': 'IL'},         // ~80 miles
-      {'city': 'Pana', 'state': 'IL'},                // ~70 miles
-      {'city': 'Hillsboro', 'state': 'IL'},           // ~65 miles
-      {'city': 'Litchfield', 'state': 'IL'},          // ~50 miles
-      {'city': 'Carlinville', 'state': 'IL'},         // ~40 miles
-      {'city': 'Springfield', 'state': 'IL'},         // ~95 miles
-      {'city': 'Shelbyville', 'state': 'IL'},         // ~85 miles
-      {'city': 'Salem', 'state': 'IL'},               // ~80 miles
-      {'city': 'Mount Vernon', 'state': 'IL'},        // ~90 miles
-      {'city': 'Chester', 'state': 'IL'},             // ~75 miles
-      {'city': 'Red Bud', 'state': 'IL'},             // ~45 miles
-      {'city': 'Waterloo', 'state': 'IL'},            // ~40 miles
-      {'city': 'Columbia', 'state': 'IL'},            // ~35 miles
+      {'city': 'Edwardsville', 'state': 'IL'}, // 0 miles - the center point
+      {'city': 'Alton', 'state': 'IL'}, // ~15 miles
+      {'city': 'Collinsville', 'state': 'IL'}, // ~20 miles
+      {'city': 'Belleville', 'state': 'IL'}, // ~25 miles
+      {'city': 'O\'Fallon', 'state': 'IL'}, // ~30 miles
+      {'city': 'Glen Carbon', 'state': 'IL'}, // ~8 miles
+      {'city': 'Granite City', 'state': 'IL'}, // ~18 miles
+      {'city': 'Wood River', 'state': 'IL'}, // ~12 miles
+      {'city': 'Godfrey', 'state': 'IL'}, // ~20 miles
+      {'city': 'Bethalto', 'state': 'IL'}, // ~10 miles
+      {'city': 'Highland', 'state': 'IL'}, // ~35 miles
+      {'city': 'Greenville', 'state': 'IL'}, // ~45 miles
+      {'city': 'Vandalia', 'state': 'IL'}, // ~60 miles
+      {'city': 'Centralia', 'state': 'IL'}, // ~75 miles
+      {'city': 'Effingham', 'state': 'IL'}, // ~85 miles
+      {'city': 'Mattoon', 'state': 'IL'}, // ~95 miles
+      {'city': 'Charleston', 'state': 'IL'}, // ~90 miles
+      {'city': 'Taylorville', 'state': 'IL'}, // ~80 miles
+      {'city': 'Pana', 'state': 'IL'}, // ~70 miles
+      {'city': 'Hillsboro', 'state': 'IL'}, // ~65 miles
+      {'city': 'Litchfield', 'state': 'IL'}, // ~50 miles
+      {'city': 'Carlinville', 'state': 'IL'}, // ~40 miles
+      {'city': 'Springfield', 'state': 'IL'}, // ~95 miles
+      {'city': 'Shelbyville', 'state': 'IL'}, // ~85 miles
+      {'city': 'Salem', 'state': 'IL'}, // ~80 miles
+      {'city': 'Mount Vernon', 'state': 'IL'}, // ~90 miles
+      {'city': 'Chester', 'state': 'IL'}, // ~75 miles
+      {'city': 'Red Bud', 'state': 'IL'}, // ~45 miles
+      {'city': 'Waterloo', 'state': 'IL'}, // ~40 miles
+      {'city': 'Columbia', 'state': 'IL'}, // ~35 miles
     ];
-    
+
     // Use index to get consistent location for each official
     return edwardsvilleAreaLocations[index % edwardsvilleAreaLocations.length];
   }
@@ -670,7 +681,7 @@ class _DatabaseTestScreenState extends State<DatabaseTestScreen> {
 
     try {
       final db = await DatabaseHelper().database;
-      
+
       // Get all officials without proper location data
       final officialsNeedingUpdate = await db.rawQuery('''
         SELECT id, name FROM officials 
@@ -678,11 +689,11 @@ class _DatabaseTestScreenState extends State<DatabaseTestScreen> {
       ''');
 
       int updateCount = 0;
-      
+
       for (int i = 0; i < officialsNeedingUpdate.length; i++) {
         final official = officialsNeedingUpdate[i];
         final location = _getRandomIllinoisLocation(i);
-        
+
         await db.update(
           'officials',
           {
@@ -692,7 +703,7 @@ class _DatabaseTestScreenState extends State<DatabaseTestScreen> {
           where: 'id = ?',
           whereArgs: [official['id']],
         );
-        
+
         updateCount++;
       }
 
@@ -729,7 +740,7 @@ Click "View All Officials" to see the updated locations!''';
     try {
       final db = await DatabaseHelper().database;
       final dbVersion = await db.getVersion();
-      
+
       // Check location data distribution
       final locationStats = await db.rawQuery('''
         SELECT 
@@ -741,7 +752,7 @@ Click "View All Officials" to see the updated locations!''';
         FROM officials
         GROUP BY location_status
       ''');
-      
+
       // Sample officials with location data
       final sampleWithLocations = await db.rawQuery('''
         SELECT id, name, city, state, created_at
@@ -750,7 +761,7 @@ Click "View All Officials" to see the updated locations!''';
         ORDER BY id ASC
         LIMIT 5
       ''');
-      
+
       // Sample officials without location data
       final sampleWithoutLocations = await db.rawQuery('''
         SELECT id, name, city, state, created_at
@@ -762,32 +773,38 @@ Click "View All Officials" to see the updated locations!''';
 
       String result = '=== LOCATION DATA DEBUG ===\n\n';
       result += 'Database Version: $dbVersion\n';
-      result += 'Expected: Version 25 (includes Edwardsville area locations)\n\n';
-      
+      result +=
+          'Expected: Version 25 (includes Edwardsville area locations)\n\n';
+
       result += 'LOCATION STATUS:\n';
       for (final stat in locationStats) {
         result += '• ${stat['location_status']}: ${stat['count']} officials\n';
       }
-      
+
       if (sampleWithLocations.isNotEmpty) {
         result += '\nSAMPLE OFFICIALS WITH LOCATIONS:\n';
         for (final official in sampleWithLocations) {
-          result += '• ${official['name']}: ${official['city']}, ${official['state']}\n';
+          result +=
+              '• ${official['name']}: ${official['city']}, ${official['state']}\n';
         }
       }
-      
+
       if (sampleWithoutLocations.isNotEmpty) {
         result += '\nSAMPLE OFFICIALS WITHOUT LOCATIONS:\n';
         for (final official in sampleWithoutLocations) {
-          result += '• ${official['name']}: city="${official['city']}", state="${official['state']}"\n';
+          result +=
+              '• ${official['name']}: city="${official['city']}", state="${official['state']}"\n';
         }
-        
+
         result += '\n🔍 DIAGNOSIS:\n';
         if (dbVersion < 25) {
-          result += '❌ Database not fully migrated! Run migration to version 25.\n';
+          result +=
+              '❌ Database not fully migrated! Run migration to version 25.\n';
         } else {
-          result += '⚠️ Officials created after migration without location data.\n';
-          result += 'The "Create Test Users" function bypassed location assignment.\n';
+          result +=
+              '⚠️ Officials created after migration without location data.\n';
+          result +=
+              'The "Create Test Users" function bypassed location assignment.\n';
         }
       }
 
@@ -811,52 +828,53 @@ Click "View All Officials" to see the updated locations!''';
 
     try {
       final db = await DatabaseHelper().database;
-      
+
       // Get all officials
       final officials = await db.query('officials');
-      
+
       // CORRECT Illinois cities within 100 miles of Edwardsville, IL
       // (Edwardsville is in southwestern Illinois, near St. Louis)
       final edwardsvilleAreaLocations = [
-        {'city': 'Edwardsville', 'state': 'IL'},        // 0 miles - the center point
-        {'city': 'Alton', 'state': 'IL'},               // ~15 miles
-        {'city': 'Collinsville', 'state': 'IL'},        // ~20 miles
-        {'city': 'Belleville', 'state': 'IL'},          // ~25 miles
-        {'city': 'O\'Fallon', 'state': 'IL'},           // ~30 miles
-        {'city': 'Glen Carbon', 'state': 'IL'},         // ~8 miles
-        {'city': 'Granite City', 'state': 'IL'},        // ~18 miles
-        {'city': 'Wood River', 'state': 'IL'},          // ~12 miles
-        {'city': 'Godfrey', 'state': 'IL'},             // ~20 miles
-        {'city': 'Bethalto', 'state': 'IL'},            // ~10 miles
-        {'city': 'Highland', 'state': 'IL'},            // ~35 miles
-        {'city': 'Greenville', 'state': 'IL'},          // ~45 miles  
-        {'city': 'Vandalia', 'state': 'IL'},            // ~60 miles
-        {'city': 'Centralia', 'state': 'IL'},           // ~75 miles
-        {'city': 'Effingham', 'state': 'IL'},           // ~85 miles
-        {'city': 'Mattoon', 'state': 'IL'},             // ~95 miles
-        {'city': 'Charleston', 'state': 'IL'},          // ~90 miles
-        {'city': 'Taylorville', 'state': 'IL'},         // ~80 miles
-        {'city': 'Pana', 'state': 'IL'},                // ~70 miles
-        {'city': 'Hillsboro', 'state': 'IL'},           // ~65 miles
-        {'city': 'Litchfield', 'state': 'IL'},          // ~50 miles
-        {'city': 'Carlinville', 'state': 'IL'},         // ~40 miles
-        {'city': 'Springfield', 'state': 'IL'},         // ~95 miles
-        {'city': 'Shelbyville', 'state': 'IL'},         // ~85 miles
-        {'city': 'Salem', 'state': 'IL'},               // ~80 miles
-        {'city': 'Mount Vernon', 'state': 'IL'},        // ~90 miles
-        {'city': 'Chester', 'state': 'IL'},             // ~75 miles
-        {'city': 'Red Bud', 'state': 'IL'},             // ~45 miles
-        {'city': 'Waterloo', 'state': 'IL'},            // ~40 miles
-        {'city': 'Columbia', 'state': 'IL'},            // ~35 miles
+        {'city': 'Edwardsville', 'state': 'IL'}, // 0 miles - the center point
+        {'city': 'Alton', 'state': 'IL'}, // ~15 miles
+        {'city': 'Collinsville', 'state': 'IL'}, // ~20 miles
+        {'city': 'Belleville', 'state': 'IL'}, // ~25 miles
+        {'city': 'O\'Fallon', 'state': 'IL'}, // ~30 miles
+        {'city': 'Glen Carbon', 'state': 'IL'}, // ~8 miles
+        {'city': 'Granite City', 'state': 'IL'}, // ~18 miles
+        {'city': 'Wood River', 'state': 'IL'}, // ~12 miles
+        {'city': 'Godfrey', 'state': 'IL'}, // ~20 miles
+        {'city': 'Bethalto', 'state': 'IL'}, // ~10 miles
+        {'city': 'Highland', 'state': 'IL'}, // ~35 miles
+        {'city': 'Greenville', 'state': 'IL'}, // ~45 miles
+        {'city': 'Vandalia', 'state': 'IL'}, // ~60 miles
+        {'city': 'Centralia', 'state': 'IL'}, // ~75 miles
+        {'city': 'Effingham', 'state': 'IL'}, // ~85 miles
+        {'city': 'Mattoon', 'state': 'IL'}, // ~95 miles
+        {'city': 'Charleston', 'state': 'IL'}, // ~90 miles
+        {'city': 'Taylorville', 'state': 'IL'}, // ~80 miles
+        {'city': 'Pana', 'state': 'IL'}, // ~70 miles
+        {'city': 'Hillsboro', 'state': 'IL'}, // ~65 miles
+        {'city': 'Litchfield', 'state': 'IL'}, // ~50 miles
+        {'city': 'Carlinville', 'state': 'IL'}, // ~40 miles
+        {'city': 'Springfield', 'state': 'IL'}, // ~95 miles
+        {'city': 'Shelbyville', 'state': 'IL'}, // ~85 miles
+        {'city': 'Salem', 'state': 'IL'}, // ~80 miles
+        {'city': 'Mount Vernon', 'state': 'IL'}, // ~90 miles
+        {'city': 'Chester', 'state': 'IL'}, // ~75 miles
+        {'city': 'Red Bud', 'state': 'IL'}, // ~45 miles
+        {'city': 'Waterloo', 'state': 'IL'}, // ~40 miles
+        {'city': 'Columbia', 'state': 'IL'}, // ~35 miles
       ];
-      
+
       int updateCount = 0;
-      
+
       // Update all officials with CORRECT Edwardsville-area locations
       for (int i = 0; i < officials.length; i++) {
         final official = officials[i];
-        final location = edwardsvilleAreaLocations[i % edwardsvilleAreaLocations.length];
-        
+        final location =
+            edwardsvilleAreaLocations[i % edwardsvilleAreaLocations.length];
+
         await db.update(
           'officials',
           {
@@ -866,7 +884,7 @@ Click "View All Officials" to see the updated locations!''';
           where: 'id = ?',
           whereArgs: [official['id']],
         );
-        
+
         updateCount++;
       }
 
@@ -910,21 +928,24 @@ Click "View All Officials" to see the corrected locations!''';
 
     try {
       final db = await DatabaseHelper().database;
-      
+
       // Make a small change to force database file update (using availability_status which exists)
-      final currentStatus = await db.rawQuery('SELECT availability_status FROM officials WHERE id = 1 LIMIT 1');
+      final currentStatus = await db.rawQuery(
+          'SELECT availability_status FROM officials WHERE id = 1 LIMIT 1');
       if (currentStatus.isNotEmpty) {
         // Just update the same value to force file write
-        await db.execute('UPDATE officials SET availability_status = ? WHERE id = 1', [currentStatus.first['availability_status']]);
+        await db.execute(
+            'UPDATE officials SET availability_status = ? WHERE id = 1',
+            [currentStatus.first['availability_status']]);
       }
-      
+
       // Close and reopen database to force file sync
       await db.close();
       final freshDb = await DatabaseHelper().database;
-      
+
       final dbPath = freshDb.path;
       final timestamp = DateTime.now().toString();
-      
+
       setState(() {
         testResult = '''✅ DATABASE FILE FORCED UPDATE!
 
@@ -953,7 +974,7 @@ Check Device File Explorer - the timestamp should be newer now!''';
 
     try {
       final db = await DatabaseHelper().database;
-      
+
       // Get sample officials with exact data the app sees
       final sampleOfficials = await db.rawQuery('''
         SELECT id, name, city, state, created_at
@@ -961,7 +982,7 @@ Check Device File Explorer - the timestamp should be newer now!''';
         ORDER BY id ASC
         LIMIT 10
       ''');
-      
+
       // Get location distribution
       final locationStats = await db.rawQuery('''
         SELECT city, state, COUNT(*) as count
@@ -971,29 +992,34 @@ Check Device File Explorer - the timestamp should be newer now!''';
         ORDER BY count DESC
         LIMIT 10
       ''');
-      
+
       // Get total counts
-      final totalCount = (await db.rawQuery('SELECT COUNT(*) as count FROM officials')).first['count'];
-      
+      final totalCount =
+          (await db.rawQuery('SELECT COUNT(*) as count FROM officials'))
+              .first['count'];
+
       String result = '''🔍 LIVE DATABASE CONTENT (What App Sees):
 
 TOTAL OFFICIALS: $totalCount
 
 FIRST 10 OFFICIALS:
 ''';
-      
+
       for (final official in sampleOfficials) {
-        final location = official['city'] != null && official['city'] != '' && official['city'] != 'null' 
+        final location = official['city'] != null &&
+                official['city'] != '' &&
+                official['city'] != 'null'
             ? '${official['city']}, ${official['state']}'
             : 'No location';
         result += '• ${official['name']}: $location\n';
       }
-      
+
       result += '\nTOP LOCATIONS:\n';
       for (final loc in locationStats) {
-        result += '• ${loc['city']}, ${loc['state']}: ${loc['count']} officials\n';
+        result +=
+            '• ${loc['city']}, ${loc['state']}: ${loc['count']} officials\n';
       }
-      
+
       result += '''
 
 📋 INSTRUCTIONS:
@@ -1048,8 +1074,8 @@ FIRST 10 OFFICIALS:
           lastName: 'Assigner',
           phone: '555-0102',
           setupCompleted: true,
-          leagueName: 'Metro League',
-          sport: 'Basketball',
+          leagueName: 'SAOA Football',
+          sport: 'Football',
         ),
         User(
           schedulerType: 'coach',
@@ -1078,32 +1104,56 @@ FIRST 10 OFFICIALS:
       // Create exactly 100 Official users - ALL MEN'S NAMES
       final officialNames = [
         // First 10 officials (for Quick Access buttons)
-        ['David', 'Davis'], ['David', 'Miller'], ['Mike', 'Williams'], ['John', 'Smith'],
-        ['Robert', 'Jones'], ['James', 'Brown'], ['Chris', 'Johnson'], ['William', 'Garcia'],
+        ['David', 'Davis'], ['David', 'Miller'], ['Mike', 'Williams'],
+        ['John', 'Smith'],
+        ['Robert', 'Jones'], ['James', 'Brown'], ['Chris', 'Johnson'],
+        ['William', 'Garcia'],
         ['Richard', 'Rodriguez'], ['Joseph', 'Wilson'],
         // Additional 90 officials
-        ['Thomas', 'Anderson'], ['Charles', 'Thompson'], ['Christopher', 'Martinez'], ['Daniel', 'Taylor'],
-        ['Matthew', 'Moore'], ['Anthony', 'Jackson'], ['Mark', 'White'], ['Donald', 'Harris'],
-        ['Steven', 'Clark'], ['Paul', 'Lewis'], ['Andrew', 'Walker'], ['Joshua', 'Hall'],
-        ['Kenneth', 'Allen'], ['Kevin', 'Young'], ['Brian', 'King'], ['George', 'Wright'],
-        ['Timothy', 'Lopez'], ['Ronald', 'Hill'], ['Jason', 'Scott'], ['Edward', 'Green'],
-        ['Jeffrey', 'Adams'], ['Ryan', 'Baker'], ['Jacob', 'Gonzalez'], ['Gary', 'Nelson'],
-        ['Nicholas', 'Carter'], ['Eric', 'Mitchell'], ['Jonathan', 'Perez'], ['Stephen', 'Roberts'],
-        ['Larry', 'Turner'], ['Justin', 'Phillips'], ['Scott', 'Campbell'], ['Brandon', 'Parker'],
-        ['Benjamin', 'Evans'], ['Samuel', 'Edwards'], ['Gregory', 'Collins'], ['Frank', 'Stewart'],
-        ['Raymond', 'Sanchez'], ['Alexander', 'Morris'], ['Patrick', 'Rogers'], ['Jack', 'Reed'],
-        ['Dennis', 'Cook'], ['Jerry', 'Morgan'], ['Tyler', 'Bell'], ['Aaron', 'Murphy'],
-        ['Jose', 'Bailey'], ['Henry', 'Rivera'], ['Adam', 'Richardson'], ['Douglas', 'Cooper'],
-        ['Nathan', 'Cox'], ['Peter', 'Howard'], ['Zachary', 'Ward'], ['Kyle', 'Torres'],
-        ['Walter', 'Peterson'], ['Harold', 'Gray'], ['Jeremy', 'Ramirez'], ['Carl', 'James'],
-        ['Arthur', 'Watson'], ['Lawrence', 'Brooks'], ['Sean', 'Kelly'], ['Christian', 'Sanders'],
-        ['Albert', 'Price'], ['Wayne', 'Bennett'], ['Ralph', 'Wood'], ['Roy', 'Barnes'],
-        ['Eugene', 'Ross'], ['Louis', 'Henderson'], ['Philip', 'Coleman'], ['Bobby', 'Jenkins'],
-        ['Johnny', 'Perry'], ['Mason', 'Powell'], ['Wayne', 'Long'], ['Ralph', 'Patterson'],
-        ['Mason', 'Hughes'], ['Eugene', 'Flores'], ['Louis', 'Washington'], ['Philip', 'Butler'],
-        ['Bobby', 'Simmons'], ['Johnny', 'Foster'], ['Willie', 'Gonzales'], ['Wayne', 'Bryant'],
-        ['Ralph', 'Alexander'], ['Mason', 'Russell'], ['Eugene', 'Griffin'], ['Louis', 'Diaz'],
-        ['Philip', 'Hayes'], ['Bobby', 'Myers'], ['Johnny', 'Ford'], ['Willie', 'Hamilton'],
+        ['Thomas', 'Anderson'], ['Charles', 'Thompson'],
+        ['Christopher', 'Martinez'], ['Daniel', 'Taylor'],
+        ['Matthew', 'Moore'], ['Anthony', 'Jackson'], ['Mark', 'White'],
+        ['Donald', 'Harris'],
+        ['Steven', 'Clark'], ['Paul', 'Lewis'], ['Andrew', 'Walker'],
+        ['Joshua', 'Hall'],
+        ['Kenneth', 'Allen'], ['Kevin', 'Young'], ['Brian', 'King'],
+        ['George', 'Wright'],
+        ['Timothy', 'Lopez'], ['Ronald', 'Hill'], ['Jason', 'Scott'],
+        ['Edward', 'Green'],
+        ['Jeffrey', 'Adams'], ['Ryan', 'Baker'], ['Jacob', 'Gonzalez'],
+        ['Gary', 'Nelson'],
+        ['Nicholas', 'Carter'], ['Eric', 'Mitchell'], ['Jonathan', 'Perez'],
+        ['Stephen', 'Roberts'],
+        ['Larry', 'Turner'], ['Justin', 'Phillips'], ['Scott', 'Campbell'],
+        ['Brandon', 'Parker'],
+        ['Benjamin', 'Evans'], ['Samuel', 'Edwards'], ['Gregory', 'Collins'],
+        ['Frank', 'Stewart'],
+        ['Raymond', 'Sanchez'], ['Alexander', 'Morris'], ['Patrick', 'Rogers'],
+        ['Jack', 'Reed'],
+        ['Dennis', 'Cook'], ['Jerry', 'Morgan'], ['Tyler', 'Bell'],
+        ['Aaron', 'Murphy'],
+        ['Jose', 'Bailey'], ['Henry', 'Rivera'], ['Adam', 'Richardson'],
+        ['Douglas', 'Cooper'],
+        ['Nathan', 'Cox'], ['Peter', 'Howard'], ['Zachary', 'Ward'],
+        ['Kyle', 'Torres'],
+        ['Walter', 'Peterson'], ['Harold', 'Gray'], ['Jeremy', 'Ramirez'],
+        ['Carl', 'James'],
+        ['Arthur', 'Watson'], ['Lawrence', 'Brooks'], ['Sean', 'Kelly'],
+        ['Christian', 'Sanders'],
+        ['Albert', 'Price'], ['Wayne', 'Bennett'], ['Ralph', 'Wood'],
+        ['Roy', 'Barnes'],
+        ['Eugene', 'Ross'], ['Louis', 'Henderson'], ['Philip', 'Coleman'],
+        ['Bobby', 'Jenkins'],
+        ['Johnny', 'Perry'], ['Mason', 'Powell'], ['Wayne', 'Long'],
+        ['Ralph', 'Patterson'],
+        ['Mason', 'Hughes'], ['Eugene', 'Flores'], ['Louis', 'Washington'],
+        ['Philip', 'Butler'],
+        ['Bobby', 'Simmons'], ['Johnny', 'Foster'], ['Willie', 'Gonzales'],
+        ['Wayne', 'Bryant'],
+        ['Ralph', 'Alexander'], ['Mason', 'Russell'], ['Eugene', 'Griffin'],
+        ['Louis', 'Diaz'],
+        ['Philip', 'Hayes'], ['Bobby', 'Myers'], ['Johnny', 'Ford'],
+        ['Willie', 'Hamilton'],
         ['Wayne', 'Graham'], ['Ralph', 'Sullivan']
       ];
 
@@ -1120,12 +1170,13 @@ FIRST 10 OFFICIALS:
           status: 'active',
         );
 
-        final officialUserId = await db.insert('official_users', official.toMap());
+        final officialUserId =
+            await db.insert('official_users', official.toMap());
         officialCount++;
 
         // Get a location within 100 miles of Edwardsville, IL (use correct locations)
         final location = _getCorrectEdwardsvilleLocation(i);
-        
+
         // Create Official profile record
         final officialProfileData = {
           'name': '${officialNames[i][0]} ${officialNames[i][1]}',
@@ -1164,75 +1215,231 @@ All officials have various sport combinations from:
 Football, Basketball, Baseball, Softball, Volleyball
 
 All users have password: test123''';
-
     } catch (e) {
       return 'Error creating test users: $e';
     }
   }
 
-  Future<void> _createOfficialSportsCertifications(Database db, int officialId, int officialNumber) async {
+  Future<void> _createOfficialSportsCertifications(
+      Database db, int officialId, int officialNumber) async {
     // Sport IDs: Football=1, Basketball=2, Baseball=3, Softball=4, Volleyball=6
     // Define sport combinations and attributes for each of the 100 officials
-    
+
     // For officials 1-10, use the detailed predefined data
     if (officialNumber <= 10) {
       final officialSportsData = [
-      // Official 1: John Smith - Basketball & Baseball specialist, some Football
-      [
-        {'sport_id': 2, 'certification_level': 'IHSA Certified', 'years_experience': 8, 'competition_levels': 'JV,Varsity', 'is_primary': true},
-        {'sport_id': 3, 'certification_level': 'IHSA Recognized', 'years_experience': 5, 'competition_levels': 'Middle School,Underclass,JV', 'is_primary': false},
-        {'sport_id': 1, 'certification_level': 'IHSA Registered', 'years_experience': 3, 'competition_levels': 'JV', 'is_primary': false},
-      ],
-      // Official 2: Sarah Johnson - All four sports, volleyball primary
-      [
-        {'sport_id': 6, 'certification_level': 'IHSA Certified', 'years_experience': 10, 'competition_levels': 'Underclass,JV,Varsity,College', 'is_primary': true},
-        {'sport_id': 2, 'certification_level': 'IHSA Recognized', 'years_experience': 6, 'competition_levels': 'Middle School,Underclass,JV', 'is_primary': false},
-        {'sport_id': 3, 'certification_level': 'IHSA Registered', 'years_experience': 3, 'competition_levels': 'Middle School,Underclass', 'is_primary': false},
-        {'sport_id': 1, 'certification_level': 'IHSA Recognized', 'years_experience': 7, 'competition_levels': 'JV,Varsity', 'is_primary': false},
-      ],
-      // Official 3: Mike Williams - Baseball specialist with Football experience
-      [
-        {'sport_id': 3, 'certification_level': 'IHSA Certified', 'years_experience': 12, 'competition_levels': 'JV,Varsity,College', 'is_primary': true},
-        {'sport_id': 1, 'certification_level': 'IHSA Certified', 'years_experience': 10, 'competition_levels': 'Varsity,College', 'is_primary': false},
-      ],
-      // Official 4: Lisa Brown - Basketball & Volleyball
-      [
-        {'sport_id': 2, 'certification_level': 'IHSA Recognized', 'years_experience': 7, 'competition_levels': 'Middle School,Underclass,JV,Varsity', 'is_primary': true},
-        {'sport_id': 6, 'certification_level': 'IHSA Registered', 'years_experience': 4, 'competition_levels': 'Middle School,Underclass,JV', 'is_primary': false},
-      ],
-      // Official 5: David Jones - Basketball specialist with Football background
-      [
-        {'sport_id': 2, 'certification_level': 'IHSA Certified', 'years_experience': 15, 'competition_levels': 'JV,Varsity,College,Adult', 'is_primary': true},
-        {'sport_id': 1, 'certification_level': 'IHSA Recognized', 'years_experience': 12, 'competition_levels': 'Varsity,College', 'is_primary': false},
-      ],
-      // Official 6: Amy Miller - Multi-sport including Football
-      [
-        {'sport_id': 2, 'certification_level': 'IHSA Certified', 'years_experience': 9, 'competition_levels': 'Underclass,JV,Varsity', 'is_primary': true},
-        {'sport_id': 3, 'certification_level': 'IHSA Recognized', 'years_experience': 6, 'competition_levels': 'Middle School,Underclass,JV,Varsity', 'is_primary': false},
-        {'sport_id': 6, 'certification_level': 'IHSA Recognized', 'years_experience': 7, 'competition_levels': 'JV,Varsity', 'is_primary': false},
-        {'sport_id': 1, 'certification_level': 'IHSA Registered', 'years_experience': 4, 'competition_levels': 'Underclass,JV', 'is_primary': false},
-      ],
-      // Official 7: Chris Davis - Volleyball & Baseball
-      [
-        {'sport_id': 6, 'certification_level': 'IHSA Recognized', 'years_experience': 8, 'competition_levels': 'Middle School,Underclass,JV,Varsity', 'is_primary': true},
-        {'sport_id': 3, 'certification_level': 'IHSA Registered', 'years_experience': 4, 'competition_levels': 'Middle School,Underclass', 'is_primary': false},
-      ],
-      // Official 8: Jennifer Garcia - Basketball, Volleyball & Football
-      [
-        {'sport_id': 2, 'certification_level': 'IHSA Registered', 'years_experience': 5, 'competition_levels': 'Grade School,Middle School,Underclass', 'is_primary': true},
-        {'sport_id': 6, 'certification_level': 'IHSA Certified', 'years_experience': 11, 'competition_levels': 'JV,Varsity,College', 'is_primary': false},
-        {'sport_id': 1, 'certification_level': 'IHSA Registered', 'years_experience': 6, 'competition_levels': 'Middle School,Underclass,JV', 'is_primary': false},
-      ],
-      // Official 9: Robert Rodriguez - Baseball, Basketball & Football veteran
-      [
-        {'sport_id': 3, 'certification_level': 'IHSA Certified', 'years_experience': 13, 'competition_levels': 'Varsity,College,Adult', 'is_primary': true},
-        {'sport_id': 2, 'certification_level': 'IHSA Recognized', 'years_experience': 8, 'competition_levels': 'JV,Varsity', 'is_primary': false},
-        {'sport_id': 1, 'certification_level': 'IHSA Certified', 'years_experience': 15, 'competition_levels': 'Varsity,College,Adult', 'is_primary': false},
-      ],
-      // Official 10: Michelle Wilson - Volleyball specialist
-      [
-        {'sport_id': 6, 'certification_level': 'IHSA Recognized', 'years_experience': 6, 'competition_levels': 'Grade School,Middle School,Underclass,JV', 'is_primary': true},
-      ],
+        // Official 1: John Smith - Basketball & Baseball specialist, some Football
+        [
+          {
+            'sport_id': 2,
+            'certification_level': 'IHSA Certified',
+            'years_experience': 8,
+            'competition_levels': 'JV,Varsity',
+            'is_primary': true
+          },
+          {
+            'sport_id': 3,
+            'certification_level': 'IHSA Recognized',
+            'years_experience': 5,
+            'competition_levels': 'Middle School,Underclass,JV',
+            'is_primary': false
+          },
+          {
+            'sport_id': 1,
+            'certification_level': 'IHSA Registered',
+            'years_experience': 3,
+            'competition_levels': 'JV',
+            'is_primary': false
+          },
+        ],
+        // Official 2: Sarah Johnson - All four sports, volleyball primary
+        [
+          {
+            'sport_id': 6,
+            'certification_level': 'IHSA Certified',
+            'years_experience': 10,
+            'competition_levels': 'Underclass,JV,Varsity,College',
+            'is_primary': true
+          },
+          {
+            'sport_id': 2,
+            'certification_level': 'IHSA Recognized',
+            'years_experience': 6,
+            'competition_levels': 'Middle School,Underclass,JV',
+            'is_primary': false
+          },
+          {
+            'sport_id': 3,
+            'certification_level': 'IHSA Registered',
+            'years_experience': 3,
+            'competition_levels': 'Middle School,Underclass',
+            'is_primary': false
+          },
+          {
+            'sport_id': 1,
+            'certification_level': 'IHSA Recognized',
+            'years_experience': 7,
+            'competition_levels': 'JV,Varsity',
+            'is_primary': false
+          },
+        ],
+        // Official 3: Mike Williams - Baseball specialist with Football experience
+        [
+          {
+            'sport_id': 3,
+            'certification_level': 'IHSA Certified',
+            'years_experience': 12,
+            'competition_levels': 'JV,Varsity,College',
+            'is_primary': true
+          },
+          {
+            'sport_id': 1,
+            'certification_level': 'IHSA Certified',
+            'years_experience': 10,
+            'competition_levels': 'Varsity,College',
+            'is_primary': false
+          },
+        ],
+        // Official 4: Lisa Brown - Basketball & Volleyball
+        [
+          {
+            'sport_id': 2,
+            'certification_level': 'IHSA Recognized',
+            'years_experience': 7,
+            'competition_levels': 'Middle School,Underclass,JV,Varsity',
+            'is_primary': true
+          },
+          {
+            'sport_id': 6,
+            'certification_level': 'IHSA Registered',
+            'years_experience': 4,
+            'competition_levels': 'Middle School,Underclass,JV',
+            'is_primary': false
+          },
+        ],
+        // Official 5: David Jones - Basketball specialist with Football background
+        [
+          {
+            'sport_id': 2,
+            'certification_level': 'IHSA Certified',
+            'years_experience': 15,
+            'competition_levels': 'JV,Varsity,College,Adult',
+            'is_primary': true
+          },
+          {
+            'sport_id': 1,
+            'certification_level': 'IHSA Recognized',
+            'years_experience': 12,
+            'competition_levels': 'Varsity,College',
+            'is_primary': false
+          },
+        ],
+        // Official 6: Amy Miller - Multi-sport including Football
+        [
+          {
+            'sport_id': 2,
+            'certification_level': 'IHSA Certified',
+            'years_experience': 9,
+            'competition_levels': 'Underclass,JV,Varsity',
+            'is_primary': true
+          },
+          {
+            'sport_id': 3,
+            'certification_level': 'IHSA Recognized',
+            'years_experience': 6,
+            'competition_levels': 'Middle School,Underclass,JV,Varsity',
+            'is_primary': false
+          },
+          {
+            'sport_id': 6,
+            'certification_level': 'IHSA Recognized',
+            'years_experience': 7,
+            'competition_levels': 'JV,Varsity',
+            'is_primary': false
+          },
+          {
+            'sport_id': 1,
+            'certification_level': 'IHSA Registered',
+            'years_experience': 4,
+            'competition_levels': 'Underclass,JV',
+            'is_primary': false
+          },
+        ],
+        // Official 7: Chris Davis - Volleyball & Baseball
+        [
+          {
+            'sport_id': 6,
+            'certification_level': 'IHSA Recognized',
+            'years_experience': 8,
+            'competition_levels': 'Middle School,Underclass,JV,Varsity',
+            'is_primary': true
+          },
+          {
+            'sport_id': 3,
+            'certification_level': 'IHSA Registered',
+            'years_experience': 4,
+            'competition_levels': 'Middle School,Underclass',
+            'is_primary': false
+          },
+        ],
+        // Official 8: Jennifer Garcia - Basketball, Volleyball & Football
+        [
+          {
+            'sport_id': 2,
+            'certification_level': 'IHSA Registered',
+            'years_experience': 5,
+            'competition_levels': 'Grade School,Middle School,Underclass',
+            'is_primary': true
+          },
+          {
+            'sport_id': 6,
+            'certification_level': 'IHSA Certified',
+            'years_experience': 11,
+            'competition_levels': 'JV,Varsity,College',
+            'is_primary': false
+          },
+          {
+            'sport_id': 1,
+            'certification_level': 'IHSA Registered',
+            'years_experience': 6,
+            'competition_levels': 'Middle School,Underclass,JV',
+            'is_primary': false
+          },
+        ],
+        // Official 9: Robert Rodriguez - Baseball, Basketball & Football veteran
+        [
+          {
+            'sport_id': 3,
+            'certification_level': 'IHSA Certified',
+            'years_experience': 13,
+            'competition_levels': 'Varsity,College,Adult',
+            'is_primary': true
+          },
+          {
+            'sport_id': 2,
+            'certification_level': 'IHSA Recognized',
+            'years_experience': 8,
+            'competition_levels': 'JV,Varsity',
+            'is_primary': false
+          },
+          {
+            'sport_id': 1,
+            'certification_level': 'IHSA Certified',
+            'years_experience': 15,
+            'competition_levels': 'Varsity,College,Adult',
+            'is_primary': false
+          },
+        ],
+        // Official 10: Michelle Wilson - Volleyball specialist
+        [
+          {
+            'sport_id': 6,
+            'certification_level': 'IHSA Recognized',
+            'years_experience': 6,
+            'competition_levels': 'Grade School,Middle School,Underclass,JV',
+            'is_primary': true
+          },
+        ],
       ];
 
       final sportsForOfficial = officialSportsData[officialNumber - 1];
@@ -1248,8 +1455,18 @@ All users have password: test123''';
       }
     } else {
       // For officials 11-100, generate randomized sport combinations
-      final sportIds = [1, 2, 3, 4, 6]; // Football, Basketball, Baseball, Softball, Volleyball
-      final certificationLevels = ['IHSA Registered', 'IHSA Recognized', 'IHSA Certified'];
+      final sportIds = [
+        1,
+        2,
+        3,
+        4,
+        6
+      ]; // Football, Basketball, Baseball, Softball, Volleyball
+      final certificationLevels = [
+        'IHSA Registered',
+        'IHSA Recognized',
+        'IHSA Certified'
+      ];
       final competitionLevelOptions = [
         ['Grade School', 'Middle School'],
         ['Middle School', 'Underclass', 'JV'],
@@ -1261,26 +1478,28 @@ All users have password: test123''';
         ['Middle School', 'Underclass', 'JV', 'Varsity'],
         ['JV', 'Varsity', 'College'],
       ];
-      
+
       // Use officialNumber as seed for consistent randomization
-      final random = officialNumber * 17 + 42; // Simple deterministic "random" seed
-      
+      final random =
+          officialNumber * 17 + 42; // Simple deterministic "random" seed
+
       // Each official gets 1-3 sports
       final numSports = (random % 3) + 1;
       final selectedSports = <int>{};
-      
+
       // Select sports
       for (int i = 0; i < numSports; i++) {
         int sportIndex = (random + i * 7) % sportIds.length;
         selectedSports.add(sportIds[sportIndex]);
       }
-      
+
       bool isFirst = true;
       for (int sportId in selectedSports) {
         final certIndex = (random + sportId) % certificationLevels.length;
-        final levelIndex = (random + sportId * 3) % competitionLevelOptions.length;
+        final levelIndex =
+            (random + sportId * 3) % competitionLevelOptions.length;
         final experience = 2 + ((random + sportId * 5) % 18); // 2-20 years
-        
+
         await db.insert('official_sports', {
           'official_id': officialId,
           'sport_id': sportId,
@@ -1324,9 +1543,9 @@ All users have password: test123''';
                 ),
               ),
               const SizedBox(height: 20),
-              
               if (isLoading)
-                const Center(child: CircularProgressIndicator(color: efficialsBlue))
+                const Center(
+                    child: CircularProgressIndicator(color: efficialsBlue))
               else
                 Expanded(
                   child: SingleChildScrollView(
@@ -1386,8 +1605,10 @@ All users have password: test123''';
   }
 
   Widget _buildSharedPreferencesCard() {
-    final spKeys = migrationStatus['shared_preferences_keys'] as Map<String, dynamic>? ?? {};
-    
+    final spKeys =
+        migrationStatus['shared_preferences_keys'] as Map<String, dynamic>? ??
+            {};
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -1407,9 +1628,9 @@ All users have password: test123''';
           ),
           const SizedBox(height: 12),
           ...spKeys.entries.map((entry) => _buildStatusRow(
-            entry.key,
-            entry.value == true,
-          )),
+                entry.key,
+                entry.value == true,
+              )),
         ],
       ),
     );
@@ -1663,6 +1884,30 @@ All users have password: test123''';
         SizedBox(
           width: double.infinity,
           child: ElevatedButton(
+            onPressed: () => Navigator.pushNamed(context, '/official_stats'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('View Official Statistics'),
+          ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: _updateAssignerToSAOAFootball,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.amber,
+              foregroundColor: Colors.black,
+            ),
+            child: const Text('Update Assigner to SAOA Football'),
+          ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
             onPressed: _resetDatabase,
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,
@@ -1683,7 +1928,7 @@ All users have password: test123''';
 
     try {
       final db = await DatabaseHelper().database;
-      
+
       // Get officials with their sports data, ordered by email
       final officials = await db.rawQuery('''
         SELECT 
@@ -1704,7 +1949,7 @@ All users have password: test123''';
       ''');
 
       Map<String, List<Map<String, dynamic>>> officialGroups = {};
-      
+
       // Group sports by official
       for (final row in officials) {
         final key = '${row['email']}';
@@ -1716,17 +1961,18 @@ All users have password: test123''';
         }
       }
 
-      String result = '=== OFFICIALS SPORTS DETAILS (${officialGroups.length} Officials) ===\n\n';
-      
+      String result =
+          '=== OFFICIALS SPORTS DETAILS (${officialGroups.length} Officials) ===\n\n';
+
       int count = 1;
       for (final entry in officialGroups.entries) {
         if (entry.value.isEmpty) continue;
-        
+
         final firstRow = entry.value.first;
         result += '$count. ${firstRow['name']} (${entry.key})\n';
         result += '   Location: ${firstRow['city']}, ${firstRow['state']}\n';
         result += '   Sports:\n';
-        
+
         for (final sport in entry.value) {
           final isPrimary = sport['is_primary'] == 1 ? ' ⭐PRIMARY' : '';
           result += '   • ${sport['sport_name']}$isPrimary\n';
@@ -1736,7 +1982,7 @@ All users have password: test123''';
         }
         result += '\n';
         count++;
-        
+
         // Limit to first 20 to avoid too much text
         if (count > 20) {
           result += '... and ${officialGroups.length - 20} more officials\n';
@@ -1757,6 +2003,63 @@ All users have password: test123''';
     }
   }
 
+  Future<void> _updateAssignerToSAOAFootball() async {
+    setState(() {
+      isLoading = true;
+      testResult = 'Updating assigner to SAOA Football...';
+    });
+
+    try {
+      final db = await DatabaseHelper().database;
+
+      // Find the assigner user (email: assigner@test.com)
+      final assignerUsers = await db.query(
+        'users',
+        where: 'email = ? AND scheduler_type = ?',
+        whereArgs: ['assigner@test.com', 'assigner'],
+      );
+
+      if (assignerUsers.isEmpty) {
+        setState(() {
+          testResult = '❌ No assigner user found with email assigner@test.com';
+          isLoading = false;
+        });
+        return;
+      }
+
+      // Update the assigner user
+      await db.update(
+        'users',
+        {
+          'league_name': 'SAOA Football',
+          'sport': 'Football',
+        },
+        where: 'email = ? AND scheduler_type = ?',
+        whereArgs: ['assigner@test.com', 'assigner'],
+      );
+
+      setState(() {
+        testResult = '''✅ ASSIGNER UPDATED SUCCESSFULLY!
+
+Changed:
+• League Name: Metro League → SAOA Football  
+• Sport: Basketball → Football
+
+The assigner home screen will now show:
+"SAOA Football"
+"Football Assigner"
+
+You can go back to the assigner home screen to see the changes!''';
+        isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        testResult = 'Error updating assigner: $e';
+        isLoading = false;
+      });
+    }
+  }
+
   Future<void> _debugInterestIssue() async {
     setState(() {
       isLoading = true;
@@ -1766,18 +2069,19 @@ All users have password: test123''';
     try {
       final db = await DatabaseHelper().database;
       StringBuffer debug = StringBuffer();
-      
+
       // Check games table
       final games = await db.query('games', orderBy: 'id DESC', limit: 5);
       debug.writeln('=== RECENT GAMES ===');
       for (var game in games) {
-        debug.writeln('Game ID: ${game['id']} (Type: ${game['id'].runtimeType})');
+        debug.writeln(
+            'Game ID: ${game['id']} (Type: ${game['id'].runtimeType})');
         debug.writeln('  Sport: ${game['sport_id']}');
         debug.writeln('  Status: ${game['status']}');
         debug.writeln('  Created: ${game['created_at']}');
         debug.writeln('');
       }
-      
+
       // Check officials table
       final officials = await db.query('officials', limit: 3);
       debug.writeln('=== OFFICIALS ===');
@@ -1785,19 +2089,21 @@ All users have password: test123''';
         debug.writeln('Official ID: ${official['id']} - ${official['name']}');
       }
       debug.writeln('');
-      
+
       // Check game assignments
-      final assignments = await db.query('game_assignments', orderBy: 'assigned_at DESC', limit: 10);
+      final assignments = await db.query('game_assignments',
+          orderBy: 'assigned_at DESC', limit: 10);
       debug.writeln('=== GAME ASSIGNMENTS (EXPRESS INTEREST) ===');
       if (assignments.isEmpty) {
         debug.writeln('NO GAME ASSIGNMENTS FOUND!');
-        debug.writeln('This means no official has successfully expressed interest.');
+        debug.writeln(
+            'This means no official has successfully expressed interest.');
       } else {
         debug.writeln('Found ${assignments.length} assignments:');
         var pendingCount = 0;
         var acceptedCount = 0;
         var declinedCount = 0;
-        
+
         for (var assignment in assignments) {
           final status = assignment['status'] as String;
           switch (status) {
@@ -1811,23 +2117,24 @@ All users have password: test123''';
               declinedCount++;
               break;
           }
-          
+
           debug.writeln('Assignment ID: ${assignment['id']}');
           debug.writeln('  Game ID: ${assignment['game_id']}');
           debug.writeln('  Official ID: ${assignment['official_id']}');
           debug.writeln('  Status: ${assignment['status']}');
           debug.writeln('  Assigned At: ${assignment['assigned_at']}');
-          debug.writeln('  Responded At: ${assignment['responded_at'] ?? 'N/A'}');
+          debug.writeln(
+              '  Responded At: ${assignment['responded_at'] ?? 'N/A'}');
           debug.writeln('');
         }
-        
+
         debug.writeln('STATUS SUMMARY:');
         debug.writeln('  Pending: $pendingCount');
         debug.writeln('  Accepted: $acceptedCount');
         debug.writeln('  Declined: $declinedCount');
         debug.writeln('');
       }
-      
+
       // Test the specific query used by game information screen
       if (games.isNotEmpty) {
         final gameId = games.first['id'];
@@ -1840,7 +2147,7 @@ All users have password: test123''';
           WHERE ga.game_id = ? AND ga.status = 'pending'
           ORDER BY ga.assigned_at ASC
         ''', [gameId]);
-        
+
         debug.writeln('=== INTERESTED OFFICIALS FOR GAME $gameId ===');
         if (interestedQuery.isEmpty) {
           debug.writeln('NO INTERESTED OFFICIALS FOUND for game $gameId');
@@ -1871,8 +2178,8 @@ All users have password: test123''';
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: testResult.contains('error') || testResult.contains('failed')
-            ? Colors.red
-            : Colors.green,
+              ? Colors.red
+              : Colors.green,
           width: 1,
         ),
       ),

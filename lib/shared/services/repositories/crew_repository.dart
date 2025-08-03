@@ -97,6 +97,8 @@ class CrewRepository extends BaseRepository {
     final results = await rawQuery('''
       SELECT c.*, ct.required_officials, ct.level_of_competition,
              s.name as sport_name, o.name as crew_chief_name,
+             o.city as crew_chief_city, o.state as crew_chief_state,
+             o.city as crew_chief_city, o.state as crew_chief_state,
              COUNT(cm.id) as current_members
       FROM crews c
       JOIN crew_types ct ON c.crew_type_id = ct.id
@@ -129,6 +131,8 @@ class CrewRepository extends BaseRepository {
       levelOfCompetition: crewData.levelOfCompetition,
       requiredOfficials: crewData.requiredOfficials,
       crewChiefName: crewData.crewChiefName,
+      crewChiefCity: crewData.crewChiefCity,
+      crewChiefState: crewData.crewChiefState,
       members: members,
     );
   }
@@ -151,6 +155,7 @@ class CrewRepository extends BaseRepository {
     final results = await rawQuery('''
       SELECT c.*, ct.required_officials, ct.level_of_competition,
              s.name as sport_name, o.name as crew_chief_name,
+             o.city as crew_chief_city, o.state as crew_chief_state,
              COUNT(cm.id) as current_members
       FROM crews c
       JOIN crew_types ct ON c.crew_type_id = ct.id
@@ -182,6 +187,8 @@ class CrewRepository extends BaseRepository {
         levelOfCompetition: crewData.levelOfCompetition,
         requiredOfficials: crewData.requiredOfficials,
         crewChiefName: crewData.crewChiefName,
+        crewChiefCity: crewData.crewChiefCity,
+        crewChiefState: crewData.crewChiefState,
         competitionLevels: crewData.competitionLevels,
         members: members,
       ));
@@ -194,6 +201,7 @@ class CrewRepository extends BaseRepository {
     final results = await rawQuery('''
       SELECT c.*, ct.required_officials, ct.level_of_competition,
              s.name as sport_name, o.name as crew_chief_name,
+             o.city as crew_chief_city, o.state as crew_chief_state,
              COUNT(cm.id) as current_members
       FROM crews c
       JOIN crew_types ct ON c.crew_type_id = ct.id
@@ -225,6 +233,8 @@ class CrewRepository extends BaseRepository {
         levelOfCompetition: crewData.levelOfCompetition,
         requiredOfficials: crewData.requiredOfficials,
         crewChiefName: crewData.crewChiefName,
+        crewChiefCity: crewData.crewChiefCity,
+        crewChiefState: crewData.crewChiefState,
         competitionLevels: crewData.competitionLevels,
         members: members,
       ));
@@ -237,6 +247,7 @@ class CrewRepository extends BaseRepository {
     final results = await rawQuery('''
       SELECT c.*, ct.required_officials, ct.level_of_competition,
              s.name as sport_name, o.name as crew_chief_name,
+             o.city as crew_chief_city, o.state as crew_chief_state,
              cm.position, cm.game_position,
              COUNT(cm2.id) as current_members
       FROM crews c
@@ -270,6 +281,8 @@ class CrewRepository extends BaseRepository {
         levelOfCompetition: crewData.levelOfCompetition,
         requiredOfficials: crewData.requiredOfficials,
         crewChiefName: crewData.crewChiefName,
+        crewChiefCity: crewData.crewChiefCity,
+        crewChiefState: crewData.crewChiefState,
         competitionLevels: crewData.competitionLevels,
         members: members,
       ));
@@ -595,6 +608,7 @@ class CrewRepository extends BaseRepository {
     final results = await rawQuery('''
       SELECT c.*, ct.required_officials, ct.level_of_competition,
              s.name as sport_name, o.name as crew_chief_name,
+             o.city as crew_chief_city, o.state as crew_chief_state,
              COUNT(cm.id) as current_members,
              CASE WHEN ca.status IS NULL THEN 'available'
                   ELSE ca.status END as availability_status
@@ -860,7 +874,8 @@ class CrewRepository extends BaseRepository {
 
   Future<String?> _getOfficialCertification(int officialId) async {
     final results = await rawQuery('''
-      SELECT certification_level FROM officials WHERE id = ?
+      SELECT certification_level FROM official_sports 
+      WHERE official_id = ? AND is_primary = 1
     ''', [officialId]);
     
     if (results.isNotEmpty) {

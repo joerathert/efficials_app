@@ -48,8 +48,32 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
     template = args['template'] as GameTemplate?; // Extract the template
 
 
-    // If the template includes an officials list, pre-fill the selection and navigate
+    // Check for template with crew selection first
     if (template != null &&
+        template!.method == 'hire_crew' &&
+        template!.selectedCrews != null &&
+        template!.selectedCrews!.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (mounted) {
+          Navigator.pushReplacementNamed(
+            context,
+            '/review_game_info',
+            arguments: <String, dynamic>{
+              ...args,
+              'method': 'hire_crew',
+              'selectedCrews': template!.selectedCrews,
+              'selectedCrew': template!.selectedCrews!.first, // Single crew selection
+              'template': template,
+              'fromScheduleDetails':
+                  args['fromScheduleDetails'] ?? false, // Add flag
+              'scheduleId': args['scheduleId'], // Add scheduleId
+            },
+          );
+        }
+      });
+    }
+    // If the template includes an officials list, pre-fill the selection and navigate
+    else if (template != null &&
         template!.includeOfficialsList &&
         template!.officialsListName != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) async {

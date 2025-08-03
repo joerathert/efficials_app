@@ -45,8 +45,8 @@ class SchedulerBottomNavigation extends StatelessWidget {
             label: 'Schedules',
           ),
           const BottomNavigationBarItem(
-            icon: Icon(Icons.groups),
-            label: 'Teams',
+            icon: Icon(Icons.people),
+            label: 'Officials',
           ),
           const BottomNavigationBarItem(
             icon: Icon(Icons.copy),

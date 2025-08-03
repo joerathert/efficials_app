@@ -820,13 +820,13 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                         ? _showClaimGameDialog(game)
                         : _showExpressInterestDialog(game),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      foregroundColor: Colors.white,
+                      backgroundColor: game['hire_automatically'] == 1 ? Colors.green : efficialsYellow,
+                      foregroundColor: game['hire_automatically'] == 1 ? Colors.white : Colors.black,
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       minimumSize: Size.zero,
                     ),
-                    child: const Text(
-                      'Claim',
+                    child: Text(
+                      game['hire_automatically'] == 1 ? 'Claim' : 'Express Interest',
                       style: TextStyle(fontSize: 12),
                     ),
                   ),

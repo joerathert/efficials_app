@@ -74,6 +74,8 @@ import 'features/locations/edit_location_screen.dart';
 // Debug screens
 import 'features/debug/database_test_screen.dart';
 import 'features/debug/update_addresses_screen.dart';
+import 'features/debug/count_officials_test.dart';
+import 'features/debug/official_stats_screen.dart';
 
 // Crew screens
 import 'features/crews/select_crew_screen.dart';
@@ -83,6 +85,10 @@ import 'features/crews/create_crew_screen.dart';
 import 'features/crews/select_crew_members_screen.dart';
 import 'features/crews/crew_invitations_screen.dart';
 import 'features/crews/crew_details_screen.dart';
+import 'features/crews/lists_of_crews_screen.dart';
+import 'features/crews/create_new_crew_list_screen.dart';
+import 'features/crews/edit_crew_list_screen.dart';
+import 'features/crews/name_crew_list_screen.dart';
 
 // Scheduler screens
 import 'features/schedulers/backout_notifications_screen.dart';
@@ -94,20 +100,20 @@ import 'shared/models/database_models.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // Initialize sqflite for desktop platforms
   if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
   }
-  
+
   // Initialize database and run migration
   try {
     await MigrationService().initializeDatabase();
   } catch (e) {
     // Continue without database - app should still work with SharedPreferences
   }
-  
+
   runApp(const EfficialsApp());
 }
 
@@ -211,7 +217,8 @@ class EfficialsApp extends StatelessWidget {
         '/schedule_details': (context) => const ScheduleDetailsScreen(),
         '/team_schedule': (context) => const TeamScheduleScreen(),
         '/new_game_template': (context) {
-          final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+          final args = ModalRoute.of(context)!.settings.arguments
+              as Map<String, dynamic>;
           return NewGameTemplateScreen(gameData: args);
         },
         '/game_templates': (context) => const GameTemplatesScreen(),
@@ -221,19 +228,30 @@ class EfficialsApp extends StatelessWidget {
         '/additional_game_info_condensed': (context) =>
             const AdditionalGameInfoCondensedScreen(),
         '/settings': (context) => const SettingsScreen(),
-        '/assigner_sport_defaults': (context) => const AssignerSportDefaultsScreen(),
+        '/assigner_sport_defaults': (context) =>
+            const AssignerSportDefaultsScreen(),
         '/database_test': (context) => const DatabaseTestScreen(),
         '/update_addresses': (context) => const UpdateAddressesScreen(),
-        '/official_game_details': (context) => const OfficialGameDetailsScreen(),
-        '/available_game_details': (context) => const AvailableGameDetailsScreen(),
+        '/count_officials_test': (context) => const CountOfficialsTest(),
+        '/official_stats': (context) => const OfficialStatsScreen(),
+        '/official_game_details': (context) =>
+            const OfficialGameDetailsScreen(),
+        '/available_game_details': (context) =>
+            const AvailableGameDetailsScreen(),
         '/official_profile': (context) => const OfficialProfileScreen(),
-        '/official_notifications': (context) => const OfficialNotificationsScreen(),
+        '/official_notifications': (context) =>
+            const OfficialNotificationsScreen(),
         '/select_crew': (context) => const SelectCrewScreen(),
         '/filter_crews_settings': (context) => const FilterCrewsScreen(),
         '/crew_dashboard': (context) => const CrewDashboardScreen(),
         '/create_crew': (context) => const CreateCrewScreen(),
+        '/lists_of_crews': (context) => const ListsOfCrewsScreen(),
+        '/create_new_crew_list': (context) => const CreateNewCrewListScreen(),
+        '/edit_crew_list': (context) => const EditCrewListScreen(),
+        '/name_crew_list': (context) => const NameCrewListScreen(),
         '/select_crew_members': (context) {
-          final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+          final args = ModalRoute.of(context)!.settings.arguments
+              as Map<String, dynamic>;
           return SelectCrewMembersScreen(
             crewName: args['crewName'],
             crewType: args['crewType'],
@@ -246,8 +264,10 @@ class EfficialsApp extends StatelessWidget {
           final crew = ModalRoute.of(context)!.settings.arguments as Crew;
           return CrewDetailsScreen(crew: crew);
         },
-        '/backout_notifications': (context) => const BackoutNotificationsScreen(),
-        '/notification_settings': (context) => const NotificationSettingsScreen(),
+        '/backout_notifications': (context) =>
+            const BackoutNotificationsScreen(),
+        '/notification_settings': (context) =>
+            const NotificationSettingsScreen(),
       },
     );
   }

@@ -19,11 +19,11 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   void _handleSignIn() async {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
-    
+
     final result = await AuthService.login(email, password);
-    
+
     if (!mounted) return;
-    
+
     if (result.success) {
       if (result.userType == 'scheduler') {
         // CRITICAL: Also update SharedPreferences for backwards compatibility
@@ -34,7 +34,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
           schedulerTypeForPrefs = 'Athletic Director';
         }
         await prefs.setString('schedulerType', schedulerTypeForPrefs);
-        
+
         if (mounted) _navigateToSchedulerHome(result.schedulerType!);
       } else if (result.userType == 'official') {
         if (mounted) _navigateToOfficialHome();
@@ -75,7 +75,8 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   }
 
   void _handleSignUp() {
-    Navigator.pushNamed(context, '/role_selection'); // Navigate to role selection
+    Navigator.pushNamed(
+        context, '/role_selection'); // Navigate to role selection
   }
 
   @override
@@ -167,7 +168,9 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                           'Enter your password',
                           suffixIcon: IconButton(
                             icon: Icon(
-                              _showPassword ? Icons.visibility_off : Icons.visibility,
+                              _showPassword
+                                  ? Icons.visibility_off
+                                  : Icons.visibility,
                               color: secondaryTextColor,
                             ),
                             onPressed: () {
@@ -187,7 +190,8 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                 ElevatedButton(
                   onPressed: _handleSignIn,
                   style: elevatedButtonStyle(
-                    padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 50),
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 15, horizontal: 50),
                   ),
                   child: const Text('Sign In', style: signInButtonTextStyle),
                 ),
@@ -209,213 +213,953 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                   ],
                 ),
                 const SizedBox(height: 30),
-                
+
                 // Quick Access for Testing
                 if (kDebugMode)
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: darkSurface,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.grey.withOpacity(0.3)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'Quick Access (Testing)',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              color: efficialsYellow,
-                            ),
-                          ),
-                          GestureDetector(
-                            onTap: () => Navigator.pushNamed(context, '/database_test'),
-                            child: const Icon(
-                              Icons.settings,
-                              color: efficialsYellow,
-                              size: 20,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: () => _quickLogin('ad@test.com', 'test123'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.blue,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 8),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: darkSurface,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'Quick Access (Testing)',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: efficialsYellow,
                               ),
-                              child: const Text('AD', style: TextStyle(fontSize: 12)),
                             ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: () => _quickLogin('assigner@test.com', 'test123'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.green,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 8),
+                            GestureDetector(
+                              onTap: () => Navigator.pushNamed(
+                                  context, '/database_test'),
+                              child: const Icon(
+                                Icons.settings,
+                                color: efficialsYellow,
+                                size: 20,
                               ),
-                              child: const Text('Assigner', style: TextStyle(fontSize: 12)),
                             ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: () => _quickLogin('coach@test.com', 'test123'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.orange,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 8),
-                              ),
-                              child: const Text('Coach', style: TextStyle(fontSize: 12)),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: () => _quickLogin('official001@test.com', 'test123'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.purple,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 8),
-                              ),
-                              child: const Text('Official 1', style: TextStyle(fontSize: 12)),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: () => _quickLogin('official002@test.com', 'test123'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.purple,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 8),
-                              ),
-                              child: const Text('Official 2', style: TextStyle(fontSize: 12)),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: () => _quickLogin('official003@test.com', 'test123'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.purple,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 8),
-                              ),
-                              child: const Text('Official 3', style: TextStyle(fontSize: 12)),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: () => _quickLogin('official004@test.com', 'test123'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.purple,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 8),
-                              ),
-                              child: const Text('Official 4', style: TextStyle(fontSize: 12)),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: () => _quickLogin('official005@test.com', 'test123'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.purple,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 8),
-                              ),
-                              child: const Text('Official 5', style: TextStyle(fontSize: 12)),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: () => _quickLogin('official006@test.com', 'test123'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.purple,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 8),
-                              ),
-                              child: const Text('Official 6', style: TextStyle(fontSize: 12)),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: () => _quickLogin('official007@test.com', 'test123'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.purple,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 8),
-                              ),
-                              child: const Text('Official 7', style: TextStyle(fontSize: 12)),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: () => _quickLogin('official008@test.com', 'test123'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.purple,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 8),
-                              ),
-                              child: const Text('Official 8', style: TextStyle(fontSize: 12)),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: () => _quickLogin('official009@test.com', 'test123'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.purple,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 8),
-                              ),
-                              child: const Text('Official 9', style: TextStyle(fontSize: 12)),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Tap ⚙️ to create test users first',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.grey[500],
-                          fontStyle: FontStyle.italic,
+                          ],
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () =>
+                                    _quickLogin('ad@test.com', 'test123'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.blue,
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                                child: const Text('AD',
+                                    style: TextStyle(fontSize: 12)),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () =>
+                                    _quickLogin('assigner@test.com', 'test123'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.green,
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                                child: const Text('Assigner',
+                                    style: TextStyle(fontSize: 12)),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () =>
+                                    _quickLogin('coach@test.com', 'test123'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.orange,
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                                child: const Text('Coach',
+                                    style: TextStyle(fontSize: 12)),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        // Row 1: Officials 1-3
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () => _quickLogin(
+                                    'official001@test.com', 'test123'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.purple,
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                                child: const Text('D. Davis',
+                                    style: TextStyle(fontSize: 11)),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () => _quickLogin(
+                                    'official002@test.com', 'test123'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.purple,
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                                child: const Text('D. Miller',
+                                    style: TextStyle(fontSize: 11)),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () => _quickLogin(
+                                    'official003@test.com', 'test123'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.purple,
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                                child: const Text('M. Williams',
+                                    style: TextStyle(fontSize: 11)),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        // Row 2: Officials 4-6
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () => _quickLogin(
+                                    'official004@test.com', 'test123'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.purple,
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                                child: const Text('J. Smith',
+                                    style: TextStyle(fontSize: 11)),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () => _quickLogin(
+                                    'official005@test.com', 'test123'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.purple,
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                                child: const Text('R. Jones',
+                                    style: TextStyle(fontSize: 11)),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () => _quickLogin(
+                                    'official006@test.com', 'test123'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.purple,
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                                child: const Text('J. Brown',
+                                    style: TextStyle(fontSize: 11)),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        // Row 3: Officials 7-9
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () => _quickLogin(
+                                    'official007@test.com', 'test123'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.purple,
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                                child: const Text('C. Johnson',
+                                    style: TextStyle(fontSize: 11)),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () => _quickLogin(
+                                    'official008@test.com', 'test123'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.purple,
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                                child: const Text('W. Garcia',
+                                    style: TextStyle(fontSize: 11)),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () => _quickLogin(
+                                    'official009@test.com', 'test123'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.purple,
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                                child: const Text('R. Rodriguez',
+                                    style: TextStyle(fontSize: 11)),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        // Row 4: Officials 10-12
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () => _quickLogin(
+                                    'official010@test.com', 'test123'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.purple,
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                                child: const Text('J. Wilson',
+                                    style: TextStyle(fontSize: 11)),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () => _quickLogin(
+                                    'official011@test.com', 'test123'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.purple,
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                                child: const Text('T. Anderson',
+                                    style: TextStyle(fontSize: 11)),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () => _quickLogin(
+                                    'official012@test.com', 'test123'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.purple,
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                                child: const Text('C. Thompson',
+                                    style: TextStyle(fontSize: 11)),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        // Row 5: Officials 13-15
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () => _quickLogin(
+                                    'official013@test.com', 'test123'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.purple,
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                                child: const Text('C. Martinez',
+                                    style: TextStyle(fontSize: 11)),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () => _quickLogin(
+                                    'official014@test.com', 'test123'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.purple,
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                                child: const Text('D. Taylor',
+                                    style: TextStyle(fontSize: 11)),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () => _quickLogin(
+                                    'official015@test.com', 'test123'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.purple,
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                                child: const Text('M. Moore',
+                                    style: TextStyle(fontSize: 11)),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        // Row 6: Officials 16-18
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () => _quickLogin(
+                                    'official016@test.com', 'test123'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.purple,
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                                child: const Text('A. Jackson',
+                                    style: TextStyle(fontSize: 11)),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () => _quickLogin(
+                                    'official017@test.com', 'test123'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.purple,
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                                child: const Text('M. White',
+                                    style: TextStyle(fontSize: 11)),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () => _quickLogin(
+                                    'official018@test.com', 'test123'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.purple,
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                                child: const Text('D. Harris',
+                                    style: TextStyle(fontSize: 11)),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        // Row 7: Officials 19-21
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () => _quickLogin(
+                                    'official019@test.com', 'test123'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.purple,
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                                child: const Text('S. Clark',
+                                    style: TextStyle(fontSize: 11)),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () => _quickLogin(
+                                    'official020@test.com', 'test123'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.purple,
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                                child: const Text('P. Lewis',
+                                    style: TextStyle(fontSize: 11)),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () => _quickLogin(
+                                    'official021@test.com', 'test123'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.purple,
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                                child: const Text('A. Walker',
+                                    style: TextStyle(fontSize: 11)),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        // Row 8: Officials 22-24
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () => _quickLogin(
+                                    'official022@test.com', 'test123'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.purple,
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                                child: const Text('J. Hall',
+                                    style: TextStyle(fontSize: 11)),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () => _quickLogin(
+                                    'official023@test.com', 'test123'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.purple,
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                                child: const Text('K. Allen',
+                                    style: TextStyle(fontSize: 11)),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () => _quickLogin(
+                                    'official024@test.com', 'test123'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.purple,
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                                child: const Text('K. Young',
+                                    style: TextStyle(fontSize: 11)),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        // Row 9: Officials 25-27
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () => _quickLogin(
+                                    'official025@test.com', 'test123'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.purple,
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                                child: const Text('B. King',
+                                    style: TextStyle(fontSize: 11)),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () => _quickLogin(
+                                    'official026@test.com', 'test123'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.purple,
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                                child: const Text('G. Wright',
+                                    style: TextStyle(fontSize: 11)),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () => _quickLogin(
+                                    'official027@test.com', 'test123'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.purple,
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                                child: const Text('T. Lopez',
+                                    style: TextStyle(fontSize: 11)),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        // Row 10: Officials 28-30
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () => _quickLogin(
+                                    'official028@test.com', 'test123'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.purple,
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                                child: const Text('R. Hill',
+                                    style: TextStyle(fontSize: 11)),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () => _quickLogin(
+                                    'official029@test.com', 'test123'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.purple,
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                                child: const Text('J. Scott',
+                                    style: TextStyle(fontSize: 11)),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () => _quickLogin(
+                                    'official030@test.com', 'test123'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.purple,
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                                child: const Text('E. Green',
+                                    style: TextStyle(fontSize: 11)),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        // Row 11: Officials 31-33
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () => _quickLogin(
+                                    'official031@test.com', 'test123'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.purple,
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                                child: const Text('J. Adams',
+                                    style: TextStyle(fontSize: 11)),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () => _quickLogin(
+                                    'official032@test.com', 'test123'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.purple,
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                                child: const Text('R. Baker',
+                                    style: TextStyle(fontSize: 11)),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () => _quickLogin(
+                                    'official033@test.com', 'test123'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.purple,
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                                child: const Text('J. Gonzalez',
+                                    style: TextStyle(fontSize: 11)),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        // Row 12: Officials 34-36
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () => _quickLogin(
+                                    'official034@test.com', 'test123'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.purple,
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                                child: const Text('G. Nelson',
+                                    style: TextStyle(fontSize: 11)),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () => _quickLogin(
+                                    'official035@test.com', 'test123'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.purple,
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                                child: const Text('N. Carter',
+                                    style: TextStyle(fontSize: 11)),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () => _quickLogin(
+                                    'official036@test.com', 'test123'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.purple,
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                                child: const Text('E. Mitchell',
+                                    style: TextStyle(fontSize: 11)),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        // Row 13: Officials 37-39
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () => _quickLogin(
+                                    'official037@test.com', 'test123'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.purple,
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                                child: const Text('J. Perez',
+                                    style: TextStyle(fontSize: 11)),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () => _quickLogin(
+                                    'official038@test.com', 'test123'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.purple,
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                                child: const Text('S. Roberts',
+                                    style: TextStyle(fontSize: 11)),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () => _quickLogin(
+                                    'official039@test.com', 'test123'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.purple,
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                                child: const Text('L. Turner',
+                                    style: TextStyle(fontSize: 11)),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        // Row 14: Officials 40-42
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () => _quickLogin(
+                                    'official040@test.com', 'test123'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.purple,
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                                child: const Text('J. Phillips',
+                                    style: TextStyle(fontSize: 11)),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () => _quickLogin(
+                                    'official041@test.com', 'test123'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.purple,
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                                child: const Text('S. Campbell',
+                                    style: TextStyle(fontSize: 11)),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () => _quickLogin(
+                                    'official042@test.com', 'test123'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.purple,
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                                child: const Text('B. Parker',
+                                    style: TextStyle(fontSize: 11)),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        // Row 15: Officials 43-45
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () => _quickLogin(
+                                    'official043@test.com', 'test123'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.purple,
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                                child: const Text('B. Evans',
+                                    style: TextStyle(fontSize: 11)),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () => _quickLogin(
+                                    'official044@test.com', 'test123'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.purple,
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                                child: const Text('S. Edwards',
+                                    style: TextStyle(fontSize: 11)),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () => _quickLogin(
+                                    'official045@test.com', 'test123'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.purple,
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                                child: const Text('G. Collins',
+                                    style: TextStyle(fontSize: 11)),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        // Row 16: Officials 46-48
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () => _quickLogin(
+                                    'official046@test.com', 'test123'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.purple,
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                                child: const Text('F. Stewart',
+                                    style: TextStyle(fontSize: 11)),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () => _quickLogin(
+                                    'official047@test.com', 'test123'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.purple,
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                                child: const Text('R. Sanchez',
+                                    style: TextStyle(fontSize: 11)),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () => _quickLogin(
+                                    'official048@test.com', 'test123'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.purple,
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                                child: const Text('A. Morris',
+                                    style: TextStyle(fontSize: 11)),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        // Row 17: Officials 49-51
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () => _quickLogin(
+                                    'official049@test.com', 'test123'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.purple,
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                                child: const Text('P. Rogers',
+                                    style: TextStyle(fontSize: 11)),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () => _quickLogin(
+                                    'official050@test.com', 'test123'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.purple,
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                                child: const Text('J. Reed',
+                                    style: TextStyle(fontSize: 11)),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () => _quickLogin(
+                                    'official051@test.com', 'test123'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.purple,
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                                child: const Text('D. Cook',
+                                    style: TextStyle(fontSize: 11)),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Tap ⚙️ to create test users first',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey[500],
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                
+
                 const SizedBox(height: 20),
                 const Text('© 2025 Efficials', style: footerTextStyle),
               ],

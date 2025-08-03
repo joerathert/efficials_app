@@ -6,6 +6,7 @@ import '../../shared/theme.dart';
 import '../../shared/services/repositories/game_assignment_repository.dart';
 import '../../shared/services/repositories/notification_repository.dart';
 import '../../shared/services/game_service.dart';
+import '../../shared/services/user_session_service.dart';
 
 class GameInformationScreen extends StatefulWidget {
   const GameInformationScreen({super.key});
@@ -32,24 +33,28 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
   late String opponent;
   late int officialsHired;
   List<Map<String, dynamic>> interestedOfficials = [];
+  List<Map<String, dynamic>> interestedCrews = [];
   List<Map<String, dynamic>> confirmedOfficialsFromDB = [];
   List<Map<String, dynamic>> dismissedOfficials = [];
   Map<int, bool> selectedForHire = {};
-  
+  Map<int, bool> selectedCrewsForHire = {};
+
   // Repository for fetching real interested officials data
-  final GameAssignmentRepository _gameAssignmentRepo = GameAssignmentRepository();
-  
+  final GameAssignmentRepository _gameAssignmentRepo =
+      GameAssignmentRepository();
+
   // Repository for notifications
   final NotificationRepository _notificationRepo = NotificationRepository();
-  
+
   // Service for database game operations
   final GameService _gameService = GameService();
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final newArgs = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
-    
+    final newArgs =
+        ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+
     // Always try to reload database games to get fresh data
     final gameId = newArgs['id'];
     if (gameId != null && _isDatabaseGame(gameId)) {
@@ -72,12 +77,15 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
   void _initializeFromArguments(Map<String, dynamic> newArgs) {
     setState(() {
       args = Map<String, dynamic>.from(newArgs);
-      
-      sport = args['sport'] as String? ?? args['sportName'] as String? ?? 'Unknown';
+
+      sport =
+          args['sport'] as String? ?? args['sportName'] as String? ?? 'Unknown';
       scheduleName = args['scheduleName'] as String? ?? 'Unnamed';
       location = args['location'] as String? ?? 'Not set';
       selectedDate = args['date'] != null
-          ? (args['date'] is String ? DateTime.parse(args['date'] as String) : args['date'] as DateTime)
+          ? (args['date'] is String
+              ? DateTime.parse(args['date'] as String)
+              : args['date'] as DateTime)
           : null;
       selectedTime = args['time'] != null
           ? (args['time'] is String
@@ -92,7 +100,9 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
           : null;
       levelOfCompetition = args['levelOfCompetition'] as String? ?? 'Not set';
       gender = args['gender'] as String? ?? 'Not set';
-      officialsRequired = args['officialsRequired'] != null ? int.tryParse(args['officialsRequired'].toString()) : null;
+      officialsRequired = args['officialsRequired'] != null
+          ? int.tryParse(args['officialsRequired'].toString())
+          : null;
       gameFee = args['gameFee']?.toString() ?? 'Not set';
       hireAutomatically = args['hireAutomatically'] as bool? ?? false;
       isAwayGame = args['isAwayGame'] as bool? ?? false;
@@ -116,8 +126,8 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
             return Map<String, dynamic>.from(list);
           }
           return <String, dynamic>{
-            'name': 'Unknown List', 
-            'minOfficials': 0, 
+            'name': 'Unknown List',
+            'minOfficials': 0,
             'maxOfficials': 0,
             'officials': <Map<String, dynamic>>[],
           };
@@ -146,7 +156,8 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
       }
 
       // Load fresh data from database with officials data
-      final gameData = await _gameService.getGameByIdWithOfficials(databaseGameId);
+      final gameData =
+          await _gameService.getGameByIdWithOfficials(databaseGameId);
       if (gameData != null) {
         // Merge the fresh database data with the navigation args
         final updatedArgs = {
@@ -188,38 +199,52 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
     officialsHired = 0;
   }
 
-  // Load real interested officials from database
+  // Load real interested officials and crews from database
   Future<void> _loadInterestedOfficials() async {
     final gameId = args['id'];
     if (gameId == null) return;
-    
+
     try {
       // Check if this is a database game (integer ID) or SharedPreferences game (timestamp ID)
-      // Database IDs are typically small integers (1, 2, 3...) 
+      // Database IDs are typically small integers (1, 2, 3...)
       // SharedPreferences IDs are large timestamps (1721664123456...)
       int? databaseGameId;
-      
+
       if (gameId is int) {
         databaseGameId = gameId;
       } else if (gameId is String) {
         databaseGameId = int.tryParse(gameId);
       }
-      
+
       // Only try to load from database if this looks like a database game ID
       // (small integer, not a large timestamp)
       if (databaseGameId != null && databaseGameId < 1000000000000) {
-        final interestedOfficials = await _gameAssignmentRepo.getInterestedOfficialsForGame(databaseGameId);
-        final confirmedOfficials = await _gameAssignmentRepo.getConfirmedOfficialsForGame(databaseGameId);
-        final dismissedOfficials = await _gameAssignmentRepo.getGameDismissals(databaseGameId);
-        
+        final interestedOfficials = await _gameAssignmentRepo
+            .getInterestedOfficialsForGame(databaseGameId);
+        final interestedCrews =
+            await _gameAssignmentRepo.getInterestedCrewsForGame(databaseGameId);
+        final confirmedOfficials = await _gameAssignmentRepo
+            .getConfirmedOfficialsForGame(databaseGameId);
+        final dismissedOfficials =
+            await _gameAssignmentRepo.getGameDismissals(databaseGameId);
+
         setState(() {
           // Create mutable copies of the query results
-          this.interestedOfficials = List<Map<String, dynamic>>.from(interestedOfficials);
-          confirmedOfficialsFromDB = List<Map<String, dynamic>>.from(confirmedOfficials);
-          this.dismissedOfficials = List<Map<String, dynamic>>.from(dismissedOfficials);
+          this.interestedOfficials =
+              List<Map<String, dynamic>>.from(interestedOfficials);
+          this.interestedCrews =
+              List<Map<String, dynamic>>.from(interestedCrews);
+          confirmedOfficialsFromDB =
+              List<Map<String, dynamic>>.from(confirmedOfficials);
+          this.dismissedOfficials =
+              List<Map<String, dynamic>>.from(dismissedOfficials);
           selectedForHire = {};
+          selectedCrewsForHire = {};
           for (var official in this.interestedOfficials) {
             selectedForHire[official['id'] as int] = false;
+          }
+          for (var crew in this.interestedCrews) {
+            selectedCrewsForHire[crew['crew_assignment_id'] as int] = false;
           }
         });
       } else {
@@ -227,16 +252,20 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
         // as they use a different storage system
         setState(() {
           interestedOfficials = [];
+          interestedCrews = [];
           dismissedOfficials = [];
           selectedForHire = {};
+          selectedCrewsForHire = {};
         });
       }
     } catch (e) {
       print('Error loading interested officials: $e');
       setState(() {
         interestedOfficials = [];
+        interestedCrews = [];
         dismissedOfficials = [];
         selectedForHire = {};
+        selectedCrewsForHire = {};
       });
     }
   }
@@ -253,17 +282,17 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
     try {
       // Check if this is a database game (integer ID) or SharedPreferences game (timestamp ID)
       int? databaseGameId;
-      
+
       if (gameId is int) {
         databaseGameId = gameId;
       } else if (gameId is String) {
         databaseGameId = int.tryParse(gameId);
       }
-      
+
       // For database games, use the GameService
       if (databaseGameId != null && databaseGameId < 1000000000000) {
         final success = await _gameService.deleteGame(databaseGameId);
-        
+
         if (success) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -304,11 +333,11 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
   // Legacy method for SharedPreferences games (to be phased out)
   Future<void> _deleteSharedPreferencesGame(dynamic gameId) async {
     final prefs = await SharedPreferences.getInstance();
-    
+
     // Determine which storage key to use based on user role
     final schedulerType = prefs.getString('schedulerType');
     String publishedGamesKey;
-    
+
     switch (schedulerType?.toLowerCase()) {
       case 'coach':
         publishedGamesKey = 'coach_published_games';
@@ -323,17 +352,18 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
         publishedGamesKey = 'ad_published_games';
         break;
     }
-    
+
     final String? gamesJson = prefs.getString(publishedGamesKey);
     if (gamesJson != null && gamesJson.isNotEmpty) {
       try {
-        List<Map<String, dynamic>> publishedGames = List<Map<String, dynamic>>.from(jsonDecode(gamesJson));
+        List<Map<String, dynamic>> publishedGames =
+            List<Map<String, dynamic>>.from(jsonDecode(gamesJson));
         final initialCount = publishedGames.length;
         publishedGames.removeWhere((game) => game['id'] == gameId);
         final finalCount = publishedGames.length;
-        
+
         await prefs.setString(publishedGamesKey, jsonEncode(publishedGames));
-        
+
         if (initialCount > finalCount) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -398,40 +428,64 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
 
   Future<void> _confirmHires() async {
     final selectedCount = selectedForHire.values.where((v) => v).length;
-    if (selectedCount == 0) {
+    final selectedCrewCount =
+        selectedCrewsForHire.values.where((v) => v).length;
+
+    if (selectedCount == 0 && selectedCrewCount == 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select at least one official to confirm')),
+        const SnackBar(
+            content:
+                Text('Please select at least one official or crew to confirm')),
       );
       return;
     }
 
+    // Handle crew hires first
+    if (selectedCrewCount > 0) {
+      await _confirmCrewHires();
+    }
+
+    // Handle individual official hires (if any)
+    if (selectedCount == 0) return;
+
     final newTotalHired = officialsHired + selectedCount;
     if (newTotalHired > (officialsRequired ?? 0)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Cannot hire more than $officialsRequired officials')),
+        SnackBar(
+            content:
+                Text('Cannot hire more than $officialsRequired officials')),
       );
       return;
     }
 
     if (args['method'] == 'advanced' && args['selectedLists'] != null) {
       final listCounts = <String, int>{};
-      final selectedIds = selectedForHire.entries.where((e) => e.value).map((e) => e.key).toList();
-      final hiredOfficials = interestedOfficials.where((o) => selectedIds.contains(o['id'])).toList();
+      final selectedIds = selectedForHire.entries
+          .where((e) => e.value)
+          .map((e) => e.key)
+          .toList();
+      final hiredOfficials = interestedOfficials
+          .where((o) => selectedIds.contains(o['id']))
+          .toList();
 
       final prefs = await SharedPreferences.getInstance();
       final String? listsJson = prefs.getString('saved_lists');
-      final List<Map<String, dynamic>> savedListsRaw = listsJson != null && listsJson.isNotEmpty
-          ? List<Map<String, dynamic>>.from(jsonDecode(listsJson))
-          : [];
+      final List<Map<String, dynamic>> savedListsRaw =
+          listsJson != null && listsJson.isNotEmpty
+              ? List<Map<String, dynamic>>.from(jsonDecode(listsJson))
+              : [];
       final Map<String, List<Map<String, dynamic>>> savedLists = {
-        for (var list in savedListsRaw) list['name'] as String: List<Map<String, dynamic>>.from(list['officials'] ?? [])
+        for (var list in savedListsRaw)
+          list['name'] as String:
+              List<Map<String, dynamic>>.from(list['officials'] ?? [])
       };
 
       for (var official in hiredOfficials) {
         final listName = (args['selectedLists'] as List<dynamic>)
             .map((list) => Map<String, dynamic>.from(list as Map))
             .firstWhere(
-              (list) => (savedLists[list['name']] ?? []).any((o) => o['id'] == official['id']),
+              (list) => (savedLists[list['name']] ?? [])
+                  .any((o) => o['id'] == official['id']),
               orElse: () => {'name': 'Unknown'},
             )['name'];
         listCounts[listName] = (listCounts[listName] ?? 0) + 1;
@@ -441,18 +495,22 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
         final listName = (args['selectedLists'] as List<dynamic>)
             .map((list) => Map<String, dynamic>.from(list as Map))
             .firstWhere(
-              (list) => (savedLists[list['name']] ?? []).any((o) => o['id'] == official['id']),
+              (list) => (savedLists[list['name']] ?? [])
+                  .any((o) => o['id'] == official['id']),
               orElse: () => {'name': 'Unknown'},
             )['name'];
         listCounts[listName] = (listCounts[listName] ?? 0) + 1;
       }
 
-      for (var list in (args['selectedLists'] as List<dynamic>).map((list) => Map<String, dynamic>.from(list as Map))) {
+      for (var list in (args['selectedLists'] as List<dynamic>)
+          .map((list) => Map<String, dynamic>.from(list as Map))) {
         final count = listCounts[list['name']] ?? 0;
         if (count > list['maxOfficials']) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Cannot exceed max (${list['maxOfficials']}) for ${list['name']}')),
+              SnackBar(
+                  content: Text(
+                      'Cannot exceed max (${list['maxOfficials']}) for ${list['name']}')),
             );
           }
           return;
@@ -460,49 +518,57 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
       }
     }
 
-    final hiredIds = selectedForHire.entries.where((e) => e.value).map((e) => e.key).toList();
-    final hiredOfficials = interestedOfficials.where((o) => hiredIds.contains(o['id'])).toList();
+    final hiredIds = selectedForHire.entries
+        .where((e) => e.value)
+        .map((e) => e.key)
+        .toList();
+    final hiredOfficials =
+        interestedOfficials.where((o) => hiredIds.contains(o['id'])).toList();
 
     setState(() {
       officialsHired += selectedCount;
       args['officialsHired'] = officialsHired;
       selectedOfficials.addAll(hiredOfficials);
       // Create a new mutable list instead of modifying the read-only query result
-      interestedOfficials = interestedOfficials.where((o) => !hiredIds.contains(o['id'])).toList();
+      interestedOfficials = interestedOfficials
+          .where((o) => !hiredIds.contains(o['id']))
+          .toList();
       selectedForHire.clear();
     });
 
     try {
       final gameId = args['id'];
-      
+
       // Check if this is a database game (integer ID) or SharedPreferences game (timestamp ID)
       int? databaseGameId;
-      
+
       if (gameId is int) {
         databaseGameId = gameId;
       } else if (gameId is String) {
         databaseGameId = int.tryParse(gameId);
       }
-      
+
       // For database games, use the GameService
       if (databaseGameId != null && databaseGameId < 1000000000000) {
-        
         // Update the officials hired count in database
-        final updateResult = await _gameService.updateOfficialsHired(databaseGameId, officialsHired);
-        
+        final updateResult = await _gameService.updateOfficialsHired(
+            databaseGameId, officialsHired);
+
         // Update GameAssignment status from 'pending' to 'accepted' for hired officials
         for (final officialId in hiredIds) {
           try {
-            final assignmentId = await _getAssignmentId(databaseGameId, officialId);
+            final assignmentId =
+                await _getAssignmentId(databaseGameId, officialId);
             if (assignmentId > 0) {
-              await _gameAssignmentRepo.updateAssignmentStatus(assignmentId, 'accepted');
-            } else {
-            }
+              await _gameAssignmentRepo.updateAssignmentStatus(
+                  assignmentId, 'accepted');
+            } else {}
           } catch (e) {
-            print('ERROR updating assignment status for official $officialId: $e');
+            print(
+                'ERROR updating assignment status for official $officialId: $e');
           }
         }
-        
+
         if (updateResult) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -544,11 +610,11 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
   // Legacy method for SharedPreferences games (to be phased out)
   Future<void> _updateSharedPreferencesGame() async {
     final prefs = await SharedPreferences.getInstance();
-    
+
     // Determine which storage key to use based on user role
     final schedulerType = prefs.getString('schedulerType');
     String publishedGamesKey;
-    
+
     switch (schedulerType?.toLowerCase()) {
       case 'coach':
         publishedGamesKey = 'coach_published_games';
@@ -563,10 +629,11 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
         publishedGamesKey = 'ad_published_games';
         break;
     }
-    
+
     final String? gamesJson = prefs.getString(publishedGamesKey);
     if (gamesJson != null && gamesJson.isNotEmpty) {
-      List<Map<String, dynamic>> publishedGames = List<Map<String, dynamic>>.from(jsonDecode(gamesJson));
+      List<Map<String, dynamic>> publishedGames =
+          List<Map<String, dynamic>>.from(jsonDecode(gamesJson));
       final index = publishedGames.indexWhere((g) => g['id'] == args['id']);
       if (index != -1) {
         publishedGames[index] = {
@@ -585,15 +652,83 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
   }
 
   Future<int> _getAssignmentId(int gameId, int officialId) async {
-    final assignment = await _gameAssignmentRepo.getAssignmentByGameAndOfficial(gameId, officialId);
+    final assignment = await _gameAssignmentRepo.getAssignmentByGameAndOfficial(
+        gameId, officialId);
     return assignment?.id ?? 0;
+  }
+
+  Future<void> _confirmCrewHires() async {
+    try {
+      final selectedCrewAssignmentIds = selectedCrewsForHire.entries
+          .where((e) => e.value)
+          .map((e) => e.key)
+          .toList();
+
+      // Get current user ID to use as scheduler ID
+      final currentUserId =
+          await UserSessionService.instance.getCurrentUserId();
+
+      if (currentUserId == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Error: Unable to identify current user')),
+        );
+        return;
+      }
+
+      // Confirm each selected crew
+      bool allSuccessful = true;
+      for (final crewAssignmentId in selectedCrewAssignmentIds) {
+        final success = await _gameAssignmentRepo.confirmCrewHire(
+            crewAssignmentId, currentUserId);
+        if (!success) {
+          allSuccessful = false;
+          break;
+        }
+      }
+
+      if (allSuccessful) {
+        setState(() {
+          // Remove confirmed crews from interested list
+          interestedCrews.removeWhere((crew) =>
+              selectedCrewAssignmentIds.contains(crew['crew_assignment_id']));
+          selectedCrewsForHire.clear();
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                '${selectedCrewAssignmentIds.length} crew${selectedCrewAssignmentIds.length == 1 ? '' : 's'} hired successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+
+        // Reload the officials data to show the updated state
+        _loadInterestedOfficials();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to hire some crews'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      print('Error confirming crew hires: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Error confirming crew hires'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   void _navigateToOfficialProfile(String officialName) async {
     try {
       // Find the official ID by name from either selectedOfficials or confirmedOfficialsFromDB
       int? officialId;
-      
+
       // Check selectedOfficials first
       for (var official in selectedOfficials) {
         if (official['name'] == officialName) {
@@ -601,7 +736,7 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
           break;
         }
       }
-      
+
       // If not found, check confirmedOfficialsFromDB
       if (officialId == null) {
         for (var official in confirmedOfficialsFromDB) {
@@ -611,7 +746,7 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
           }
         }
       }
-      
+
       if (officialId != null) {
         // Get official data from repository including follow through rate
         final officialRepo = _gameAssignmentRepo;
@@ -627,10 +762,10 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
           FROM officials o 
           WHERE o.id = ?
         ''', [officialId]);
-        
+
         if (officialData.isNotEmpty && mounted) {
           final official = officialData.first;
-          
+
           // Create profile data compatible with OfficialProfileScreen
           final profileData = {
             'id': official['id'],
@@ -653,7 +788,7 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
             'showCareerStats': true, // Always show for scheduler view
             'followThroughRate': official['followThroughRate'] ?? 100.0,
           };
-          
+
           Navigator.pushNamed(
             context,
             '/official_profile',
@@ -683,45 +818,153 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
     }
   }
 
+  void _showCrewMembers(String crewName, int crewId) async {
+    try {
+      final crewMembers =
+          await _gameAssignmentRepo.getCrewMembersForDisplay(crewId);
+
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            backgroundColor: darkSurface,
+            title: Text(
+              'Members of "$crewName"',
+              style: const TextStyle(
+                  color: efficialsYellow,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold),
+            ),
+            content: SizedBox(
+              width: double.maxFinite,
+              height: 300,
+              child: crewMembers.isEmpty
+                  ? const Text('No members found.',
+                      style: TextStyle(color: Colors.white))
+                  : ListView.builder(
+                      itemCount: crewMembers.length,
+                      itemBuilder: (context, index) {
+                        final member = crewMembers[index];
+                        final officialName =
+                            member['name'] as String? ?? 'Unknown Official';
+                        final position =
+                            member['position'] as String? ?? 'member';
+                        final isCrewChief = position == 'crew_chief';
+
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: Row(
+                            children: [
+                              Icon(
+                                isCrewChief ? Icons.star : Icons.person,
+                                color: isCrewChief
+                                    ? efficialsYellow
+                                    : Colors.grey[400],
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  officialName,
+                                  style: TextStyle(
+                                    color: isCrewChief
+                                        ? efficialsYellow
+                                        : Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: isCrewChief
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
+                                  ),
+                                ),
+                              ),
+                              if (isCrewChief)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: efficialsYellow.withOpacity(0.2),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: const Text(
+                                    'CHIEF',
+                                    style: TextStyle(
+                                      color: efficialsYellow,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Close',
+                    style: TextStyle(color: efficialsYellow)),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      print('Error loading crew members: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Error loading crew members')),
+        );
+      }
+    }
+  }
+
   void _showListOfficials(String listName) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final String? listsJson = prefs.getString('saved_lists');
-      final List<Map<String, dynamic>> savedListsRaw = listsJson != null && listsJson.isNotEmpty
-          ? List<Map<String, dynamic>>.from(jsonDecode(listsJson))
-          : [];
-      
+      final List<Map<String, dynamic>> savedListsRaw =
+          listsJson != null && listsJson.isNotEmpty
+              ? List<Map<String, dynamic>>.from(jsonDecode(listsJson))
+              : [];
+
       final savedLists = {
-        for (var list in savedListsRaw) list['name'] as String: List<Map<String, dynamic>>.from(list['officials'] ?? [])
+        for (var list in savedListsRaw)
+          list['name'] as String:
+              List<Map<String, dynamic>>.from(list['officials'] ?? [])
       };
-      
+
       // Get the full original list
       final fullOfficialsList = savedLists[listName] ?? [];
-      
+
       // Get the game-specific officials for this list (the ones actually selected for this game)
       List<Map<String, dynamic>> gameSpecificOfficials = [];
-      
+
       if (args['method'] == 'advanced' && selectedLists.isNotEmpty) {
         // For advanced method, get officials from the specific list in selectedLists
-        
+
         final gameList = selectedLists.firstWhere(
           (list) => list['name'] == listName,
           orElse: () => <String, dynamic>{},
         );
-        
-        
-        gameSpecificOfficials = List<Map<String, dynamic>>.from(gameList['officials'] ?? []);
-      } else if (args['method'] == 'use_list' && args['selectedListName'] == listName) {
+
+        gameSpecificOfficials =
+            List<Map<String, dynamic>>.from(gameList['officials'] ?? []);
+      } else if (args['method'] == 'use_list' &&
+          args['selectedListName'] == listName) {
         // For use_list method, all selected officials are from this list
         gameSpecificOfficials = selectedOfficials;
       }
-      
+
       // Get the names of officials actually selected for this game
-      final gameOfficialNames = gameSpecificOfficials.map((o) => o['name'] as String?).toSet();
-      
+      final gameOfficialNames =
+          gameSpecificOfficials.map((o) => o['name'] as String?).toSet();
+
       // Get the names of officials who dismissed this game
-      final dismissedOfficialNames = dismissedOfficials.map((d) => d['official_name'] as String?).toSet();
-      
+      final dismissedOfficialNames =
+          dismissedOfficials.map((d) => d['official_name'] as String?).toSet();
+
       if (mounted) {
         showDialog(
           context: context,
@@ -729,13 +972,17 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
             backgroundColor: darkSurface,
             title: Text(
               'Officials in "$listName"',
-              style: const TextStyle(color: efficialsYellow, fontSize: 18, fontWeight: FontWeight.bold),
+              style: const TextStyle(
+                  color: efficialsYellow,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold),
             ),
             content: SizedBox(
               width: double.maxFinite,
               height: 400,
               child: fullOfficialsList.isEmpty
-                  ? const Text('No officials in this list.', style: TextStyle(color: Colors.white))
+                  ? const Text('No officials in this list.',
+                      style: TextStyle(color: Colors.white))
                   : Column(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -745,15 +992,19 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                             itemCount: fullOfficialsList.length,
                             itemBuilder: (context, index) {
                               final official = fullOfficialsList[index];
-                              final officialName = official['name'] as String? ?? 'Unknown Official';
-                              final isSelectedForGame = gameOfficialNames.contains(officialName);
-                              final isDismissed = dismissedOfficialNames.contains(officialName);
-                              
+                              final officialName =
+                                  official['name'] as String? ??
+                                      'Unknown Official';
+                              final isSelectedForGame =
+                                  gameOfficialNames.contains(officialName);
+                              final isDismissed =
+                                  dismissedOfficialNames.contains(officialName);
+
                               // Determine display style based on status
                               Color textColor;
                               TextDecoration decoration;
                               Color? decorationColor;
-                              
+
                               if (isDismissed) {
                                 // Dismissed officials: red with strikethrough
                                 textColor = Colors.red;
@@ -770,9 +1021,10 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                                 decoration = TextDecoration.none;
                                 decorationColor = null;
                               }
-                              
+
                               return Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 4),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 4),
                                 child: Text(
                                   '• $officialName (${official['distance']?.toStringAsFixed(1) ?? '0.0'} mi)',
                                   style: TextStyle(
@@ -807,7 +1059,8 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('Close', style: TextStyle(color: efficialsYellow)),
+                child: const Text('Close',
+                    style: TextStyle(color: efficialsYellow)),
               ),
             ],
           ),
@@ -819,9 +1072,35 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
   }
 
   Widget _buildSelectedOfficialsSection() {
-    
     if (isAwayGame) {
-      return const Text('No officials needed for away games.', style: TextStyle(fontSize: 16, color: Colors.grey));
+      return const Text('No officials needed for away games.',
+          style: TextStyle(fontSize: 16, color: Colors.grey));
+    }
+
+    // For hire_crew games, show selected crews
+    if (args['method'] == 'hire_crew') {
+      final selectedCrews = args['selectedCrews'] as List<dynamic>? ?? [];
+      if (selectedCrews.isNotEmpty) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: selectedCrews.map((crew) {
+            final crewName = crew['name'] ?? 'Unknown Crew';
+            final crewChiefName = crew['crewChiefName'] ?? 'Unknown Chief';
+            final memberCount = crew['members']?.length ?? 0;
+
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Text(
+                '• $crewName (Chief: $crewChiefName, $memberCount officials)',
+                style: const TextStyle(fontSize: 16, color: Colors.white),
+              ),
+            );
+          }).toList(),
+        );
+      } else {
+        return const Text('No crews selected.',
+            style: TextStyle(fontSize: 16, color: Colors.grey));
+      }
     }
 
     // For list-based selection methods, show clickable list names
@@ -846,28 +1125,30 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
     if (args['method'] == 'advanced' && selectedLists.isNotEmpty) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: selectedLists.map((list) => Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4),
-          child: GestureDetector(
-            onTap: () => _showListOfficials(list['name']),
-            child: Text(
-              '${list['name']} (${list['maxOfficials']} max, ${list['minOfficials']} min)',
-              style: const TextStyle(
-                fontSize: 16,
-                color: efficialsYellow,
-                decoration: TextDecoration.underline,
-                decorationColor: efficialsYellow,
-              ),
-            ),
-          ),
-        )).toList(),
+        children: selectedLists
+            .map((list) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: GestureDetector(
+                    onTap: () => _showListOfficials(list['name']),
+                    child: Text(
+                      '${list['name']} (${list['maxOfficials']} max, ${list['minOfficials']} min)',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        color: efficialsYellow,
+                        decoration: TextDecoration.underline,
+                        decorationColor: efficialsYellow,
+                      ),
+                    ),
+                  ),
+                ))
+            .toList(),
       );
     }
 
     // For manual selection, show individual officials
     if (selectedOfficials.isNotEmpty || dismissedOfficials.isNotEmpty) {
       final allOfficials = <Widget>[];
-      
+
       // Add selected officials
       for (final official in selectedOfficials) {
         allOfficials.add(
@@ -880,7 +1161,7 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
           ),
         );
       }
-      
+
       // Add dismissed officials with strikethrough
       for (final dismissal in dismissedOfficials) {
         final officialName = dismissal['official_name'] as String? ?? 'Unknown';
@@ -900,7 +1181,7 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
           ),
         );
       }
-      
+
       // Add legend if there are dismissed officials
       if (dismissedOfficials.isNotEmpty) {
         allOfficials.add(
@@ -917,14 +1198,15 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
           ),
         );
       }
-      
+
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: allOfficials,
       );
     }
 
-    return const Text('No officials selected.', style: TextStyle(fontSize: 16, color: Colors.grey));
+    return const Text('No officials selected.',
+        style: TextStyle(fontSize: 16, color: Colors.grey));
   }
 
   void _showDeleteConfirmationDialog() {
@@ -932,14 +1214,18 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: darkSurface,
-        title: const Text('Confirm Delete', 
-            style: TextStyle(color: efficialsYellow, fontSize: 20, fontWeight: FontWeight.bold)),
+        title: const Text('Confirm Delete',
+            style: TextStyle(
+                color: efficialsYellow,
+                fontSize: 20,
+                fontWeight: FontWeight.bold)),
         content: const Text('Are you sure you want to delete this game?',
             style: TextStyle(color: Colors.white)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel', style: TextStyle(color: efficialsYellow)),
+            child:
+                const Text('Cancel', style: TextStyle(color: efficialsYellow)),
           ),
           TextButton(
             onPressed: () {
@@ -958,14 +1244,19 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: darkSurface,
-        title: const Text('Remove Official', 
-            style: TextStyle(color: efficialsYellow, fontSize: 20, fontWeight: FontWeight.bold)),
-        content: Text('Are you sure you want to remove $officialName from this game?',
+        title: const Text('Remove Official',
+            style: TextStyle(
+                color: efficialsYellow,
+                fontSize: 20,
+                fontWeight: FontWeight.bold)),
+        content: Text(
+            'Are you sure you want to remove $officialName from this game?',
             style: const TextStyle(color: Colors.white)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel', style: TextStyle(color: efficialsYellow)),
+            child:
+                const Text('Cancel', style: TextStyle(color: efficialsYellow)),
           ),
           TextButton(
             onPressed: () {
@@ -979,7 +1270,8 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
     );
   }
 
-  Future<void> _removeOfficialFromGame(int officialId, String officialName) async {
+  Future<void> _removeOfficialFromGame(
+      int officialId, String officialName) async {
     final gameId = args['id'];
     if (gameId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -999,26 +1291,28 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
 
       if (databaseGameId != null && databaseGameId < 1000000000000) {
         // Remove from database
-        final success = await _gameService.removeOfficialFromGame(databaseGameId, officialId);
-        
+        final success = await _gameService.removeOfficialFromGame(
+            databaseGameId, officialId);
+
         if (success) {
           // Send notification to the official
           try {
             final prefs = await SharedPreferences.getInstance();
-            final currentUserName = prefs.getString('user_name') ?? 
-                                  prefs.getString('first_name') ?? 
-                                  prefs.getString('schedulerName') ?? 
-                                  'Scheduler';
-            
-            final gameTime = selectedTime != null 
+            final currentUserName = prefs.getString('user_name') ??
+                prefs.getString('first_name') ??
+                prefs.getString('schedulerName') ??
+                'Scheduler';
+
+            final gameTime = selectedTime != null
                 ? '${selectedTime!.hour.toString().padLeft(2, '0')}:${selectedTime!.minute.toString().padLeft(2, '0')}'
                 : 'TBD';
-            
+
             debugPrint('Creating notification for official ID: $officialId');
             debugPrint('Scheduler name: $currentUserName');
             debugPrint('Game sport: $sport, opponent: $opponent');
-                
-            final notificationId = await _notificationRepo.createOfficialRemovalNotification(
+
+            final notificationId =
+                await _notificationRepo.createOfficialRemovalNotification(
               officialId: officialId,
               schedulerName: currentUserName,
               gameSport: sport,
@@ -1031,25 +1325,27 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                 'location': location,
               },
             );
-            
-            debugPrint('Notification created successfully with ID: $notificationId');
+
+            debugPrint(
+                'Notification created successfully with ID: $notificationId');
           } catch (e) {
             debugPrint('Error sending removal notification: $e');
             // Show error to user for debugging
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('Warning: Failed to send notification to official. Error: $e'),
+                  content: Text(
+                      'Warning: Failed to send notification to official. Error: $e'),
                   backgroundColor: Colors.orange,
                   duration: const Duration(seconds: 5),
                 ),
               );
             }
           }
-          
+
           // Refresh the data to show updated state
           await _loadInterestedOfficials();
-          
+
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -1092,16 +1388,23 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
     }
   }
 
-  Map<String, int> _getSelectedCounts(Map<String, List<Map<String, dynamic>>> savedLists) {
+  Map<String, int> _getSelectedCounts(
+      Map<String, List<Map<String, dynamic>>> savedLists) {
     final listCounts = <String, int>{};
-    final selectedIds = selectedForHire.entries.where((e) => e.value).map((e) => e.key).toList();
-    final selectedOfficials = interestedOfficials.where((o) => selectedIds.contains(o['id'])).toList();
+    final selectedIds = selectedForHire.entries
+        .where((e) => e.value)
+        .map((e) => e.key)
+        .toList();
+    final selectedOfficials = interestedOfficials
+        .where((o) => selectedIds.contains(o['id']))
+        .toList();
 
     for (var official in selectedOfficials) {
       final listName = (args['selectedLists'] as List<dynamic>)
           .map((list) => Map<String, dynamic>.from(list as Map))
           .firstWhere(
-            (list) => (savedLists[list['name']] ?? []).any((o) => o['id'] == official['id']),
+            (list) => (savedLists[list['name']] ?? [])
+                .any((o) => o['id'] == official['id']),
             orElse: () => {'name': 'Unknown'},
           )['name'];
       listCounts[listName] = (listCounts[listName] ?? 0) + 1;
@@ -1111,15 +1414,23 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isAdultLevel = levelOfCompetition.toLowerCase() == 'college' || levelOfCompetition.toLowerCase() == 'adult';
+    final isAdultLevel = levelOfCompetition.toLowerCase() == 'college' ||
+        levelOfCompetition.toLowerCase() == 'adult';
     final displayGender = isAdultLevel
-        ? {'boys': 'Men', 'girls': 'Women', 'co-ed': 'Co-ed'}[gender.toLowerCase()] ?? gender
+        ? {
+              'boys': 'Men',
+              'girls': 'Women',
+              'co-ed': 'Co-ed'
+            }[gender.toLowerCase()] ??
+            gender
         : gender;
 
     final gameDetails = <String, String>{
       'Sport': sport,
       'Schedule Name': scheduleName,
-      'Date': selectedDate != null ? DateFormat('MMMM d, yyyy').format(selectedDate!) : 'Not set',
+      'Date': selectedDate != null
+          ? DateFormat('MMMM d, yyyy').format(selectedDate!)
+          : 'Not set',
       'Time': selectedTime != null ? selectedTime!.format(context) : 'Not set',
       'Location': location,
       if (!isAwayGame) ...{
@@ -1133,10 +1444,12 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
     };
 
     final requiredOfficials = officialsRequired ?? 0;
-    
+
     // Only show database confirmed officials (actual claims/assignments)
     // Do NOT include selectedOfficials as those are just pre-selected during game creation
-    final confirmedOfficials = confirmedOfficialsFromDB.map((official) => official['name'] as String).toList();
+    final confirmedOfficials = confirmedOfficialsFromDB
+        .map((official) => official['name'] as String)
+        .toList();
 
     return Scaffold(
       backgroundColor: darkBackground,
@@ -1155,7 +1468,9 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
             final returnArgs = {
               ...args,
               'date': selectedDate?.toIso8601String(),
-              'time': selectedTime != null ? '${selectedTime!.hour}:${selectedTime!.minute}' : null,
+              'time': selectedTime != null
+                  ? '${selectedTime!.hour}:${selectedTime!.minute}'
+                  : null,
               'officialsRequired': officialsRequired,
               'selectedOfficials': selectedOfficials,
               'selectedLists': selectedLists,
@@ -1175,7 +1490,11 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('Game Details', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: efficialsYellow)),
+                    const Text('Game Details',
+                        style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: efficialsYellow)),
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -1192,74 +1511,107 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                               ...args,
                               'isEdit': true,
                               'isFromGameInfo': true,
-                              'sourceScreen': args['sourceScreen'], // Pass through source info
+                              'sourceScreen': args[
+                                  'sourceScreen'], // Pass through source info
                               'scheduleName': args['scheduleName'],
                               'scheduleId': args['scheduleId'],
                             },
                           ).then((result) {
-                        if (result != null && result is Map<String, dynamic>) {
-                          setState(() {
-                            args = result;
-                            sport = args['sport'] as String? ?? sport;
-                            scheduleName = args['scheduleName'] as String? ?? scheduleName;
-                            location = args['location'] as String? ?? location;
-                            selectedDate = args['date'] != null
-                                ? (args['date'] is String ? DateTime.parse(args['date'] as String) : args['date'] as DateTime)
-                                : selectedDate;
-                            selectedTime = args['time'] != null
-                                ? (args['time'] is String
-                                    ? () {
-                                        final timeParts = (args['time'] as String).split(':');
-                                        return TimeOfDay(
-                                          hour: int.parse(timeParts[0]),
-                                          minute: int.parse(timeParts[1]),
-                                        );
-                                      }()
-                                    : args['time'] as TimeOfDay)
-                                : selectedTime;
-                            levelOfCompetition = args['levelOfCompetition'] as String? ?? levelOfCompetition;
-                            gender = args['gender'] as String? ?? gender;
-                            officialsRequired = args['officialsRequired'] != null ? int.tryParse(args['officialsRequired'].toString()) : officialsRequired;
-                            gameFee = args['gameFee']?.toString() ?? gameFee;
-                            hireAutomatically = args['hireAutomatically'] as bool? ?? hireAutomatically;
-                            isAwayGame = args['isAwayGame'] as bool? ?? isAwayGame;
-                            opponent = args['opponent'] as String? ?? opponent;
-                            officialsHired = args['officialsHired'] as int? ?? officialsHired;
-                            try {
-                              final officialsRaw = args['selectedOfficials'] as List<dynamic>? ?? [];
-                              selectedOfficials = officialsRaw.map((official) {
-                                if (official is Map) {
-                                  return Map<String, dynamic>.from(official);
+                            if (result != null &&
+                                result is Map<String, dynamic>) {
+                              setState(() {
+                                args = result;
+                                sport = args['sport'] as String? ?? sport;
+                                scheduleName =
+                                    args['scheduleName'] as String? ??
+                                        scheduleName;
+                                location =
+                                    args['location'] as String? ?? location;
+                                selectedDate = args['date'] != null
+                                    ? (args['date'] is String
+                                        ? DateTime.parse(args['date'] as String)
+                                        : args['date'] as DateTime)
+                                    : selectedDate;
+                                selectedTime = args['time'] != null
+                                    ? (args['time'] is String
+                                        ? () {
+                                            final timeParts =
+                                                (args['time'] as String)
+                                                    .split(':');
+                                            return TimeOfDay(
+                                              hour: int.parse(timeParts[0]),
+                                              minute: int.parse(timeParts[1]),
+                                            );
+                                          }()
+                                        : args['time'] as TimeOfDay)
+                                    : selectedTime;
+                                levelOfCompetition =
+                                    args['levelOfCompetition'] as String? ??
+                                        levelOfCompetition;
+                                gender = args['gender'] as String? ?? gender;
+                                officialsRequired = args['officialsRequired'] !=
+                                        null
+                                    ? int.tryParse(
+                                        args['officialsRequired'].toString())
+                                    : officialsRequired;
+                                gameFee =
+                                    args['gameFee']?.toString() ?? gameFee;
+                                hireAutomatically =
+                                    args['hireAutomatically'] as bool? ??
+                                        hireAutomatically;
+                                isAwayGame =
+                                    args['isAwayGame'] as bool? ?? isAwayGame;
+                                opponent =
+                                    args['opponent'] as String? ?? opponent;
+                                officialsHired =
+                                    args['officialsHired'] as int? ??
+                                        officialsHired;
+                                try {
+                                  final officialsRaw = args['selectedOfficials']
+                                          as List<dynamic>? ??
+                                      [];
+                                  selectedOfficials =
+                                      officialsRaw.map((official) {
+                                    if (official is Map) {
+                                      return Map<String, dynamic>.from(
+                                          official);
+                                    }
+                                    return <String, dynamic>{
+                                      'name': 'Unknown Official',
+                                      'distance': 0.0
+                                    };
+                                  }).toList();
+                                } catch (e) {
+                                  selectedOfficials = [];
                                 }
-                                return <String, dynamic>{'name': 'Unknown Official', 'distance': 0.0};
-                              }).toList();
-                            } catch (e) {
-                              selectedOfficials = [];
-                            }
-                            try {
-                              final listsRaw = args['selectedLists'] as List<dynamic>? ?? [];
-                              selectedLists = listsRaw.map((list) {
-                                if (list is Map) {
-                                  return Map<String, dynamic>.from(list);
+                                try {
+                                  final listsRaw =
+                                      args['selectedLists'] as List<dynamic>? ??
+                                          [];
+                                  selectedLists = listsRaw.map((list) {
+                                    if (list is Map) {
+                                      return Map<String, dynamic>.from(list);
+                                    }
+                                    return <String, dynamic>{
+                                      'name': 'Unknown List',
+                                      'minOfficials': 0,
+                                      'maxOfficials': 0,
+                                      'officials': <Map<String, dynamic>>[],
+                                    };
+                                  }).toList();
+                                } catch (e) {
+                                  selectedLists = [];
                                 }
-                                return <String, dynamic>{
-                                  'name': 'Unknown List', 
-                                  'minOfficials': 0, 
-                                  'maxOfficials': 0,
-                                  'officials': <Map<String, dynamic>>[],
-                                };
-                              }).toList();
-                            } catch (e) {
-                              selectedLists = [];
+                                // Load real interested officials from database
+                                _loadInterestedOfficials();
+                              });
+                              Navigator.pop(context, result);
                             }
-                            // Load real interested officials from database
-                            _loadInterestedOfficials();
-                          });
-                          Navigator.pop(context, result);
-                        }
-                      }),
-                      child: const Text('Edit', style: TextStyle(color: efficialsYellow, fontSize: 18)),
-                    ),
+                          }),
+                          child: const Text('Edit',
+                              style: TextStyle(
+                                  color: efficialsYellow, fontSize: 18)),
+                        ),
                       ],
                     ),
                   ],
@@ -1271,7 +1623,8 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 600),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -1285,70 +1638,77 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                               width: 150,
                               child: Text(
                                 '${e.key}:',
-                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.white),
+                                style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
+                                    color: Colors.white),
                               ),
                             ),
                             Expanded(
-                              child: e.key == 'Schedule Name' 
-                                ? GestureDetector(
-                                    onTap: () async {
-                                      final prefs = await SharedPreferences.getInstance();
-                                      final schedulerType = prefs.getString('schedulerType');
-                                      
-                                      if (!mounted) return;
-                                      
-                                      String route;
-                                      Map<String, dynamic> arguments;
-                                      
-                                      switch (schedulerType?.toLowerCase()) {
-                                        case 'coach':
-                                          route = '/team_schedule';
-                                          arguments = {
-                                            'teamName': scheduleName,
-                                            'focusDate': selectedDate,
-                                          };
-                                          break;
-                                        case 'athletic director':
-                                        case 'athleticdirector':
-                                        case 'ad':
-                                          route = '/schedule_details';
-                                          arguments = {
-                                            'scheduleName': scheduleName,
-                                            'focusDate': selectedDate,
-                                          };
-                                          break;
-                                        case 'assigner':
-                                        default:
-                                          route = '/assigner_manage_schedules';
-                                          arguments = {
-                                            'selectedTeam': scheduleName,
-                                            'focusDate': selectedDate,
-                                          };
-                                          break;
-                                      }
-                                      
-                                      if (mounted) {
-                                        Navigator.pushNamed(
-                                          context,
-                                          route,
-                                          arguments: arguments,
-                                        );
-                                      }
-                                    },
-                                    child: Text(
+                              child: e.key == 'Schedule Name'
+                                  ? GestureDetector(
+                                      onTap: () async {
+                                        final prefs = await SharedPreferences
+                                            .getInstance();
+                                        final schedulerType =
+                                            prefs.getString('schedulerType');
+
+                                        if (!mounted) return;
+
+                                        String route;
+                                        Map<String, dynamic> arguments;
+
+                                        switch (schedulerType?.toLowerCase()) {
+                                          case 'coach':
+                                            route = '/team_schedule';
+                                            arguments = {
+                                              'teamName': scheduleName,
+                                              'focusDate': selectedDate,
+                                            };
+                                            break;
+                                          case 'athletic director':
+                                          case 'athleticdirector':
+                                          case 'ad':
+                                            route = '/schedule_details';
+                                            arguments = {
+                                              'scheduleName': scheduleName,
+                                              'focusDate': selectedDate,
+                                            };
+                                            break;
+                                          case 'assigner':
+                                          default:
+                                            route =
+                                                '/assigner_manage_schedules';
+                                            arguments = {
+                                              'selectedTeam': scheduleName,
+                                              'focusDate': selectedDate,
+                                            };
+                                            break;
+                                        }
+
+                                        if (mounted) {
+                                          Navigator.pushNamed(
+                                            context,
+                                            route,
+                                            arguments: arguments,
+                                          );
+                                        }
+                                      },
+                                      child: Text(
+                                        e.value,
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          color: efficialsYellow,
+                                          decoration: TextDecoration.underline,
+                                          decorationColor: efficialsYellow,
+                                        ),
+                                      ),
+                                    )
+                                  : Text(
                                       e.value,
                                       style: const TextStyle(
-                                        fontSize: 16,
-                                        color: efficialsYellow,
-                                        decoration: TextDecoration.underline,
-                                        decorationColor: efficialsYellow,
-                                      ),
+                                          fontSize: 16, color: Colors.white),
                                     ),
-                                  )
-                                : Text(
-                                    e.value,
-                                    style: const TextStyle(fontSize: 16, color: Colors.white),
-                                  ),
                             ),
                           ],
                         ),
@@ -1357,19 +1717,29 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                     const SizedBox(height: 20),
                     if (!isAwayGame) ...[
                       Text(
-                        'Confirmed Officials (${confirmedOfficialsFromDB.length}/$requiredOfficials)',
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: efficialsYellow),
+                        args['method'] == 'hire_crew'
+                            ? 'Confirmed Crew (${confirmedOfficialsFromDB.length}/1)'
+                            : 'Confirmed Officials (${confirmedOfficialsFromDB.length}/$requiredOfficials)',
+                        style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: efficialsYellow),
                       ),
                       const SizedBox(height: 10),
                       if (confirmedOfficialsFromDB.isEmpty)
-                        const Text('No officials confirmed.', style: TextStyle(fontSize: 16, color: Colors.grey))
+                        Text(
+                            args['method'] == 'hire_crew'
+                                ? 'No crew confirmed.'
+                                : 'No officials confirmed.',
+                            style: const TextStyle(
+                                fontSize: 16, color: Colors.grey))
                       else
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: confirmedOfficialsFromDB.map((official) {
                             final officialName = official['name'] as String;
                             final officialId = official['id'] as int;
-                            
+
                             return Padding(
                               padding: const EdgeInsets.symmetric(vertical: 2),
                               child: Row(
@@ -1377,7 +1747,8 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                                   Expanded(
                                     child: GestureDetector(
                                       onTap: () {
-                                        _navigateToOfficialProfile(officialName);
+                                        _navigateToOfficialProfile(
+                                            officialName);
                                       },
                                       child: Text(
                                         officialName,
@@ -1392,7 +1763,8 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                                   ),
                                   IconButton(
                                     onPressed: () {
-                                      _showRemoveOfficialDialog(officialName, officialId);
+                                      _showRemoveOfficialDialog(
+                                          officialName, officialId);
                                     },
                                     icon: const Icon(
                                       Icons.remove_circle_outline,
@@ -1408,54 +1780,141 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                             );
                           }).toList(),
                         ),
-                      if (!hireAutomatically && officialsHired < requiredOfficials) ...[
+                      if (!hireAutomatically &&
+                          officialsHired < requiredOfficials) ...[
                         const SizedBox(height: 20),
-                        const Text(
-                          'Interested Officials',
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: efficialsYellow),
-                        ),
-                        const SizedBox(height: 10),
-                        if (interestedOfficials.isEmpty)
-                          _buildNoOfficialsMessage()
-                        else
-                          Column(
-                            children: interestedOfficials.map((official) {
-                              final officialId = official['id'] as int;
-                              return CheckboxListTile(
-                                title: Text(official['name'] as String, style: const TextStyle(color: Colors.white)),
-                                subtitle: Text('Distance: ${(official['distance'] as num?)?.toStringAsFixed(1) ?? '0.0'} mi', style: const TextStyle(color: Colors.grey)),
-                                value: selectedForHire[officialId] ?? false,
-                                onChanged: (value) {
-                                  setState(() {
-                                    final currentSelected = selectedForHire.values.where((v) => v).length;
-                                    if (value == true && currentSelected < requiredOfficials) {
-                                      selectedForHire[officialId] = true;
-                                    } else if (value == false) {
-                                      selectedForHire[officialId] = false;
-                                    }
-                                  });
-                                },
-                                activeColor: efficialsYellow,
-                                checkColor: efficialsBlack,
-                              );
-                            }).toList(),
+                        // Show Interested Crews section for hire_crew games, Interested Officials for others
+                        if (args['method'] == 'hire_crew') ...[
+                          const Text(
+                            'Interested Crews',
+                            style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: efficialsYellow),
                           ),
-                        if (interestedOfficials.isNotEmpty) ...[
                           const SizedBox(height: 10),
-                          Center(
-                            child: ElevatedButton(
-                              onPressed: _confirmHires,
-                              style: elevatedButtonStyle(),
-                              child: const Text('Confirm Hire(s)', style: signInButtonTextStyle),
+                          if (interestedCrews.isEmpty)
+                            _buildNoCrewsMessage()
+                          else
+                            Column(
+                              children: interestedCrews.map((crew) {
+                                final crewAssignmentId =
+                                    crew['crew_assignment_id'] as int;
+                                final crewId = crew['crew_id'] as int;
+                                final crewName = crew['crew_name'] as String;
+                                final memberCount =
+                                    crew['member_count'] as int? ?? 0;
+                                final requiredOfficials =
+                                    crew['required_officials'] as int? ?? 0;
+
+                                return CheckboxListTile(
+                                  title: GestureDetector(
+                                    onTap: () =>
+                                        _showCrewMembers(crewName, crewId),
+                                    child: Text(
+                                      crewName,
+                                      style: const TextStyle(
+                                        color: efficialsYellow,
+                                        decoration: TextDecoration.underline,
+                                        decorationColor: efficialsYellow,
+                                      ),
+                                    ),
+                                  ),
+                                  subtitle: Text(
+                                    '$memberCount members • Click crew name to view members',
+                                    style: const TextStyle(color: Colors.grey),
+                                  ),
+                                  value:
+                                      selectedCrewsForHire[crewAssignmentId] ??
+                                          false,
+                                  onChanged: (value) {
+                                    setState(() {
+                                      selectedCrewsForHire[crewAssignmentId] =
+                                          value ?? false;
+                                    });
+                                  },
+                                  activeColor: efficialsYellow,
+                                  checkColor: efficialsBlack,
+                                );
+                              }).toList(),
                             ),
+                          if (interestedCrews.isNotEmpty) ...[
+                            const SizedBox(height: 10),
+                            Center(
+                              child: ElevatedButton(
+                                onPressed: _confirmHires,
+                                style: elevatedButtonStyle(),
+                                child: const Text('Confirm Crew Hire(s)',
+                                    style: signInButtonTextStyle),
+                              ),
+                            ),
+                          ],
+                        ] else ...[
+                          const Text(
+                            'Interested Officials',
+                            style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: efficialsYellow),
                           ),
+                          const SizedBox(height: 10),
+                          if (interestedOfficials.isEmpty)
+                            _buildNoOfficialsMessage()
+                          else
+                            Column(
+                              children: interestedOfficials.map((official) {
+                                final officialId = official['id'] as int;
+                                return CheckboxListTile(
+                                  title: Text(official['name'] as String,
+                                      style:
+                                          const TextStyle(color: Colors.white)),
+                                  subtitle: Text(
+                                      'Distance: ${(official['distance'] as num?)?.toStringAsFixed(1) ?? '0.0'} mi',
+                                      style:
+                                          const TextStyle(color: Colors.grey)),
+                                  value: selectedForHire[officialId] ?? false,
+                                  onChanged: (value) {
+                                    setState(() {
+                                      final currentSelected = selectedForHire
+                                          .values
+                                          .where((v) => v)
+                                          .length;
+                                      if (value == true &&
+                                          currentSelected < requiredOfficials) {
+                                        selectedForHire[officialId] = true;
+                                      } else if (value == false) {
+                                        selectedForHire[officialId] = false;
+                                      }
+                                    });
+                                  },
+                                  activeColor: efficialsYellow,
+                                  checkColor: efficialsBlack,
+                                );
+                              }).toList(),
+                            ),
+                          if (interestedOfficials.isNotEmpty) ...[
+                            const SizedBox(height: 10),
+                            Center(
+                              child: ElevatedButton(
+                                onPressed: _confirmHires,
+                                style: elevatedButtonStyle(),
+                                child: const Text('Confirm Hire(s)',
+                                    style: signInButtonTextStyle),
+                              ),
+                            ),
+                          ],
                         ],
                       ],
-                      
-                      
                       const SizedBox(height: 20),
                     ],
-                    const Text('Selected Officials', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: efficialsYellow)),
+                    Text(
+                        args['method'] == 'hire_crew'
+                            ? 'Selected Crews'
+                            : 'Selected Officials',
+                        style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: efficialsYellow)),
                     const SizedBox(height: 10),
                     _buildSelectedOfficialsSection(),
                     const SizedBox(height: 20),
@@ -1463,7 +1922,8 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                       child: ElevatedButton(
                         onPressed: _showDeleteConfirmationDialog,
                         style: elevatedButtonStyle(backgroundColor: Colors.red),
-                        child: const Text('Delete Game', style: signInButtonTextStyle),
+                        child: const Text('Delete Game',
+                            style: signInButtonTextStyle),
                       ),
                     ),
                     const SizedBox(height: 80),
@@ -1479,7 +1939,7 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
 
   Widget _buildNoOfficialsMessage() {
     final gameId = args['id'];
-    
+
     // Check if this is a SharedPreferences game (large timestamp ID)
     bool isSharedPrefsGame = false;
     if (gameId is int && gameId > 1000000000000) {
@@ -1490,7 +1950,7 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
         isSharedPrefsGame = true;
       }
     }
-    
+
     if (isSharedPrefsGame) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1513,6 +1973,43 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
       );
     }
   }
+
+  Widget _buildNoCrewsMessage() {
+    final gameId = args['id'];
+
+    // Check if this is a SharedPreferences game (large timestamp ID)
+    bool isSharedPrefsGame = false;
+    if (gameId is int && gameId > 1000000000000) {
+      isSharedPrefsGame = true;
+    } else if (gameId is String) {
+      final parsedId = int.tryParse(gameId);
+      if (parsedId != null && parsedId > 1000000000000) {
+        isSharedPrefsGame = true;
+      }
+    }
+
+    if (isSharedPrefsGame) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Crew interest is not available for this game.',
+            style: TextStyle(fontSize: 16, color: Colors.grey),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'This game was created using the legacy system. To enable crew interest functionality, please recreate this game through the current game creation process.',
+            style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+          ),
+        ],
+      );
+    } else {
+      return const Text(
+        'No crews have expressed interest yet.',
+        style: TextStyle(fontSize: 16, color: Colors.grey),
+      );
+    }
+  }
 }
 
 class _SliverHeaderDelegate extends SliverPersistentHeaderDelegate {
@@ -1521,7 +2018,8 @@ class _SliverHeaderDelegate extends SliverPersistentHeaderDelegate {
   _SliverHeaderDelegate({required this.child});
 
   @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+  Widget build(
+      BuildContext context, double shrinkOffset, bool overlapsContent) {
     return child;
   }
 
@@ -1532,5 +2030,6 @@ class _SliverHeaderDelegate extends SliverPersistentHeaderDelegate {
   double get minExtent => 80;
 
   @override
-  bool shouldRebuild(covariant SliverPersistentHeaderDelegate oldDelegate) => true;
+  bool shouldRebuild(covariant SliverPersistentHeaderDelegate oldDelegate) =>
+      true;
 }

@@ -27,6 +27,9 @@ class _FilterCrewsScreenState extends State<FilterCrewsScreen> {
     'Adult': false,
   };
   
+  // Crew size filters - will be populated based on sport
+  Map<String, bool> crewSizes = {};
+  
   // Distance filter based on crew chief's address
   final _radiusController = TextEditingController();
   String? defaultLocationName;
@@ -37,11 +40,68 @@ class _FilterCrewsScreenState extends State<FilterCrewsScreen> {
     super.initState();
     _loadDefaultLocation();
   }
+  
+  void _initializeCrewSizeOptions(String sport) {
+    Map<String, bool> sportSpecificSizes = {};
+    
+    switch (sport.toLowerCase()) {
+      case 'football':
+        sportSpecificSizes = {
+          '4-person crew': false,
+          '5-person crew': false,
+        };
+        break;
+      case 'basketball':
+        sportSpecificSizes = {
+          '2-person crew': false,
+          '3-person crew': false,
+        };
+        break;
+      case 'baseball':
+      case 'softball':
+        sportSpecificSizes = {
+          '4-person crew': false,
+          '6-person crew': false,
+        };
+        break;
+      case 'soccer':
+        sportSpecificSizes = {
+          '3-person crew': false,
+        };
+        break;
+      case 'volleyball':
+        sportSpecificSizes = {
+          '2-person crew': false,
+        };
+        break;
+      default:
+        // Generic options for unknown sports
+        sportSpecificSizes = {
+          '2-person crew': false,
+          '3-person crew': false,
+          '4-person crew': false,
+          '5-person crew': false,
+          '6-person crew': false,
+          '7-person crew': false,
+        };
+    }
+    
+    setState(() {
+      crewSizes = sportSpecificSizes;
+    });
+  }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     _loadCurrentFilters();
+    
+    // Initialize crew size options based on sport
+    final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    final sport = args?['sport'] as String? ?? 'Unknown Sport';
+    if (crewSizes.isEmpty) {
+      _initializeCrewSizeOptions(sport);
+    }
   }
 
   Future<void> _loadDefaultLocation() async {
@@ -84,6 +144,14 @@ class _FilterCrewsScreenState extends State<FilterCrewsScreen> {
             competitionLevels[key] = levels[key] ?? false;
           });
         }
+        
+        // Load crew sizes
+        final sizes = currentFilters['crewSizes'] as Map<String, dynamic>?;
+        if (sizes != null) {
+          crewSizes.forEach((key, _) {
+            crewSizes[key] = sizes[key] ?? false;
+          });
+        }
       });
     }
   }
@@ -109,6 +177,8 @@ class _FilterCrewsScreenState extends State<FilterCrewsScreen> {
             _buildIHSACertificationSection(),
             const SizedBox(height: 24),
             _buildCompetitionLevelsSection(),
+            const SizedBox(height: 24),
+            _buildCrewSizeSection(),
             const SizedBox(height: 24),
             _buildDistanceSection(),
             const SizedBox(height: 32),
@@ -251,6 +321,56 @@ class _FilterCrewsScreenState extends State<FilterCrewsScreen> {
     );
   }
 
+  Widget _buildCrewSizeSection() {
+    final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    final sport = args?['sport'] as String? ?? 'Unknown Sport';
+    
+    return Card(
+      color: efficialsBlack,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Crew Size',
+              style: TextStyle(
+                color: efficialsWhite,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Filter $sport crews by the number of officials they contain',
+              style: TextStyle(
+                color: Colors.grey[400],
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(height: 16),
+            ...crewSizes.entries.map((entry) {
+              return CheckboxListTile(
+                title: Text(
+                  entry.key,
+                  style: const TextStyle(color: efficialsWhite),
+                ),
+                value: entry.value,
+                activeColor: efficialsYellow,
+                checkColor: efficialsBlack,
+                onChanged: (value) {
+                  setState(() {
+                    crewSizes[entry.key] = value ?? false;
+                  });
+                },
+              );
+            }).toList(),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildDistanceSection() {
     return Card(
       color: efficialsBlack,
@@ -355,36 +475,101 @@ class _FilterCrewsScreenState extends State<FilterCrewsScreen> {
       ihsaCertified = false;
       _radiusController.clear();
       competitionLevels.updateAll((key, value) => false);
+      crewSizes.updateAll((key, value) => false);
     });
   }
 
   void _applyFilters() {
-    final filters = <String, dynamic>{};
+    final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    final fromCrewListCreation = args?['fromCrewListCreation'] == true;
     
-    // Add IHSA certification filters
-    if (ihsaRegistered) filters['ihsaRegistered'] = true;
-    if (ihsaRecognized) filters['ihsaRecognized'] = true;
-    if (ihsaCertified) filters['ihsaCertified'] = true;
-    
-    // Add competition level filters
-    final selectedLevels = competitionLevels.entries
-        .where((entry) => entry.value)
-        .map((entry) => entry.key)
-        .toList();
-    if (selectedLevels.isNotEmpty) {
-      filters['competitionLevels'] = competitionLevels;
-    }
-    
-    // Add distance filter
-    final radiusText = _radiusController.text.trim();
-    if (radiusText.isNotEmpty) {
-      final radius = int.tryParse(radiusText);
-      if (radius != null && radius > 0) {
-        filters['radius'] = radius;
+    if (fromCrewListCreation) {
+      // Navigate to create_new_crew_list_screen for crew list creation
+      final filters = <String, dynamic>{};
+      
+      // Add IHSA certification filters
+      if (ihsaRegistered) filters['ihsaRegistered'] = true;
+      if (ihsaRecognized) filters['ihsaRecognized'] = true;
+      if (ihsaCertified) filters['ihsaCertified'] = true;
+      
+      // Add competition level filters
+      final selectedLevels = competitionLevels.entries
+          .where((entry) => entry.value)
+          .map((entry) => entry.key)
+          .toList();
+      if (selectedLevels.isNotEmpty) {
+        filters['competitionLevels'] = competitionLevels;
       }
+      
+      // Add crew size filters
+      final selectedSizes = crewSizes.entries
+          .where((entry) => entry.value)
+          .map((entry) => entry.key)
+          .toList();
+      if (selectedSizes.isNotEmpty) {
+        filters['crewSizes'] = crewSizes;
+      }
+      
+      // Add distance filter
+      final radiusText = _radiusController.text.trim();
+      if (radiusText.isNotEmpty) {
+        final radius = int.tryParse(radiusText);
+        if (radius != null && radius > 0) {
+          filters['radius'] = radius;
+        }
+      }
+      
+      Navigator.pushNamed(
+        context,
+        '/create_new_crew_list',
+        arguments: {
+          ...?args,
+          'filters': filters,
+        },
+      ).then((result) {
+        if (result != null && mounted) {
+          // Pop back with the result to continue the chain
+          Navigator.pop(context, result);
+        }
+      });
+    } else {
+      // Original behavior for other uses
+      final filters = <String, dynamic>{};
+      
+      // Add IHSA certification filters
+      if (ihsaRegistered) filters['ihsaRegistered'] = true;
+      if (ihsaRecognized) filters['ihsaRecognized'] = true;
+      if (ihsaCertified) filters['ihsaCertified'] = true;
+      
+      // Add competition level filters
+      final selectedLevels = competitionLevels.entries
+          .where((entry) => entry.value)
+          .map((entry) => entry.key)
+          .toList();
+      if (selectedLevels.isNotEmpty) {
+        filters['competitionLevels'] = competitionLevels;
+      }
+      
+      // Add crew size filters
+      final selectedSizes = crewSizes.entries
+          .where((entry) => entry.value)
+          .map((entry) => entry.key)
+          .toList();
+      if (selectedSizes.isNotEmpty) {
+        filters['crewSizes'] = crewSizes;
+      }
+      
+      // Add distance filter
+      final radiusText = _radiusController.text.trim();
+      if (radiusText.isNotEmpty) {
+        final radius = int.tryParse(radiusText);
+        if (radius != null && radius > 0) {
+          filters['radius'] = radius;
+        }
+      }
+      
+      Navigator.pop(context, filters);
     }
-    
-    Navigator.pop(context, filters);
   }
 
   @override

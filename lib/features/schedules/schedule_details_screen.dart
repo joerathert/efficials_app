@@ -201,7 +201,6 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
           final templates = await _gameTemplateRepository
               .getTemplatesByNameSearch(user.id!, templateName);
           if (templates.isNotEmpty) {
-
             // Get selectedLists data from SharedPreferences if method is advanced
             if (templates.first.method == 'advanced' &&
                 templates.first.id != null) {
@@ -459,6 +458,253 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
     }
   }
 
+  void _showDeleteConfirmationDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: darkSurface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text(
+          'Delete Schedule',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Colors.red,
+          ),
+        ),
+        content: const Text(
+          'Are you sure you want to delete this schedule? This action cannot be undone.',
+          style: TextStyle(color: Colors.white),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: efficialsYellow, fontSize: 16),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              _showSecondDeleteConfirmationDialog();
+            },
+            style: elevatedButtonStyle(),
+            child: const Text(
+              'Delete',
+              style: signInButtonTextStyle,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showSecondDeleteConfirmationDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: darkSurface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+                border:
+                    Border.all(color: Colors.red.withOpacity(0.3), width: 2),
+              ),
+              child: const Icon(
+                Icons.warning_amber_rounded,
+                color: Colors.red,
+                size: 28,
+              ),
+            ),
+            const SizedBox(width: 16),
+            const Expanded(
+              child: Text(
+                '⚠️ FINAL WARNING',
+                style: TextStyle(
+                  color: Colors.red,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'This action will permanently delete:',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red.withOpacity(0.3)),
+              ),
+              child: const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.schedule, color: Colors.red, size: 16),
+                      SizedBox(width: 8),
+                      Text(
+                        'The entire schedule',
+                        style: TextStyle(
+                            color: Colors.red, fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Icon(Icons.sports, color: Colors.red, size: 16),
+                      SizedBox(width: 8),
+                      Text(
+                        'All associated games',
+                        style: TextStyle(
+                            color: Colors.red, fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Icon(Icons.link, color: Colors.red, size: 16),
+                      SizedBox(width: 8),
+                      Text(
+                        'Template associations',
+                        style: TextStyle(
+                            color: Colors.red, fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'This action cannot be undone. Are you absolutely sure?',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            ),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(
+                color: efficialsYellow,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await _deleteSchedule();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text(
+              'DELETE PERMANENTLY',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _deleteSchedule() async {
+    if (scheduleId == null || scheduleName == null) return;
+
+    try {
+      // First, remove any template association
+      final user = await _userRepository.getCurrentUser();
+      if (user?.id != null) {
+        await _templateRepository.removeAssociation(user!.id!, scheduleName!);
+      }
+
+      // Then, delete all games associated with this schedule
+      final gamesToDelete =
+          await _gameService.getGamesByScheduleName(scheduleName!);
+      for (var game in gamesToDelete) {
+        final gameId = game['id'] as int?;
+        if (gameId != null) {
+          await _gameService.deleteGame(gameId);
+        }
+      }
+
+      // Finally, delete the schedule itself
+      final success = await _scheduleService.deleteSchedule(scheduleId!);
+
+      if (success) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                  'Schedule and all associated games deleted successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          Navigator.pop(context, true); // Indicate deletion
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Failed to delete schedule'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Error deleting schedule: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Error deleting schedule'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -488,6 +734,47 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
             }
           },
         ),
+        actions: [
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert, color: efficialsWhite),
+            color: darkSurface,
+            onSelected: (value) {
+              if (value == 'delete') {
+                _showDeleteConfirmationDialog();
+              }
+            },
+            itemBuilder: (context) => [
+              PopupMenuItem<String>(
+                value: 'delete',
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.red.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(Icons.delete,
+                            color: Colors.red, size: 20),
+                      ),
+                      const SizedBox(width: 12),
+                      const Text(
+                        'Delete Schedule',
+                        style: TextStyle(
+                          color: Colors.red,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -925,13 +1212,18 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                                                       color: Colors.white),
                                                 ),
                                                 const SizedBox(height: 4),
-                                                if (hiredOfficials >= requiredOfficials)
+                                                if (hiredOfficials >=
+                                                    requiredOfficials)
                                                   Container(
-                                                    padding: const EdgeInsets.symmetric(
-                                                        horizontal: 8, vertical: 4),
+                                                    padding: const EdgeInsets
+                                                        .symmetric(
+                                                        horizontal: 8,
+                                                        vertical: 4),
                                                     decoration: BoxDecoration(
                                                       color: Colors.green,
-                                                      borderRadius: BorderRadius.circular(12),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              12),
                                                     ),
                                                     child: Text(
                                                       '$hiredOfficials/$requiredOfficials officials confirmed',

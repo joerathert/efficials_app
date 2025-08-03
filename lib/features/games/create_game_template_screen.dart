@@ -25,8 +25,9 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
   int? officialsRequired;
   bool hireAutomatically = false;
   String? selectedListName;
-  String? method; // Method for officials selection: 'standard', 'use_list', 'advanced'
+  String? method; // Method for officials selection: 'standard', 'use_list', 'advanced', 'hire_crew'
   List<Map<String, dynamic>> selectedLists = []; // For advanced method
+  List<Map<String, dynamic>> selectedCrews = []; // For crew selection
   String? location; // Selected location name
   bool isEditing = false;
   GameTemplate? existingTemplate;
@@ -153,6 +154,7 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
             selectedListName = existingTemplate!.officialsListName;
             method = existingTemplate!.method;
             selectedLists = existingTemplate!.selectedLists ?? [];
+            selectedCrews = existingTemplate!.selectedCrews ?? [];
             location = existingTemplate!.location ?? location;
             includeSport = existingTemplate!.includeSport;
             includeTime = existingTemplate!.includeTime;
@@ -177,6 +179,9 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
             method = args['method'] as String?;
             selectedLists = args['selectedLists'] != null 
                 ? List<Map<String, dynamic>>.from(args['selectedLists'] as List)
+                : [];
+            selectedCrews = args['selectedCrews'] != null 
+                ? List<Map<String, dynamic>>.from(args['selectedCrews'] as List)
                 : [];
             // Check if the game has a selected list name (indicates 'use_list' method was used)
             includeOfficialsList = selectedListName != null && selectedListName!.isNotEmpty;
@@ -387,6 +392,27 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
     }
   }
 
+  Future<void> _selectCrews() async {
+    final result = await Navigator.pushNamed(
+      context,
+      '/lists_of_crews',
+      arguments: {
+        'sport': sport,
+        'fromTemplateCreation': true, // Flag to indicate we're coming from template creation
+        'method': 'hire_crew',
+      },
+    );
+    if (result != null && result is Map<String, dynamic>) {
+      setState(() {
+        // Handle crew list selection from lists screen
+        if (result['selectedCrews'] != null) {
+          selectedCrews = List<Map<String, dynamic>>.from(result['selectedCrews'] as List);
+        }
+        method = 'hire_crew';
+      });
+    }
+  }
+
   Future<void> _saveTemplate() async {
     if (_nameController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -437,6 +463,7 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
       includeOfficialsList: includeOfficialsList,
       method: method,
       selectedLists: method == 'advanced' ? selectedLists : null,
+      selectedCrews: method == 'hire_crew' ? selectedCrews : null,
       location:
           includeLocation ? location : null, // Use dropdown-selected location
       includeLocation: includeLocation,
@@ -459,6 +486,7 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
         'hireAutomatically': newTemplate.hireAutomatically,
         'method': newTemplate.method,
         'selectedLists': newTemplate.selectedLists,
+        'selectedCrews': newTemplate.selectedCrews,
         'officialsListName': newTemplate.officialsListName,
         'officialsListId': null,
         'includeScheduleName': newTemplate.includeScheduleName,
@@ -528,6 +556,7 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
           method: newTemplate.method,
           selectedOfficials: newTemplate.selectedOfficials,
           selectedLists: newTemplate.selectedLists,
+          selectedCrews: newTemplate.selectedCrews,
           officialsListName: newTemplate.officialsListName,
           includeScheduleName: newTemplate.includeScheduleName,
           includeSport: newTemplate.includeSport,
@@ -1122,6 +1151,9 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                                   if (method != 'advanced') {
                                     selectedLists.clear();
                                   }
+                                  if (method != 'hire_crew') {
+                                    selectedCrews.clear();
+                                  }
                                 });
                               },
                               items: const [
@@ -1215,26 +1247,44 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                                 )),
                               ],
                             ] else if (method == 'hire_crew') ...[
-                              Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  border: Border.all(color: Colors.grey.withOpacity(0.3)),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: const Row(
-                                  children: [
-                                    Icon(Icons.group, color: efficialsYellow),
-                                    SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        'A crew will be hired when using this template',
-                                        style: TextStyle(
-                                            fontSize: 14, color: Colors.white),
+                              GestureDetector(
+                                onTap: _selectCrews,
+                                child: Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          selectedCrews.isEmpty
+                                              ? 'Tap to select crew lists'
+                                              : 'Crew lists selected: ${selectedCrews.length}',
+                                          style: const TextStyle(
+                                              fontSize: 14, color: Colors.white),
+                                        ),
                                       ),
-                                    ),
-                                  ],
+                                      const Icon(Icons.group, color: efficialsYellow),
+                                    ],
+                                  ),
                                 ),
                               ),
+                              if (selectedCrews.isNotEmpty) ...[
+                                const SizedBox(height: 8),
+                                ...selectedCrews.map((crew) => Padding(
+                                  padding: const EdgeInsets.only(left: 16, bottom: 4),
+                                  child: Text(
+                                    '• ${crew['name']}: ${crew['sportName']} (${crew['memberCount'] ?? 0} officials)',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
+                                )),
+                              ],
                             ] else if (method == 'standard') ...[
                               Container(
                                 padding: const EdgeInsets.all(12),

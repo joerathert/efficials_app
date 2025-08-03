@@ -19,6 +19,7 @@ class _SelectCrewScreenState extends State<SelectCrewScreen> {
   String _searchQuery = '';
   bool _filtersApplied = false;
   Map<String, dynamic>? _filterSettings;
+  Set<int> _expandedCrews = {};
 
   @override
   void initState() {
@@ -230,6 +231,7 @@ class _SelectCrewScreenState extends State<SelectCrewScreen> {
     final memberCount = crew.members?.length ?? 0;
     final requiredCount = crew.requiredOfficials ?? 0;
     final isSelected = _selectedCrews.any((c) => c.id == crew.id);
+    final isExpanded = _expandedCrews.contains(crew.id);
 
     return Card(
       color: isSelected ? efficialsYellow.withOpacity(0.1) : efficialsBlack,
@@ -287,6 +289,7 @@ class _SelectCrewScreenState extends State<SelectCrewScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Sport and member count on same line
                     Row(
                       children: [
                         Icon(
@@ -302,17 +305,13 @@ class _SelectCrewScreenState extends State<SelectCrewScreen> {
                             fontSize: 14,
                           ),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
+                        const Spacer(),
                         Icon(
                           Icons.people,
                           color: Colors.grey[400],
                           size: 16,
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 4),
                         Text(
                           '$memberCount officials',
                           style: TextStyle(
@@ -320,25 +319,48 @@ class _SelectCrewScreenState extends State<SelectCrewScreen> {
                             fontSize: 14,
                           ),
                         ),
-                        const SizedBox(width: 16),
-                        Icon(
-                          Icons.person,
-                          color: Colors.grey[400],
-                          size: 16,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'Chief: ${crew.crewChiefName}',
-                            style: TextStyle(
-                              color: Colors.grey[400],
-                              fontSize: 14,
-                            ),
-                            overflow: TextOverflow.ellipsis,
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    // Crew Chief with location
+                    Text(
+                      'Crew Chief: ${crew.crewChiefName ?? 'Unknown'}${_formatLocation(crew.crewChiefCity, crew.crewChiefState)}',
+                      style: TextStyle(
+                        color: Colors.grey[400],
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    // Expandable section for crew members
+                    Row(
+                      children: [
+                        GestureDetector(
+                          onTap: () => _toggleCrewExpansion(crew.id!),
+                          child: Row(
+                            children: [
+                              Icon(
+                                isExpanded ? Icons.expand_less : Icons.expand_more,
+                                color: efficialsYellow,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                isExpanded ? 'Hide crew members' : 'Show crew members',
+                                style: const TextStyle(
+                                  color: efficialsYellow,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
                     ),
+                    if (isExpanded) ...[
+                      const SizedBox(height: 8),
+                      _buildCrewMembersList(crew),
+                    ],
                   ],
                 ),
               ),
@@ -509,6 +531,110 @@ class _SelectCrewScreenState extends State<SelectCrewScreen> {
     });
   }
 
+  void _toggleCrewExpansion(int crewId) {
+    setState(() {
+      if (_expandedCrews.contains(crewId)) {
+        _expandedCrews.remove(crewId);
+      } else {
+        _expandedCrews.add(crewId);
+      }
+    });
+  }
+
+  String _formatLocation(String? city, String? state) {
+    if (city != null && state != null && city.isNotEmpty && state.isNotEmpty) {
+      return ' ($city, $state)';
+    } else if (city != null && city.isNotEmpty) {
+      return ' ($city)';
+    } else if (state != null && state.isNotEmpty) {
+      return ' ($state)';
+    }
+    return '';
+  }
+
+  Widget _buildCrewMembersList(Crew crew) {
+    final members = crew.members ?? [];
+    
+    if (members.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: darkSurface,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(
+          'No crew members available',
+          style: TextStyle(
+            color: Colors.grey[500],
+            fontSize: 14,
+            fontStyle: FontStyle.italic,
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: darkSurface,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Crew Members:',
+            style: TextStyle(
+              color: Colors.grey[300],
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          ...members.map((member) => Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.person_outline,
+                  color: Colors.grey[500],
+                  size: 16,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    member.officialName ?? 'Unknown Official',
+                    style: TextStyle(
+                      color: Colors.grey[400],
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+                if (member.position != 'member') ...[
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: efficialsYellow.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      member.position.toUpperCase(),
+                      style: const TextStyle(
+                        color: efficialsYellow,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          )).toList(),
+        ],
+      ),
+    );
+  }
+
   void _proceedWithSelectedCrews() {
     if (_selectedCrews.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -520,16 +646,32 @@ class _SelectCrewScreenState extends State<SelectCrewScreen> {
     }
 
     final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+    final isFromTemplateCreation = args['fromTemplateCreation'] as bool? ?? false;
     
-    Navigator.pushNamed(
-      context,
-      '/review_game_info',
-      arguments: {
-        ...args,
-        'selectedCrews': _selectedCrews,
-        'selectedCrew': _selectedCrews.length == 1 ? _selectedCrews.first : null, // For backward compatibility
+    if (isFromTemplateCreation) {
+      // Return the selected crews to the template creation screen
+      Navigator.pop(context, {
+        'selectedCrews': _selectedCrews.map((crew) => {
+          'id': crew.id,
+          'name': crew.name,
+          'sportName': crew.sportName,
+          'memberCount': crew.members?.length ?? 0,
+          'crewChiefName': crew.crewChiefName,
+        }).toList(),
         'method': 'hire_crew',
-      },
-    );
+      });
+    } else {
+      // Normal game creation flow
+      Navigator.pushNamed(
+        context,
+        '/review_game_info',
+        arguments: {
+          ...args,
+          'selectedCrews': _selectedCrews,
+          'selectedCrew': _selectedCrews.length == 1 ? _selectedCrews.first : null, // For backward compatibility
+          'method': 'hire_crew',
+        },
+      );
+    }
   }
 }
