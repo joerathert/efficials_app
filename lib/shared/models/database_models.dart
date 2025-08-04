@@ -139,6 +139,7 @@ class Schedule {
   final String name;
   final int sportId;
   final int userId;
+  final String? homeTeamName;
   final DateTime createdAt;
 
   // Joined data
@@ -149,6 +150,7 @@ class Schedule {
     required this.name,
     required this.sportId,
     required this.userId,
+    this.homeTeamName,
     DateTime? createdAt,
     this.sportName,
   }) : createdAt = createdAt ?? DateTime.now();
@@ -159,6 +161,7 @@ class Schedule {
       'name': name,
       'sport_id': sportId,
       'user_id': userId,
+      'home_team_name': homeTeamName,
       'created_at': createdAt.toIso8601String(),
     };
   }
@@ -169,6 +172,7 @@ class Schedule {
       name: map['name'] ?? '',
       sportId: map['sport_id']?.toInt() ?? 0,
       userId: map['user_id']?.toInt() ?? 0,
+      homeTeamName: map['home_team_name'],
       createdAt:
           DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
       sportName: map['sport_name'],
@@ -180,6 +184,7 @@ class Schedule {
     String? name,
     int? sportId,
     int? userId,
+    String? homeTeamName,
     DateTime? createdAt,
     String? sportName,
   }) {
@@ -188,6 +193,7 @@ class Schedule {
       name: name ?? this.name,
       sportId: sportId ?? this.sportId,
       userId: userId ?? this.userId,
+      homeTeamName: homeTeamName ?? this.homeTeamName,
       createdAt: createdAt ?? this.createdAt,
       sportName: sportName ?? this.sportName,
     );
@@ -364,6 +370,7 @@ class Game {
 
   // Joined data
   final String? scheduleName;
+  final String? scheduleHomeTeamName;
   final String? sportName;
   final String? locationName;
   final List<Official> assignedOfficials;
@@ -390,6 +397,7 @@ class Game {
     DateTime? createdAt,
     DateTime? updatedAt,
     this.scheduleName,
+    this.scheduleHomeTeamName,
     this.sportName,
     this.locationName,
     this.assignedOfficials = const [],
@@ -471,6 +479,7 @@ class Game {
       updatedAt:
           DateTime.parse(map['updated_at'] ?? DateTime.now().toIso8601String()),
       scheduleName: map['schedule_name'],
+      scheduleHomeTeamName: map['schedule_home_team_name'],
       sportName: map['sport_name'],
       locationName: map['location_name'],
     );
@@ -499,6 +508,7 @@ class Game {
     DateTime? createdAt,
     DateTime? updatedAt,
     String? scheduleName,
+    String? scheduleHomeTeamName,
     String? sportName,
     String? locationName,
     List<Official>? assignedOfficials,
@@ -524,6 +534,7 @@ class Game {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? DateTime.now(),
       scheduleName: scheduleName ?? this.scheduleName,
+      scheduleHomeTeamName: scheduleHomeTeamName ?? this.scheduleHomeTeamName,
       sportName: sportName ?? this.sportName,
       locationName: locationName ?? this.locationName,
       assignedOfficials: assignedOfficials ?? this.assignedOfficials,
@@ -1050,6 +1061,7 @@ class OfficialSport {
   final int sportId;
   final String? certificationLevel;
   final int? yearsExperience;
+  final String? competitionLevels;
   final bool isPrimary;
   final DateTime createdAt;
 
@@ -1062,6 +1074,7 @@ class OfficialSport {
     required this.sportId,
     this.certificationLevel,
     this.yearsExperience,
+    this.competitionLevels,
     this.isPrimary = false,
     DateTime? createdAt,
     this.sportName,
@@ -1074,6 +1087,7 @@ class OfficialSport {
       'sport_id': sportId,
       'certification_level': certificationLevel,
       'years_experience': yearsExperience,
+      'competition_levels': competitionLevels,
       'is_primary': isPrimary ? 1 : 0,
       'created_at': createdAt.toIso8601String(),
     };
@@ -1086,6 +1100,7 @@ class OfficialSport {
       sportId: map['sport_id']?.toInt() ?? 0,
       certificationLevel: map['certification_level'],
       yearsExperience: map['years_experience']?.toInt(),
+      competitionLevels: map['competition_levels'],
       isPrimary: (map['is_primary'] ?? 0) == 1,
       createdAt:
           DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),

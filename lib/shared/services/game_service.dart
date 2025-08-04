@@ -770,52 +770,20 @@ class GameService {
   Future<void> createInitialAssignments(
       int gameId, String method, Map<String, dynamic> gameData) async {
     try {
-      // SAFEGUARD: Advanced Method should NEVER create initial assignments
-      if (method == 'advanced') {
-        debugPrint('WARNING: createInitialAssignments called for Advanced Method game $gameId - this should not happen!');
+      // CRITICAL FIX: Do NOT create initial assignments for use_list or advanced methods
+      // Officials should only appear as "interested" when they actually express interest
+      // The selectedOfficials from list creation are just pre-selected, not interested
+      if (method == 'use_list' || method == 'advanced') {
+        debugPrint(
+            'FIXED: No initial assignments created for $method game $gameId - officials must express interest manually');
         return;
       }
-      
+
       final userId = await _getCurrentUserId();
 
-      if (method == 'use_list' && gameData['selectedListName'] != null) {
-        // Get officials from the selected list
-        final officials = await _getOfficialsFromListName(
-            gameData['selectedListName'] as String);
-        if (officials.isNotEmpty) {
-          await _gameAssignmentRepo.createInitialAssignmentsFromList(
-              gameId, officials, userId);
-          debugPrint(
-              'Created initial assignments for ${officials.length} officials from list: ${gameData['selectedListName']}');
-        }
-      } else if (method == 'advanced' && gameData['selectedLists'] != null) {
-        // Get officials from all selected lists
-        final selectedLists = gameData['selectedLists'] as List<dynamic>;
-        final allOfficials = <Map<String, dynamic>>[];
-        final officialIds = <int>{};
-
-        for (final list in selectedLists) {
-          final listData = list as Map<String, dynamic>;
-          final officials =
-              List<Map<String, dynamic>>.from(listData['officials'] ?? []);
-
-          // Avoid duplicates
-          for (final official in officials) {
-            final officialId = official['id'] as int;
-            if (!officialIds.contains(officialId)) {
-              allOfficials.add(official);
-              officialIds.add(officialId);
-            }
-          }
-        }
-
-        if (allOfficials.isNotEmpty) {
-          await _gameAssignmentRepo.createInitialAssignmentsFromList(
-              gameId, allOfficials, userId);
-          debugPrint(
-              'Created initial assignments for ${allOfficials.length} officials from ${selectedLists.length} lists');
-        }
-      }
+      // Only create initial assignments for manual method if needed in the future
+      // Currently no implementation needed as manual method doesn't pre-select officials
+      debugPrint('No initial assignments needed for method: $method');
     } catch (e) {
       debugPrint('Error creating initial assignments: $e');
     }
@@ -1017,7 +985,7 @@ class GameService {
       'officialsHired': game.officialsHired,
       'gameFee': game.gameFee,
       'opponent': game.opponent,
-      'homeTeam': game.homeTeam,
+      'homeTeam': game.homeTeam ?? game.scheduleHomeTeamName ?? 'Home Team',
       'hireAutomatically': game.hireAutomatically,
       'method': game.method,
       'status': game.status,

@@ -26,7 +26,7 @@ class ScheduleService {
     try {
       final userId = await _getCurrentUserId();
       final schedules = await _scheduleRepository.getSchedulesByUser(userId);
-      
+
       // Convert to the format expected by the UI
       return schedules.map((schedule) => _scheduleToMap(schedule)).toList();
     } catch (e) {
@@ -36,14 +36,16 @@ class ScheduleService {
   }
 
   // Get schedules by sport
-  Future<List<Map<String, dynamic>>> getSchedulesBySport(String sportName) async {
+  Future<List<Map<String, dynamic>>> getSchedulesBySport(
+      String sportName) async {
     try {
       final userId = await _getCurrentUserId();
       final sport = await _sportRepository.getSportByName(sportName);
       if (sport == null) return [];
 
-      final schedules = await _scheduleRepository.getSchedulesBySport(userId, sport.id!);
-      
+      final schedules =
+          await _scheduleRepository.getSchedulesBySport(userId, sport.id!);
+
       return schedules.map((schedule) => _scheduleToMap(schedule)).toList();
     } catch (e) {
       debugPrint('Error getting schedules by sport: $e');
@@ -66,17 +68,20 @@ class ScheduleService {
   Future<Map<String, dynamic>?> createSchedule({
     required String name,
     required String sportName,
+    String? homeTeamName,
   }) async {
     try {
       final userId = await _getCurrentUserId();
-      
+
       // Get or create sport
       final sport = await _sportRepository.getOrCreateSport(sportName);
-      
+
       // Check if schedule already exists
-      final exists = await _scheduleRepository.doesScheduleExist(userId, name, sport.id!);
+      final exists =
+          await _scheduleRepository.doesScheduleExist(userId, name, sport.id!);
       if (exists) {
-        debugPrint('Schedule with name "$name" already exists for sport "$sportName"');
+        debugPrint(
+            'Schedule with name "$name" already exists for sport "$sportName"');
         return null;
       }
 
@@ -84,12 +89,14 @@ class ScheduleService {
         name: name,
         sportId: sport.id!,
         userId: userId,
+        homeTeamName: homeTeamName,
         createdAt: DateTime.now(),
       );
 
       final scheduleId = await _scheduleRepository.createSchedule(schedule);
-      final createdSchedule = await _scheduleRepository.getScheduleById(scheduleId);
-      
+      final createdSchedule =
+          await _scheduleRepository.getScheduleById(scheduleId);
+
       return createdSchedule != null ? _scheduleToMap(createdSchedule) : null;
     } catch (e) {
       debugPrint('Error creating schedule: $e');
@@ -105,19 +112,16 @@ class ScheduleService {
   }) async {
     try {
       final userId = await _getCurrentUserId();
-      
+
       // Get or create sport
       final sport = await _sportRepository.getOrCreateSport(sportName);
-      
+
       // Check if schedule name already exists (excluding current schedule)
-      final exists = await _scheduleRepository.doesScheduleExist(
-        userId, 
-        name, 
-        sport.id!, 
-        excludeId: scheduleId
-      );
+      final exists = await _scheduleRepository
+          .doesScheduleExist(userId, name, sport.id!, excludeId: scheduleId);
       if (exists) {
-        debugPrint('Schedule with name "$name" already exists for sport "$sportName"');
+        debugPrint(
+            'Schedule with name "$name" already exists for sport "$sportName"');
         return null;
       }
 
@@ -126,12 +130,14 @@ class ScheduleService {
         name: name,
         sportId: sport.id!,
         userId: userId,
-        createdAt: DateTime.now(), // This will be overwritten by existing created_at
+        createdAt:
+            DateTime.now(), // This will be overwritten by existing created_at
       );
 
       await _scheduleRepository.updateSchedule(schedule);
-      final updatedSchedule = await _scheduleRepository.getScheduleById(scheduleId);
-      
+      final updatedSchedule =
+          await _scheduleRepository.getScheduleById(scheduleId);
+
       return updatedSchedule != null ? _scheduleToMap(updatedSchedule) : null;
     } catch (e) {
       debugPrint('Error updating schedule: $e');
@@ -140,10 +146,12 @@ class ScheduleService {
   }
 
   // Update schedule name only
-  Future<Map<String, dynamic>?> updateScheduleName(int scheduleId, String newName) async {
+  Future<Map<String, dynamic>?> updateScheduleName(
+      int scheduleId, String newName) async {
     try {
       // Get the existing schedule
-      final existingSchedule = await _scheduleRepository.getScheduleById(scheduleId);
+      final existingSchedule =
+          await _scheduleRepository.getScheduleById(scheduleId);
       if (existingSchedule == null) {
         debugPrint('Schedule with ID $scheduleId not found');
         return null;
@@ -176,8 +184,9 @@ class ScheduleService {
   Future<List<Map<String, dynamic>>> searchSchedules(String searchTerm) async {
     try {
       final userId = await _getCurrentUserId();
-      final schedules = await _scheduleRepository.searchSchedulesByName(userId, searchTerm);
-      
+      final schedules =
+          await _scheduleRepository.searchSchedulesByName(userId, searchTerm);
+
       return schedules.map((schedule) => _scheduleToMap(schedule)).toList();
     } catch (e) {
       debugPrint('Error searching schedules: $e');
@@ -211,12 +220,15 @@ class ScheduleService {
   Future<List<Map<String, dynamic>>> getSchedulesWithGameCounts() async {
     try {
       final userId = await _getCurrentUserId();
-      final results = await _scheduleRepository.getSchedulesWithGameCounts(userId);
-      
-      return results.map((result) => {
-        'schedule': _scheduleToMap(result['schedule'] as Schedule),
-        'gameCount': result['game_count'] as int,
-      }).toList();
+      final results =
+          await _scheduleRepository.getSchedulesWithGameCounts(userId);
+
+      return results
+          .map((result) => {
+                'schedule': _scheduleToMap(result['schedule'] as Schedule),
+                'gameCount': result['game_count'] as int,
+              })
+          .toList();
     } catch (e) {
       debugPrint('Error getting schedules with game counts: $e');
       return [];
@@ -228,7 +240,7 @@ class ScheduleService {
     try {
       final userId = await _getCurrentUserId();
       final schedules = await _scheduleRepository.getRecentSchedules(userId);
-      
+
       return schedules.map((schedule) => _scheduleToMap(schedule)).toList();
     } catch (e) {
       debugPrint('Error getting recent schedules: $e');
@@ -243,13 +255,14 @@ class ScheduleService {
   }) async {
     try {
       final userId = await _getCurrentUserId();
-      
+
       // Get or create sport
       final sport = await _sportRepository.getOrCreateSport(sportName);
-      
+
       // Get or create schedule
-      final schedule = await _scheduleRepository.getOrCreateSchedule(userId, name, sport.id!);
-      
+      final schedule = await _scheduleRepository.getOrCreateSchedule(
+          userId, name, sport.id!);
+
       return _scheduleToMap(schedule);
     } catch (e) {
       debugPrint('Error getting or creating schedule: $e');
@@ -297,7 +310,8 @@ class ScheduleService {
       final sport = await _sportRepository.getSportByName(sportName);
       if (sport == null) return false;
 
-      return await _scheduleRepository.doesScheduleExist(userId, name, sport.id!);
+      return await _scheduleRepository.doesScheduleExist(
+          userId, name, sport.id!);
     } catch (e) {
       debugPrint('Error checking if schedule exists: $e');
       return false;
@@ -314,15 +328,17 @@ class ScheduleService {
       'sport': schedule.sportName,
       'sportId': schedule.sportId,
       'userId': schedule.userId,
+      'homeTeamName': schedule.homeTeamName,
       'createdAt': schedule.createdAt,
     };
   }
 
   // Create schedule from game data (for migration compatibility)
-  Future<Map<String, dynamic>?> createScheduleFromGame(Map<String, dynamic> gameData) async {
+  Future<Map<String, dynamic>?> createScheduleFromGame(
+      Map<String, dynamic> gameData) async {
     final scheduleName = gameData['scheduleName'] as String?;
     final sportName = gameData['sport'] as String?;
-    
+
     if (scheduleName == null || sportName == null) {
       return null;
     }
@@ -334,16 +350,17 @@ class ScheduleService {
   }
 
   // Get schedule names from games (for migration compatibility)
-  Future<List<String>> getScheduleNamesFromGames(List<Map<String, dynamic>> games) async {
+  Future<List<String>> getScheduleNamesFromGames(
+      List<Map<String, dynamic>> games) async {
     final scheduleNames = <String>{};
-    
+
     for (final game in games) {
       final scheduleName = game['scheduleName'] as String?;
       if (scheduleName != null && scheduleName.isNotEmpty) {
         scheduleNames.add(scheduleName);
       }
     }
-    
+
     return scheduleNames.toList();
   }
 }

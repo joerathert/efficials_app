@@ -136,12 +136,14 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Confirm Delete'),
-        content: Text('Are you sure you want to delete "$locationName"?'),
+        backgroundColor: darkSurface,
+        title: const Text('Confirm Delete', style: TextStyle(color: efficialsWhite)),
+        content: Text('Are you sure you want to delete "$locationName"?', 
+            style: const TextStyle(color: primaryTextColor)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel', style: TextStyle(color: efficialsBlue)),
+            child: const Text('Cancel', style: TextStyle(color: efficialsYellow)),
           ),
           TextButton(
             onPressed: () async {
@@ -164,7 +166,7 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                 }
               }
             },
-            child: const Text('Delete', style: TextStyle(color: efficialsBlue)),
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -195,9 +197,10 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(20.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
               const SizedBox(height: 40),
               const Text(
                 'Choose Location',
@@ -421,6 +424,8 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                             'method': args['method'],
                             'selectedListName': args['selectedListName'],
                             'selectedLists': args['selectedLists'],
+                            'time': args['time'], // Explicitly preserve time from template
+                            'date': args['date'], // Explicitly preserve date
                           };
                           final isCoach =
                               args['teamName'] != null; // Detect Coach flow
@@ -460,6 +465,7 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                 ),
               ),
             ],
+            ),
           ),
         ),
       ),

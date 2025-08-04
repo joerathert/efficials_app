@@ -315,23 +315,33 @@ class _FilterSettingsScreenState extends State<FilterSettingsScreen> {
                         .where((entry) => entry.value)
                         .map((entry) => levelMapping[entry.key]!)
                         .toList();
-                    Navigator.pop(
-                      context,
-                      {
-                        'sport': sport,
-                        'ihsaRegistered': ihsaRegistered,
-                        'ihsaRecognized': ihsaRecognized,
-                        'ihsaCertified': ihsaCertified,
-                        'minYears': _yearsController.text.isNotEmpty
-                            ? int.parse(_yearsController.text)
-                            : 0,
-                        'levels': selectedLevels,
-                        'locationData': locationData,
-                        'radius': isAwayGame
-                            ? null
-                            : int.parse(_radiusController.text),
-                      },
-                    );
+                    
+                    final filterData = {
+                      'sport': sport,
+                      'ihsaRegistered': ihsaRegistered,
+                      'ihsaRecognized': ihsaRecognized,
+                      'ihsaCertified': ihsaCertified,
+                      'minYears': _yearsController.text.isNotEmpty
+                          ? int.parse(_yearsController.text)
+                          : 0,
+                      'levels': selectedLevels,
+                      'locationData': locationData,
+                      'radius': isAwayGame
+                          ? null
+                          : int.parse(_radiusController.text),
+                    };
+                    
+                    // Debug logging
+                    print('🎯 FILTER SETTINGS DEBUG:');
+                    print('IHSA Registered: $ihsaRegistered');
+                    print('IHSA Recognized: $ihsaRecognized');
+                    print('IHSA Certified: $ihsaCertified');
+                    print('Min Years: ${_yearsController.text}');
+                    print('Selected Levels: $selectedLevels');
+                    print('Radius: ${_radiusController.text}');
+                    print('Filter Data: $filterData');
+                    
+                    Navigator.pop(context, filterData);
                   },
                   style: elevatedButtonStyle(
                     padding: const EdgeInsets.symmetric(

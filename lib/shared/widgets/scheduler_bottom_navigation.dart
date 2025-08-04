@@ -26,6 +26,10 @@ class SchedulerBottomNavigation extends StatelessWidget {
             label: 'Home',
           ),
           const BottomNavigationBarItem(
+            icon: Icon(Icons.calendar_month),
+            label: 'Calendar',
+          ),
+          const BottomNavigationBarItem(
             icon: Icon(Icons.people),
             label: 'Officials',
           ),
@@ -40,6 +44,10 @@ class SchedulerBottomNavigation extends StatelessWidget {
         ];
       case SchedulerType.assigner:
         return [
+          const BottomNavigationBarItem(
+            icon: Icon(Icons.home),
+            label: 'Home',
+          ),
           const BottomNavigationBarItem(
             icon: Icon(Icons.schedule),
             label: 'Schedules',

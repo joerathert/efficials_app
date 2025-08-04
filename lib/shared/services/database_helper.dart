@@ -24,7 +24,7 @@ class DatabaseHelper {
 
     final db = await openDatabase(
       path,
-      version: 25,
+      version: 26,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -478,6 +478,16 @@ class DatabaseHelper {
       // Update all officials with Illinois locations within 100 miles of Edwardsville, IL
       await _updateOfficialsWithEdwardsvilleAreaLocations(db);
     }
+
+    if (oldVersion < 26) {
+      // Add home_team_name column to schedules table
+      try {
+        await db.execute('ALTER TABLE schedules ADD COLUMN home_team_name TEXT');
+        debugPrint('Added home_team_name column to schedules table');
+      } catch (e) {
+        debugPrint('home_team_name column may already exist: $e');
+      }
+    }
   }
 
   Future<void> _createTables(Database db) async {
@@ -532,6 +542,7 @@ class DatabaseHelper {
         name TEXT NOT NULL,
         sport_id INTEGER NOT NULL REFERENCES sports(id),
         user_id INTEGER NOT NULL REFERENCES users(id),
+        home_team_name TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(name, sport_id, user_id)
       )
@@ -2136,19 +2147,36 @@ class DatabaseHelper {
     try {
       // Check if competition_levels column exists in crews table
       final crewsTableInfo = await db.rawQuery("PRAGMA table_info(crews)");
-      bool hasCompetitionLevels = false;
+      bool hasCrewCompetitionLevels = false;
       
       for (final column in crewsTableInfo) {
         if (column['name'] == 'competition_levels') {
-          hasCompetitionLevels = true;
+          hasCrewCompetitionLevels = true;
           break;
         }
       }
       
-      if (!hasCompetitionLevels) {
+      if (!hasCrewCompetitionLevels) {
         debugPrint('Auto-adding missing competition_levels column to crews table...');
         await db.execute('ALTER TABLE crews ADD COLUMN competition_levels TEXT DEFAULT \'[]\'');
-        debugPrint('✅ competition_levels column added successfully');
+        debugPrint('✅ competition_levels column added successfully to crews table');
+      }
+      
+      // Check if competition_levels column exists in official_sports table
+      final officialSportsTableInfo = await db.rawQuery("PRAGMA table_info(official_sports)");
+      bool hasOfficialSportsCompetitionLevels = false;
+      
+      for (final column in officialSportsTableInfo) {
+        if (column['name'] == 'competition_levels') {
+          hasOfficialSportsCompetitionLevels = true;
+          break;
+        }
+      }
+      
+      if (!hasOfficialSportsCompetitionLevels) {
+        debugPrint('Auto-adding missing competition_levels column to official_sports table...');
+        await db.execute('ALTER TABLE official_sports ADD COLUMN competition_levels TEXT');
+        debugPrint('✅ competition_levels column added successfully to official_sports table');
       }
       
       // Check if crew_invitations table exists
@@ -2173,18 +2201,35 @@ class DatabaseHelper {
     try {
       // Check if competition_levels column exists in crews table
       final crewsTableInfo = await db.rawQuery("PRAGMA table_info(crews)");
-      bool hasCompetitionLevels = false;
+      bool hasCrewCompetitionLevels = false;
       
       for (final column in crewsTableInfo) {
         if (column['name'] == 'competition_levels') {
-          hasCompetitionLevels = true;
+          hasCrewCompetitionLevels = true;
           break;
         }
       }
       
-      if (!hasCompetitionLevels) {
+      if (!hasCrewCompetitionLevels) {
         debugPrint('Adding missing competition_levels column to crews table...');
         await db.execute('ALTER TABLE crews ADD COLUMN competition_levels TEXT DEFAULT \'[]\'');
+        // Column addition success message already printed by auto-fix
+      }
+      
+      // Check if competition_levels column exists in official_sports table
+      final officialSportsTableInfo = await db.rawQuery("PRAGMA table_info(official_sports)");
+      bool hasOfficialSportsCompetitionLevels = false;
+      
+      for (final column in officialSportsTableInfo) {
+        if (column['name'] == 'competition_levels') {
+          hasOfficialSportsCompetitionLevels = true;
+          break;
+        }
+      }
+      
+      if (!hasOfficialSportsCompetitionLevels) {
+        debugPrint('Adding missing competition_levels column to official_sports table...');
+        await db.execute('ALTER TABLE official_sports ADD COLUMN competition_levels TEXT');
         // Column addition success message already printed by auto-fix
       }
       

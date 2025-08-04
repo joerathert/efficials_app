@@ -4,6 +4,8 @@ import 'dart:convert';
 import '../../shared/theme.dart';
 import '../../shared/services/game_service.dart';
 import '../../shared/models/database_models.dart';
+import '../../shared/services/repositories/official_repository.dart';
+import '../../shared/services/repositories/sport_repository.dart';
 
 class OfficialSignUpStep4 extends StatefulWidget {
   const OfficialSignUpStep4({super.key});
@@ -18,8 +20,11 @@ class _OfficialSignUpStep4State extends State<OfficialSignUpStep4> {
   late Map<String, dynamic> previousData;
   bool _isCreatingAccount = false;
   final GameService _gameService = GameService();
+  final OfficialRepository _officialRepository = OfficialRepository();
+  final SportRepository _sportRepository = SportRepository();
   
   final List<String> rateOptions = [
+    'Not specified',
     '\$25',
     '\$30',
     '\$35',
@@ -43,10 +48,10 @@ class _OfficialSignUpStep4State extends State<OfficialSignUpStep4> {
     super.didChangeDependencies();
     previousData = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
     
-    // Pre-select default rate for testing convenience
+    // Pre-select "Not specified" as default for optional field
     if (_selectedRate == null) {
       setState(() {
-        _selectedRate = '\$50';
+        _selectedRate = 'Not specified';
       });
     }
   }
@@ -65,7 +70,7 @@ class _OfficialSignUpStep4State extends State<OfficialSignUpStep4> {
     try {
       // Get rate per game from dropdown
       double? ratePerGame;
-      if (_selectedRate != null) {
+      if (_selectedRate != null && _selectedRate != 'Not specified') {
         ratePerGame = double.tryParse(_selectedRate!.replaceAll('\$', ''));
       }
 
@@ -82,31 +87,65 @@ class _OfficialSignUpStep4State extends State<OfficialSignUpStep4> {
         status: 'active',
       );
 
-      // TODO: Save officialUser to database using OfficialUserRepository
-      // For now, we'll show success and navigate to a placeholder screen
+      // Save OfficialUser to database
+      final officialUserId = await _officialRepository.createOfficialUser(officialUser);
       
+      // Calculate total experience years from all sports
+      final selectedSports = previousData['selectedSports'] as Map<String, Map<String, dynamic>>;
+      int maxExperience = 0;
+      for (final sportData in selectedSports.values) {
+        final experience = sportData['experience'] as int? ?? 0;
+        if (experience > maxExperience) {
+          maxExperience = experience;
+        }
+      }
+
       // Create Official profile entry
       final official = Official(
         name: '${previousData['firstName']} ${previousData['lastName']}',
-        userId: 1, // TODO: Get current scheduler user ID who created this (for now)
+        userId: 1, // This will be updated when we have proper user session management
+        officialUserId: officialUserId,
         email: previousData['email'],
         phone: previousData['phone'],
+        city: previousData['city'],
+        state: previousData['state'],
         bio: null,
         isUserAccount: true,
         availabilityStatus: 'available',
-        experienceYears: 0, // Will be calculated from individual sports
+        experienceYears: maxExperience,
       );
 
-      // TODO: Save official to database and get ID
-      // TODO: Save sports certifications to official_sports table
-      // TODO: Save availability preferences
-      // TODO: Save notification preferences
+      // Save Official to database
+      final officialId = await _officialRepository.createOfficial(official);
 
-      // For now, show success message
+      // Save sports certifications to official_sports table
+      for (final entry in selectedSports.entries) {
+        final sportName = entry.key;
+        final sportData = entry.value;
+        
+        // Get or create the sport
+        final sport = await _sportRepository.getOrCreateSport(sportName);
+        
+        // Create OfficialSport entry
+        final officialSport = OfficialSport(
+          officialId: officialId,
+          sportId: sport.id!,
+          certificationLevel: sportData['certification'],
+          yearsExperience: sportData['experience'],
+          competitionLevels: (sportData['levels'] as List<String>).join(','),
+          isPrimary: selectedSports.keys.first == sportName, // First sport is primary
+          sportName: sportName,
+        );
+        
+        // Save to database (we need to add this method to the repository)
+        await _saveOfficialSport(officialSport);
+      }
+
+      // Show success message
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Official account created successfully!'),
+            content: Text('Official account created successfully! You can now be found in search results.'),
             backgroundColor: Colors.green,
             duration: Duration(seconds: 3),
           ),
@@ -135,6 +174,10 @@ class _OfficialSignUpStep4State extends State<OfficialSignUpStep4> {
         });
       }
     }
+  }
+
+  Future<void> _saveOfficialSport(OfficialSport officialSport) async {
+    await _officialRepository.insert('official_sports', officialSport.toMap());
   }
 
   @override
@@ -192,7 +235,7 @@ class _OfficialSignUpStep4State extends State<OfficialSignUpStep4> {
                         decoration: const InputDecoration(
                           labelText: 'Rate per Game (Optional)',
                           labelStyle: TextStyle(color: Colors.grey),
-                          helperText: 'Your preferred fee per game (defaults to \$50)',
+                          helperText: 'Your preferred fee per game (optional)',
                           helperStyle: TextStyle(color: Colors.grey),
                           fillColor: darkSurface,
                           filled: true,

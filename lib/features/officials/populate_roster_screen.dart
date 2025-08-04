@@ -114,8 +114,17 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
       final sport = args['sport'] as String? ?? 'Football';
       
       // Get sport_id for the requested sport
+      print('🏈 SPORT DEBUG: Looking for sport: $sport');
       final sportResult = await officialRepository.rawQuery('SELECT id FROM sports WHERE name = ?', [sport]);
+      print('🏈 SPORT DEBUG: Found ${sportResult.length} sports matching "$sport"');
       if (sportResult.isEmpty) {
+        print('❌ SPORT DEBUG: No sport found with name "$sport"');
+        // Let's see what sports exist
+        final allSports = await officialRepository.rawQuery('SELECT id, name FROM sports ORDER BY name');
+        print('📊 All available sports:');
+        for (final s in allSports) {
+          print('  - ${s['id']}: ${s['name']}');
+        }
         setState(() {
           officials = [];
           filteredOfficials = [];
@@ -125,6 +134,7 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
         return;
       }
       final sportId = sportResult.first['id'] as int;
+      print('🏈 SPORT DEBUG: Using sport_id: $sportId for sport: $sport');
       
       // Use the repository method with filters
       List<Map<String, dynamic>> newOfficials = await officialRepository.getOfficialsBySport(sportId, filters: filterSettings);

@@ -31,7 +31,9 @@
       "Bash(echo:*)",
       "Bash(timeout:*)",
       "Bash(git restore:*)",
-      "Bash(git stash:*)"
+      "Bash(git stash:*)",
+      "WebFetch(domain:docs.anthropic.com)",
+      "Bash(sqlite3:*)"
     ],
     "deny": []
   }

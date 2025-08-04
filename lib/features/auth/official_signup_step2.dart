@@ -127,7 +127,7 @@ class _OfficialSignUpStep2State extends State<OfficialSignUpStep2> {
                       const SizedBox(height: 16),
                       TextField(
                         controller: _addressController,
-                        decoration: textFieldDecoration('Street Address (or leave blank for 123 Main St)'),
+                        decoration: textFieldDecoration('Street Address'),
                         style: const TextStyle(fontSize: 18, color: Colors.white),
                       ),
                       const SizedBox(height: 16),
@@ -137,7 +137,7 @@ class _OfficialSignUpStep2State extends State<OfficialSignUpStep2> {
                             flex: 2,
                             child: TextField(
                               controller: _cityController,
-                              decoration: textFieldDecoration('City (or leave blank for Chicago)'),
+                              decoration: textFieldDecoration('City'),
                               style: const TextStyle(fontSize: 18, color: Colors.white),
                             ),
                           ),
@@ -145,7 +145,7 @@ class _OfficialSignUpStep2State extends State<OfficialSignUpStep2> {
                           Expanded(
                             child: TextField(
                               controller: _stateController,
-                              decoration: textFieldDecoration('State (or leave blank for IL)'),
+                              decoration: textFieldDecoration('State'),
                               style: const TextStyle(fontSize: 18, color: Colors.white),
                             ),
                           ),
@@ -153,7 +153,7 @@ class _OfficialSignUpStep2State extends State<OfficialSignUpStep2> {
                           Expanded(
                             child: TextField(
                               controller: _zipController,
-                              decoration: textFieldDecoration('ZIP (or leave blank for 60601)'),
+                              decoration: textFieldDecoration('ZIP'),
                               style: const TextStyle(fontSize: 18, color: Colors.white),
                               keyboardType: TextInputType.number,
                             ),
@@ -172,7 +172,7 @@ class _OfficialSignUpStep2State extends State<OfficialSignUpStep2> {
                       const SizedBox(height: 16),
                       TextField(
                         controller: _maxDistanceController,
-                        decoration: textFieldDecoration('Max Travel Distance (or leave blank for 25 miles)'),
+                        decoration: textFieldDecoration('Max Travel Distance (miles)'),
                         style: const TextStyle(fontSize: 18, color: Colors.white),
                         keyboardType: TextInputType.number,
                       ),

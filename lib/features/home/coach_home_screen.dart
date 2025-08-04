@@ -107,12 +107,23 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
       );
       debugPrint('Retrieved ${allGamesData.length} published games from database');
       
-      // Filter by teamName/scheduleName containing team
+      // Get current user to check if they created the games
+      final currentUser = await _userRepo.getCurrentUser();
+      final currentUserId = currentUser?.id;
+      
+      // Filter games: show games created by this coach OR games where scheduleName contains team name
       List<Game> filteredGames = allGamesData
-          .where((game) =>
-              game.opponent == teamName ||
-              (game.scheduleName != null &&
-                  game.scheduleName!.contains(teamName!)))
+          .where((game) {
+            // Show if this coach created the game
+            if (currentUserId != null && game.userId == currentUserId) {
+              return true;
+            }
+            // Show if scheduleName contains team name (for externally assigned games)
+            if (game.scheduleName != null && game.scheduleName!.contains(teamName!)) {
+              return true;
+            }
+            return false;
+          })
           .toList();
       
       // Sort games by date and time
@@ -162,6 +173,18 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
     return null;
   }
 
+  Future<void> _navigateToCoachCalendar() async {
+    // Navigate to team schedule - same as the "Team Schedule" hyperlink in game info
+    Navigator.pushNamed(
+      context,
+      '/team_schedule',
+      arguments: {
+        'teamName': teamName,
+        'focusDate': null, // Let it focus on current month or upcoming games
+      },
+    );
+  }
+
   void _onBottomNavTap(int index) {
     if (index == _currentIndex) return;
 
@@ -172,21 +195,29 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
     switch (index) {
       case 0: // Home - stay on current screen
         break;
-      case 1: // Officials
+      case 1: // Calendar
+        // Navigate to schedule details with the coach's team schedule
+        _navigateToCoachCalendar();
+        // Reset to home after navigation
+        setState(() {
+          _currentIndex = 0;
+        });
+        break;
+      case 2: // Officials
         Navigator.pushNamed(context, '/lists_of_officials');
         // Reset to home after navigation
         setState(() {
           _currentIndex = 0;
         });
         break;
-      case 2: // Locations
+      case 3: // Locations
         Navigator.pushNamed(context, '/locations');
         // Reset to home after navigation
         setState(() {
           _currentIndex = 0;
         });
         break;
-      case 3: // Notifications
+      case 4: // Notifications
         Navigator.pushNamed(context, '/backout_notifications').then((_) {
           // Refresh notification count when returning from notifications screen
           _loadUnreadNotificationCount();

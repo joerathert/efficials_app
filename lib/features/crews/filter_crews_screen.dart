@@ -169,21 +169,23 @@ class _FilterCrewsScreenState extends State<FilterCrewsScreen> {
         iconTheme: const IconThemeData(color: efficialsWhite),
         elevation: 0,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildIHSACertificationSection(),
-            const SizedBox(height: 24),
-            _buildCompetitionLevelsSection(),
-            const SizedBox(height: 24),
-            _buildCrewSizeSection(),
-            const SizedBox(height: 24),
-            _buildDistanceSection(),
-            const SizedBox(height: 32),
-            _buildActionButtons(),
-          ],
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildIHSACertificationSection(),
+              const SizedBox(height: 24),
+              _buildCompetitionLevelsSection(),
+              const SizedBox(height: 24),
+              _buildCrewSizeSection(),
+              const SizedBox(height: 24),
+              _buildDistanceSection(),
+              const SizedBox(height: 32),
+              _buildActionButtons(),
+            ],
+          ),
         ),
       ),
     );

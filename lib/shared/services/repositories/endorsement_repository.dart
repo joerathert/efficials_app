@@ -19,6 +19,17 @@ class EndorsementRepository {
     try {
       final db = await _db;
       
+      // Prevent self-endorsement: check if the endorser is trying to endorse themselves
+      final officialResult = await db.query(
+        'officials',
+        where: 'id = ? AND (user_id = ? OR official_user_id = ?)',
+        whereArgs: [endorsedOfficialId, endorserUserId, endorserUserId],
+      );
+      
+      if (officialResult.isNotEmpty) {
+        throw CustomError('You cannot endorse yourself');
+      }
+      
       final endorsement = OfficialEndorsement(
         endorsedOfficialId: endorsedOfficialId,
         endorserUserId: endorserUserId,

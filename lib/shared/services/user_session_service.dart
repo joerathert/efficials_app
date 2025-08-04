@@ -122,6 +122,7 @@ class UserSessionService {
         'email': email,
         'name': user != null ? '${user.firstName} ${user.lastName}' : 'Unknown',
         'schedulerType': user?.schedulerType,
+        'sport': user?.sport,
       };
     } else {
       final user = await getCurrentOfficialUser();

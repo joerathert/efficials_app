@@ -3,6 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:table_calendar/table_calendar.dart';
 import '../../shared/theme.dart';
+import '../../shared/services/game_service.dart';
+import '../../shared/services/repositories/user_repository.dart';
+import '../../shared/services/repositories/template_repository.dart';
+import '../../shared/services/repositories/game_template_repository.dart';
+import '../../shared/models/database_models.dart';
 
 class TeamScheduleScreen extends StatefulWidget {
   const TeamScheduleScreen({super.key});
@@ -13,48 +18,97 @@ class TeamScheduleScreen extends StatefulWidget {
 
 class _TeamScheduleScreenState extends State<TeamScheduleScreen> {
   String? teamName;
+  String? sport;
   List<Map<String, dynamic>> games = [];
   bool isLoading = true;
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
   List<Map<String, dynamic>> _selectedDayGames = [];
   bool _showOnlyNeedsOfficials = false; // Toggle state for filtering
+  String? associatedTemplateName; // Store the associated template name
+  GameTemplate? template; // Store the associated template object
+  final TemplateRepository _templateRepository = TemplateRepository();
+  final GameTemplateRepository _gameTemplateRepository = GameTemplateRepository();
 
   @override
   void initState() {
     super.initState();
     _loadTeamInfo();
     _fetchGames();
+    _loadAssociatedTemplate();
   }
 
   Future<void> _loadTeamInfo() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      teamName = prefs.getString('team_name') ?? 'Team';
-    });
+    try {
+      final UserRepository userRepo = UserRepository();
+      final currentUser = await userRepo.getCurrentUser();
+      setState(() {
+        teamName = currentUser?.teamName ?? 'Team';
+        sport = currentUser?.sport;
+      });
+    } catch (e) {
+      debugPrint('Error loading team info: $e');
+      setState(() {
+        teamName = 'Team';
+        sport = null;
+      });
+    }
   }
 
   Future<void> _fetchGames() async {
-    final prefs = await SharedPreferences.getInstance();
-    final String? publishedGamesJson = prefs.getString('coach_published_games');
-    List<Map<String, dynamic>> allGames = [];
+    try {
+      // Import GameService and UserRepository
+      final GameService gameService = GameService();
+      final UserRepository userRepo = UserRepository();
+      
+      // Get all published games from database like coach home screen
+      final allGamesData = await gameService.getFilteredGames(
+        showAwayGames: true, 
+        status: 'Published'
+      );
+      
+      // Get current user to check if they created the games
+      final currentUser = await userRepo.getCurrentUser();
+      final currentUserId = currentUser?.id;
+      
+      // Filter games: show games created by this coach OR games where scheduleName contains team name
+      final filteredGames = allGamesData
+          .where((game) {
+            // Show if this coach created the game
+            if (currentUserId != null && game.userId == currentUserId) {
+              return true;
+            }
+            // Show if scheduleName contains team name (for externally assigned games)
+            if (game.scheduleName != null && teamName != null && game.scheduleName!.contains(teamName!)) {
+              return true;
+            }
+            return false;
+          })
+          .toList();
+      
+      // Convert Game objects to Map format for compatibility with existing UI code
+      List<Map<String, dynamic>> allGames = filteredGames.map((game) => {
+        'id': game.id,
+        'date': game.date?.toIso8601String(),
+        'time': game.time != null 
+            ? '${game.time!.hour.toString().padLeft(2, '0')}:${game.time!.minute.toString().padLeft(2, '0')}'
+            : null,
+        'sport': game.sportName,
+        'location': game.locationName,
+        'opponent': game.opponent,
+        'officialsRequired': game.officialsRequired,
+        'officialsHired': game.officialsHired,
+        'isAway': game.isAway,
+        'scheduleName': game.scheduleName,
+      }).toList();
 
     setState(() {
       games.clear();
       try {
-        if (publishedGamesJson != null && publishedGamesJson.isNotEmpty) {
-          final published =
-              List<Map<String, dynamic>>.from(jsonDecode(publishedGamesJson));
-          allGames.addAll(published);
-        }
-
         // Filter games for this team and ensure they have dates
         games = allGames.where((game) {
-          final matchesTeam = game['opponent'] == teamName ||
-              (game['scheduleName'] != null &&
-                  game['scheduleName']!.contains(teamName!));
           final hasDate = game['date'] != null;
-          return matchesTeam && hasDate;
+          return hasDate;
         }).toList();
 
         // Parse date and time objects
@@ -90,6 +144,14 @@ class _TeamScheduleScreenState extends State<TeamScheduleScreen> {
         isLoading = false;
       }
     });
+    } catch (e) {
+      debugPrint('Error loading games from database: $e');
+      setState(() {
+        games.clear();
+        _focusedDay = DateTime.now();
+        isLoading = false;
+      });
+    }
   }
 
   List<Map<String, dynamic>> _getGamesForDay(DateTime day) {
@@ -110,38 +172,108 @@ class _TeamScheduleScreenState extends State<TeamScheduleScreen> {
   }
 
   Future<Map<String, dynamic>?> _fetchGameById(int gameId) async {
-    final prefs = await SharedPreferences.getInstance();
-    final String? gamesJson = prefs.getString('published_games');
-    if (gamesJson != null && gamesJson.isNotEmpty) {
-      try {
-        final List<Map<String, dynamic>> games =
-            List<Map<String, dynamic>>.from(jsonDecode(gamesJson));
-        final game =
-            games.firstWhere((g) => g['id'] == gameId, orElse: () => {});
-        if (game.isNotEmpty) {
-          if (game['date'] != null) {
-            game['date'] = DateTime.parse(game['date'] as String);
-          }
-          if (game['time'] != null) {
-            final timeParts = (game['time'] as String).split(':');
-            game['time'] = TimeOfDay(
-              hour: int.parse(timeParts[0]),
-              minute: int.parse(timeParts[1]),
-            );
-          }
-          if (game['selectedOfficials'] != null) {
-            game['selectedOfficials'] = (game['selectedOfficials']
-                    as List<dynamic>)
-                .map((official) => Map<String, dynamic>.from(official as Map))
-                .toList();
-          }
-          return game;
-        }
-      } catch (e) {
-        // Handle parsing errors
+    try {
+      final GameService gameService = GameService();
+      final game = await gameService.getGameById(gameId);
+      if (game != null) {
+        debugPrint('Retrieved game from database: ${game['id']}');
+        return game;
       }
+    } catch (e) {
+      debugPrint('Error fetching game from database: $e');
     }
     return null;
+  }
+
+  Future<void> _loadAssociatedTemplate() async {
+    if (teamName == null) return;
+    try {
+      final UserRepository userRepo = UserRepository();
+      final user = await userRepo.getCurrentUser();
+      if (user?.id != null) {
+        // First get the template name from the association
+        final templateName = await _templateRepository.getByScheduleName(
+            user!.id!, teamName!);
+
+        if (templateName != null) {
+          // Then get the full template data from game_templates table
+          final templates = await _gameTemplateRepository
+              .getTemplatesByNameSearch(user.id!, templateName);
+          if (templates.isNotEmpty) {
+            // Get selectedLists data from SharedPreferences if method is advanced
+            if (templates.first.method == 'advanced' &&
+                templates.first.id != null) {
+              final prefs = await SharedPreferences.getInstance();
+              final key = 'template_selectedLists_${templates.first.id}';
+              final selectedListsJson = prefs.getString(key);
+              if (selectedListsJson != null) {
+                try {
+                  final selectedLists = List<Map<String, dynamic>>.from(
+                      jsonDecode(selectedListsJson));
+                  templates.first = GameTemplate(
+                    id: templates.first.id,
+                    name: templates.first.name,
+                    sportId: templates.first.sportId,
+                    userId: templates.first.userId,
+                    scheduleName: templates.first.scheduleName,
+                    date: templates.first.date,
+                    time: templates.first.time,
+                    locationId: templates.first.locationId,
+                    isAwayGame: templates.first.isAwayGame,
+                    levelOfCompetition: templates.first.levelOfCompetition,
+                    gender: templates.first.gender,
+                    officialsRequired: templates.first.officialsRequired,
+                    gameFee: templates.first.gameFee,
+                    opponent: templates.first.opponent,
+                    hireAutomatically: templates.first.hireAutomatically,
+                    method: templates.first.method,
+                    officialsListId: templates.first.officialsListId,
+                    selectedOfficials: templates.first.selectedOfficials,
+                    selectedLists: selectedLists,
+                    officialsListName: templates.first.officialsListName,
+                    includeScheduleName: templates.first.includeScheduleName,
+                    includeSport: templates.first.includeSport,
+                    includeDate: templates.first.includeDate,
+                    includeTime: templates.first.includeTime,
+                    includeLocation: templates.first.includeLocation,
+                    includeIsAwayGame: templates.first.includeIsAwayGame,
+                    includeLevelOfCompetition:
+                        templates.first.includeLevelOfCompetition,
+                    includeGender: templates.first.includeGender,
+                    includeOfficialsRequired:
+                        templates.first.includeOfficialsRequired,
+                    includeGameFee: templates.first.includeGameFee,
+                    includeOpponent: templates.first.includeOpponent,
+                    includeHireAutomatically:
+                        templates.first.includeHireAutomatically,
+                    includeSelectedOfficials:
+                        templates.first.includeSelectedOfficials,
+                    includeOfficialsList: templates.first.includeOfficialsList,
+                    createdAt: templates.first.createdAt,
+                    sportName: templates.first.sportName,
+                    locationName: templates.first.locationName,
+                  );
+                } catch (e) {
+                  debugPrint('Error parsing selectedLists data: $e');
+                }
+              }
+            }
+
+            setState(() {
+              template = templates.first;
+              associatedTemplateName = templateName;
+            });
+          } else {
+            debugPrint('No template data found for name: $templateName');
+          }
+        } else {
+          debugPrint(
+              'No template association found for schedule: $teamName');
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading associated template: $e');
+    }
   }
 
   @override
@@ -227,6 +359,11 @@ class _TeamScheduleScreenState extends State<TeamScheduleScreen> {
                             color: efficialsYellow,
                             shape: BoxShape.rectangle,
                             borderRadius: BorderRadius.circular(4),
+                          ),
+                          selectedTextStyle: const TextStyle(
+                            fontSize: 16,
+                            color: efficialsBlack,
+                            fontWeight: FontWeight.w600,
                           ),
                           defaultTextStyle: const TextStyle(
                               fontSize: 16, color: Colors.white),
@@ -314,6 +451,12 @@ class _TeamScheduleScreenState extends State<TeamScheduleScreen> {
                                 backgroundColor = Colors.green;
                                 textColor = Colors.white;
                               }
+                            }
+
+                            // Override with selection styling when date is selected
+                            if (isSelected) {
+                              backgroundColor = efficialsYellow;
+                              textColor = efficialsBlack;
                             }
 
                             return GestureDetector(
@@ -571,6 +714,88 @@ class _TeamScheduleScreenState extends State<TeamScheduleScreen> {
                 ],
               ),
             ),
+      floatingActionButton: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          FloatingActionButton(
+            heroTag: 'setTemplate',
+            onPressed: () {
+              // Use the sport from the team info, fallback if needed
+              final sportToUse = sport ?? 'Unknown';
+              Navigator.pushNamed(
+                context,
+                '/select_game_template',
+                arguments: {
+                  'scheduleName': teamName,
+                  'sport': sportToUse,
+                },
+              ).then((_) {
+                _loadAssociatedTemplate();
+              });
+            },
+            backgroundColor: Colors.grey[600],
+            tooltip: 'Set Game Template',
+            child: const Icon(Icons.link, color: efficialsYellow),
+          ),
+          const SizedBox(height: 10),
+          FloatingActionButton(
+            heroTag: 'addGame',
+            onPressed: _selectedDay == null
+                ? null
+                : () async {
+                    // Ensure template is loaded before proceeding
+                    if (teamName != null) {
+                      await _loadAssociatedTemplate();
+                    }
+
+                    if (!mounted) return;
+
+                    // Check if we can skip straight to additional info
+                    bool canSkipToAdditionalInfo = template != null &&
+                        ((template!.includeTime && template!.time != null) ||
+                            (template!.method == 'advanced' &&
+                                template!.selectedLists != null &&
+                                template!.selectedLists!.isNotEmpty)) &&
+                        _selectedDay != null;
+
+                    debugPrint('Template after reload: ${template != null}');
+                    debugPrint(
+                        'Template includeTime: ${template?.includeTime}');
+                    debugPrint('Template time: ${template?.time}');
+                    debugPrint('Selected day: $_selectedDay');
+                    debugPrint(
+                        'Can skip to additional info: $canSkipToAdditionalInfo');
+
+                    String nextRoute = canSkipToAdditionalInfo
+                        ? '/additional_game_info'
+                        : '/date_time';
+
+                    debugPrint('Next route: $nextRoute');
+
+                    Navigator.pushNamed(
+                      context,
+                      nextRoute,
+                      arguments: {
+                        'scheduleName': teamName,
+                        'teamName': teamName,
+                        'sport': sport,
+                        'date': _selectedDay,
+                        'time': canSkipToAdditionalInfo ? template!.time : null,
+                        'fromTeamSchedule': true,
+                        'template': template,
+                      },
+                    ).then((_) {
+                      _fetchGames();
+                    });
+                  },
+            backgroundColor:
+                _selectedDay == null ? Colors.grey[800] : Colors.grey[600],
+            tooltip: 'Add Game',
+            child: const Icon(Icons.add, size: 30, color: efficialsYellow),
+          ),
+        ],
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
 }

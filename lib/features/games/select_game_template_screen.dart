@@ -215,8 +215,11 @@ class _SelectGameTemplateScreenState extends State<SelectGameTemplateScreen> {
         if (mounted) {
           Navigator.pop(context);
         }
-      } else if (schedulerType == 'Coach') {
-        // Coach flow - navigate directly to date_time with template data
+      } else if (schedulerType?.toLowerCase() == 'coach') {
+        // Coach flow - navigate directly to date_time with template data and schedule name
+        final prefs = await SharedPreferences.getInstance();
+        final teamName = prefs.getString('team_name');
+        
         if (mounted) {
           Navigator.pushNamed(
             context,
@@ -224,6 +227,10 @@ class _SelectGameTemplateScreenState extends State<SelectGameTemplateScreen> {
             arguments: {
               'sport': sport,
               'template': selectedTemplate,
+              'scheduleName': teamName, // Add team name as schedule name for Coach
+              'teamName': teamName,
+              'grade': prefs.getString('grade'),
+              'gender': prefs.getString('gender'),
             },
           );
         }

@@ -89,7 +89,7 @@ class ScheduleCalendarWidget extends StatelessWidget {
                 borderRadius: BorderRadius.circular(4),
               ),
               selectedDecoration: BoxDecoration(
-                color: efficialsBlue,
+                color: efficialsYellow,
                 shape: BoxShape.rectangle,
                 borderRadius: BorderRadius.circular(4),
               ),
@@ -178,8 +178,9 @@ class ScheduleCalendarWidget extends StatelessWidget {
                   }
                 }
 
-                // Override text color for selected dates to ensure readability
+                // Override with selection styling when date is selected
                 if (isSelected) {
+                  backgroundColor = efficialsYellow;
                   textColor = efficialsBlack;
                 }
 

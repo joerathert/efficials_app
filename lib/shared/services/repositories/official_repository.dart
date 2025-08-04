@@ -109,21 +109,26 @@ class OfficialRepository extends BaseRepository {
     List<dynamic> queryArgs = [sportId];
 
     if (filters != null) {
-      // Apply certification level filters (hierarchical)
+      // Apply certification level filters (inclusive OR logic)
       final wantsRegistered = filters['ihsaRegistered'] ?? false;
       final wantsRecognized = filters['ihsaRecognized'] ?? false;
       final wantsCertified = filters['ihsaCertified'] ?? false;
 
-      if (wantsCertified) {
-        query += ' AND os.certification_level = ?';
-        queryArgs.add('IHSA Certified');
-      } else if (wantsRecognized) {
-        query += ' AND os.certification_level IN (?, ?)';
-        queryArgs.addAll(['IHSA Recognized', 'IHSA Certified']);
-      } else if (wantsRegistered) {
-        query += ' AND os.certification_level IN (?, ?, ?)';
-        queryArgs
-            .addAll(['IHSA Registered', 'IHSA Recognized', 'IHSA Certified']);
+      if (wantsRegistered || wantsRecognized || wantsCertified) {
+        List<String> certLevels = [];
+        // Database stores certifications without "IHSA" prefix
+        if (wantsRegistered) certLevels.addAll(['Registered', 'Recognized', 'Certified']);
+        if (wantsRecognized) certLevels.addAll(['Recognized', 'Certified']);
+        if (wantsCertified) certLevels.add('Certified');
+        
+        // Remove duplicates
+        certLevels = certLevels.toSet().toList();
+        
+        if (certLevels.isNotEmpty) {
+          final placeholders = certLevels.map((_) => '?').join(',');
+          query += ' AND os.certification_level IN ($placeholders)';
+          queryArgs.addAll(certLevels);
+        }
       }
 
       // Apply minimum years experience filter
@@ -148,7 +153,126 @@ class OfficialRepository extends BaseRepository {
       // geolocation data in the database yet
     }
 
+    // Debug logging to help troubleshoot filtering issues
+    print('🔍 FILTER DEBUG:');
+    print('Query: $query');
+    print('Args: $queryArgs');
+    print('Filters: $filters');
+
+    // Let's specifically check Charles Rathert's data first
+    final charlesCheck = await rawQuery('''
+      SELECT 
+        o.id,
+        o.name,
+        o.city,
+        o.state,
+        os.certification_level,
+        os.competition_levels,
+        os.years_experience,
+        s.name as sport_name
+      FROM officials o
+      JOIN official_sports os ON o.id = os.official_id
+      JOIN sports s ON os.sport_id = s.id
+      WHERE o.name LIKE '%Charles%Rathert%'
+        AND s.id = ?
+    ''', [sportId]);
+    
+    print('🔍 CHARLES RATHERT CHECK:');
+    if (charlesCheck.isNotEmpty) {
+      for (final charles in charlesCheck) {
+        print('  Name: ${charles['name']}');
+        print('  Certification: ${charles['certification_level']}');
+        print('  Years Experience: ${charles['years_experience']}');
+        print('  Competition Levels: ${charles['competition_levels']}');
+        print('  Sport: ${charles['sport_name']}');
+        print('  Location: ${charles['city']}, ${charles['state']}');
+      }
+    } else {
+      print('  ❌ Charles Rathert not found for sport_id: $sportId');
+      
+      // Check if Charles exists at all
+      final charlesAny = await rawQuery('''
+        SELECT o.name, o.city, o.state, s.name as sport_name
+        FROM officials o
+        LEFT JOIN official_sports os ON o.id = os.official_id
+        LEFT JOIN sports s ON os.sport_id = s.id
+        WHERE o.name LIKE '%Charles%Rathert%'
+      ''');
+      
+      if (charlesAny.isNotEmpty) {
+        print('  🔍 But Charles Rathert exists in database:');
+        for (final c in charlesAny) {
+          print('    - ${c['name']} in ${c['city']}, ${c['state']} for sport: ${c['sport_name']}');
+        }
+      } else {
+        print('  ❌ Charles Rathert not found in database at all');
+      }
+    }
+
     final results = await rawQuery(query, queryArgs);
+    
+    print('Results count: ${results.length}');
+    
+    // If no results, let's test each filter separately to isolate the issue
+    if (results.isEmpty && filters != null) {
+      print('🔍 ISOLATING FILTER ISSUES:');
+      
+      // Test 1: Just sport filter
+      final test1 = await rawQuery('''
+        SELECT COUNT(DISTINCT o.id) as count
+        FROM officials o
+        JOIN official_sports os ON o.id = os.official_id
+        JOIN sports s ON os.sport_id = s.id
+        WHERE os.sport_id = ?
+      ''', [sportId]);
+      print('  Test 1 - Just sport filter: ${test1.first['count']} officials');
+      
+      // Test 2: Sport + Certification
+      if (filters['ihsaCertified'] == true) {
+        final test2 = await rawQuery('''
+          SELECT COUNT(DISTINCT o.id) as count
+          FROM officials o
+          JOIN official_sports os ON o.id = os.official_id
+          JOIN sports s ON os.sport_id = s.id
+          WHERE os.sport_id = ? AND os.certification_level = 'Certified'
+        ''', [sportId]);
+        print('  Test 2 - Sport + Certified: ${test2.first['count']} officials');
+      }
+      
+      // Test 3: Sport + Years Experience
+      if (filters['minYears'] != null && filters['minYears'] > 0) {
+        final test3 = await rawQuery('''
+          SELECT COUNT(DISTINCT o.id) as count
+          FROM officials o
+          JOIN official_sports os ON o.id = os.official_id
+          JOIN sports s ON os.sport_id = s.id
+          WHERE os.sport_id = ? AND os.years_experience >= ?
+        ''', [sportId, filters['minYears']]);
+        print('  Test 3 - Sport + ${filters['minYears']}+ years: ${test3.first['count']} officials');
+      }
+      
+      // Test 4: Sport + Competition Level
+      final selectedLevels = filters['levels'] as List<String>?;
+      if (selectedLevels != null && selectedLevels.isNotEmpty) {
+        final test4 = await rawQuery('''
+          SELECT COUNT(DISTINCT o.id) as count
+          FROM officials o
+          JOIN official_sports os ON o.id = os.official_id
+          JOIN sports s ON os.sport_id = s.id
+          WHERE os.sport_id = ? AND os.competition_levels LIKE '%Varsity%'
+        ''', [sportId]);
+        print('  Test 4 - Sport + Varsity level: ${test4.first['count']} officials');
+      }
+    }
+    
+    // Show first few results for debugging
+    if (results.isNotEmpty) {
+      print('🔍 SAMPLE RESULTS:');
+      for (int i = 0; i < (results.length > 3 ? 3 : results.length); i++) {
+        final r = results[i];
+        print('  ${i+1}. ${r['name']} - ${r['certification_level']} - ${r['years_experience']} years - ${r['competition_levels']}');
+      }
+    }
 
     // Transform results to match the expected format from populate_roster_screen.dart
     return results.map((row) {

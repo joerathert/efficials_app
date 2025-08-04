@@ -2,8 +2,9 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../shared/theme.dart';
-import 'edit_list_screen.dart';
+import '../../shared/services/user_session_service.dart';
 import '../../shared/utils/utils.dart';
+import 'edit_list_screen.dart';
 
 class ListsOfOfficialsScreen extends StatefulWidget {
   const ListsOfOfficialsScreen({super.key});
@@ -168,7 +169,7 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
     // Filter out special items for the main list display
     List<Map<String, dynamic>> actualLists =
         lists.where((list) => list['id'] != 0 && list['id'] != -1).toList();
-    
+
     // If coming from template creation, filter by sport
     if (fromTemplateCreation && sport != 'Unknown Sport') {
       actualLists = actualLists.where((list) {
@@ -252,24 +253,54 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                                 Container(
                                   width: 250,
                                   child: ElevatedButton.icon(
-                                    onPressed: () {
+                                    onPressed: () async {
                                       final existingListNames = actualLists
                                           .map((list) => list['name'] as String)
                                           .toList();
+
+                                      // Get current user info
+                                      final userInfo = await UserSessionService
+                                          .instance
+                                          .getCurrentUserInfo();
+                                      final isAssigner = userInfo != null &&
+                                          userInfo['schedulerType'] ==
+                                              'assigner';
+                                      final assignerSport = isAssigner
+                                          ? userInfo['sport'] as String?
+                                          : null;
+
+                                      final Map<String, dynamic>
+                                          navigationArgs = {
+                                        'existingLists': existingListNames,
+                                        'fromGameCreation': isFromGameCreation,
+                                        'sport':
+                                            isAssigner && assignerSport != null
+                                                ? assignerSport
+                                                : sport,
+                                      };
+
+                                      if (args != null) {
+                                        navigationArgs.addAll(
+                                            Map<String, dynamic>.from(args));
+                                      }
+
+                                      final route =
+                                          isAssigner && assignerSport != null
+                                              ? '/name_list'
+                                              : '/create_new_list';
+                                      final effectiveSport =
+                                          isAssigner && assignerSport != null
+                                              ? assignerSport
+                                              : sport;
+
                                       Navigator.pushNamed(
                                         context,
-                                        '/create_new_list',
-                                        arguments: {
-                                          'existingLists': existingListNames,
-                                          'fromGameCreation':
-                                              isFromGameCreation,
-                                          'sport': sport,
-                                          ...?args, // Pass through original game creation arguments
-                                        },
+                                        route,
+                                        arguments: navigationArgs,
                                       ).then((result) async {
                                         if (result != null) {
                                           await _handleNewListResult(
-                                              result, sport);
+                                              result, effectiveSport);
                                         }
                                       });
                                     },
@@ -496,26 +527,55 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                                     child: Container(
                                       width: 250,
                                       child: ElevatedButton.icon(
-                                        onPressed: () {
+                                        onPressed: () async {
                                           final existingListNames = actualLists
                                               .map((list) =>
                                                   list['name'] as String)
                                               .toList();
+
+                                          // Get current user info
+                                          final userInfo = await UserSessionService
+                                              .instance
+                                              .getCurrentUserInfo();
+                                          final isAssigner = userInfo != null &&
+                                              userInfo['schedulerType'] ==
+                                                  'assigner';
+                                          final assignerSport = isAssigner
+                                              ? userInfo['sport'] as String?
+                                              : null;
+
+                                          final Map<String, dynamic>
+                                              navigationArgs = {
+                                            'existingLists': existingListNames,
+                                            'fromGameCreation': isFromGameCreation,
+                                            'sport':
+                                                isAssigner && assignerSport != null
+                                                    ? assignerSport
+                                                    : sport,
+                                          };
+
+                                          if (args != null) {
+                                            navigationArgs.addAll(
+                                                Map<String, dynamic>.from(args));
+                                          }
+
+                                          final route =
+                                              isAssigner && assignerSport != null
+                                                  ? '/name_list'
+                                                  : '/create_new_list';
+                                          final effectiveSport =
+                                              isAssigner && assignerSport != null
+                                                  ? assignerSport
+                                                  : sport;
+
                                           Navigator.pushNamed(
                                             context,
-                                            '/create_new_list',
-                                            arguments: {
-                                              'existingLists':
-                                                  existingListNames,
-                                              'fromGameCreation':
-                                                  isFromGameCreation,
-                                              'sport': sport,
-                                              ...?args, // Pass through original game creation arguments
-                                            },
+                                            route,
+                                            arguments: navigationArgs,
                                           ).then((result) async {
                                             if (result != null) {
                                               await _handleNewListResult(
-                                                  result, sport);
+                                                  result, effectiveSport);
                                             }
                                           });
                                         },

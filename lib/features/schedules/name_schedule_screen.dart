@@ -13,22 +13,34 @@ class NameScheduleScreen extends StatefulWidget {
 
 class _NameScheduleScreenState extends State<NameScheduleScreen> {
   final _nameController = TextEditingController();
+  final _homeTeamController = TextEditingController();
   final ScheduleService _scheduleService = ScheduleService();
 
   @override
   void dispose() {
     _nameController.dispose();
+    _homeTeamController.dispose();
     super.dispose();
   }
 
   void _handleContinue() async {
     final name = _nameController.text.trim();
+    final homeTeamName = _homeTeamController.text.trim();
+
     if (name.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter a schedule name!')),
       );
       return;
     }
+
+    if (homeTeamName.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a home team name!')),
+      );
+      return;
+    }
+
     final args =
         ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
     final sport = args['sport'] as String? ?? 'Unknown';
@@ -38,6 +50,7 @@ class _NameScheduleScreenState extends State<NameScheduleScreen> {
       final schedule = await _scheduleService.createSchedule(
         name: name,
         sportName: sport,
+        homeTeamName: homeTeamName,
       );
 
       if (schedule != null) {
@@ -46,7 +59,8 @@ class _NameScheduleScreenState extends State<NameScheduleScreen> {
       } else {
         // Schedule already exists
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('A schedule with this name already exists!')),
+          const SnackBar(
+              content: Text('A schedule with this name already exists!')),
         );
       }
     } catch (e) {
@@ -140,28 +154,38 @@ class _NameScheduleScreenState extends State<NameScheduleScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Provide a name for your new ${sport.toUpperCase()} schedule. The name you choose should identify the level of competition.',
-                        style: const TextStyle(
+                      const Text(
+                        'Schedule Name',
+                        style: TextStyle(
                           fontSize: 16,
-                          color: primaryTextColor,
+                          fontWeight: FontWeight.bold,
+                          color: efficialsYellow,
                         ),
-                        textAlign: TextAlign.center,
                       ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 8),
                       TextField(
                         controller: _nameController,
                         decoration:
-                            textFieldDecoration('Ex. - Varsity Football'),
+                            textFieldDecoration('Ex. - Edwardsville Varsity'),
                         style:
                             const TextStyle(fontSize: 16, color: Colors.white),
                       ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 24),
                       const Text(
-                        'Note: There is no need to specify a time period for your schedule. For example, use "Varsity Football" rather than "2025 Varsity Football".',
+                        'Home Team',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: efficialsYellow,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: _homeTeamController,
+                        decoration:
+                            textFieldDecoration('Ex. - Edwardsville Tigers'),
                         style:
-                            TextStyle(fontSize: 14, color: secondaryTextColor),
-                        textAlign: TextAlign.left,
+                            const TextStyle(fontSize: 16, color: Colors.white),
                       ),
                     ],
                   ),

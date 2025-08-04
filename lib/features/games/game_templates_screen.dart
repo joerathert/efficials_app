@@ -22,6 +22,7 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen>
   String? schedulerType;
   String? userSport;
   String? expandedTemplateId;
+  String? expandedDialogTemplateId;
   final GameService _gameService = GameService();
   final UserRepository _userRepository = UserRepository();
 
@@ -124,70 +125,82 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen>
       String sport, List<GameTemplate> sportTemplates) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: darkSurface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: efficialsYellow.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          backgroundColor: darkSurface,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: efficialsYellow.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.sports,
+                  color: efficialsYellow,
+                  size: 24,
+                ),
               ),
-              child: const Icon(
-                Icons.sports,
-                color: efficialsYellow,
-                size: 24,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  '$sport Templates',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: primaryTextColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+          content: ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 500),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: sportTemplates.map((template) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: _buildDialogTemplateCard(template, setDialogState),
+                  );
+                }).toList(),
               ),
             ),
-            const SizedBox(width: 12),
-            Expanded(
+          ),
+          actionsPadding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
+          actions: [
+            TextButton(
+              onPressed: () {
+                if (expandedDialogTemplateId != null) {
+                  // If a template is expanded, collapse it first
+                  setDialogState(() {
+                    expandedDialogTemplateId = null;
+                  });
+                } else {
+                  // If no template is expanded, close the dialog
+                  Navigator.pop(context);
+                }
+              },
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8)),
+              ),
               child: Text(
-                '$sport Templates',
+                expandedDialogTemplateId != null ? 'Collapse' : 'Close',
                 style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: primaryTextColor,
+                  color: efficialsBlue,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
           ],
         ),
-        contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
-        content: ConstrainedBox(
-          constraints: const BoxConstraints(maxHeight: 500),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: sportTemplates.map((template) {
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: _buildTemplateCard(template, isInDialog: true),
-                );
-              }).toList(),
-            ),
-          ),
-        ),
-        actionsPadding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            style: TextButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8)),
-            ),
-            child: const Text(
-              'Close',
-              style: TextStyle(
-                color: efficialsBlue,
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -464,25 +477,10 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen>
                                                     bottom: 12.0),
                                                 child: GestureDetector(
                                                   onTap: () {
-                                                    if (sportTemplates.length ==
-                                                        1) {
-                                                      // If only one template, expand/collapse it directly
-                                                      setState(() {
-                                                        final template =
-                                                            sportTemplates
-                                                                .first;
-                                                        expandedTemplateId =
-                                                            expandedTemplateId ==
-                                                                    template.id
-                                                                ? null
-                                                                : template.id;
-                                                      });
-                                                    } else {
-                                                      // If multiple templates, show selection dialog
-                                                      _showTemplateSelectionDialog(
-                                                          sport,
-                                                          sportTemplates);
-                                                    }
+                                                    // Always show template selection dialog
+                                                    _showTemplateSelectionDialog(
+                                                        sport,
+                                                        sportTemplates);
                                                   },
                                                   child: Container(
                                                     padding:
@@ -603,34 +601,12 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen>
                                                             ],
                                                           ),
                                                         ),
-                                                        if (sportTemplates
-                                                                .length ==
-                                                            1) ...[
-                                                          Icon(
-                                                            expandedTemplateId ==
-                                                                    sportTemplates
-                                                                        .first
-                                                                        .id
-                                                                ? Icons
-                                                                    .expand_less
-                                                                : Icons
-                                                                    .expand_more,
-                                                            color:
-                                                                secondaryTextColor,
-                                                            size: 24,
-                                                          ),
-                                                          const SizedBox(
-                                                              width: 8),
-                                                          _buildTemplateActions(
-                                                              sportTemplates
-                                                                  .first),
-                                                        ] else
-                                                          const Icon(
-                                                            Icons
-                                                                .arrow_forward_ios,
-                                                            color: Colors.grey,
-                                                            size: 16,
-                                                          ),
+                                                        const Icon(
+                                                          Icons
+                                                              .arrow_forward_ios,
+                                                          color: Colors.grey,
+                                                          size: 16,
+                                                        ),
                                                       ],
                                                     ),
                                                   ),
@@ -878,6 +854,179 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen>
               maxLines: 2,
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDialogTemplateCard(GameTemplate template, StateSetter setDialogState) {
+    final templateName = template.name;
+    final sport = template.sport ?? 'Unknown';
+    final isExpanded = expandedDialogTemplateId == template.id;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: darkSurface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[700]!, width: 1),
+      ),
+      child: Column(
+        children: [
+          InkWell(
+            onTap: () {
+              setDialogState(() {
+                expandedDialogTemplateId = isExpanded ? null : template.id;
+              });
+            },
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  // Template title row
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: getSportIconColor(sport).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          getSportIcon(sport),
+                          color: getSportIconColor(sport),
+                          size: 24,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            templateName,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: primaryTextColor,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ),
+                      Icon(
+                        isExpanded ? Icons.expand_less : Icons.expand_more,
+                        color: secondaryTextColor,
+                        size: 24,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  // Action buttons row
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextButton(
+                          onPressed: () async {
+                            Navigator.pop(context);
+                            final result = await Navigator.pushNamed(
+                              context,
+                              '/create_game_template',
+                              arguments: {
+                                'template': template,
+                              },
+                            );
+                            if (result != null) {
+                              await _fetchTemplates();
+                            }
+                          },
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            minimumSize: const Size(0, 40),
+                            backgroundColor: efficialsYellow.withOpacity(0.1),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: const Text(
+                            'Edit',
+                            style: TextStyle(
+                              color: efficialsYellow,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextButton(
+                          onPressed: () {
+                            Navigator.pop(context);
+                            _showDeleteConfirmationDialog(
+                                template.name, template);
+                          },
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            minimumSize: const Size(0, 40),
+                            backgroundColor: Colors.red.withOpacity(0.1),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: Text(
+                            'Delete',
+                            style: TextStyle(
+                              color: Colors.red.shade600,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextButton(
+                          onPressed: () {
+                            Navigator.pop(context);
+                            _useTemplate(template);
+                          },
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            minimumSize: const Size(0, 40),
+                            backgroundColor: Colors.green.withOpacity(0.1),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: const Text(
+                            'Use',
+                            style: TextStyle(
+                              color: Colors.green,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (isExpanded) ...[
+            const Divider(
+              color: secondaryTextColor,
+              thickness: 0.5,
+              height: 1,
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+              child: _buildTemplateDetails(template),
+            ),
+          ],
         ],
       ),
     );

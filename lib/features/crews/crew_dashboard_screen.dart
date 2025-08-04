@@ -36,14 +36,13 @@ class _CrewDashboardScreenState extends State<CrewDashboardScreen> {
 
       final userSession = UserSessionService.instance;
       _currentUserId = await userSession.getCurrentUserId();
-      
+
       if (_currentUserId != null) {
         // Get the official ID for the current user
         final currentUserOfficial = await _officialRepo.rawQuery(
-          'SELECT id FROM officials WHERE user_id = ? OR official_user_id = ?', 
-          [_currentUserId, _currentUserId]
-        );
-        
+            'SELECT id FROM officials WHERE user_id = ? OR official_user_id = ?',
+            [_currentUserId, _currentUserId]);
+
         if (currentUserOfficial.isNotEmpty) {
           _currentOfficialId = currentUserOfficial.first['id'] as int;
         } else {
@@ -54,40 +53,42 @@ class _CrewDashboardScreenState extends State<CrewDashboardScreen> {
           });
           return;
         }
-        
       } else {
         setState(() {
           _isLoading = false;
         });
         return;
       }
-      
+
       if (_currentOfficialId != null) {
         // Simple caching: avoid frequent refreshes (but always refresh if no crews loaded)
         final now = DateTime.now();
-        if (_lastRefresh != null && 
-            now.difference(_lastRefresh!).inSeconds < 30 && 
+        if (_lastRefresh != null &&
+            now.difference(_lastRefresh!).inSeconds < 30 &&
             _allCrews.isNotEmpty) {
           setState(() {
             _isLoading = false;
           });
           return;
         }
-        final crewsAsChief = await _crewRepo.getCrewsWhereChief(_currentOfficialId!);
-        final crewsAsMember = await _crewRepo.getCrewsForOfficial(_currentOfficialId!);
-        final pendingInvitations = await _crewRepo.getPendingInvitations(_currentOfficialId!);
-        
+        final crewsAsChief =
+            await _crewRepo.getCrewsWhereChief(_currentOfficialId!);
+        final crewsAsMember =
+            await _crewRepo.getCrewsForOfficial(_currentOfficialId!);
+        final pendingInvitations =
+            await _crewRepo.getPendingInvitations(_currentOfficialId!);
+
         // Combine all crews into one list, removing duplicates
         final allCrews = <Crew>[];
         allCrews.addAll(crewsAsChief);
-        
+
         // Only add member crews that aren't already in the chief list
         for (final memberCrew in crewsAsMember) {
           if (!crewsAsChief.any((chiefCrew) => chiefCrew.id == memberCrew.id)) {
             allCrews.add(memberCrew);
           }
         }
-        
+
         if (mounted) {
           _lastRefresh = now;
           setState(() {
@@ -158,7 +159,7 @@ class _CrewDashboardScreenState extends State<CrewDashboardScreen> {
   Widget _buildCrewsList() {
     final hasCrews = _allCrews.isNotEmpty;
     final hasInvitations = _pendingInvitations.isNotEmpty;
-    
+
     if (!hasCrews && !hasInvitations) {
       return _buildEmptyState();
     }
@@ -170,11 +171,12 @@ class _CrewDashboardScreenState extends State<CrewDashboardScreen> {
         if (hasInvitations) ...[
           _buildSectionHeader('Crew Invitations', _pendingInvitations.length),
           const SizedBox(height: 8),
-          ..._pendingInvitations.map((invitation) => _buildInvitationCard(invitation)),
+          ..._pendingInvitations
+              .map((invitation) => _buildInvitationCard(invitation)),
           if (hasCrews) const SizedBox(height: 24),
         ],
-        
-        // My Crews Section  
+
+        // My Crews Section
         if (hasCrews) ...[
           _buildSectionHeader('My Crews', _allCrews.length),
           const SizedBox(height: 8),
@@ -290,7 +292,7 @@ class _CrewDashboardScreenState extends State<CrewDashboardScreen> {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: isFullyStaffed 
+                    color: isFullyStaffed
                         ? Colors.green.withOpacity(0.2)
                         : Colors.orange.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(12),
@@ -463,7 +465,8 @@ class _CrewDashboardScreenState extends State<CrewDashboardScreen> {
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: Colors.orange.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(12),
@@ -481,7 +484,8 @@ class _CrewDashboardScreenState extends State<CrewDashboardScreen> {
               ],
             ),
             const SizedBox(height: 12),
-            if (invitation.sportName != null || invitation.levelOfCompetition != null)
+            if (invitation.sportName != null ||
+                invitation.levelOfCompetition != null)
               Padding(
                 padding: const EdgeInsets.only(bottom: 12),
                 child: Row(
@@ -494,10 +498,12 @@ class _CrewDashboardScreenState extends State<CrewDashboardScreen> {
                         style: TextStyle(color: Colors.grey[400], fontSize: 14),
                       ),
                     ],
-                    if (invitation.sportName != null && invitation.levelOfCompetition != null)
+                    if (invitation.sportName != null &&
+                        invitation.levelOfCompetition != null)
                       Text(' • ', style: TextStyle(color: Colors.grey[400])),
                     if (invitation.levelOfCompetition != null) ...[
-                      Icon(Icons.emoji_events, color: Colors.grey[400], size: 16),
+                      Icon(Icons.emoji_events,
+                          color: Colors.grey[400], size: 16),
                       const SizedBox(width: 4),
                       Text(
                         invitation.levelOfCompetition!,
@@ -511,7 +517,8 @@ class _CrewDashboardScreenState extends State<CrewDashboardScreen> {
               children: [
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: () => _respondToInvitation(invitation, 'accepted'),
+                    onPressed: () =>
+                        _respondToInvitation(invitation, 'accepted'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.green,
                       foregroundColor: Colors.white,
@@ -522,7 +529,8 @@ class _CrewDashboardScreenState extends State<CrewDashboardScreen> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: () => _respondToInvitation(invitation, 'declined'),
+                    onPressed: () =>
+                        _respondToInvitation(invitation, 'declined'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.red,
                       foregroundColor: Colors.white,
@@ -600,11 +608,15 @@ class _CrewDashboardScreenState extends State<CrewDashboardScreen> {
           ),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(
-              member.officialName ?? 'Unknown Official',
-              style: TextStyle(
-                color: Colors.grey[300],
-                fontSize: 13,
+            child: GestureDetector(
+              onTap: () => _navigateToOfficialProfile(member),
+              child: Text(
+                member.officialName ?? 'Unknown Official',
+                style: TextStyle(
+                  color: efficialsYellow,
+                  fontSize: 13,
+                  decoration: TextDecoration.underline,
+                ),
               ),
             ),
           ),
@@ -646,13 +658,14 @@ class _CrewDashboardScreenState extends State<CrewDashboardScreen> {
 
   void _navigateToCreateCrew() async {
     final result = await Navigator.pushNamed(context, '/create_crew');
-    
+
     if (result == true) {
       _loadCrews(); // Refresh the list
     }
   }
 
-  Future<void> _respondToInvitation(CrewInvitation invitation, String response) async {
+  Future<void> _respondToInvitation(
+      CrewInvitation invitation, String response) async {
     try {
       setState(() {
         _isLoading = true;
@@ -672,8 +685,10 @@ class _CrewDashboardScreenState extends State<CrewDashboardScreen> {
         final action = response == 'accepted' ? 'accepted' : 'declined';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('You have $action the invitation to join ${invitation.crewName}'),
-            backgroundColor: response == 'accepted' ? Colors.green : Colors.orange,
+            content: Text(
+                'You have $action the invitation to join ${invitation.crewName}'),
+            backgroundColor:
+                response == 'accepted' ? Colors.green : Colors.orange,
           ),
         );
       }
@@ -695,7 +710,7 @@ class _CrewDashboardScreenState extends State<CrewDashboardScreen> {
 
   void _navigateToInvitations() async {
     final result = await Navigator.pushNamed(context, '/crew_invitations');
-    
+
     if (result == true) {
       _loadCrews(); // Refresh the list
     }
@@ -703,13 +718,100 @@ class _CrewDashboardScreenState extends State<CrewDashboardScreen> {
 
   void _navigateToCrewDetails(Crew crew) async {
     final result = await Navigator.pushNamed(
-      context, 
+      context,
       '/crew_details',
       arguments: crew,
     );
-    
+
     if (result == true) {
       _loadCrews(); // Refresh the list
+    }
+  }
+
+  String _buildLocationString(String? city, String? state) {
+    final cityStr = city?.trim() ?? '';
+    final stateStr = state?.trim() ?? '';
+    
+    if (cityStr.isNotEmpty && stateStr.isNotEmpty) {
+      return '$cityStr, $stateStr';
+    } else if (cityStr.isNotEmpty) {
+      return cityStr;
+    } else if (stateStr.isNotEmpty) {
+      return stateStr;
+    } else {
+      return 'Location not specified';
+    }
+  }
+
+  void _navigateToOfficialProfile(CrewMember member) async {
+    try {
+      debugPrint('Attempting to navigate to profile for member: ${member.officialName} (ID: ${member.officialId})');
+      
+      // Get the full official data from the database using direct query
+      final results = await _officialRepo.query(
+        'officials',
+        where: 'id = ?',
+        whereArgs: [member.officialId],
+      );
+
+      debugPrint('Database query results: ${results.length} records found');
+      if (results.isNotEmpty) {
+        debugPrint('First result keys: ${results.first.keys.toList()}');
+        debugPrint('First result: ${results.first}');
+      }
+
+      if (results.isEmpty) {
+        debugPrint('No official found with ID: ${member.officialId}');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Official profile not found (ID: ${member.officialId})'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
+      final officialData = results.first;
+
+      // Navigate to the official profile screen with the official's data
+      if (mounted) {
+        final arguments = {
+          'id': officialData['id'],
+          'name': (officialData['name']?.toString() ?? 'Unknown Official'),
+          'email': (officialData['email']?.toString() ?? ''),
+          'phone': (officialData['phone']?.toString() ?? ''),
+          'location': _buildLocationString(officialData['city']?.toString(), officialData['state']?.toString()),
+          'experienceYears': (officialData['experience_years'] as int?) ?? 0,
+          'primarySport': (officialData['sport_name']?.toString() ?? 'N/A'),
+          'certificationLevel': (officialData['certification_level']?.toString() ?? 'N/A'),
+          'joinedDate': DateTime.tryParse(
+                  officialData['created_at']?.toString() ?? '') ??
+              DateTime.now(),
+          'totalGames': (officialData['total_accepted_games'] as int?) ?? 0,
+          'followThroughRate': (officialData['follow_through_rate'] as num?)?.toDouble() ?? 100.0,
+          'showCareerStats': true, // Default to showing stats
+        };
+        
+        debugPrint('Navigating with arguments: $arguments');
+        await Navigator.pushNamed(
+          context,
+          '/official_profile',
+          arguments: arguments,
+        );
+      }
+    } catch (e) {
+      debugPrint('Error navigating to official profile: $e');
+      debugPrint('Stack trace: ${StackTrace.current}');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading official profile: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 }

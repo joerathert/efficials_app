@@ -127,6 +127,7 @@ class GameRepository extends BaseRepository {
              g.home_team, g.hire_automatically, g.method, g.status,
              g.created_at, g.updated_at,
              s.name as schedule_name,
+             s.home_team_name as schedule_home_team_name,
              sp.name as sport_name,
              l.name as location_name
       FROM games g

@@ -161,9 +161,11 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
     final prefs = await SharedPreferences.getInstance();
     final schedulerType = prefs.getString('schedulerType');
     final savedTeamName = prefs.getString('team_name');
+    debugPrint('🔍 _loadSchedulerType: schedulerType = "$schedulerType", savedTeamName = "$savedTeamName"');
     setState(() {
-      isCoachScheduler = schedulerType == 'Coach';
+      isCoachScheduler = schedulerType?.toLowerCase() == 'coach';
       teamName = savedTeamName;
+      debugPrint('🔍 _loadSchedulerType: isCoachScheduler = $isCoachScheduler, teamName = "$teamName"');
 
       // If this is a Coach user and no schedule name is set yet, set it to team name
       if (isCoachScheduler == true &&
@@ -1071,11 +1073,20 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final gameDetails = {
+    debugPrint('🔍 build: isCoachScheduler = $isCoachScheduler');
+    
+    // Create gameDetails map without Schedule Name initially
+    final gameDetails = <String, String>{
       'Sport': args['sport'] as String? ?? 'Unknown',
-      // For Coach users, don't show schedule name in UI but still store it
-      if (isCoachScheduler != true)
-        'Schedule Name': args['scheduleName'] as String? ?? 'Unnamed',
+    };
+    
+    // Only add Schedule Name for non-Coach users (when isCoachScheduler is explicitly false)
+    if (isCoachScheduler == false) {
+      gameDetails['Schedule Name'] = args['scheduleName'] as String? ?? 'Unnamed';
+    }
+    
+    // Add remaining details
+    gameDetails.addAll({
       'Date': args['date'] != null
           ? DateFormat('MMMM d, yyyy').format(args['date'] as DateTime)
           : 'Not set',
@@ -1084,7 +1095,7 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
           : 'Not set',
       'Location': args['location'] as String? ?? 'Not set',
       'Opponent': args['opponent'] as String? ?? 'Not set',
-    };
+    });
 
     final additionalDetails = !isAwayGame
         ? {

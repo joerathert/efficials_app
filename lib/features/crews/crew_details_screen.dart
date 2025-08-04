@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../shared/theme.dart';
 import '../../shared/services/repositories/crew_repository.dart';
+import '../../shared/services/repositories/official_repository.dart';
 import '../../shared/services/crew_chief_service.dart';
 import '../../shared/services/user_session_service.dart';
 import '../../shared/models/database_models.dart';
@@ -32,7 +33,7 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
   int? _currentOfficialId;
   String _searchQuery = '';
 
-@override
+  @override
   void initState() {
     super.initState();
     _loadCrewDetails();
@@ -61,7 +62,7 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
         final name = member.officialName?.toLowerCase() ?? '';
         return name.contains(_searchQuery.toLowerCase());
       }).toList();
-      
+
       _filteredInvitations = _pendingInvitations.where((invitation) {
         final name = invitation.invitedOfficialName?.toLowerCase() ?? '';
         return name.contains(_searchQuery.toLowerCase());
@@ -82,7 +83,8 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
         final isChief = await _crewChiefService.isCrewChief(
             _currentOfficialId!, widget.crew.id!);
         final members = await _crewRepo.getCrewMembers(widget.crew.id!);
-        final pendingInvitations = await _crewRepo.getCrewInvitations(widget.crew.id!);
+        final pendingInvitations =
+            await _crewRepo.getCrewInvitations(widget.crew.id!);
 
         Map<String, dynamic> stats = {};
         if (isChief) {
@@ -95,7 +97,9 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
             _isCrewChief = isChief;
             _members = members;
             _filteredMembers = List.from(members);
-            _pendingInvitations = pendingInvitations.where((inv) => inv.status == 'pending').toList();
+            _pendingInvitations = pendingInvitations
+                .where((inv) => inv.status == 'pending')
+                .toList();
             _filteredInvitations = List.from(_pendingInvitations);
             _performanceStats = stats;
             _isLoading = false;
@@ -245,12 +249,11 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
             _buildInfoRow(Icons.sports, 'Sport', '${widget.crew.sportName}'),
             const SizedBox(height: 8),
             _buildInfoRow(
-                Icons.people, 
-                'Members', 
-                hasPendingInvitations 
-                  ? '$memberCount active + $pendingCount pending ($totalCount of $requiredCount)'
-                  : '$memberCount of $requiredCount'
-              ),
+                Icons.people,
+                'Members',
+                hasPendingInvitations
+                    ? '$memberCount active + $pendingCount pending ($totalCount of $requiredCount)'
+                    : '$memberCount of $requiredCount'),
             const SizedBox(height: 8),
             _buildInfoRow(
                 Icons.person, 'Crew Chief', '${widget.crew.crewChiefName}'),
@@ -294,13 +297,13 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
   Widget _buildCompetitionLevelsRow() {
     final competitionLevels = widget.crew.competitionLevels;
     String displayText;
-    
+
     if (competitionLevels == null || competitionLevels.isEmpty) {
       displayText = 'No competition levels set';
     } else {
       displayText = competitionLevels.join(', ');
     }
-    
+
     return Row(
       children: [
         Icon(
@@ -321,8 +324,8 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
           child: Text(
             displayText,
             style: TextStyle(
-              color: competitionLevels == null || competitionLevels.isEmpty 
-                  ? Colors.orange 
+              color: competitionLevels == null || competitionLevels.isEmpty
+                  ? Colors.orange
                   : efficialsWhite,
               fontSize: 14,
               fontWeight: FontWeight.w500,
@@ -368,7 +371,8 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
                 if (_isCrewChief)
                   TextButton.icon(
                     onPressed: () {
-                      Navigator.pushNamed(context, '/add_crew_member', arguments: widget.crew);
+                      Navigator.pushNamed(context, '/add_crew_member',
+                          arguments: widget.crew);
                     },
                     icon:
                         const Icon(Icons.add, color: efficialsYellow, size: 16),
@@ -402,7 +406,9 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
             const SizedBox(height: 16),
             if (_filteredMembers.isEmpty && _filteredInvitations.isEmpty)
               Text(
-                _searchQuery.isEmpty ? 'No members added yet' : 'No members found matching "$_searchQuery"',
+                _searchQuery.isEmpty
+                    ? 'No members added yet'
+                    : 'No members found matching "$_searchQuery"',
                 style: const TextStyle(color: Colors.grey),
               )
             else
@@ -423,13 +429,13 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
                           ),
                         ),
                       ),
-                    ..._filteredMembers.map((member) => _buildMemberTile(member)),
+                    ..._filteredMembers
+                        .map((member) => _buildMemberTile(member)),
                   ],
-                  
+
                   // Pending Invitations
                   if (_filteredInvitations.isNotEmpty) ...[
-                    if (_filteredMembers.isNotEmpty)
-                      const SizedBox(height: 16),
+                    if (_filteredMembers.isNotEmpty) const SizedBox(height: 16),
                     const Padding(
                       padding: EdgeInsets.only(bottom: 12),
                       child: Text(
@@ -441,7 +447,8 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
                         ),
                       ),
                     ),
-                    ..._filteredInvitations.map((invitation) => _buildInvitationTile(invitation)),
+                    ..._filteredInvitations
+                        .map((invitation) => _buildInvitationTile(invitation)),
                   ],
                 ],
               ),
@@ -471,12 +478,16 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  member.officialName ?? 'Unknown',
-                  style: const TextStyle(
-                    color: efficialsWhite,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
+                GestureDetector(
+                  onTap: () => _navigateToOfficialProfile(member),
+                  child: Text(
+                    member.officialName ?? 'Unknown',
+                    style: const TextStyle(
+                      color: efficialsYellow,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      decoration: TextDecoration.underline,
+                    ),
                   ),
                 ),
                 if (member.gamePosition != null)
@@ -590,7 +601,7 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
   String _formatDate(DateTime date) {
     final now = DateTime.now();
     final difference = now.difference(date);
-    
+
     if (difference.inDays > 0) {
       return '${difference.inDays} day${difference.inDays == 1 ? '' : 's'} ago';
     } else if (difference.inHours > 0) {
@@ -637,7 +648,7 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
       );
 
       if (confirmed == true) {
-        // Update invitation status to cancelled  
+        // Update invitation status to cancelled
         await _crewRepo.respondToInvitation(
           invitation.id!,
           'cancelled',
@@ -651,7 +662,8 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Invitation to ${invitation.invitedOfficialName} has been cancelled'),
+              content: Text(
+                  'Invitation to ${invitation.invitedOfficialName} has been cancelled'),
               backgroundColor: Colors.orange,
             ),
           );
@@ -743,7 +755,8 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
             width: double.infinity,
             child: ElevatedButton.icon(
               onPressed: () {
-                Navigator.pushNamed(context, '/crew_availability', arguments: widget.crew);
+                Navigator.pushNamed(context, '/crew_availability',
+                    arguments: widget.crew);
               },
               icon: const Icon(Icons.calendar_today),
               label: const Text('Manage Availability'),
@@ -780,10 +793,12 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
   void _handleMenuSelection(String value) {
     switch (value) {
       case 'manage_availability':
-        Navigator.pushNamed(context, '/crew_availability', arguments: widget.crew);
+        Navigator.pushNamed(context, '/crew_availability',
+            arguments: widget.crew);
         break;
       case 'add_member':
-        Navigator.pushNamed(context, '/add_crew_member', arguments: widget.crew);
+        Navigator.pushNamed(context, '/add_crew_member',
+            arguments: widget.crew);
         break;
       case 'edit_crew':
         Navigator.pushNamed(context, '/edit_crew', arguments: widget.crew);
@@ -963,7 +978,8 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
       if (_currentOfficialId == null) return;
 
       // Check for active assignments before deletion
-      final hasActiveAssignments = await _crewRepo.checkAssignments(widget.crew.id!);
+      final hasActiveAssignments =
+          await _crewRepo.checkAssignments(widget.crew.id!);
       if (hasActiveAssignments) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -1043,7 +1059,8 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Cannot remove ${member.officialName} - they have active game assignments'),
+                content: Text(
+                    'Cannot remove ${member.officialName} - they have active game assignments'),
                 backgroundColor: Colors.red,
               ),
             );
@@ -1083,13 +1100,14 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
   Future<void> _showEditCompetitionLevelsDialog() async {
     final competitionLevelOptions = [
       'Grade School (6U-11U)',
-      'Middle School (12U-14U)', 
+      'Middle School (12U-14U)',
       'Junior Varsity',
       'Varsity',
       'Semi Pro/College'
     ];
 
-    List<String> selectedLevels = List.from(widget.crew.competitionLevels ?? []);
+    List<String> selectedLevels =
+        List.from(widget.crew.competitionLevels ?? []);
 
     final result = await showDialog<List<String>>(
       context: context,
@@ -1143,8 +1161,8 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
               ),
             ),
             TextButton(
-              onPressed: selectedLevels.isEmpty 
-                  ? null 
+              onPressed: selectedLevels.isEmpty
+                  ? null
                   : () => Navigator.pop(context, selectedLevels),
               child: Text(
                 'Save',
@@ -1163,13 +1181,15 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
     }
   }
 
-  Future<void> _updateCrewCompetitionLevels(List<String> competitionLevels) async {
+  Future<void> _updateCrewCompetitionLevels(
+      List<String> competitionLevels) async {
     try {
-      await _crewRepo.updateCrewCompetitionLevels(widget.crew.id!, competitionLevels);
-      
+      await _crewRepo.updateCrewCompetitionLevels(
+          widget.crew.id!, competitionLevels);
+
       // Reload crew details to reflect changes
       await _loadCrewDetails();
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -1183,6 +1203,98 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Failed to update competition levels: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  String _buildLocationString(String? city, String? state) {
+    final cityStr = city?.trim() ?? '';
+    final stateStr = state?.trim() ?? '';
+    
+    if (cityStr.isNotEmpty && stateStr.isNotEmpty) {
+      return '$cityStr, $stateStr';
+    } else if (cityStr.isNotEmpty) {
+      return cityStr;
+    } else if (stateStr.isNotEmpty) {
+      return stateStr;
+    } else {
+      return 'Location not specified';
+    }
+  }
+
+  void _navigateToOfficialProfile(CrewMember member) async {
+    try {
+      print(
+          'Navigating to official profile for member: ${member.officialName} (ID: ${member.officialId})');
+      final officialRepo = OfficialRepository();
+      // Get the full official data from the database using direct query
+      final results = await officialRepo.query(
+        'officials',
+        where: 'id = ?',
+        whereArgs: [member.officialId],
+      );
+
+      if (results.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Official profile not found'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
+      final officialData = results.first;
+      print('Retrieved official data: $officialData');
+
+      // Validate that we have the required data
+      if (officialData['id'] == null) {
+        print('Error: Official ID is null');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Error: Official data is incomplete'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
+      // Navigate to the official profile screen with the official's data
+      if (mounted) {
+        await Navigator.pushNamed(
+          context,
+          '/official_profile',
+          arguments: {
+            'id': officialData['id'],
+            'name': (officialData['name']?.toString() ?? 'Unknown Official'),
+            'email': (officialData['email']?.toString() ?? ''),
+            'phone': (officialData['phone']?.toString() ?? ''),
+            'location': _buildLocationString(officialData['city']?.toString(), officialData['state']?.toString()),
+            'experienceYears': (officialData['experience_years'] as int?) ?? 0,
+            'primarySport': (officialData['sport_name']?.toString() ?? 'N/A'),
+            'certificationLevel': (officialData['certification_level']?.toString() ?? 'N/A'),
+            'joinedDate': DateTime.tryParse(
+                    officialData['created_at']?.toString() ?? '') ??
+                DateTime.now(),
+            'totalGames': (officialData['total_accepted_games'] as int?) ?? 0,
+            'followThroughRate': (officialData['follow_through_rate'] as num?)?.toDouble() ?? 100.0,
+            'showCareerStats': true, // Default to showing stats
+          },
+        );
+      }
+    } catch (e) {
+      print('Error navigating to official profile: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Error loading official profile'),
             backgroundColor: Colors.red,
           ),
         );
