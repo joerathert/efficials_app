@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../shared/theme.dart';
 import '../../shared/services/schedule_service.dart';
+import '../../shared/services/repositories/user_repository.dart';
+import '../../shared/models/database_models.dart';
 
 class NameScheduleScreen extends StatefulWidget {
   const NameScheduleScreen({super.key});
@@ -15,6 +17,36 @@ class _NameScheduleScreenState extends State<NameScheduleScreen> {
   final _nameController = TextEditingController();
   final _homeTeamController = TextEditingController();
   final ScheduleService _scheduleService = ScheduleService();
+  final UserRepository _userRepository = UserRepository();
+  
+  User? currentUser;
+  bool isAssigner = false;
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCurrentUser();
+  }
+
+  Future<void> _loadCurrentUser() async {
+    try {
+      currentUser = await _userRepository.getCurrentUser();
+      if (currentUser != null) {
+        isAssigner = currentUser!.schedulerType == 'Assigner';
+        // Pre-fill home team for ADs from their team name
+        if (!isAssigner && currentUser!.teamName != null) {
+          _homeTeamController.text = currentUser!.teamName!;
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading current user: $e');
+    } finally {
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -34,11 +66,17 @@ class _NameScheduleScreenState extends State<NameScheduleScreen> {
       return;
     }
 
-    if (homeTeamName.isEmpty) {
+    // Only require home team name for Assigners
+    if (isAssigner && homeTeamName.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter a home team name!')),
       );
       return;
+    }
+    
+    // For ADs, use their existing team name if home team field is empty
+    if (!isAssigner && homeTeamName.isEmpty && currentUser?.teamName != null) {
+      _homeTeamController.text = currentUser!.teamName!;
     }
 
     final args =
@@ -121,88 +159,96 @@ class _NameScheduleScreenState extends State<NameScheduleScreen> {
         ),
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(20.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                const SizedBox(height: 40),
-                const Text(
-                  'Name Your Schedule',
-                  style: TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
-                    color: efficialsYellow,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 40),
-                Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: darkSurface,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.3),
-                        blurRadius: 10,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
+        child: isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : SingleChildScrollView(
+                child: Padding(
+                  padding: const EdgeInsets.all(20.0),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
+                      const SizedBox(height: 40),
                       const Text(
-                        'Schedule Name',
+                        'Name Your Schedule',
                         style: TextStyle(
-                          fontSize: 16,
+                          fontSize: 32,
                           fontWeight: FontWeight.bold,
                           color: efficialsYellow,
                         ),
+                        textAlign: TextAlign.center,
                       ),
-                      const SizedBox(height: 8),
-                      TextField(
-                        controller: _nameController,
-                        decoration:
-                            textFieldDecoration('Ex. - Edwardsville Varsity'),
-                        style:
-                            const TextStyle(fontSize: 16, color: Colors.white),
-                      ),
-                      const SizedBox(height: 24),
-                      const Text(
-                        'Home Team',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: efficialsYellow,
+                      const SizedBox(height: 40),
+                      Container(
+                        padding: const EdgeInsets.all(24),
+                        decoration: BoxDecoration(
+                          color: darkSurface,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.3),
+                              blurRadius: 10,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Schedule Name',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: efficialsYellow,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            TextField(
+                              controller: _nameController,
+                              decoration: textFieldDecoration(
+                                isAssigner 
+                                  ? 'Ex. - Edwardsville Varsity'
+                                  : 'Ex. Varsity Football'
+                              ),
+                              style:
+                                  const TextStyle(fontSize: 16, color: Colors.white),
+                            ),
+                            // Only show home team field for Assigners
+                            if (isAssigner) ...[
+                              const SizedBox(height: 24),
+                              const Text(
+                                'Home Team',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: efficialsYellow,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              TextField(
+                                controller: _homeTeamController,
+                                decoration:
+                                    textFieldDecoration('Ex. - Edwardsville Tigers'),
+                                style:
+                                    const TextStyle(fontSize: 16, color: Colors.white),
+                              ),
+                            ],
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      TextField(
-                        controller: _homeTeamController,
-                        decoration:
-                            textFieldDecoration('Ex. - Edwardsville Tigers'),
-                        style:
-                            const TextStyle(fontSize: 16, color: Colors.white),
+                      const SizedBox(height: 30),
+                      ElevatedButton(
+                        onPressed: _handleContinue,
+                        style: elevatedButtonStyle(
+                          padding: const EdgeInsets.symmetric(
+                              vertical: 15, horizontal: 50),
+                        ),
+                        child: const Text('Continue', style: signInButtonTextStyle),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 30),
-                ElevatedButton(
-                  onPressed: _handleContinue,
-                  style: elevatedButtonStyle(
-                    padding: const EdgeInsets.symmetric(
-                        vertical: 15, horizontal: 50),
-                  ),
-                  child: const Text('Continue', style: signInButtonTextStyle),
-                ),
-              ],
-            ),
-          ),
-        ),
+              ),
       ),
     );
   }

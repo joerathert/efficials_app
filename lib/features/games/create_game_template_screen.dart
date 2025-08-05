@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../../shared/theme.dart';
 import 'game_template.dart';
 import '../../shared/services/repositories/sport_repository.dart';
+import '../../shared/services/repositories/user_repository.dart';
 import '../../shared/services/game_service.dart';
 import '../../shared/services/location_service.dart';
 
@@ -36,7 +37,12 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
   List<String> availableSports = []; // List of available sports
   bool isLoadingSports = true; // Track sports loading
   bool isCreatingFromScratch = false; // Track if creating from scratch
+  String? currentUserSchedulerType; // Current user's scheduler type
+  String? currentUserSport; // Current user's sport (for Assigners)
+  bool isAssigner = false; // Track if current user is an Assigner
+  bool isLoadingUser = true; // Track if user data is still loading
   final SportRepository _sportRepository = SportRepository();
+  final UserRepository _userRepository = UserRepository();
   final GameService _gameService = GameService();
   final LocationService _locationService = LocationService();
 
@@ -82,14 +88,34 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
   @override
   void initState() {
     super.initState();
-    _fetchLocations(); // Fetch locations at initialization
-    _fetchSports(); // Fetch sports at initialization
+    _initializeScreen();
+  }
+
+  Future<void> _initializeScreen() async {
+    // Fetch all required data before processing arguments
+    await Future.wait([
+      _fetchLocations(), // Fetch locations at initialization
+      _fetchSports(), // Fetch sports at initialization
+      _fetchCurrentUser(), // Fetch current user information
+    ]);
+    
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final args =
           ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>?;
       
       // Determine if we're creating from scratch (no arguments)
       isCreatingFromScratch = (args == null);
+      
+      // Re-apply Assigner sport pre-population if needed
+      if (isAssigner && currentUserSport != null && sport == null) {
+        debugPrint('RE-APPLYING ASSIGNER SPORT: $currentUserSport');
+        setState(() {
+          sport = currentUserSport;
+          includeSport = true;
+        });
+      } else {
+        debugPrint('NOT RE-APPLYING - isAssigner: $isAssigner, currentUserSport: $currentUserSport, sport: $sport');
+      }
       
       if (args != null) {
         // Check if this is an Away Game - Away Games can't be used for templates
@@ -234,49 +260,90 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
   Future<void> _fetchLocations() async {
     try {
       final fetchedLocations = await _locationService.getLocations();
-      setState(() {
-        locations = List<Map<String, dynamic>>.from(fetchedLocations);
-        
-        // Remove any existing "Create new location" entries to prevent duplicates
-        locations.removeWhere((loc) => loc['name'] == '+ Create new location');
-        
-        // Add the create option only once
-        locations.add({'name': '+ Create new location', 'id': 0});
-        
-        // Validate current location selection
-        if (location != null && 
-            !locations.any((loc) => loc['name'] == location && loc['id'] != 0)) {
-          location = null; // Clear invalid location
-        }
-        
-        isLoadingLocations = false;
-      });
+      if (mounted) {
+        setState(() {
+          locations = List<Map<String, dynamic>>.from(fetchedLocations);
+          
+          // Remove any existing "Create new location" entries to prevent duplicates
+          locations.removeWhere((loc) => loc['name'] == '+ Create new location');
+          
+          // Add the create option only once
+          locations.add({'name': '+ Create new location', 'id': 0});
+          
+          // Validate current location selection
+          if (location != null && 
+              !locations.any((loc) => loc['name'] == location && loc['id'] != 0)) {
+            location = null; // Clear invalid location
+          }
+          
+          isLoadingLocations = false;
+        });
+      }
     } catch (e) {
-      setState(() {
-        locations = [{'name': '+ Create new location', 'id': 0}];
-        isLoadingLocations = false;
-      });
+      if (mounted) {
+        setState(() {
+          locations = [{'name': '+ Create new location', 'id': 0}];
+          isLoadingLocations = false;
+        });
+      }
     }
   }
 
   Future<void> _fetchSports() async {
     try {
       final sports = await _sportRepository.getAllSports();
-      setState(() {
-        availableSports = sports.map((sport) => sport.name).toList();
-        isLoadingSports = false;
-      });
+      if (mounted) {
+        setState(() {
+          availableSports = sports.map((sport) => sport.name).toList();
+          isLoadingSports = false;
+        });
+      }
     } catch (e) {
-      setState(() {
-        availableSports = [
-          'Football',
-          'Basketball',
-          'Baseball',
-          'Soccer',
-          'Volleyball',
-        ];
-        isLoadingSports = false;
-      });
+      if (mounted) {
+        setState(() {
+          availableSports = [
+            'Football',
+            'Basketball',
+            'Baseball',
+            'Soccer',
+            'Volleyball',
+          ];
+          isLoadingSports = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _fetchCurrentUser() async {
+    try {
+      final currentUser = await _userRepository.getCurrentUser();
+      if (currentUser != null && mounted) {
+        setState(() {
+          currentUserSchedulerType = currentUser.schedulerType;
+          currentUserSport = currentUser.sport;
+          debugPrint('USER DATA: schedulerType="${currentUser.schedulerType}", sport="${currentUser.sport}"');
+          isAssigner = currentUserSchedulerType == 'assigner';
+          debugPrint('COMPARISON: "$currentUserSchedulerType" == "assigner" = $isAssigner');
+          
+          // Pre-populate sport for Assigners
+          if (isAssigner && currentUserSport != null && sport == null) {
+            sport = currentUserSport;
+            includeSport = true; // Always include sport for Assigners
+            debugPrint('ASSIGNER SPORT SET: $sport (from currentUserSport: $currentUserSport)');
+          } else {
+            debugPrint('SPORT NOT SET - isAssigner: $isAssigner, currentUserSport: $currentUserSport, sport: $sport');
+          }
+          
+          isLoadingUser = false; // Mark user loading as complete
+        });
+      }
+    } catch (e) {
+      // Handle error silently - user info not critical for template creation
+      if (mounted) {
+        setState(() {
+          isLoadingUser = false; // Mark user loading as complete even on error
+        });
+      }
     }
   }
 
@@ -713,8 +780,8 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                           fontWeight: FontWeight.w600,
                           color: Colors.white)),
                   const SizedBox(height: 16),
-                  // Sport field - editable when creating from scratch
-                  isCreatingFromScratch
+                  // Sport field - editable when creating from scratch and not an Assigner
+                  isCreatingFromScratch && !isAssigner
                       ? Row(
                           children: [
                             Checkbox(
@@ -759,8 +826,78 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                             ),
                           ],
                         )
-                      : _buildFieldRow('Sport', sport ?? 'Not specified', (value) {},
-                          isEditable: false, isCheckboxEnabled: false),
+                      : isCreatingFromScratch && isAssigner
+                          ? Row(
+                              children: [
+                                Checkbox(
+                                  value: includeSport,
+                                  onChanged: null, // Disabled for Assigners
+                                  activeColor: Colors.grey,
+                                  checkColor: Colors.white,
+                                  fillColor: WidgetStateProperty.resolveWith<Color?>((states) {
+                                    return Colors.grey;
+                                  }),
+                                ),
+                                Expanded(
+                                  child: isLoadingUser
+                                      ? Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                                          decoration: BoxDecoration(
+                                            color: Colors.grey[800],
+                                            borderRadius: BorderRadius.circular(8),
+                                            border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                                          ),
+                                          child: const Row(
+                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                            children: [
+                                              Text(
+                                                'Loading sport...',
+                                                style: TextStyle(
+                                                  color: Colors.grey,
+                                                  fontSize: 16,
+                                                ),
+                                              ),
+                                              SizedBox(
+                                                width: 16,
+                                                height: 16,
+                                                child: CircularProgressIndicator(
+                                                  strokeWidth: 2,
+                                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.grey),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        )
+                                      : Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                                          decoration: BoxDecoration(
+                                            color: Colors.grey[800],
+                                            borderRadius: BorderRadius.circular(8),
+                                            border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                                          ),
+                                          child: Row(
+                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                            children: [
+                                              Text(
+                                                sport ?? 'Sport not found',
+                                                style: const TextStyle(
+                                                  color: Colors.grey,
+                                                  fontSize: 16,
+                                                ),
+                                              ),
+                                              const Icon(
+                                                Icons.lock,
+                                                color: Colors.grey,
+                                                size: 16,
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                ),
+                              ],
+                            )
+                          : _buildFieldRow('Sport', sport ?? 'Not specified', (value) {},
+                              isEditable: false, isCheckboxEnabled: false),
                   Row(
                     children: [
                       Checkbox(
