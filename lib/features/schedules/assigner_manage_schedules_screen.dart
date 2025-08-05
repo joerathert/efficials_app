@@ -140,7 +140,12 @@ class _AssignerManageSchedulesScreenState
       await _fetchTeams();
       if (mounted) {
         setState(() {
-          selectedTeam = result as String;
+          // Handle both schedule object (from database) and string (from SharedPreferences)
+          if (result is Map<String, dynamic>) {
+            selectedTeam = result['name'] as String;
+          } else {
+            selectedTeam = result as String;
+          }
         });
         await _fetchGames();
       }
