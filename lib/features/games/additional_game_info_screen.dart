@@ -425,7 +425,7 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
           ? template?.officialsListName
           : args['selectedListName'],
       'sport': template?.includeSport == true ? template?.sport : args['sport'],
-      'location': template?.includeLocation == true
+      'location': (template?.includeLocation == true && template?.location != null)
           ? template?.location
           : args['location'],
       'fromScheduleDetails': args['fromScheduleDetails'] ?? false,
@@ -435,6 +435,13 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
 
     debugPrint('Updated args method: ${updatedArgs['method']}');
     debugPrint('Updated args selectedLists: ${updatedArgs['selectedLists']}');
+    
+    // Debug location handling
+    debugPrint('🔍 AdditionalGameInfo - Location debugging:');
+    debugPrint('  template?.includeLocation: ${template?.includeLocation}');
+    debugPrint('  template?.location: ${template?.location}');
+    debugPrint('  args[location]: ${args['location']}');
+    debugPrint('  updatedArgs[location]: ${updatedArgs['location']}');
 
     if (_isFromEdit) {
       // When editing an existing game, navigate directly to review screen

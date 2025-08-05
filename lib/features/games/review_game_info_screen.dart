@@ -48,6 +48,14 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
     if (!_hasInitialized) {
       final newArgs =
           ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+      
+      // Debug: Print all args to see what's being passed
+      debugPrint('🔍 ReviewGameInfo - All args received:');
+      newArgs.forEach((key, value) {
+        debugPrint('  $key: $value');
+      });
+      debugPrint('🔍 ReviewGameInfo - Location specifically: ${newArgs['location']}');
+      
       setState(() {
         args = Map<String, dynamic>.from(newArgs);
         originalArgs = Map<String, dynamic>.from(newArgs);

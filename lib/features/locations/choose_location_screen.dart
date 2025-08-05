@@ -430,6 +430,11 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                           final isCoach =
                               args['teamName'] != null; // Detect Coach flow
                           
+                          // Debug: Print location being passed
+                          debugPrint('🔍 ChooseLocation - Location being set: ${nextArgs['location']}');
+                          debugPrint('🔍 ChooseLocation - isAwayGame: $isAwayGame');
+                          debugPrint('🔍 ChooseLocation - selected name: ${selected['name']}');
+                          
                           // Check if we're in edit mode to determine correct navigation
                           if (isFromEdit) {
                             // Return to the calling edit screen with updated data
