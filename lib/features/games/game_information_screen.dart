@@ -1718,7 +1718,7 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                     if (!isAwayGame) ...[
                       Text(
                         args['method'] == 'hire_crew'
-                            ? 'Confirmed Crew (${confirmedOfficialsFromDB.length}/1)'
+                            ? 'Confirmed Crew (${confirmedOfficialsFromDB.length}/$requiredOfficials)'
                             : 'Confirmed Officials (${confirmedOfficialsFromDB.length}/$requiredOfficials)',
                         style: const TextStyle(
                             fontSize: 18,
