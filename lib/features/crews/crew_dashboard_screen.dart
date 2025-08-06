@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import '../../shared/theme.dart';
 import '../../shared/services/repositories/crew_repository.dart';
 import '../../shared/services/repositories/official_repository.dart';
@@ -21,11 +22,22 @@ class _CrewDashboardScreenState extends State<CrewDashboardScreen> {
   int? _currentUserId;
   int? _currentOfficialId;
   DateTime? _lastRefresh;
+  
+  // Undo state management
+  int? _declinedInvitationId;
+  CrewInvitation? _declinedInvitation;
+  Timer? _undoTimer;
 
   @override
   void initState() {
     super.initState();
     _loadCrews();
+  }
+
+  @override
+  void dispose() {
+    _undoTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadCrews() async {
@@ -667,30 +679,34 @@ class _CrewDashboardScreenState extends State<CrewDashboardScreen> {
   Future<void> _respondToInvitation(
       CrewInvitation invitation, String response) async {
     try {
-      setState(() {
-        _isLoading = true;
-      });
+      if (response == 'declined') {
+        // Handle decline with undo option
+        await _handleDeclineWithUndo(invitation);
+      } else {
+        // Handle accept normally
+        setState(() {
+          _isLoading = true;
+        });
 
-      await _crewRepo.respondToInvitation(
-        invitation.id!,
-        response,
-        null, // no notes needed for accept/decline
-        _currentOfficialId!,
-      );
-
-      // Refresh the crew list to show updated state
-      await _loadCrews();
-
-      if (mounted) {
-        final action = response == 'accepted' ? 'accepted' : 'declined';
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-                'You have $action the invitation to join ${invitation.crewName}'),
-            backgroundColor:
-                response == 'accepted' ? Colors.green : Colors.orange,
-          ),
+        await _crewRepo.respondToInvitation(
+          invitation.id!,
+          response,
+          null,
+          _currentOfficialId!,
         );
+
+        // Refresh the crew list to show updated state
+        await _loadCrews();
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                  'You have accepted the invitation to join ${invitation.crewName}'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
       }
     } catch (e) {
       debugPrint('Error responding to invitation: $e');
@@ -701,6 +717,158 @@ class _CrewDashboardScreenState extends State<CrewDashboardScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error responding to invitation: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _handleDeclineWithUndo(CrewInvitation invitation) async {
+    print('DEBUG: Starting decline with undo for invitation ${invitation.id}');
+    
+    // Store the declined invitation info for undo
+    setState(() {
+      _declinedInvitationId = invitation.id;
+      _declinedInvitation = invitation;
+    });
+
+    // Remove the invitation from UI immediately
+    setState(() {
+      _pendingInvitations.removeWhere((inv) => inv.id == invitation.id);
+    });
+
+    // Show undo snackbar
+    if (mounted) {
+      print('DEBUG: Showing undo snackbar');
+      _showUndoSnackbar(invitation);
+    }
+
+    // Start 5-second timer to finalize decline
+    _undoTimer?.cancel();
+    _undoTimer = Timer(const Duration(seconds: 5), () {
+      _finalizeDecline(invitation);
+    });
+  }
+
+  void _showUndoSnackbar(CrewInvitation invitation) {
+    // Clear any existing snackbars first
+    ScaffoldMessenger.of(context).clearSnackBars();
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Expanded(
+              child: Text(
+                'Invitation declined',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            ElevatedButton(
+              onPressed: () {
+                print('DEBUG: Undo button pressed from snackbar');
+                ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                _undoDecline();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: efficialsYellow,
+                foregroundColor: efficialsBlack,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                minimumSize: const Size(70, 36),
+                elevation: 2,
+              ),
+              child: const Text(
+                'UNDO',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: Colors.orange.shade700,
+        duration: const Duration(seconds: 5),
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.all(16),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+        elevation: 6,
+      ),
+    );
+  }
+
+  void _undoDecline() {
+    // Cancel the timer
+    _undoTimer?.cancel();
+    
+    // Restore the invitation to the UI
+    if (_declinedInvitation != null) {
+      setState(() {
+        _pendingInvitations.add(_declinedInvitation!);
+        _declinedInvitationId = null;
+        _declinedInvitation = null;
+      });
+    }
+
+    // Show confirmation
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Decline undone - invitation restored',
+            style: TextStyle(color: Colors.white),
+          ),
+          backgroundColor: Colors.blue,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  Future<void> _finalizeDecline(CrewInvitation invitation) async {
+    try {
+      if (_currentOfficialId == null) return;
+
+      await _crewRepo.respondToInvitation(
+        invitation.id!,
+        'declined',
+        null,
+        _currentOfficialId!,
+      );
+
+      // Clear state
+      setState(() {
+        _declinedInvitationId = null;
+        _declinedInvitation = null;
+      });
+
+      // Hide the snackbar if still visible
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      }
+      
+    } catch (e) {
+      // If finalize fails, restore the invitation
+      if (mounted) {
+        setState(() {
+          if (_declinedInvitation != null) {
+            _pendingInvitations.add(_declinedInvitation!);
+          }
+          _declinedInvitationId = null;
+          _declinedInvitation = null;
+        });
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to decline invitation: $e'),
             backgroundColor: Colors.red,
           ),
         );
