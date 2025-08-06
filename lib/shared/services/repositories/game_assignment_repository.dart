@@ -57,13 +57,27 @@ class GameAssignmentRepository extends BaseRepository {
           WHEN ga.fee_amount IS NOT NULL AND ga.fee_amount > 0 THEN ga.fee_amount 
           ELSE g.game_fee 
         END as fee_amount,
-        g.date, g.time, g.opponent, g.home_team, g.level_of_competition,
+        g.date, g.time, g.opponent, g.level_of_competition,
+        sch.home_team_name as schedule_home_team_name,
+        u.first_name, u.last_name,
+        -- Dynamic home team: prioritize schedule_home_team_name for Assigners, then AD profile, then stored home_team
+        CASE 
+          WHEN sch.home_team_name IS NOT NULL AND sch.home_team_name != '' AND sch.home_team_name != 'Home Team'
+          THEN sch.home_team_name
+          WHEN g.home_team IS NOT NULL AND g.home_team != '' AND g.home_team != 'Home Team' 
+          THEN g.home_team
+          WHEN u.scheduler_type = 'Athletic Director' AND u.school_name IS NOT NULL AND u.mascot IS NOT NULL
+          THEN u.school_name || ' ' || u.mascot
+          ELSE COALESCE(g.home_team, 'Home Team')
+        END as home_team,
         l.name as location_name, l.address as location_address,
         s.name as sport_name
       FROM game_assignments ga
       JOIN games g ON ga.game_id = g.id
       LEFT JOIN locations l ON g.location_id = l.id
       LEFT JOIN sports s ON g.sport_id = s.id
+      LEFT JOIN schedules sch ON g.schedule_id = sch.id
+      LEFT JOIN users u ON g.user_id = u.id
       WHERE ga.official_id = ? AND ga.status = 'accepted'
       ORDER BY g.date ASC, g.time ASC
     ''', [officialId]);
@@ -75,13 +89,27 @@ class GameAssignmentRepository extends BaseRepository {
              ga.backed_out_at, ga.back_out_reason, ga.excused_backout,
              ga.excused_at, ga.excused_by, ga.excuse_reason,
              ga.fee_amount,
-             g.date, g.time, g.opponent, g.home_team, g.level_of_competition, g.game_fee,
+             g.date, g.time, g.opponent, g.level_of_competition, g.game_fee,
+             sch.home_team_name as schedule_home_team_name,
+             u.first_name, u.last_name,
+             -- Dynamic home team: prioritize schedule_home_team_name for Assigners, then AD profile, then stored home_team
+             CASE 
+               WHEN sch.home_team_name IS NOT NULL AND sch.home_team_name != '' AND sch.home_team_name != 'Home Team'
+               THEN sch.home_team_name
+               WHEN g.home_team IS NOT NULL AND g.home_team != '' AND g.home_team != 'Home Team' 
+               THEN g.home_team
+               WHEN u.scheduler_type = 'Athletic Director' AND u.school_name IS NOT NULL AND u.mascot IS NOT NULL
+               THEN u.school_name || ' ' || u.mascot
+               ELSE COALESCE(g.home_team, 'Home Team')
+             END as home_team,
              l.name as location_name, l.address as location_address,
              s.name as sport_name
       FROM game_assignments ga
       JOIN games g ON ga.game_id = g.id
       LEFT JOIN locations l ON g.location_id = l.id
       LEFT JOIN sports s ON g.sport_id = s.id
+      LEFT JOIN schedules sch ON g.schedule_id = sch.id
+      LEFT JOIN users u ON g.user_id = u.id
       WHERE ga.official_id = ? AND ga.status = 'pending'
       ORDER BY g.date ASC, g.time ASC
     ''', [officialId]);
@@ -777,8 +805,10 @@ class GameAssignmentRepository extends BaseRepository {
           s.name as sport_name,
           sch.home_team_name as schedule_home_team_name,
           u.first_name, u.last_name,
-          -- Dynamic home team: use stored home_team if not empty, otherwise build from AD profile
+          -- Dynamic home team: prioritize schedule_home_team_name for Assigners, then AD profile, then stored home_team
           CASE 
+            WHEN sch.home_team_name IS NOT NULL AND sch.home_team_name != '' AND sch.home_team_name != 'Home Team'
+            THEN sch.home_team_name
             WHEN g.home_team IS NOT NULL AND g.home_team != '' AND g.home_team != 'Home Team' 
             THEN g.home_team
             WHEN u.scheduler_type = 'Athletic Director' AND u.school_name IS NOT NULL AND u.mascot IS NOT NULL
@@ -908,9 +938,13 @@ class GameAssignmentRepository extends BaseRepository {
                g.game_fee, g.opponent, g.hire_automatically,
                g.method, g.status, g.created_at, g.updated_at,
                l.name as location_name, l.address as location_address,
-               s.name as sport_name, u.first_name, u.last_name,
-               -- Dynamic home team: use stored home_team if not empty, otherwise build from AD profile
+               s.name as sport_name,
+               sch.home_team_name as schedule_home_team_name,
+               u.first_name, u.last_name,
+               -- Dynamic home team: prioritize schedule_home_team_name for Assigners, then AD profile, then stored home_team
                CASE 
+                 WHEN sch.home_team_name IS NOT NULL AND sch.home_team_name != '' AND sch.home_team_name != 'Home Team'
+                 THEN sch.home_team_name
                  WHEN g.home_team IS NOT NULL AND g.home_team != '' AND g.home_team != 'Home Team' 
                  THEN g.home_team
                  WHEN u.scheduler_type = 'Athletic Director' AND u.school_name IS NOT NULL AND u.mascot IS NOT NULL
@@ -921,6 +955,7 @@ class GameAssignmentRepository extends BaseRepository {
         FROM games g
         LEFT JOIN locations l ON g.location_id = l.id
         LEFT JOIN sports s ON g.sport_id = s.id
+        LEFT JOIN schedules sch ON g.schedule_id = sch.id
         LEFT JOIN users u ON g.user_id = u.id
         WHERE g.id NOT IN (
           SELECT ga.game_id 
