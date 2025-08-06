@@ -1018,10 +1018,11 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
           print('🚢 Inserting crew assignment: $crewAssignment');
           
           await _gameAssignmentRepository.rawQuery(
-            'INSERT INTO crew_assignments (game_id, crew_id, status, assigned_by, assigned_at, total_fee_amount, response_notes) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            'INSERT INTO crew_assignments (game_id, crew_id, crew_chief_id, status, assigned_by, assigned_at, total_fee_amount, response_notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
             [
               crewAssignment['game_id'],
               crewAssignment['crew_id'],
+              crewChiefId,
               crewAssignment['status'],
               crewAssignment['assigned_by'],
               crewAssignment['assigned_at'],
@@ -1035,8 +1036,7 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
           // Small delay to ensure database transaction is committed
           await Future.delayed(const Duration(milliseconds: 100));
           
-          // Create notification for crew chief
-          await _createCrewChiefNotification(crewChiefId, gameData);
+          // NOTE: No notification needed - crew chiefs will see the game in Available Games list
         }
       }
     } catch (e) {

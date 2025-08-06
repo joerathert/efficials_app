@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import '../models/database_models.dart';
 import 'repositories/schedule_repository.dart';
 import 'repositories/user_repository.dart';

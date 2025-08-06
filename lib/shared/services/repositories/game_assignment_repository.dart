@@ -763,6 +763,7 @@ class GameAssignmentRepository extends BaseRepository {
     try {
       // Check if the official is a crew chief of any active crew
       final isCrewChief = await _isOfficialCrewChief(officialId);
+      print('🔍 DEBUG: Official $officialId isCrewChief: $isCrewChief');
 
       // First, get all potentially available games (basic filtering)
       String gameQuery = '''
@@ -800,13 +801,6 @@ class GameAssignmentRepository extends BaseRepository {
           FROM game_dismissals gd 
           WHERE gd.official_id = ?
         )
-        AND g.id NOT IN (
-          -- Exclude hire_crew games where the official's crew already has an assignment
-          SELECT ca.game_id 
-          FROM crew_assignments ca
-          JOIN crews c ON ca.crew_id = c.id
-          WHERE c.crew_chief_id = ? AND g.method = 'hire_crew'
-        )
         AND g.status = 'Published'
         AND g.date >= date('now')
         AND g.officials_required > g.officials_hired
@@ -815,14 +809,67 @@ class GameAssignmentRepository extends BaseRepository {
       // If the official is NOT a crew chief, exclude hire_crew games
       if (!isCrewChief) {
         gameQuery += " AND g.method != 'hire_crew'";
+        print('🔍 DEBUG: Adding filter to exclude hire_crew games for non-crew-chief');
+      } else {
+        // If the official IS a crew chief, include all non-hire_crew games PLUS hire_crew games where they have pending assignments
+        gameQuery += '''
+        AND (
+          g.method != 'hire_crew' OR 
+          g.id IN (
+            SELECT ca.game_id 
+            FROM crew_assignments ca
+            JOIN crews c ON ca.crew_id = c.id
+            WHERE c.crew_chief_id = ? AND ca.status = 'pending'
+          )
+        )''';
+        print('🔍 DEBUG: Adding filter to include hire_crew games with pending assignments for crew chief');
       }
 
       gameQuery += " ORDER BY g.date ASC, g.time ASC";
 
-      final basicResults = await rawQuery(gameQuery, [officialId, officialId, officialId]);
+      // Build parameter list
+      List<dynamic> params = [officialId, officialId]; // For game_assignments and game_dismissals exclusions
+      if (isCrewChief) {
+        params.add(officialId); // Extra parameter for crew chief query
+      }
+      
+      final basicResults = await rawQuery(gameQuery, params);
 
       // DEBUG: Log what we got from the query
       print('🔍 DEBUG Available Games Query Results for official $officialId:');
+      print('🔍 DEBUG Query: $gameQuery');
+      print('🔍 DEBUG Params: $params');
+      print('🔍 DEBUG Results count: ${basicResults.length}');
+      
+      // DEBUG: Check what crew assignments exist for this official
+      if (isCrewChief) {
+        final crewAssignments = await rawQuery('''
+          SELECT ca.game_id, ca.status, c.name as crew_name, g.opponent, g.status as game_status, 
+                 g.date, g.officials_required, g.officials_hired, g.method
+          FROM crew_assignments ca
+          JOIN crews c ON ca.crew_id = c.id
+          LEFT JOIN games g ON ca.game_id = g.id
+          WHERE c.crew_chief_id = ?
+        ''', [officialId]);
+        print('🔍 DEBUG: Found ${crewAssignments.length} crew assignments for official $officialId:');
+        for (final ca in crewAssignments) {
+          print('  - Game ${ca['game_id']} (${ca['opponent']}): assignment_status=${ca['status']}, crew=${ca['crew_name']}');
+          print('    Game details: status=${ca['game_status']}, date=${ca['date']}, officials=${ca['officials_hired']}/${ca['officials_required']}, method=${ca['method']}');
+        }
+        
+        // Also test the subquery directly
+        final subqueryTest = await rawQuery('''
+          SELECT ca.game_id 
+          FROM crew_assignments ca
+          JOIN crews c ON ca.crew_id = c.id
+          WHERE c.crew_chief_id = ? AND ca.status = 'pending'
+        ''', [officialId]);
+        print('🔍 DEBUG: Subquery test - Found ${subqueryTest.length} game IDs from pending assignments:');
+        for (final result in subqueryTest) {
+          print('  - Game ID: ${result['game_id']}');
+        }
+      }
+      
       for (final game in basicResults) {
         print('  Game ${game['id']}: opponent="${game['opponent']}", home_team="${game['home_team']}", method="${game['method']}"');
       }
@@ -884,13 +931,6 @@ class GameAssignmentRepository extends BaseRepository {
           SELECT gd.game_id 
           FROM game_dismissals gd 
           WHERE gd.official_id = ?
-        )
-        AND g.id NOT IN (
-          -- Exclude hire_crew games where the official's crew already has an assignment
-          SELECT ca.game_id 
-          FROM crew_assignments ca
-          JOIN crews c ON ca.crew_id = c.id
-          WHERE c.crew_chief_id = ? AND g.method = 'hire_crew'
         )
         AND g.status = 'Published'
         AND g.date >= date('now')
@@ -1003,8 +1043,10 @@ class GameAssignmentRepository extends BaseRepository {
       
       // First, verify this official is a crew chief for a crew that was selected for this game
       // Look in crew_assignments table to see if there's a pending crew assignment
+      print('🚢 _handleCrewChiefClaim: Looking for crew_assignments where game_id=$gameId AND crew_chief_id=$officialId AND status=pending');
+      
       final crewAssignmentResult = await rawQuery('''
-        SELECT ca.crew_id, ca.status, c.name as crew_name
+        SELECT ca.crew_id, ca.status, c.name as crew_name, c.crew_chief_id
         FROM crew_assignments ca
         JOIN crews c ON ca.crew_id = c.id
         WHERE ca.game_id = ? AND c.crew_chief_id = ? AND ca.status = 'pending'
