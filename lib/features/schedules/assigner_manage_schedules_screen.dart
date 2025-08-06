@@ -256,6 +256,33 @@ class _AssignerManageSchedulesScreenState
     }
   }
 
+  Future<void> _showTemplateDetails() async {
+    if (associatedTemplateName == null) return;
+
+    try {
+      final userId = await _userSessionService.getCurrentUserId();
+      if (userId != null) {
+        final templateData = await _templateRepository.getTemplateData(userId, selectedTeam!);
+        if (templateData != null) {
+          final template = ui.GameTemplate.fromJson(templateData);
+          if (mounted) {
+            showDialog(
+              context: context,
+              builder: (context) => _buildTemplateDetailsDialog(template),
+            );
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading template details: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Error loading template details')),
+        );
+      }
+    }
+  }
+
   List<Map<String, dynamic>> _getGamesForDay(DateTime day) {
     return games.where((game) {
       final gameDate = game['date'] as DateTime?;
@@ -446,11 +473,17 @@ class _AssignerManageSchedulesScreenState
                                     const Icon(Icons.description,
                                         size: 16, color: efficialsBlue),
                                     const SizedBox(width: 4),
-                                    Text(
-                                      'Template: $associatedTemplateName',
-                                      style: const TextStyle(
-                                        color: efficialsBlue,
-                                        fontSize: 14,
+                                    GestureDetector(
+                                      onTap: () async {
+                                        await _showTemplateDetails();
+                                      },
+                                      child: Text(
+                                        'Template: $associatedTemplateName',
+                                        style: const TextStyle(
+                                          color: efficialsBlue,
+                                          fontSize: 14,
+                                          decoration: TextDecoration.underline,
+                                        ),
                                       ),
                                     ),
                                     const SizedBox(width: 4),
@@ -1126,5 +1159,143 @@ class _AssignerManageSchedulesScreenState
         },
       ),
     );
+  }
+
+  Widget _buildTemplateDetailsDialog(ui.GameTemplate template) {
+    return AlertDialog(
+      backgroundColor: darkSurface,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: efficialsYellow.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(
+              Icons.description,
+              color: efficialsYellow,
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Template Details',
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: efficialsYellow,
+              ),
+            ),
+          ),
+        ],
+      ),
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxHeight: 400),
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                template.name,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: primaryTextColor,
+                ),
+              ),
+              const SizedBox(height: 16),
+              if (template.includeSport && template.sport != null)
+                _buildDetailRow('Sport', template.sport!),
+              if (template.includeTime && template.time != null)
+                _buildDetailRow('Time', template.time!.format(context)),
+              if (template.includeLocation && template.location != null)
+                _buildDetailRow('Location', template.location!),
+              if (template.includeOpponent && template.opponent != null)
+                _buildDetailRow('Opponent', template.opponent!),
+              if (template.includeIsAwayGame)
+                _buildDetailRow('Game Type', template.isAwayGame ? 'Away Game' : 'Home Game'),
+              if (template.includeLevelOfCompetition && template.levelOfCompetition != null)
+                _buildDetailRow('Level', template.levelOfCompetition!),
+              if (template.includeGender && template.gender != null)
+                _buildDetailRow('Gender', template.gender!),
+              if (template.includeOfficialsRequired && template.officialsRequired != null)
+                _buildDetailRow('Officials Required', '${template.officialsRequired}'),
+              if (template.includeGameFee && template.gameFee != null)
+                _buildDetailRow('Game Fee', '\$${template.gameFee}'),
+              if (template.includeHireAutomatically && template.hireAutomatically != null)
+                _buildDetailRow('Auto Hire', template.hireAutomatically! ? 'Yes' : 'No'),
+              if (template.method != null)
+                _buildDetailRow('Method', _getMethodDisplayName(template.method!)),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          style: TextButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+          child: const Text(
+            'Close',
+            style: TextStyle(
+              color: efficialsYellow,
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '$label: ',
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+              color: secondaryTextColor,
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontSize: 14,
+                color: primaryTextColor,
+              ),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 2,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _getMethodDisplayName(String method) {
+    switch (method) {
+      case 'use_list':
+        return 'Use Saved List';
+      case 'standard':
+        return 'Standard Selection';
+      case 'advanced':
+        return 'Advanced Selection';
+      case 'hire_crew':
+        return 'Hire a Crew';
+      default:
+        return 'Not Set';
+    }
   }
 }

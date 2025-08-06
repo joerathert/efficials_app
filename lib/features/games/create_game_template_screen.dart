@@ -794,8 +794,8 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                           fontWeight: FontWeight.w600,
                           color: Colors.white)),
                   const SizedBox(height: 16),
-                  // Sport field - editable when creating from scratch and not an Assigner
-                  isCreatingFromScratch && !isAssigner
+                  // Sport field - Athletic Directors can always edit, Assigners cannot
+                  !isAssigner
                       ? Row(
                           children: [
                             Checkbox(
@@ -840,78 +840,75 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                             ),
                           ],
                         )
-                      : isCreatingFromScratch && isAssigner
-                          ? Row(
-                              children: [
-                                Checkbox(
-                                  value: includeSport,
-                                  onChanged: null, // Disabled for Assigners
-                                  activeColor: Colors.grey,
-                                  checkColor: Colors.white,
-                                  fillColor: WidgetStateProperty.resolveWith<Color?>((states) {
-                                    return Colors.grey;
-                                  }),
-                                ),
-                                Expanded(
-                                  child: isLoadingUser
-                                      ? Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-                                          decoration: BoxDecoration(
-                                            color: Colors.grey[800],
-                                            borderRadius: BorderRadius.circular(8),
-                                            border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                      : Row(
+                          children: [
+                            Checkbox(
+                              value: includeSport,
+                              onChanged: null, // Disabled for Assigners
+                              activeColor: Colors.grey,
+                              checkColor: Colors.white,
+                              fillColor: WidgetStateProperty.resolveWith<Color?>((states) {
+                                return Colors.grey;
+                              }),
+                            ),
+                            Expanded(
+                              child: isLoadingUser
+                                  ? Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey[800],
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                                      ),
+                                      child: const Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text(
+                                            'Loading sport...',
+                                            style: TextStyle(
+                                              color: Colors.grey,
+                                              fontSize: 16,
+                                            ),
                                           ),
-                                          child: const Row(
-                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                            children: [
-                                              Text(
-                                                'Loading sport...',
-                                                style: TextStyle(
-                                                  color: Colors.grey,
-                                                  fontSize: 16,
-                                                ),
-                                              ),
-                                              SizedBox(
-                                                width: 16,
-                                                height: 16,
-                                                child: CircularProgressIndicator(
-                                                  strokeWidth: 2,
-                                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.grey),
-                                                ),
-                                              ),
-                                            ],
+                                          SizedBox(
+                                            width: 16,
+                                            height: 16,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              valueColor: AlwaysStoppedAnimation<Color>(Colors.grey),
+                                            ),
                                           ),
-                                        )
-                                      : Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-                                          decoration: BoxDecoration(
-                                            color: Colors.grey[800],
-                                            borderRadius: BorderRadius.circular(8),
-                                            border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                                        ],
+                                      ),
+                                    )
+                                  : Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey[800],
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                                      ),
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text(
+                                            sport ?? 'Sport not found',
+                                            style: const TextStyle(
+                                              color: Colors.grey,
+                                              fontSize: 16,
+                                            ),
                                           ),
-                                          child: Row(
-                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                            children: [
-                                              Text(
-                                                sport ?? 'Sport not found',
-                                                style: const TextStyle(
-                                                  color: Colors.grey,
-                                                  fontSize: 16,
-                                                ),
-                                              ),
-                                              const Icon(
-                                                Icons.lock,
-                                                color: Colors.grey,
-                                                size: 16,
-                                              ),
-                                            ],
+                                          const Icon(
+                                            Icons.lock,
+                                            color: Colors.grey,
+                                            size: 16,
                                           ),
-                                        ),
-                                ),
-                              ],
-                            )
-                          : _buildFieldRow('Sport', sport ?? 'Not specified', (value) {},
-                              isEditable: false, isCheckboxEnabled: false),
+                                        ],
+                                      ),
+                                    ),
+                            ),
+                          ],
+                        ),
                   Row(
                     children: [
                       Checkbox(
