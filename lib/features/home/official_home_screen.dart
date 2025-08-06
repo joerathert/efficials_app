@@ -2330,13 +2330,31 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
   
   String _formatGameTitle(Map<String, dynamic> game) {
     final opponent = game['opponent'] as String?;
-    final homeTeam = game['schedule_home_team_name'] ?? game['home_team'] ?? 'Home Team';
+    final scheduleHomeTeam = game['schedule_home_team_name'] as String?;
+    final queryHomeTeam = game['home_team'] as String?;
     
-    if (opponent != null && homeTeam != null) {
-      return '$opponent @ $homeTeam';
+    final homeTeam = (scheduleHomeTeam != null && scheduleHomeTeam.trim().isNotEmpty) 
+        ? scheduleHomeTeam 
+        : (queryHomeTeam != null && queryHomeTeam.trim().isNotEmpty) 
+            ? queryHomeTeam 
+            : 'Home Team';
+    
+    // Debug logging to track home team issues
+    debugPrint('🏠 Game ${game['id']} title formatting:');
+    debugPrint('  opponent: "$opponent"');
+    debugPrint('  schedule_home_team_name: "${game['schedule_home_team_name']}"');
+    debugPrint('  home_team: "${game['home_team']}"');
+    debugPrint('  final homeTeam: "$homeTeam"');
+    
+    if (opponent != null && homeTeam != null && homeTeam.trim().isNotEmpty && homeTeam != 'Home Team') {
+      final result = '$opponent @ $homeTeam';
+      debugPrint('  result: "$result"');
+      return result;
     } else if (opponent != null) {
+      debugPrint('  returning opponent only: "$opponent"');
       return opponent;
     } else {
+      debugPrint('  returning TBD');
       return 'TBD';
     }
   }

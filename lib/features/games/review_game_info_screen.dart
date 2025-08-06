@@ -975,27 +975,42 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
         return;
       }
       
-      // Create assignments only for crew chiefs
+      // Create CREW assignments (not individual game assignments) for hire_crew games
+      // This allows the game to remain visible in Available Games until crews respond
       for (final crewData in crewsToProcess) {
+        final crewId = crewData is Map<String, dynamic> 
+            ? crewData['id'] as int?
+            : (crewData as dynamic).id as int?;
         final crewChiefId = crewData is Map<String, dynamic> 
             ? crewData['crewChiefId'] as int?
             : (crewData as dynamic).crewChiefId as int?;
             
-        if (crewChiefId != null) {
-          final assignment = GameAssignment(
-            gameId: gameId,
-            officialId: crewChiefId,
-            status: 'pending',
-            assignedBy: await _getCurrentUserId(),
-            assignedAt: DateTime.now(),
-            feeAmount: (gameData['gameFee'] as num?)?.toDouble(),
-            position: 'Crew Chief', // Mark as crew chief assignment
-            responseNotes: 'Crew hiring - notification sent to crew chief',
-            excusedBackout: false,
+        if (crewId != null && crewChiefId != null) {
+          // Create crew assignment instead of individual game assignment
+          final crewAssignment = {
+            'game_id': gameId,
+            'crew_id': crewId,
+            'status': 'pending',
+            'assigned_by': await _getCurrentUserId(),
+            'assigned_at': DateTime.now().toIso8601String(),
+            'fee_amount': (gameData['gameFee'] as num?)?.toDouble(),
+            'response_notes': 'Crew hiring - notification sent to crew chief',
+          };
+          
+          await _gameAssignmentRepository.rawQuery(
+            'INSERT INTO crew_assignments (game_id, crew_id, status, assigned_by, assigned_at, fee_amount, response_notes) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [
+              crewAssignment['game_id'],
+              crewAssignment['crew_id'],
+              crewAssignment['status'],
+              crewAssignment['assigned_by'],
+              crewAssignment['assigned_at'],
+              crewAssignment['fee_amount'],
+              crewAssignment['response_notes'],
+            ]
           );
           
-          await _gameAssignmentRepository.createAssignment(assignment);
-          debugPrint('Created crew chief assignment for official $crewChiefId on game $gameId');
+          debugPrint('Created crew assignment for crew $crewId on game $gameId');
           
           // Create notification for crew chief
           await _createCrewChiefNotification(crewChiefId, gameData);

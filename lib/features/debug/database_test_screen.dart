@@ -1842,6 +1842,524 @@ All users have password: test123''';
     }
   }
 
+  Future<void> _debugADProfiles() async {
+    setState(() {
+      isLoading = true;
+      testResult = 'Loading Athletic Director profile data...';
+    });
+
+    try {
+      final db = await DatabaseHelper().database;
+
+      // First, check ALL users to see what scheduler_type values exist
+      final allUsers = await db.rawQuery('''
+        SELECT id, first_name, last_name, email, scheduler_type,
+               school_name, mascot, school_address,
+               setup_completed, created_at
+        FROM users 
+        ORDER BY created_at DESC
+        LIMIT 10
+      ''');
+
+      // Get all Athletic Director users (both possible formats)
+      final adUsers = await db.rawQuery('''
+        SELECT id, first_name, last_name, email, 
+               school_name, mascot, school_address,
+               setup_completed, created_at
+        FROM users 
+        WHERE scheduler_type = 'Athletic Director' OR scheduler_type = 'athletic_director'
+        ORDER BY created_at DESC
+      ''');
+
+      // Get games created by Athletic Directors
+      final adGames = await db.rawQuery('''
+        SELECT g.id, g.opponent, g.home_team, g.status,
+               u.first_name, u.last_name, u.school_name, u.mascot,
+               -- Test our CASE statement
+               CASE 
+                 WHEN g.home_team IS NOT NULL AND g.home_team != '' AND g.home_team != 'Home Team' 
+                 THEN g.home_team
+                 WHEN (u.scheduler_type = 'Athletic Director' OR u.scheduler_type = 'athletic_director') AND u.school_name IS NOT NULL AND u.mascot IS NOT NULL
+                 THEN u.school_name || ' ' || u.mascot
+                 ELSE COALESCE(g.home_team, 'Home Team')
+               END as calculated_home_team
+        FROM games g
+        JOIN users u ON g.user_id = u.id  
+        WHERE (u.scheduler_type = 'Athletic Director' OR u.scheduler_type = 'athletic_director')
+        ORDER BY g.created_at DESC
+        LIMIT 10
+      ''');
+
+      String result = '=== ATHLETIC DIRECTOR PROFILE DEBUG ===\n\n';
+      
+      result += '👥 ALL USERS (${allUsers.length}):\n';
+      if (allUsers.isEmpty) {
+        result += '  ❌ No users found in database\n\n';
+      } else {
+        for (int i = 0; i < allUsers.length; i++) {
+          final user = allUsers[i];
+          result += '  ${i + 1}. ${user['first_name']} ${user['last_name']} (ID: ${user['id']})\n';
+          result += '     Email: ${user['email']}\n';
+          result += '     Type: "${user['scheduler_type']}"\n';
+          result += '     School: "${user['school_name']}", Mascot: "${user['mascot']}"\n';
+          result += '     Setup: ${user['setup_completed'] == 1 ? 'Yes' : 'No'}\n\n';
+        }
+      }
+      
+      result += '📋 ATHLETIC DIRECTORS (${adUsers.length}):\n';
+      if (adUsers.isEmpty) {
+        result += '  ❌ No Athletic Directors found\n\n';
+      } else {
+        for (int i = 0; i < adUsers.length; i++) {
+          final ad = adUsers[i];
+          result += '  ${i + 1}. ${ad['first_name']} ${ad['last_name']} (ID: ${ad['id']})\n';
+          result += '     Email: ${ad['email']}\n';
+          result += '     School Name: "${ad['school_name']}"\n';
+          result += '     Mascot: "${ad['mascot']}"\n';
+          result += '     Setup Completed: ${ad['setup_completed'] == 1 ? 'Yes' : 'No'}\n';
+          
+          if (ad['school_name'] != null && ad['mascot'] != null) {
+            result += '     Expected Home Team: "${ad['school_name']} ${ad['mascot']}"\n';
+          } else {
+            result += '     ⚠️  Missing school name or mascot!\n';
+          }
+          result += '\n';
+        }
+      }
+
+      result += '🏈 AD GAMES (${adGames.length}):\n';
+      if (adGames.isEmpty) {
+        result += '  ❌ No games found created by Athletic Directors\n\n';
+      } else {
+        for (final game in adGames) {
+          result += '  Game ${game['id']} (${game['status']}):\n';
+          result += '    Opponent: "${game['opponent']}"\n';
+          result += '    Stored Home Team: "${game['home_team']}"\n';
+          result += '    Calculated Home Team: "${game['calculated_home_team']}"\n';
+          result += '    Display: "${game['opponent']}" @ "${game['calculated_home_team']}"\n';
+          result += '    Created by: ${game['first_name']} ${game['last_name']}\n';
+          
+          if (game['calculated_home_team'] == null || game['calculated_home_team'].toString().trim().isEmpty) {
+            result += '    ❌ ISSUE: Calculated home team is empty!\n';
+          } else if (game['calculated_home_team'] == 'Home Team') {
+            result += '    ⚠️  WARNING: Using fallback home team\n';
+          }
+          result += '\n';
+        }
+      }
+
+      setState(() {
+        testResult = result;
+        isLoading = false;
+      });
+
+    } catch (e) {
+      setState(() {
+        testResult = 'Error debugging AD profiles: $e';
+        isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _debugAvailableGamesQuery() async {
+    setState(() {
+      isLoading = true;
+      testResult = 'Testing Available Games Query...';
+    });
+
+    try {
+      final db = await DatabaseHelper().database;
+
+      // Get a crew chief to test with
+      final crewChief = await db.rawQuery('''
+        SELECT o.id, o.name
+        FROM officials o
+        JOIN crews c ON o.id = c.crew_chief_id
+        WHERE c.is_active = 1
+        LIMIT 1
+      ''');
+
+      if (crewChief.isEmpty) {
+        setState(() {
+          testResult = 'No crew chiefs found to test with. Please create crews first.';
+          isLoading = false;
+        });
+        return;
+      }
+
+      final officialId = crewChief.first['id'] as int;
+      final officialName = crewChief.first['name'] as String;
+
+      // Test the exact available games query from the repository
+      final availableGames = await db.rawQuery('''
+        SELECT DISTINCT 
+          g.id, g.sport_id, g.location_id, g.user_id,
+          g.date, g.time, g.is_away, g.level_of_competition,
+          g.gender, g.officials_required, g.officials_hired,
+          g.game_fee, g.opponent, g.hire_automatically,
+          g.method, g.status, g.created_at, g.updated_at,
+          l.name as location_name, l.address as location_address,
+          s.name as sport_name,
+          sch.home_team_name as schedule_home_team_name,
+          u.first_name, u.last_name,
+          -- Dynamic home team: use stored home_team if not empty, otherwise build from AD profile
+          CASE 
+            WHEN g.home_team IS NOT NULL AND g.home_team != '' AND g.home_team != 'Home Team' 
+            THEN g.home_team
+            WHEN (u.scheduler_type = 'Athletic Director' OR u.scheduler_type = 'athletic_director') AND u.school_name IS NOT NULL AND u.mascot IS NOT NULL
+            THEN u.school_name || ' ' || u.mascot
+            ELSE COALESCE(g.home_team, 'Home Team')
+          END as home_team,
+          'available' as assignment_status
+        FROM games g
+        LEFT JOIN locations l ON g.location_id = l.id
+        LEFT JOIN sports s ON g.sport_id = s.id
+        LEFT JOIN schedules sch ON g.schedule_id = sch.id
+        LEFT JOIN users u ON g.user_id = u.id
+        WHERE g.id NOT IN (
+          SELECT ga.game_id 
+          FROM game_assignments ga 
+          WHERE ga.official_id = ?
+        )
+        AND g.id NOT IN (
+          SELECT gd.game_id 
+          FROM game_dismissals gd 
+          WHERE gd.official_id = ?
+        )
+        AND g.id NOT IN (
+          -- Exclude hire_crew games where the official's crew already has an assignment
+          SELECT ca.game_id 
+          FROM crew_assignments ca
+          JOIN crews c ON ca.crew_id = c.id
+          WHERE c.crew_chief_id = ? AND g.method = 'hire_crew'
+        )
+        AND g.status = 'Published'
+        AND g.date >= date('now')
+        AND g.officials_required > g.officials_hired
+        ORDER BY g.date ASC, g.time ASC
+      ''', [officialId, officialId, officialId]);
+
+      String result = '=== AVAILABLE GAMES QUERY DEBUG ===\n\n';
+      result += 'Testing with crew chief: $officialName (ID: $officialId)\n\n';
+      
+      result += '🎮 AVAILABLE GAMES (${availableGames.length}):\n';
+      if (availableGames.isEmpty) {
+        result += '  ❌ No available games found\n\n';
+      } else {
+        for (final game in availableGames) {
+          result += '  Game ${game['id']}:\n';
+          result += '    Raw opponent: "${game['opponent']}"\n';
+          result += '    Raw home_team: "${game['home_team']}"\n';
+          result += '    Raw schedule_home_team_name: "${game['schedule_home_team_name']}"\n';
+          result += '    Creator: ${game['first_name']} ${game['last_name']}\n';
+          result += '    Method: ${game['method']}\n';
+          result += '    Status: ${game['status']}\n';
+          
+          // Test the _formatGameTitle logic here
+          final opponent = game['opponent'] as String?;
+          final homeTeam = (game['schedule_home_team_name'] ?? game['home_team'] ?? 'Home Team') as String;
+          
+          result += '    Calculated homeTeam (using display logic): "$homeTeam"\n';
+          
+          if (opponent != null && homeTeam.trim().isNotEmpty && homeTeam != 'Home Team') {
+            final displayResult = '$opponent @ $homeTeam';
+            result += '    Final display: "$displayResult"\n';
+          } else if (opponent != null) {
+            result += '    Final display: "$opponent" (opponent only)\n';
+          } else {
+            result += '    Final display: "TBD"\n';
+          }
+          
+          // Check for issues
+          if (homeTeam.trim().isEmpty) {
+            result += '    ❌ ISSUE: Home team is empty!\n';
+          } else if (homeTeam == 'Home Team') {
+            result += '    ⚠️  WARNING: Using fallback home team\n';
+          }
+          result += '\n';
+        }
+      }
+
+      // Also test with a different query to see raw game data
+      result += '📋 RAW GAME DATA COMPARISON:\n';
+      final rawGames = await db.rawQuery('''
+        SELECT g.id, g.opponent, g.home_team, g.method, g.status,
+               u.first_name, u.last_name, u.scheduler_type, u.school_name, u.mascot
+        FROM games g
+        JOIN users u ON g.user_id = u.id
+        WHERE g.status = 'Published'
+        ORDER BY g.created_at DESC
+        LIMIT 3
+      ''');
+
+      for (final game in rawGames) {
+        result += '  Game ${game['id']} (${game['method']}):\n';
+        result += '    opponent: "${game['opponent']}"\n';
+        result += '    stored home_team: "${game['home_team']}"\n';
+        result += '    creator type: "${game['scheduler_type']}"\n';
+        result += '    school_name: "${game['school_name']}"\n';
+        result += '    mascot: "${game['mascot']}"\n';
+        result += '    expected home_team: "${game['school_name']} ${game['mascot']}"\n\n';
+      }
+
+      setState(() {
+        testResult = result;
+        isLoading = false;
+      });
+
+    } catch (e) {
+      setState(() {
+        testResult = 'Error testing available games query: $e';
+        isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _testCaseStatement() async {
+    setState(() {
+      isLoading = true;
+      testResult = 'Testing SQL CASE statement...';
+    });
+
+    try {
+      final db = await DatabaseHelper().database;
+
+      // Test each part of our CASE statement separately
+      final testResults = await db.rawQuery('''
+        SELECT 
+          g.id,
+          g.opponent,
+          g.home_team as stored_home_team,
+          u.scheduler_type,
+          u.school_name,
+          u.mascot,
+          -- Test each condition separately
+          (g.home_team IS NOT NULL) as condition1_not_null,
+          (g.home_team != '') as condition2_not_empty,
+          (g.home_team != 'Home Team') as condition3_not_fallback,
+          (u.scheduler_type = 'Athletic Director') as condition4_ad_exact,
+          (u.scheduler_type = 'athletic_director') as condition5_ad_snake,
+          (u.school_name IS NOT NULL) as condition6_school_not_null,
+          (u.mascot IS NOT NULL) as condition7_mascot_not_null,
+          -- Our full CASE statement
+          CASE 
+            WHEN g.home_team IS NOT NULL AND g.home_team != '' AND g.home_team != 'Home Team' 
+            THEN g.home_team
+            WHEN (u.scheduler_type = 'Athletic Director' OR u.scheduler_type = 'athletic_director') AND u.school_name IS NOT NULL AND u.mascot IS NOT NULL
+            THEN u.school_name || ' ' || u.mascot
+            ELSE COALESCE(g.home_team, 'Home Team')
+          END as case_result
+        FROM games g
+        JOIN users u ON g.user_id = u.id
+        WHERE g.status = 'Published'
+        ORDER BY g.created_at DESC
+        LIMIT 3
+      ''');
+
+      String result = '=== SQL CASE STATEMENT DEBUG ===\n\n';
+      
+      for (final game in testResults) {
+        result += 'Game ${game['id']} - "${game['opponent']}":\n';
+        result += '  stored_home_team: "${game['stored_home_team']}"\n';
+        result += '  scheduler_type: "${game['scheduler_type']}"\n';
+        result += '  school_name: "${game['school_name']}"\n';
+        result += '  mascot: "${game['mascot']}"\n';
+        result += '  \n';
+        result += '  CASE Conditions:\n';
+        result += '    1. home_team NOT NULL: ${game['condition1_not_null'] == 1}\n';
+        result += '    2. home_team != "": ${game['condition2_not_empty'] == 1}\n';
+        result += '    3. home_team != "Home Team": ${game['condition3_not_fallback'] == 1}\n';
+        result += '    4. scheduler_type = "Athletic Director": ${game['condition4_ad_exact'] == 1}\n';
+        result += '    5. scheduler_type = "athletic_director": ${game['condition5_ad_snake'] == 1}\n';
+        result += '    6. school_name NOT NULL: ${game['condition6_school_not_null'] == 1}\n';
+        result += '    7. mascot NOT NULL: ${game['condition7_mascot_not_null'] == 1}\n';
+        result += '  \n';
+        result += '  CASE RESULT: "${game['case_result']}"\n';
+        result += '  EXPECTED: "${game['school_name']} ${game['mascot']}"\n';
+        result += '  \n';
+        
+        // Analyze why CASE failed
+        if (game['case_result'] == game['stored_home_team'] && 
+            (game['stored_home_team'] == null || game['stored_home_team'] == '' || game['stored_home_team'] == 'Home Team')) {
+          result += '  ❌ CASE took first branch (stored home_team) but it\'s empty!\n';
+        } else if (game['case_result'] != '${game['school_name']} ${game['mascot']}' && 
+                   game['condition4_ad_exact'] == 0 && game['condition5_ad_snake'] == 0) {
+          result += '  ❌ CASE failed because scheduler_type doesn\'t match!\n';
+        } else if (game['case_result'] != '${game['school_name']} ${game['mascot']}' && 
+                   (game['condition6_school_not_null'] == 0 || game['condition7_mascot_not_null'] == 0)) {
+          result += '  ❌ CASE failed because school_name or mascot is NULL!\n';
+        }
+        
+        result += '  \n';
+      }
+
+      setState(() {
+        testResult = result;
+        isLoading = false;
+      });
+
+    } catch (e) {
+      setState(() {
+        testResult = 'Error testing CASE statement: $e';
+        isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _testGameFiltering() async {
+    setState(() {
+      isLoading = true;
+      testResult = 'Testing game filtering logic...';
+    });
+
+    try {
+      final db = await DatabaseHelper().database;
+
+      // Get a crew chief to test with
+      final crewChief = await db.rawQuery('''
+        SELECT o.id, o.name
+        FROM officials o
+        JOIN crews c ON o.id = c.crew_chief_id
+        WHERE c.is_active = 1
+        LIMIT 1
+      ''');
+
+      if (crewChief.isEmpty) {
+        setState(() {
+          testResult = 'No crew chiefs found to test with.';
+          isLoading = false;
+        });
+        return;
+      }
+
+      final officialId = crewChief.first['id'] as int;
+      final officialName = crewChief.first['name'] as String;
+
+      // Test each filter condition separately for game ID 4
+      final gameId = 4;
+
+      final gameAssignments = await db.rawQuery('''
+        SELECT ga.game_id, ga.official_id, ga.status
+        FROM game_assignments ga 
+        WHERE ga.game_id = ? AND ga.official_id = ?
+      ''', [gameId, officialId]);
+
+      final gameDismissals = await db.rawQuery('''
+        SELECT gd.game_id, gd.official_id, gd.reason
+        FROM game_dismissals gd 
+        WHERE gd.game_id = ? AND gd.official_id = ?
+      ''', [gameId, officialId]);
+
+      final crewAssignments = await db.rawQuery('''
+        SELECT ca.game_id, ca.crew_id, ca.status, c.crew_chief_id, g.method
+        FROM crew_assignments ca
+        JOIN crews c ON ca.crew_id = c.id
+        JOIN games g ON ca.game_id = g.id
+        WHERE ca.game_id = ? AND c.crew_chief_id = ? AND g.method = 'hire_crew'
+      ''', [gameId, officialId]);
+
+      // Test basic game info
+      final gameInfo = await db.rawQuery('''
+        SELECT g.id, g.opponent, g.home_team, g.method, g.status,
+               g.officials_required, g.officials_hired, g.date,
+               u.scheduler_type, u.school_name, u.mascot
+        FROM games g
+        JOIN users u ON g.user_id = u.id
+        WHERE g.id = ?
+      ''', [gameId]);
+
+      String result = '=== GAME FILTERING DEBUG ===\n\n';
+      result += 'Testing with crew chief: $officialName (ID: $officialId)\n';
+      result += 'Testing game ID: $gameId\n\n';
+
+      if (gameInfo.isNotEmpty) {
+        final game = gameInfo.first;
+        result += '📋 GAME INFO:\n';
+        result += '  opponent: "${game['opponent']}"\n';
+        result += '  home_team: "${game['home_team']}"\n';
+        result += '  method: ${game['method']}\n';
+        result += '  status: ${game['status']}\n';
+        result += '  officials_required: ${game['officials_required']}\n';
+        result += '  officials_hired: ${game['officials_hired']}\n';
+        result += '  date: ${game['date']}\n';
+        result += '  creator: ${game['scheduler_type']}\n\n';
+
+        result += '🚫 FILTER RESULTS:\n';
+        
+        result += '  1. Game Assignments (${gameAssignments.length}):\n';
+        if (gameAssignments.isEmpty) {
+          result += '    ✅ No assignments - game should be visible\n';
+        } else {
+          result += '    ❌ Has assignments - game will be filtered out:\n';
+          for (final assignment in gameAssignments) {
+            result += '      - Official ${assignment['official_id']}: ${assignment['status']}\n';
+          }
+        }
+
+        result += '  2. Game Dismissals (${gameDismissals.length}):\n';
+        if (gameDismissals.isEmpty) {
+          result += '    ✅ No dismissals - game should be visible\n';
+        } else {
+          result += '    ❌ Has dismissals - game will be filtered out:\n';
+          for (final dismissal in gameDismissals) {
+            result += '      - Official ${dismissal['official_id']}: ${dismissal['reason']}\n';
+          }
+        }
+
+        result += '  3. Crew Assignments (${crewAssignments.length}):\n';
+        if (crewAssignments.isEmpty) {
+          result += '    ✅ No crew assignments - game should be visible\n';
+        } else {
+          result += '    ❌ Has crew assignments - game will be filtered out:\n';
+          for (final assignment in crewAssignments) {
+            result += '      - Crew ${assignment['crew_id']}: ${assignment['status']}\n';
+          }
+        }
+
+        // Check other conditions
+        result += '  4. Other Conditions:\n';
+        result += '    Status = "Published": ${game['status'] == 'Published' ? '✅' : '❌'}\n';
+        
+        final gameDate = game['date'] as String?;
+        final officialsRequired = (game['officials_required'] as int?) ?? 0;
+        final officialsHired = (game['officials_hired'] as int?) ?? 0;
+        
+        final dateCondition = gameDate != null && DateTime.parse(gameDate).isAfter(DateTime.now().subtract(Duration(days: 1)));
+        final officialCondition = officialsRequired > officialsHired;
+        
+        result += '    Date >= today: ${dateCondition ? '✅' : '❌'}\n';
+        result += '    officials_required ($officialsRequired) > officials_hired ($officialsHired): ${officialCondition ? '✅' : '❌'}\n';
+
+        // Final verdict
+        final isFiltered = gameAssignments.isNotEmpty || gameDismissals.isNotEmpty || crewAssignments.isNotEmpty;
+        final meetsOtherConditions = game['status'] == 'Published' && dateCondition && officialCondition;
+
+        result += '\n🎯 FINAL VERDICT:\n';
+        if (isFiltered) {
+          result += '  ❌ Game will be FILTERED OUT due to existing assignments/dismissals\n';
+        } else if (!meetsOtherConditions) {
+          result += '  ❌ Game will be FILTERED OUT due to status/date/hiring conditions\n';
+        } else {
+          result += '  ✅ Game SHOULD BE VISIBLE in Available Games\n';
+          result += '  🚨 If not visible, there\'s a bug in the display logic!\n';
+        }
+      } else {
+        result += '❌ Game ID $gameId not found\n';
+      }
+
+      setState(() {
+        testResult = result;
+        isLoading = false;
+      });
+
+    } catch (e) {
+      setState(() {
+        testResult = 'Error testing game filtering: $e';
+        isLoading = false;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -2280,6 +2798,54 @@ All users have password: test123''';
               foregroundColor: Colors.white,
             ),
             child: const Text('Reset Database'),
+          ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: _debugADProfiles,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.deepPurple,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('🔍 Debug Athletic Director Profiles'),
+          ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: _debugAvailableGamesQuery,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.indigo,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('🎯 Debug Available Games Query'),
+          ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: _testCaseStatement,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('🔬 Test SQL CASE Statement'),
+          ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: _testGameFiltering,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.pink,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('🚫 Test Game Filtering Logic'),
           ),
         ),
       ],

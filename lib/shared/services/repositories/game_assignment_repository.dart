@@ -770,12 +770,20 @@ class GameAssignmentRepository extends BaseRepository {
           g.id, g.sport_id, g.location_id, g.user_id,
           g.date, g.time, g.is_away, g.level_of_competition,
           g.gender, g.officials_required, g.officials_hired,
-          g.game_fee, g.opponent, g.home_team, g.hire_automatically,
+          g.game_fee, g.opponent, g.hire_automatically,
           g.method, g.status, g.created_at, g.updated_at,
           l.name as location_name, l.address as location_address,
           s.name as sport_name,
           sch.home_team_name as schedule_home_team_name,
           u.first_name, u.last_name,
+          -- Dynamic home team: use stored home_team if not empty, otherwise build from AD profile
+          CASE 
+            WHEN g.home_team IS NOT NULL AND g.home_team != '' AND g.home_team != 'Home Team' 
+            THEN g.home_team
+            WHEN u.scheduler_type = 'Athletic Director' AND u.school_name IS NOT NULL AND u.mascot IS NOT NULL
+            THEN u.school_name || ' ' || u.mascot
+            ELSE COALESCE(g.home_team, 'Home Team')
+          END as home_team,
           'available' as assignment_status
         FROM games g
         LEFT JOIN locations l ON g.location_id = l.id
@@ -792,6 +800,13 @@ class GameAssignmentRepository extends BaseRepository {
           FROM game_dismissals gd 
           WHERE gd.official_id = ?
         )
+        AND g.id NOT IN (
+          -- Exclude hire_crew games where the official's crew already has an assignment
+          SELECT ca.game_id 
+          FROM crew_assignments ca
+          JOIN crews c ON ca.crew_id = c.id
+          WHERE c.crew_chief_id = ? AND g.method = 'hire_crew'
+        )
         AND g.status = 'Published'
         AND g.date >= date('now')
         AND g.officials_required > g.officials_hired
@@ -804,7 +819,13 @@ class GameAssignmentRepository extends BaseRepository {
 
       gameQuery += " ORDER BY g.date ASC, g.time ASC";
 
-      final basicResults = await rawQuery(gameQuery, [officialId, officialId]);
+      final basicResults = await rawQuery(gameQuery, [officialId, officialId, officialId]);
+
+      // DEBUG: Log what we got from the query
+      print('🔍 DEBUG Available Games Query Results for official $officialId:');
+      for (final game in basicResults) {
+        print('  Game ${game['id']}: opponent="${game['opponent']}", home_team="${game['home_team']}", method="${game['method']}"');
+      }
 
       // Apply Advanced Method filtering for each game
       final filteredResults = <Map<String, dynamic>>[];
@@ -833,8 +854,22 @@ class GameAssignmentRepository extends BaseRepository {
       print('Error filtering available games with Advanced Method: $e');
       // Fallback to basic filtering if Advanced Method fails
       return await rawQuery('''
-        SELECT DISTINCT g.*, l.name as location_name, l.address as location_address,
+        SELECT DISTINCT 
+               g.id, g.sport_id, g.location_id, g.user_id,
+               g.date, g.time, g.is_away, g.level_of_competition,
+               g.gender, g.officials_required, g.officials_hired,
+               g.game_fee, g.opponent, g.hire_automatically,
+               g.method, g.status, g.created_at, g.updated_at,
+               l.name as location_name, l.address as location_address,
                s.name as sport_name, u.first_name, u.last_name,
+               -- Dynamic home team: use stored home_team if not empty, otherwise build from AD profile
+               CASE 
+                 WHEN g.home_team IS NOT NULL AND g.home_team != '' AND g.home_team != 'Home Team' 
+                 THEN g.home_team
+                 WHEN u.scheduler_type = 'Athletic Director' AND u.school_name IS NOT NULL AND u.mascot IS NOT NULL
+                 THEN u.school_name || ' ' || u.mascot
+                 ELSE COALESCE(g.home_team, 'Home Team')
+               END as home_team,
                'available' as assignment_status
         FROM games g
         LEFT JOIN locations l ON g.location_id = l.id
@@ -850,11 +885,18 @@ class GameAssignmentRepository extends BaseRepository {
           FROM game_dismissals gd 
           WHERE gd.official_id = ?
         )
+        AND g.id NOT IN (
+          -- Exclude hire_crew games where the official's crew already has an assignment
+          SELECT ca.game_id 
+          FROM crew_assignments ca
+          JOIN crews c ON ca.crew_id = c.id
+          WHERE c.crew_chief_id = ? AND g.method = 'hire_crew'
+        )
         AND g.status = 'Published'
         AND g.date >= date('now')
         AND g.officials_required > g.officials_hired
         ORDER BY g.date ASC, g.time ASC
-      ''', [officialId, officialId]);
+      ''', [officialId, officialId, officialId]);
     }
   }
 

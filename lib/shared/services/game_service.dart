@@ -245,10 +245,17 @@ class GameService {
       String? homeTeam;
       try {
         final currentUser = await _userRepository.getCurrentUser();
+        debugPrint('Current user for home team: ${currentUser?.schedulerType}, school: ${currentUser?.schoolName}, mascot: ${currentUser?.mascot}');
+        
         if (currentUser != null &&
             currentUser.schoolName != null &&
-            currentUser.mascot != null) {
-          homeTeam = '${currentUser.schoolName} ${currentUser.mascot}';
+            currentUser.mascot != null &&
+            currentUser.schoolName!.trim().isNotEmpty &&
+            currentUser.mascot!.trim().isNotEmpty) {
+          homeTeam = '${currentUser.schoolName!.trim()} ${currentUser.mascot!.trim()}';
+          debugPrint('Generated home team: $homeTeam');
+        } else {
+          debugPrint('Missing school info - schoolName: ${currentUser?.schoolName}, mascot: ${currentUser?.mascot}');
         }
       } catch (e) {
         debugPrint('Error getting AD school info: $e');
@@ -259,6 +266,7 @@ class GameService {
           homeTeam.trim().isEmpty ||
           homeTeam.toLowerCase() == 'null') {
         homeTeam = 'Home Team';
+        debugPrint('Using fallback home team: $homeTeam');
       }
 
       final game = Game(
