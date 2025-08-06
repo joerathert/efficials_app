@@ -59,7 +59,7 @@ import 'features/games/select_sport_screen.dart';
 import 'features/games/select_team_screen.dart';
 
 // Schedule screens
-import 'features/schedules/name_schedule_screen.dart';
+import 'features/schedules/dynamic_name_schedule_screen.dart';
 import 'features/schedules/select_schedule_screen.dart';
 import 'features/schedules/schedules_screen.dart';
 import 'features/schedules/schedule_details_screen.dart';
@@ -201,7 +201,7 @@ class EfficialsApp extends StatelessWidget {
         '/locations': (context) => const LocationsScreen(),
         '/add_new_location': (context) => const AddNewLocationScreen(),
         '/select_sport': (context) => const SelectSportScreen(),
-        '/name_schedule': (context) => const NameScheduleScreen(),
+        '/name_schedule': (context) => const DynamicNameScheduleScreen(),
         '/choose_location': (context) => const ChooseLocationScreen(),
         '/date_time': (context) => const DateTimeScreen(),
         '/additional_game_info': (context) => const AdditionalGameInfoScreen(),

@@ -128,7 +128,8 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen>
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           backgroundColor: darkSurface,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Row(
             children: [
               Container(
@@ -186,7 +187,8 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen>
                 }
               },
               style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8)),
               ),
@@ -479,8 +481,7 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen>
                                                   onTap: () {
                                                     // Always show template selection dialog
                                                     _showTemplateSelectionDialog(
-                                                        sport,
-                                                        sportTemplates);
+                                                        sport, sportTemplates);
                                                   },
                                                   child: Container(
                                                     padding:
@@ -769,6 +770,12 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen>
               template.officialsListName?.isNotEmpty == true)
             _buildDetailRow(
                 'Method', 'Use Saved List: ${template.officialsListName}')
+          else if (template.method == 'hire_crew' &&
+              template.selectedCrewListName?.isNotEmpty == true)
+            _buildDetailRow(
+                'Method', 'Hire a Crew (${template.selectedCrewListName})')
+          else if (template.method == 'hire_crew')
+            _buildDetailRow('Method', 'Hire a Crew (List name missing)')
           else
             _buildDetailRow('Method', _getMethodDisplayName(template.method)),
 
@@ -788,6 +795,26 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen>
                 padding: const EdgeInsets.only(left: 16, bottom: 2),
                 child: Text(
                   '• $listName: $minOfficials-$maxOfficials officials ($officialsCount available)',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: secondaryTextColor,
+                  ),
+                ),
+              );
+            }).toList(),
+          ]
+          // Show crew method details
+          else if (template.method == 'hire_crew' &&
+              template.selectedCrews?.isNotEmpty == true) ...[
+            const SizedBox(height: 8),
+            _buildDetailRow('Selected Crews', '${template.selectedCrews!.length}'),
+            const SizedBox(height: 4),
+            ...template.selectedCrews!.map((crew) {
+              final crewName = crew['name'] as String? ?? 'Unknown Crew';
+              return Padding(
+                padding: const EdgeInsets.only(left: 16, bottom: 2),
+                child: Text(
+                  '• $crewName',
                   style: const TextStyle(
                     fontSize: 14,
                     color: secondaryTextColor,
@@ -828,6 +855,8 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen>
         return 'Standard Selection';
       case 'advanced':
         return 'Advanced Selection';
+      case 'hire_crew':
+        return 'Hire a Crew';
       default:
         return 'Not Set';
     }
@@ -859,7 +888,8 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen>
     );
   }
 
-  Widget _buildDialogTemplateCard(GameTemplate template, StateSetter setDialogState) {
+  Widget _buildDialogTemplateCard(
+      GameTemplate template, StateSetter setDialogState) {
     final templateName = template.name;
     final sport = template.sport ?? 'Unknown';
     final isExpanded = expandedDialogTemplateId == template.id;
@@ -942,7 +972,8 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen>
                             }
                           },
                           style: TextButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 8),
                             minimumSize: const Size(0, 40),
                             backgroundColor: efficialsYellow.withOpacity(0.1),
                             shape: RoundedRectangleBorder(
@@ -968,7 +999,8 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen>
                                 template.name, template);
                           },
                           style: TextButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 8),
                             minimumSize: const Size(0, 40),
                             backgroundColor: Colors.red.withOpacity(0.1),
                             shape: RoundedRectangleBorder(
@@ -993,7 +1025,8 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen>
                             _useTemplate(template);
                           },
                           style: TextButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 8),
                             minimumSize: const Size(0, 40),
                             backgroundColor: Colors.green.withOpacity(0.1),
                             shape: RoundedRectangleBorder(

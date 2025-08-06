@@ -1256,8 +1256,8 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
                                 ? crewData['name'] as String? ?? 'Unknown Crew'
                                 : (crewData as dynamic).name ?? 'Unknown Crew';
                             final memberCount = crewData is Map<String, dynamic>
-                                ? (crewData['members'] as List?)?.length ?? 0
-                                : ((crewData as dynamic).members as List?)?.length ?? 0;
+                                ? crewData['memberCount'] as int? ?? 0
+                                : (crewData as dynamic).memberCount as int? ?? 0;
                             
                             return Padding(
                               padding: const EdgeInsets.symmetric(vertical: 4),
@@ -1272,7 +1272,7 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
                           Padding(
                             padding: const EdgeInsets.symmetric(vertical: 4),
                             child: Text(
-                              'Crew: ${(args['selectedCrew'] as dynamic).name} (${((args['selectedCrew'] as dynamic).members as List?)?.length ?? 0} officials)',
+                              'Crew: ${(args['selectedCrew'] as dynamic).name} (${(args['selectedCrew'] as dynamic).memberCount ?? 0} officials)',
                               style: const TextStyle(
                                   fontSize: 16, color: Colors.white),
                             ),

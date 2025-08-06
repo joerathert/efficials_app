@@ -144,6 +144,10 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
       // Convert database GameTemplate to UI GameTemplate if needed
       if (args['template'] is db.GameTemplate) {
         final dbTemplate = args['template'] as db.GameTemplate;
+        
+        // Debug database template crew data
+        print('🚢 DB TEMPLATE DEBUG: selectedCrews from database: ${dbTemplate.selectedCrews}');
+        print('🚢 DB TEMPLATE DEBUG: selectedCrewListName from database: ${dbTemplate.selectedCrewListName}');
 
         // Get selectedLists data from SharedPreferences if method is advanced
         List<Map<String, dynamic>>? selectedLists;
@@ -181,6 +185,8 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
           method: dbTemplate.method,
           selectedOfficials: dbTemplate.selectedOfficials,
           selectedLists: selectedLists, // Use the loaded selectedLists data
+          selectedCrews: dbTemplate.selectedCrews, // Add crew data
+          selectedCrewListName: dbTemplate.selectedCrewListName, // Add crew list name
           officialsListName: dbTemplate.officialsListName,
           includeScheduleName: dbTemplate.includeScheduleName,
           includeSport: dbTemplate.includeSport,
@@ -484,6 +490,29 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
                 nextRoute = '/review_game_info';
               } else {
                 nextRoute = '/lists_of_officials';
+              }
+              break;
+            case 'hire_crew':
+              // Debug logging for crew template data
+              print('🚢 CREW DEBUG: Template method: ${template!.method}');
+              print('🚢 CREW DEBUG: selectedCrews: ${template!.selectedCrews}');
+              print('🚢 CREW DEBUG: selectedCrewListName: ${template!.selectedCrewListName}');
+              
+              // If template has pre-selected crews, skip directly to review
+              if (template!.selectedCrews != null &&
+                  template!.selectedCrews!.isNotEmpty) {
+                print('🚢 CREW DEBUG: Template has crew data, routing to review');
+                nextRoute = '/review_game_info';
+                // Add crew data to the arguments
+                updatedArgs['method'] = 'hire_crew';
+                updatedArgs['selectedCrews'] = template!.selectedCrews;
+                updatedArgs['selectedCrew'] = template!.selectedCrews!.first;
+                if (template!.selectedCrewListName != null) {
+                  updatedArgs['selectedCrewListName'] = template!.selectedCrewListName;
+                }
+              } else {
+                print('🚢 CREW DEBUG: Template missing crew data, routing to select_crew');
+                nextRoute = '/select_crew';
               }
               break;
             case 'standard':

@@ -26,7 +26,6 @@ class _SelectGameTemplateScreenState extends State<SelectGameTemplateScreen> {
   final GameService _gameService = GameService();
   final TemplateRepository _templateRepository = TemplateRepository();
   final UserRepository _userRepository = UserRepository();
-  
 
   @override
   void initState() {
@@ -43,8 +42,7 @@ class _SelectGameTemplateScreenState extends State<SelectGameTemplateScreen> {
       scheduleName = args['scheduleName'] as String?;
       sport = args['sport'] as String?;
       isAssignerFlow = args['isAssignerFlow'] as bool? ?? false;
-      
-      
+
       if (sport != null) {
         // Fix race condition: ensure templates are fetched before any navigation
         _fetchTemplates();
@@ -56,38 +54,43 @@ class _SelectGameTemplateScreenState extends State<SelectGameTemplateScreen> {
     try {
       // Store the current selection before clearing the list
       final currentSelection = selectedTemplateId;
-      
+
       // Use GameService to get templates from database
       final templatesData = await _gameService.getTemplates();
-      
+
       setState(() {
         templates.clear();
         // Convert Map data to GameTemplate objects
-        var allTemplates = templatesData.map((templateData) => GameTemplate.fromJson(templateData)).toList();
-        
+        var allTemplates = templatesData
+            .map((templateData) => GameTemplate.fromJson(templateData))
+            .toList();
+
         // Apply sport filtering manually if sport is specified and valid
         if (sport != null && sport != 'Unknown' && sport!.isNotEmpty) {
-          templates = allTemplates.where((template) => 
-            !template.includeSport || template.sport == sport).toList();
+          templates = allTemplates
+              .where((template) =>
+                  !template.includeSport || template.sport == sport)
+              .toList();
         } else {
           // If sport is unknown/null, show all templates
           templates = allTemplates;
         }
-        
+
         // Add the "Create new template" option
         templates.add(GameTemplate(
           id: '0',
           name: '+ Create new template',
           includeSport: false,
         ));
-        
+
         // Try to restore the previous selection if it still exists
-        if (currentSelection != null && templates.any((t) => t.id == currentSelection)) {
+        if (currentSelection != null &&
+            templates.any((t) => t.id == currentSelection)) {
           selectedTemplateId = currentSelection;
         } else {
           selectedTemplateId = null;
         }
-        
+
         isLoading = false;
       });
     } catch (e) {
@@ -135,7 +138,6 @@ class _SelectGameTemplateScreenState extends State<SelectGameTemplateScreen> {
   Future<void> _associateTemplate() async {
     if (selectedTemplateId == null) return;
     final prefs = await SharedPreferences.getInstance();
-    
 
     if (selectedTemplateId == '0') {
       if (mounted) {
@@ -149,10 +151,10 @@ class _SelectGameTemplateScreenState extends State<SelectGameTemplateScreen> {
         ).then((result) async {
           // Add a small delay to ensure database write completes
           await Future.delayed(const Duration(milliseconds: 100));
-          
+
           // Refresh templates after creation and wait for completion
           await _fetchTemplates();
-          
+
           // If a template was created, select it automatically
           if (result != null && result is GameTemplate) {
             setState(() {
@@ -167,7 +169,7 @@ class _SelectGameTemplateScreenState extends State<SelectGameTemplateScreen> {
 
       // Check user role to determine correct routing
       final schedulerType = prefs.getString('schedulerType');
-      
+
       // If coming from a schedule (scheduleName != null), this is assigner/AD flow from schedule_details
       if (scheduleName != null) {
         // This is the Assigner/Athletic Director flow from schedule_details_screen
@@ -181,7 +183,7 @@ class _SelectGameTemplateScreenState extends State<SelectGameTemplateScreen> {
               selectedTemplate.name,
               selectedTemplate.toJson(),
             );
-            
+
             if (!success) {
               // Fallback to SharedPreferences if database fails
               String templateKey;
@@ -189,7 +191,8 @@ class _SelectGameTemplateScreenState extends State<SelectGameTemplateScreen> {
                 templateKey =
                     'assigner_team_template_${scheduleName!.toLowerCase().replaceAll(' ', '_')}';
               } else {
-                templateKey = 'schedule_template_${scheduleName!.toLowerCase()}';
+                templateKey =
+                    'schedule_template_${scheduleName!.toLowerCase()}';
               }
               await prefs.setString(
                 templateKey,
@@ -211,7 +214,7 @@ class _SelectGameTemplateScreenState extends State<SelectGameTemplateScreen> {
             jsonEncode(selectedTemplate.toJson()),
           );
         }
-        
+
         if (mounted) {
           Navigator.pop(context);
         }
@@ -219,7 +222,7 @@ class _SelectGameTemplateScreenState extends State<SelectGameTemplateScreen> {
         // Coach flow - navigate directly to date_time with template data and schedule name
         final prefs = await SharedPreferences.getInstance();
         final teamName = prefs.getString('team_name');
-        
+
         if (mounted) {
           Navigator.pushNamed(
             context,
@@ -227,7 +230,8 @@ class _SelectGameTemplateScreenState extends State<SelectGameTemplateScreen> {
             arguments: {
               'sport': sport,
               'template': selectedTemplate,
-              'scheduleName': teamName, // Add team name as schedule name for Coach
+              'scheduleName':
+                  teamName, // Add team name as schedule name for Coach
               'teamName': teamName,
               'grade': prefs.getString('grade'),
               'gender': prefs.getString('gender'),
@@ -266,7 +270,7 @@ class _SelectGameTemplateScreenState extends State<SelectGameTemplateScreen> {
       try {
         // Use GameService to update template in database
         final success = await _gameService.updateTemplate(updatedTemplate);
-        
+
         if (success) {
           // Refresh the templates list
           await _fetchTemplates();
@@ -291,10 +295,8 @@ class _SelectGameTemplateScreenState extends State<SelectGameTemplateScreen> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(
       'game_templates',
-      jsonEncode(templates
-          .where((t) => t.id != '0')
-          .map((t) => t.toJson())
-          .toList()),
+      jsonEncode(
+          templates.where((t) => t.id != '0').map((t) => t.toJson()).toList()),
     );
   }
 
@@ -504,7 +506,9 @@ class _SelectGameTemplateScreenState extends State<SelectGameTemplateScreen> {
                         ),
                       ),
                       child: Text(
-                        selectedTemplateId == '0' ? 'Create Template' : 'Continue',
+                        selectedTemplateId == '0'
+                            ? 'Create Template'
+                            : 'Continue',
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,

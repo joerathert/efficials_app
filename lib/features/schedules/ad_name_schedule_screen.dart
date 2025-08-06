@@ -6,21 +6,19 @@ import '../../shared/services/schedule_service.dart';
 import '../../shared/services/repositories/user_repository.dart';
 import '../../shared/models/database_models.dart';
 
-class NameScheduleScreen extends StatefulWidget {
-  const NameScheduleScreen({super.key});
+class ADNameScheduleScreen extends StatefulWidget {
+  const ADNameScheduleScreen({super.key});
 
   @override
-  State<NameScheduleScreen> createState() => _NameScheduleScreenState();
+  State<ADNameScheduleScreen> createState() => _ADNameScheduleScreenState();
 }
 
-class _NameScheduleScreenState extends State<NameScheduleScreen> {
+class _ADNameScheduleScreenState extends State<ADNameScheduleScreen> {
   final _nameController = TextEditingController();
-  final _homeTeamController = TextEditingController();
   final ScheduleService _scheduleService = ScheduleService();
   final UserRepository _userRepository = UserRepository();
   
   User? currentUser;
-  bool isAssigner = false;
   bool isLoading = true;
 
   @override
@@ -32,13 +30,6 @@ class _NameScheduleScreenState extends State<NameScheduleScreen> {
   Future<void> _loadCurrentUser() async {
     try {
       currentUser = await _userRepository.getCurrentUser();
-      if (currentUser != null) {
-        isAssigner = currentUser!.schedulerType == 'Assigner';
-        // Pre-fill home team for ADs from their team name
-        if (!isAssigner && currentUser!.teamName != null) {
-          _homeTeamController.text = currentUser!.teamName!;
-        }
-      }
     } catch (e) {
       debugPrint('Error loading current user: $e');
     } finally {
@@ -51,13 +42,11 @@ class _NameScheduleScreenState extends State<NameScheduleScreen> {
   @override
   void dispose() {
     _nameController.dispose();
-    _homeTeamController.dispose();
     super.dispose();
   }
 
   void _handleContinue() async {
     final name = _nameController.text.trim();
-    final homeTeamName = _homeTeamController.text.trim();
 
     if (name.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -66,24 +55,14 @@ class _NameScheduleScreenState extends State<NameScheduleScreen> {
       return;
     }
 
-    // Only require home team name for Assigners
-    if (isAssigner && homeTeamName.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a home team name!')),
-      );
-      return;
-    }
-    
-    // For ADs, use their existing team name if home team field is empty
-    if (!isAssigner && homeTeamName.isEmpty && currentUser?.teamName != null) {
-      _homeTeamController.text = currentUser!.teamName!;
-    }
-
     final args =
         ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
     final sport = args['sport'] as String? ?? 'Unknown';
 
     try {
+      // Use the AD's team name from their profile for homeTeamName
+      final homeTeamName = currentUser?.teamName ?? '';
+      
       // Try to create schedule using database service first
       final schedule = await _scheduleService.createSchedule(
         name: name,
@@ -205,32 +184,40 @@ class _NameScheduleScreenState extends State<NameScheduleScreen> {
                             const SizedBox(height: 8),
                             TextField(
                               controller: _nameController,
-                              decoration: textFieldDecoration(
-                                isAssigner 
-                                  ? 'Ex. - Edwardsville Varsity'
-                                  : 'Ex. Varsity Football'
-                              ),
+                              decoration: textFieldDecoration('Ex. Varsity Football'),
                               style:
                                   const TextStyle(fontSize: 16, color: Colors.white),
                             ),
-                            // Only show home team field for Assigners
-                            if (isAssigner) ...[
-                              const SizedBox(height: 24),
-                              const Text(
-                                'Home Team',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: efficialsYellow,
+                            if (currentUser?.teamName != null) ...[ 
+                              const SizedBox(height: 16),
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: efficialsBlue.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: efficialsBlue.withOpacity(0.3),
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(height: 8),
-                              TextField(
-                                controller: _homeTeamController,
-                                decoration:
-                                    textFieldDecoration('Ex. - Edwardsville Tigers'),
-                                style:
-                                    const TextStyle(fontSize: 16, color: Colors.white),
+                                child: Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.info_outline,
+                                      color: efficialsBlue,
+                                      size: 20,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        'Your team name "${currentUser!.teamName}" will be used for all home games.',
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          color: efficialsBlue,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ],
                           ],

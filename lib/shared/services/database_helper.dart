@@ -24,7 +24,7 @@ class DatabaseHelper {
 
     final db = await openDatabase(
       path,
-      version: 26,
+      version: 28, // Increment version to force upgrade
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -488,6 +488,50 @@ class DatabaseHelper {
         debugPrint('home_team_name column may already exist: $e');
       }
     }
+
+    if (oldVersion < 27) {
+      // Add crew-related columns to game_templates table
+      try {
+        await db.execute('ALTER TABLE game_templates ADD COLUMN selected_crews TEXT');
+        await db.execute('ALTER TABLE game_templates ADD COLUMN selected_crew_list_name TEXT');
+        debugPrint('Added crew-related columns to game_templates table');
+      } catch (e) {
+        debugPrint('Crew columns may already exist in game_templates: $e');
+      }
+    }
+
+    if (oldVersion < 28) {
+      // Ensure crew-related columns exist in game_templates table (force fix)
+      try {
+        // Check if columns exist first
+        final tableInfo = await db.rawQuery("PRAGMA table_info(game_templates)");
+        bool hasSelectedCrews = false;
+        bool hasSelectedCrewListName = false;
+        
+        for (final column in tableInfo) {
+          if (column['name'] == 'selected_crews') {
+            hasSelectedCrews = true;
+          }
+          if (column['name'] == 'selected_crew_list_name') {
+            hasSelectedCrewListName = true;
+          }
+        }
+        
+        if (!hasSelectedCrews) {
+          await db.execute('ALTER TABLE game_templates ADD COLUMN selected_crews TEXT');
+          debugPrint('Added missing selected_crews column to game_templates table');
+        }
+        
+        if (!hasSelectedCrewListName) {
+          await db.execute('ALTER TABLE game_templates ADD COLUMN selected_crew_list_name TEXT');
+          debugPrint('Added missing selected_crew_list_name column to game_templates table');
+        }
+        
+        debugPrint('Ensured crew-related columns exist in game_templates table');
+      } catch (e) {
+        debugPrint('Error ensuring crew columns in game_templates: $e');
+      }
+    }
   }
 
   Future<void> _createTables(Database db) async {
@@ -661,6 +705,8 @@ class DatabaseHelper {
         method TEXT,
         officials_list_id INTEGER REFERENCES official_lists(id),
         selected_lists TEXT,
+        selected_crews TEXT,
+        selected_crew_list_name TEXT,
         include_schedule_name BOOLEAN DEFAULT FALSE,
         include_sport BOOLEAN DEFAULT FALSE,
         include_date BOOLEAN DEFAULT FALSE,

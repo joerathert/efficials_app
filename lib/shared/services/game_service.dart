@@ -514,6 +514,8 @@ class GameService {
         hireAutomatically: templateData['hireAutomatically'] ?? false,
         method: templateData['method'],
         officialsListId: officialsListId,
+        selectedCrews: templateData['selectedCrews'], // Add crew data
+        selectedCrewListName: templateData['selectedCrewListName'], // Add crew list name
         includeScheduleName: templateData['includeScheduleName'] ?? false,
         includeSport: templateData['includeSport'] ?? false,
         includeDate: templateData['includeDate'] ?? false,
@@ -1192,6 +1194,8 @@ class GameService {
       'method': template.method,
       'officialsListName':
           template.officialsListName, // Add this for UI compatibility
+      'selectedCrews': template.selectedCrews, // Add crew data
+      'selectedCrewListName': template.selectedCrewListName, // Add crew list name
       'includeScheduleName': template.includeScheduleName,
       'includeSport': template.includeSport,
       'includeDate': template.includeDate,

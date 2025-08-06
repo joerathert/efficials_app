@@ -997,8 +997,21 @@ class _AssignerManageSchedulesScreenState
                               routeArgs['time'] = template.time;
                             }
 
+
+                            // Check if template uses crew method - skip directly to review
+                            if (template != null &&
+                                template.method == 'hire_crew' &&
+                                template.selectedCrews != null &&
+                                template.selectedCrews!.isNotEmpty) {
+                              nextRoute = '/review_game_info';
+                              routeArgs.addAll({
+                                'method': 'hire_crew',
+                                'selectedCrews': template.selectedCrews,
+                                'selectedCrew': template.selectedCrews!.first,
+                              });
+                            }
                             // Check if template has location set - if not, go to location screen first
-                            if (template == null ||
+                            else if (template == null ||
                                 !template.includeLocation ||
                                 template.location == null) {
                               nextRoute = '/choose_location';

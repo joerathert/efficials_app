@@ -29,6 +29,7 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
   String? method; // Method for officials selection: 'standard', 'use_list', 'advanced', 'hire_crew'
   List<Map<String, dynamic>> selectedLists = []; // For advanced method
   List<Map<String, dynamic>> selectedCrews = []; // For crew selection
+  String? selectedCrewListName; // For crew list name
   String? location; // Selected location name
   bool isEditing = false;
   GameTemplate? existingTemplate;
@@ -181,6 +182,7 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
             method = existingTemplate!.method;
             selectedLists = existingTemplate!.selectedLists ?? [];
             selectedCrews = existingTemplate!.selectedCrews ?? [];
+            selectedCrewListName = existingTemplate!.selectedCrewListName;
             location = existingTemplate!.location ?? location;
             includeSport = existingTemplate!.includeSport;
             includeTime = existingTemplate!.includeTime;
@@ -209,6 +211,7 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
             selectedCrews = args['selectedCrews'] != null 
                 ? List<Map<String, dynamic>>.from(args['selectedCrews'] as List)
                 : [];
+            selectedCrewListName = args['selectedCrewListName'] as String?;
             // Check if the game has a selected list name (indicates 'use_list' method was used)
             includeOfficialsList = selectedListName != null && selectedListName!.isNotEmpty;
             if (args['time'] != null) {
@@ -470,10 +473,16 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
       },
     );
     if (result != null && result is Map<String, dynamic>) {
+      print('🚢 CREW LIST RESULT: $result'); // Debug
       setState(() {
         // Handle crew list selection from lists screen
         if (result['selectedCrews'] != null) {
           selectedCrews = List<Map<String, dynamic>>.from(result['selectedCrews'] as List);
+          print('🚢 SAVED selectedCrews: $selectedCrews'); // Debug
+        }
+        if (result['selectedCrewListName'] != null) {
+          selectedCrewListName = result['selectedCrewListName'] as String;
+          print('🚢 SAVED selectedCrewListName: $selectedCrewListName'); // Debug
         }
         method = 'hire_crew';
       });
@@ -531,6 +540,7 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
       method: method,
       selectedLists: method == 'advanced' ? selectedLists : null,
       selectedCrews: method == 'hire_crew' ? selectedCrews : null,
+      selectedCrewListName: method == 'hire_crew' ? selectedCrewListName : null,
       location:
           includeLocation ? location : null, // Use dropdown-selected location
       includeLocation: includeLocation,
@@ -554,6 +564,7 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
         'method': newTemplate.method,
         'selectedLists': newTemplate.selectedLists,
         'selectedCrews': newTemplate.selectedCrews,
+        'selectedCrewListName': newTemplate.selectedCrewListName,
         'officialsListName': newTemplate.officialsListName,
         'officialsListId': null,
         'includeScheduleName': newTemplate.includeScheduleName,
@@ -591,6 +602,8 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
         }
       } else {
         // Create new template
+        print('🚢 TEMPLATE SAVE DEBUG: selectedCrews being saved: ${templateData['selectedCrews']}');
+        print('🚢 TEMPLATE SAVE DEBUG: selectedCrewListName being saved: ${templateData['selectedCrewListName']}');
         final result = await _gameService.createTemplate(templateData);
         if (result == null) {
           if (mounted) {
@@ -624,6 +637,7 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
           selectedOfficials: newTemplate.selectedOfficials,
           selectedLists: newTemplate.selectedLists,
           selectedCrews: newTemplate.selectedCrews,
+          selectedCrewListName: newTemplate.selectedCrewListName,
           officialsListName: newTemplate.officialsListName,
           includeScheduleName: newTemplate.includeScheduleName,
           includeSport: newTemplate.includeSport,

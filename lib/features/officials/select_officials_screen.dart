@@ -20,7 +20,7 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
   GameTemplate? template; // Store the selected template
   List<Map<String, dynamic>> _selectedOfficials =
       []; // Store the selected officials
-  
+
   late final OfficialRepository _officialRepository;
   late final UserRepository _userRepository;
   int? _currentUserId;
@@ -62,7 +62,8 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
               ...args,
               'method': 'hire_crew',
               'selectedCrews': template!.selectedCrews,
-              'selectedCrew': template!.selectedCrews!.first, // Single crew selection
+              'selectedCrew':
+                  template!.selectedCrews!.first, // Single crew selection
               'template': template,
               'fromScheduleDetails':
                   args['fromScheduleDetails'] ?? false, // Add flag
@@ -106,9 +107,10 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
   Future<List<Map<String, dynamic>>> _fetchOfficialsFromList(
       String listName) async {
     if (_currentUserId == null) return [];
-    
+
     try {
-      return await _officialRepository.getOfficialsFromList(listName, _currentUserId!);
+      return await _officialRepository.getOfficialsFromList(
+          listName, _currentUserId!);
     } catch (e) {
       // Handle database errors
       return [];
@@ -117,11 +119,13 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
 
   Future<void> _loadDefaultChoice() async {
     if (_currentUserId == null) return;
-    
+
     try {
-      final defaultChoice = await _userRepository.getBoolSetting(_currentUserId!, 'defaultChoice');
-      final defaultMethod = await _userRepository.getSetting(_currentUserId!, 'defaultMethod');
-      
+      final defaultChoice = await _userRepository.getBoolSetting(
+          _currentUserId!, 'defaultChoice');
+      final defaultMethod =
+          await _userRepository.getSetting(_currentUserId!, 'defaultMethod');
+
       setState(() {
         _defaultChoice = defaultChoice;
         _defaultMethod = defaultMethod;
@@ -137,11 +141,13 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
 
   Future<void> _saveDefaultChoice(String method) async {
     if (_currentUserId == null) return;
-    
+
     try {
-      await _userRepository.setBoolSetting(_currentUserId!, 'defaultChoice', _defaultChoice);
+      await _userRepository.setBoolSetting(
+          _currentUserId!, 'defaultChoice', _defaultChoice);
       if (_defaultChoice) {
-        await _userRepository.setSetting(_currentUserId!, 'defaultMethod', method);
+        await _userRepository.setSetting(
+            _currentUserId!, 'defaultMethod', method);
       } else {
         await _userRepository.deleteSetting(_currentUserId!, 'defaultMethod');
       }
@@ -152,7 +158,7 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
 
   Future<int> _getAvailableListsCount() async {
     if (_currentUserId == null) return 0;
-    
+
     try {
       return await _officialRepository.getAvailableListsCount(_currentUserId!);
     } catch (e) {
@@ -163,7 +169,7 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
 
   Future<int> _getBaseballListsCount() async {
     if (_currentUserId == null) return 0;
-    
+
     try {
       return await _officialRepository.getBaseballListsCount(_currentUserId!);
     } catch (e) {
@@ -176,12 +182,12 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final String? listsJson = prefs.getString('saved_lists');
-      
+
       if (listsJson == null || listsJson.isEmpty) return 0;
-      
-      final List<Map<String, dynamic>> existingLists = 
+
+      final List<Map<String, dynamic>> existingLists =
           List<Map<String, dynamic>>.from(jsonDecode(listsJson));
-      
+
       // Count lists for the specific sport
       return existingLists.where((list) => list['sport'] == sport).length;
     } catch (e) {
@@ -196,14 +202,18 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
       builder: (context) => AlertDialog(
         backgroundColor: darkSurface,
         title: const Text('Selection Methods',
-            style: TextStyle(color: efficialsYellow, fontSize: 20, fontWeight: FontWeight.bold)),
+            style: TextStyle(
+                color: efficialsYellow,
+                fontSize: 20,
+                fontWeight: FontWeight.bold)),
         content: const Text(
             '• Manual Selection: Search and pick individual officials\n\n• Multiple Lists: Combine and filter across multiple saved lists\n\n• Single List: Select all officials from one saved list\n\n• Hire a Crew: Select an entire pre-formed crew',
             style: TextStyle(color: Colors.white)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Close', style: TextStyle(color: efficialsYellow)),
+            child:
+                const Text('Close', style: TextStyle(color: efficialsYellow)),
           ),
         ],
       ),
@@ -211,22 +221,27 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
   }
 
   void _showInsufficientListsDialog() {
-    final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+    final args =
+        ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
     final sport = args['sport'] as String? ?? 'Baseball';
-    
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: darkSurface,
         title: const Text('Insufficient Lists',
-            style: TextStyle(color: efficialsYellow, fontSize: 20, fontWeight: FontWeight.bold)),
+            style: TextStyle(
+                color: efficialsYellow,
+                fontSize: 20,
+                fontWeight: FontWeight.bold)),
         content: const Text(
             'The Multiple Lists method requires at least two lists of officials. Would you like to create a new list?',
             style: TextStyle(color: Colors.white)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel', style: TextStyle(color: efficialsYellow)),
+            child:
+                const Text('Cancel', style: TextStyle(color: efficialsYellow)),
           ),
           TextButton(
             onPressed: () {
@@ -315,8 +330,7 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
               'locationData': args['locationData'],
               'isAwayGame': args['isAwayGame'] ?? false,
               'template': template,
-              'fromScheduleDetails':
-                  args['fromScheduleDetails'] ?? false,
+              'fromScheduleDetails': args['fromScheduleDetails'] ?? false,
               'scheduleId': args['scheduleId'],
             },
           );
@@ -333,7 +347,8 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
               'fromScheduleDetails':
                   args['fromScheduleDetails'] ?? false, // Add flag
               'scheduleId': args['scheduleId'], // Add scheduleId
-              'fromTemplateCreation': template != null, // Add template creation flag
+              'fromTemplateCreation':
+                  template != null, // Add template creation flag
             },
           ).then((result) {
             if (result != null) {
@@ -375,214 +390,229 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
           padding: const EdgeInsets.all(20.0),
           child: SingleChildScrollView(
             child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              const SizedBox(height: 40),
-              const Text(
-                'Select Officials',
-                style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                  color: efficialsYellow,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const SizedBox(height: 40),
+                const Text(
+                  'Select Officials',
+                  style: TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                    color: efficialsYellow,
+                  ),
+                  textAlign: TextAlign.center,
                 ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 40),
-              Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: darkSurface,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.3),
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    const Text(
-                      'Choose a method for finding your officials.',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: primaryTextColor,
+                const SizedBox(height: 40),
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: darkSurface,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.3),
+                        blurRadius: 10,
+                        offset: const Offset(0, 2),
                       ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 30),
-                    SizedBox(
-                      width: 200,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          _saveDefaultChoice('standard');
-                          Navigator.pushNamed(
-                            context,
-                            '/populate_roster',
-                            arguments: <String, dynamic>{
-                              ...args,
-                              'sport': sport,
-                              'listName': listName,
-                              'listId': listId,
-                              'method': 'standard',
-                              'requiredCount': 2,
-                              'locationData': args['locationData'],
-                              'isAwayGame': args['isAwayGame'] ?? false,
-                              'template': template,
-                              'fromScheduleDetails':
-                                  args['fromScheduleDetails'] ?? false, // Add flag
-                              'scheduleId': args['scheduleId'], // Add scheduleId
-                            },
-                          );
-                        },
-                        style: elevatedButtonStyle(
-                          padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 32),
-                        ),
-                        child: const Text('Manual Selection', style: signInButtonTextStyle),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: 200,
-                      child: ElevatedButton(
-                        onPressed: () async {
-                          final currentSportListsCount = await _getListsCountBySport(sport);
-                          if (currentSportListsCount < 2) {
-                            _showInsufficientListsDialog();
-                          } else {
-                            _saveDefaultChoice('advanced');
-                            if (mounted) {
-                              // ignore: use_build_context_synchronously
-                              Navigator.pushNamed(
-                                context,
-                                '/advanced_officials_selection',
-                                arguments: <String, dynamic>{
-                                  ...args,
-                                  'sport': sport,
-                                  'listName': listName,
-                                  'listId': listId,
-                                  'locationData': args['locationData'],
-                                  'isAwayGame': args['isAwayGame'] ?? false,
-                                  'template': template,
-                                  'fromScheduleDetails':
-                                      args['fromScheduleDetails'] ??
-                                          false, // Add flag
-                                  'scheduleId': args['scheduleId'], // Add scheduleId
-                                },
-                              );
-                            }
-                          }
-                        },
-                        style: elevatedButtonStyle(
-                          padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 32),
-                        ),
-                        child: const Text('Multiple Lists', style: signInButtonTextStyle),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: 200,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          _saveDefaultChoice('use_list');
-                          Navigator.pushNamed(
-                            context,
-                            '/lists_of_officials',
-                            arguments: <String, dynamic>{
-                              ...args,
-                              'fromGameCreation': true,
-                              'locationData': args['locationData'],
-                              'isAwayGame': args['isAwayGame'] ?? false,
-                              'template': template,
-                              'fromScheduleDetails':
-                                  args['fromScheduleDetails'] ?? false, // Add flag
-                              'scheduleId': args['scheduleId'], // Add scheduleId
-                              'fromTemplateCreation': template != null, // Add template creation flag
-                            },
-                          ).then((result) {
-                            if (result != null) {
-                              Navigator.pushNamed(
-                                context,
-                                '/review_game_info',
-                                arguments: <String, dynamic>{
-                                  ...result as Map<String, dynamic>,
-                                  'template': template,
-                                  'fromScheduleDetails':
-                                      args['fromScheduleDetails'] ??
-                                          false, // Add flag
-                                  'scheduleId':
-                                      args['scheduleId'], // Add scheduleId
-                                },
-                              );
-                            }
-                          });
-                        },
-                        style: elevatedButtonStyle(
-                          padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 32),
-                        ),
-                        child: const Text('Single List', style: signInButtonTextStyle),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: 200,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          _saveDefaultChoice('hire_crew');
-                          Navigator.pushNamed(
-                            context,
-                            '/select_crew',
-                            arguments: <String, dynamic>{
-                              ...args,
-                              'sport': sport,
-                              'listName': listName,
-                              'listId': listId,
-                              'method': 'hire_crew',
-                              'locationData': args['locationData'],
-                              'isAwayGame': args['isAwayGame'] ?? false,
-                              'template': template,
-                              'fromScheduleDetails':
-                                  args['fromScheduleDetails'] ?? false,
-                              'scheduleId': args['scheduleId'],
-                            },
-                          );
-                        },
-                        style: elevatedButtonStyle(
-                          padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 32),
-                        ),
-                        child: const Text('Hire a Crew', style: signInButtonTextStyle),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    GestureDetector(
-                      onTap: _showDifferenceDialog,
-                      child: const Text(
-                        'What\'s the difference?',
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      const Text(
+                        'Choose a method for finding your officials.',
                         style: TextStyle(
-                            color: efficialsYellow,
-                            decoration: TextDecoration.underline),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Checkbox(
-                          value: _defaultChoice,
-                          onChanged: (value) =>
-                              setState(() => _defaultChoice = value ?? false),
-                          activeColor: efficialsYellow,
-                          checkColor: efficialsBlack,
+                          fontSize: 16,
+                          color: primaryTextColor,
                         ),
-                        const Text('Make this my default choice',
-                            style: TextStyle(color: Colors.white)),
-                      ],
-                    ),
-                  ],
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 30),
+                      SizedBox(
+                        width: 200,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            _saveDefaultChoice('standard');
+                            Navigator.pushNamed(
+                              context,
+                              '/populate_roster',
+                              arguments: <String, dynamic>{
+                                ...args,
+                                'sport': sport,
+                                'listName': listName,
+                                'listId': listId,
+                                'method': 'standard',
+                                'requiredCount': 2,
+                                'locationData': args['locationData'],
+                                'isAwayGame': args['isAwayGame'] ?? false,
+                                'template': template,
+                                'fromScheduleDetails':
+                                    args['fromScheduleDetails'] ??
+                                        false, // Add flag
+                                'scheduleId':
+                                    args['scheduleId'], // Add scheduleId
+                              },
+                            );
+                          },
+                          style: elevatedButtonStyle(
+                            padding: const EdgeInsets.symmetric(
+                                vertical: 15, horizontal: 32),
+                          ),
+                          child: const Text('Manual Selection',
+                              style: signInButtonTextStyle),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        width: 200,
+                        child: ElevatedButton(
+                          onPressed: () async {
+                            final currentSportListsCount =
+                                await _getListsCountBySport(sport);
+                            if (currentSportListsCount < 2) {
+                              _showInsufficientListsDialog();
+                            } else {
+                              _saveDefaultChoice('advanced');
+                              if (mounted) {
+                                // ignore: use_build_context_synchronously
+                                Navigator.pushNamed(
+                                  context,
+                                  '/advanced_officials_selection',
+                                  arguments: <String, dynamic>{
+                                    ...args,
+                                    'sport': sport,
+                                    'listName': listName,
+                                    'listId': listId,
+                                    'locationData': args['locationData'],
+                                    'isAwayGame': args['isAwayGame'] ?? false,
+                                    'template': template,
+                                    'fromScheduleDetails':
+                                        args['fromScheduleDetails'] ??
+                                            false, // Add flag
+                                    'scheduleId':
+                                        args['scheduleId'], // Add scheduleId
+                                  },
+                                );
+                              }
+                            }
+                          },
+                          style: elevatedButtonStyle(
+                            padding: const EdgeInsets.symmetric(
+                                vertical: 15, horizontal: 32),
+                          ),
+                          child: const Text('Multiple Lists',
+                              style: signInButtonTextStyle),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        width: 200,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            _saveDefaultChoice('use_list');
+                            Navigator.pushNamed(
+                              context,
+                              '/lists_of_officials',
+                              arguments: <String, dynamic>{
+                                ...args,
+                                'fromGameCreation': true,
+                                'locationData': args['locationData'],
+                                'isAwayGame': args['isAwayGame'] ?? false,
+                                'template': template,
+                                'fromScheduleDetails':
+                                    args['fromScheduleDetails'] ??
+                                        false, // Add flag
+                                'scheduleId':
+                                    args['scheduleId'], // Add scheduleId
+                                'fromTemplateCreation': template !=
+                                    null, // Add template creation flag
+                              },
+                            ).then((result) {
+                              if (result != null) {
+                                Navigator.pushNamed(
+                                  context,
+                                  '/review_game_info',
+                                  arguments: <String, dynamic>{
+                                    ...result as Map<String, dynamic>,
+                                    'template': template,
+                                    'fromScheduleDetails':
+                                        args['fromScheduleDetails'] ??
+                                            false, // Add flag
+                                    'scheduleId':
+                                        args['scheduleId'], // Add scheduleId
+                                  },
+                                );
+                              }
+                            });
+                          },
+                          style: elevatedButtonStyle(
+                            padding: const EdgeInsets.symmetric(
+                                vertical: 15, horizontal: 32),
+                          ),
+                          child: const Text('Single List',
+                              style: signInButtonTextStyle),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        width: 200,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            _saveDefaultChoice('hire_crew');
+                            Navigator.pushNamed(
+                              context,
+                              '/select_crew',
+                              arguments: <String, dynamic>{
+                                ...args,
+                                'sport': sport,
+                                'listName': listName,
+                                'listId': listId,
+                                'method': 'hire_crew',
+                                'locationData': args['locationData'],
+                                'isAwayGame': args['isAwayGame'] ?? false,
+                                'template': template,
+                                'fromScheduleDetails':
+                                    args['fromScheduleDetails'] ?? false,
+                                'scheduleId': args['scheduleId'],
+                              },
+                            );
+                          },
+                          style: elevatedButtonStyle(
+                            padding: const EdgeInsets.symmetric(
+                                vertical: 15, horizontal: 32),
+                          ),
+                          child: const Text('Hire a Crew',
+                              style: signInButtonTextStyle),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      GestureDetector(
+                        onTap: _showDifferenceDialog,
+                        child: const Text(
+                          'What\'s the difference?',
+                          style: TextStyle(
+                              color: efficialsYellow,
+                              decoration: TextDecoration.underline),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Checkbox(
+                            value: _defaultChoice,
+                            onChanged: (value) =>
+                                setState(() => _defaultChoice = value ?? false),
+                            activeColor: efficialsYellow,
+                            checkColor: efficialsBlack,
+                          ),
+                          const Text('Make this my default choice',
+                              style: TextStyle(color: Colors.white)),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
             ),
           ),
         ),

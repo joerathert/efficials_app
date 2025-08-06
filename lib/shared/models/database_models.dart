@@ -563,6 +563,8 @@ class GameTemplate {
   final int? officialsListId;
   final List<Map<String, dynamic>>? selectedOfficials;
   final List<Map<String, dynamic>>? selectedLists; // Added for advanced method
+  final List<Map<String, dynamic>>? selectedCrews; // Added for crew method
+  final String? selectedCrewListName; // Added for crew list name
   final String? officialsListName;
 
   // Include flags
@@ -607,6 +609,8 @@ class GameTemplate {
     this.officialsListId,
     this.selectedOfficials,
     this.selectedLists, // Added for advanced method
+    this.selectedCrews, // Added for crew method
+    this.selectedCrewListName, // Added for crew list name
     this.officialsListName,
     this.includeScheduleName = false,
     this.includeSport = false,
@@ -651,6 +655,9 @@ class GameTemplate {
       'officials_list_id': officialsListId,
       'selected_lists':
           selectedLists != null ? jsonEncode(selectedLists) : null,
+      'selected_crews':
+          selectedCrews != null ? jsonEncode(selectedCrews) : null,
+      'selected_crew_list_name': selectedCrewListName,
       'include_schedule_name': includeScheduleName ? 1 : 0,
       'include_sport': includeSport ? 1 : 0,
       'include_date': includeDate ? 1 : 0,
@@ -705,6 +712,18 @@ class GameTemplate {
       }
     }
 
+    List<Map<String, dynamic>>? selectedCrews;
+    if (map['selected_crews'] != null) {
+      try {
+        final decoded = jsonDecode(map['selected_crews']);
+        if (decoded is List) {
+          selectedCrews = List<Map<String, dynamic>>.from(decoded);
+        }
+      } catch (e) {
+        debugPrint('Error decoding selected_crews: $e');
+      }
+    }
+
     return GameTemplate(
       id: map['id']?.toInt(),
       name: map['name'] ?? '',
@@ -732,6 +751,8 @@ class GameTemplate {
       officialsListId: map['officials_list_id']?.toInt(),
       selectedOfficials: selectedOfficials,
       selectedLists: selectedLists,
+      selectedCrews: selectedCrews,
+      selectedCrewListName: map['selected_crew_list_name'],
       includeScheduleName: (map['include_schedule_name'] ?? 0) == 1,
       includeSport: (map['include_sport'] ?? 0) == 1,
       includeDate: (map['include_date'] ?? 0) == 1,
