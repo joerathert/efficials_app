@@ -36,6 +36,7 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
 
   Future<void> _loadCrewDetails() async {
     try {
+      debugPrint('Loading crew details...');
       setState(() {
         _isLoading = true;
       });
@@ -47,8 +48,13 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
         final isChief = await _crewChiefService.isCrewChief(
             _currentOfficialId!, widget.crew.id!);
         final members = await _crewRepo.getCrewMembers(widget.crew.id!);
-        final pendingInvitations =
-            await _crewRepo.getCrewInvitations(widget.crew.id!);
+        final invitations = await _crewRepo.getCrewInvitations(widget.crew.id!);
+
+        debugPrint('Fetched ${invitations.length} invitations');
+        for (var inv in invitations) {
+          debugPrint(
+              'Invitation: ${inv.invitedOfficialName} (Status: ${inv.status})');
+        }
 
         Map<String, dynamic> stats = {};
         if (isChief) {
@@ -60,16 +66,18 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
           setState(() {
             _isCrewChief = isChief;
             _members = members;
-            _pendingInvitations = pendingInvitations
-                .where((inv) => inv.status == 'pending')
-                .toList();
+            // Only show pending invitations, exclude cancelled/declined ones
+            _pendingInvitations =
+                invitations.where((inv) => inv.status == 'pending').toList();
+            debugPrint(
+                'Filtered to ${_pendingInvitations.length} pending invitations');
             _performanceStats = stats;
             _isLoading = false;
           });
         }
       }
     } catch (e) {
-      print('Error loading crew details: $e');
+      debugPrint('Error loading crew details: $e');
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -575,6 +583,9 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
 
   Future<void> _cancelInvitation(CrewInvitation invitation) async {
     try {
+      debugPrint(
+          'Starting invitation cancellation for ${invitation.invitedOfficialName} (ID: ${invitation.id})');
+
       // Show confirmation dialog
       final confirmed = await showDialog<bool>(
         context: context,
@@ -607,17 +618,28 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
         ),
       );
 
+      debugPrint('Confirmation dialog result: $confirmed');
+
       if (confirmed == true) {
+        debugPrint('Proceeding with invitation cancellation...');
+
         // Update invitation status to cancelled
-        await _crewRepo.respondToInvitation(
+        final result = await _crewRepo.respondToInvitation(
           invitation.id!,
           'cancelled',
           'Cancelled by crew chief',
           invitation.invitedOfficialId,
         );
 
-        // Refresh the crew details
-        await _loadCrewDetails();
+        debugPrint('Invitation cancellation result: $result');
+
+        // Immediately remove the invitation from the local list
+        setState(() {
+          _pendingInvitations.removeWhere((inv) => inv.id == invitation.id);
+        });
+
+        // Refresh the crew details in the background
+        _loadCrewDetails();
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -631,6 +653,7 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
         }
       }
     } catch (e) {
+      debugPrint('Error during invitation cancellation: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -639,6 +662,8 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
           ),
         );
       }
+      // Refresh the crew details to ensure UI is in sync
+      _loadCrewDetails();
     }
   }
 

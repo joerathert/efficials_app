@@ -701,19 +701,18 @@ class CrewRepository extends BaseRepository {
         // Update existing invitation instead of creating new one
         final invitationId = existingInvitation.first['id'];
         await update(
-          'crew_invitations',
-          {
-            'status': 'pending',
-            'invited_by': invitation.invitedBy,
-            'invited_at': DateTime.now().toIso8601String(),
-            'responded_at': null,
-            'response_notes': null,
-            'position': invitation.position,
-            'game_position': invitation.gamePosition,
-          },
-          'id = ?',
-          [invitationId],
-        );
+            'crew_invitations',
+            {
+              'status': 'pending',
+              'invited_by': invitation.invitedBy,
+              'invited_at': DateTime.now().toIso8601String(),
+              'responded_at': null,
+              'response_notes': null,
+              'position': invitation.position,
+              'game_position': invitation.gamePosition,
+            },
+            'id = ?',
+            [invitationId]);
         return invitationId;
       }
 
@@ -747,6 +746,7 @@ class CrewRepository extends BaseRepository {
   }
 
   Future<List<CrewInvitation>> getCrewInvitations(int crewId) async {
+    debugPrint('Fetching invitations for crew ID: $crewId');
     final results = await rawQuery('''
       SELECT ci.*, 
              invited_official.name as invited_official_name,
@@ -754,43 +754,95 @@ class CrewRepository extends BaseRepository {
       FROM crew_invitations ci
       JOIN officials invited_official ON ci.invited_official_id = invited_official.id
       JOIN officials inviter ON ci.invited_by = inviter.id
-      WHERE ci.crew_id = ?
+      WHERE ci.crew_id = ? AND ci.status = 'pending'
       ORDER BY ci.invited_at DESC
     ''', [crewId]);
+
+    debugPrint('Found ${results.length} invitations');
+    for (var result in results) {
+      debugPrint(
+          'Invitation: ${result['invited_official_name']} (Status: ${result['status']})');
+    }
 
     return results.map((data) => CrewInvitation.fromMap(data)).toList();
   }
 
   Future<int> respondToInvitation(int invitationId, String status,
       String? notes, int respondingOfficialId) async {
-    final result = await update(
-        'crew_invitations',
-        {
-          'status': status,
-          'responded_at': DateTime.now().toIso8601String(),
-          'response_notes': notes,
-        },
-        'id = ? AND invited_official_id = ?',
-        [invitationId, respondingOfficialId]);
+    debugPrint(
+        'Responding to invitation ID: $invitationId with status: $status');
 
-    // If accepted, add as crew member
-    if (status == 'accepted') {
-      final invitation = await rawQuery('''
-        SELECT * FROM crew_invitations WHERE id = ?
+    return await withTransaction((txn) async {
+      // First update the invitation status
+      final result = await txn.update(
+          'crew_invitations',
+          {
+            'status': status,
+            'responded_at': DateTime.now().toIso8601String(),
+            'response_notes': notes,
+          },
+          where: 'id = ? AND invited_official_id = ?',
+          whereArgs: [invitationId, respondingOfficialId]);
+
+      debugPrint('Update result: $result rows affected');
+
+      // Verify the update
+      final verifyResult = await txn.rawQuery('''
+        SELECT status FROM crew_invitations WHERE id = ?
       ''', [invitationId]);
 
-      if (invitation.isNotEmpty) {
-        final inv = invitation.first;
-        await addCrewMember(
-          inv['crew_id'],
-          inv['invited_official_id'],
-          inv['position'] ?? 'member',
-          inv['game_position'],
-        );
+      if (verifyResult.isNotEmpty) {
+        debugPrint(
+            'Verified invitation status: ${verifyResult.first['status']}');
+      } else {
+        debugPrint('Warning: Could not verify invitation status after update');
       }
-    }
 
-    return result;
+      // If accepted, handle crew membership
+      if (status == 'accepted') {
+        final invitation = await txn.rawQuery('''
+          SELECT * FROM crew_invitations WHERE id = ?
+        ''', [invitationId]);
+
+        if (invitation.isNotEmpty) {
+          final inv = invitation.first;
+          final crewId = inv['crew_id'];
+          final officialId = inv['invited_official_id'];
+
+          // Check for existing crew member record
+          final existingMember = await txn.rawQuery('''
+            SELECT id FROM crew_members 
+            WHERE crew_id = ? AND official_id = ?
+          ''', [crewId, officialId]);
+
+          if (existingMember.isNotEmpty) {
+            // Update existing record instead of creating new one
+            await txn.update(
+                'crew_members',
+                {
+                  'status': 'active',
+                  'position': inv['position'] ?? 'member',
+                  'game_position': inv['game_position'],
+                  'joined_at': DateTime.now().toIso8601String(),
+                },
+                where: 'id = ?',
+                whereArgs: [existingMember.first['id']]);
+          } else {
+            // Create new crew member record
+            await txn.insert('crew_members', {
+              'crew_id': crewId,
+              'official_id': officialId,
+              'position': inv['position'] ?? 'member',
+              'game_position': inv['game_position'],
+              'status': 'active',
+              'joined_at': DateTime.now().toIso8601String(),
+            });
+          }
+        }
+      }
+
+      return result;
+    });
   }
 
   Future<bool> hasInvitation(int crewId, int officialId) async {
