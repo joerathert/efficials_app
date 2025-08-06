@@ -676,7 +676,7 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
           'time': game['time'], // This comes from g.time in the SQL query
           'sport_name': game['sport_name'],
           'opponent': game['opponent'],
-          'home_team': game['home_team'],
+          'home_team': game['schedule_home_team_name'] ?? game['home_team'] ?? 'Home Team',
           'location_name': game['location_name'],
         };
         
@@ -2330,7 +2330,7 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
   
   String _formatGameTitle(Map<String, dynamic> game) {
     final opponent = game['opponent'] as String?;
-    final homeTeam = game['home_team'] as String?;
+    final homeTeam = game['schedule_home_team_name'] ?? game['home_team'] ?? 'Home Team';
     
     if (opponent != null && homeTeam != null) {
       return '$opponent @ $homeTeam';

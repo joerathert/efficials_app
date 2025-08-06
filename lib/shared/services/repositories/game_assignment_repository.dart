@@ -774,11 +774,13 @@ class GameAssignmentRepository extends BaseRepository {
           g.method, g.status, g.created_at, g.updated_at,
           l.name as location_name, l.address as location_address,
           s.name as sport_name,
+          sch.home_team_name as schedule_home_team_name,
           u.first_name, u.last_name,
           'available' as assignment_status
         FROM games g
         LEFT JOIN locations l ON g.location_id = l.id
         LEFT JOIN sports s ON g.sport_id = s.id
+        LEFT JOIN schedules sch ON g.schedule_id = sch.id
         LEFT JOIN users u ON g.user_id = u.id
         WHERE g.id NOT IN (
           SELECT ga.game_id 

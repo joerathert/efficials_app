@@ -323,6 +323,15 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
               },
             ),
             ListTile(
+              leading: const Icon(Icons.location_on, color: efficialsYellow),
+              title: const Text('Manage Locations',
+                  style: TextStyle(color: Colors.white)),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/locations');
+              },
+            ),
+            ListTile(
               leading: const Icon(Icons.settings, color: efficialsYellow),
               title: const Text('Game Defaults',
                   style: TextStyle(color: Colors.white)),
