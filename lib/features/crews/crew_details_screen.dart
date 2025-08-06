@@ -21,53 +21,17 @@ class CrewDetailsScreen extends StatefulWidget {
 class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
   final CrewRepository _crewRepo = CrewRepository();
   final CrewChiefService _crewChiefService = CrewChiefService();
-  final TextEditingController _searchController = TextEditingController();
-
   List<CrewMember> _members = [];
-  List<CrewMember> _filteredMembers = [];
   List<CrewInvitation> _pendingInvitations = [];
-  List<CrewInvitation> _filteredInvitations = [];
   Map<String, dynamic> _performanceStats = {};
   bool _isLoading = true;
   bool _isCrewChief = false;
   int? _currentOfficialId;
-  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
     _loadCrewDetails();
-    _searchController.addListener(_onSearchChanged);
-  }
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
-
-  void _onSearchChanged() {
-    setState(() {
-      _searchQuery = _searchController.text;
-      _filterMembers();
-    });
-  }
-
-  void _filterMembers() {
-    if (_searchQuery.isEmpty) {
-      _filteredMembers = List.from(_members);
-      _filteredInvitations = List.from(_pendingInvitations);
-    } else {
-      _filteredMembers = _members.where((member) {
-        final name = member.officialName?.toLowerCase() ?? '';
-        return name.contains(_searchQuery.toLowerCase());
-      }).toList();
-
-      _filteredInvitations = _pendingInvitations.where((invitation) {
-        final name = invitation.invitedOfficialName?.toLowerCase() ?? '';
-        return name.contains(_searchQuery.toLowerCase());
-      }).toList();
-    }
   }
 
   Future<void> _loadCrewDetails() async {
@@ -96,11 +60,9 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
           setState(() {
             _isCrewChief = isChief;
             _members = members;
-            _filteredMembers = List.from(members);
             _pendingInvitations = pendingInvitations
                 .where((inv) => inv.status == 'pending')
                 .toList();
-            _filteredInvitations = List.from(_pendingInvitations);
             _performanceStats = stats;
             _isLoading = false;
           });
@@ -180,19 +142,23 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
   }
 
   Widget _buildContent() {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        _buildCrewInfo(),
-        const SizedBox(height: 24),
-        _buildMembersSection(),
-        if (_isCrewChief && _performanceStats.isNotEmpty) ...[
+    return SafeArea(
+      bottom: true,
+      child: ListView(
+        padding: EdgeInsets.fromLTRB(
+            16, 16, 16, 16 + MediaQuery.of(context).padding.bottom),
+        children: [
+          _buildCrewInfo(),
           const SizedBox(height: 24),
-          _buildPerformanceSection(),
+          _buildMembersSection(),
+          if (_isCrewChief && _performanceStats.isNotEmpty) ...[
+            const SizedBox(height: 24),
+            _buildPerformanceSection(),
+          ],
+          const SizedBox(height: 24),
+          _buildActionsSection(),
         ],
-        const SizedBox(height: 24),
-        _buildActionsSection(),
-      ],
+      ),
     );
   }
 
@@ -369,55 +335,50 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
                 ),
                 const Spacer(),
                 if (_isCrewChief)
-                  TextButton.icon(
-                    onPressed: () {
-                      Navigator.pushNamed(context, '/add_crew_member',
+                  ElevatedButton.icon(
+                    onPressed: () async {
+                      final result = await Navigator.pushNamed(
+                          context, '/add_crew_member',
                           arguments: widget.crew);
+                      if (result == true) {
+                        // Refresh crew details after successful invitation
+                        await _loadCrewDetails();
+                      }
                     },
-                    icon:
-                        const Icon(Icons.add, color: efficialsYellow, size: 16),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: efficialsYellow,
+                      foregroundColor: efficialsBlack,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      elevation: 2,
+                    ),
+                    icon: const Icon(Icons.add, size: 18),
                     label: const Text(
-                      'Add',
-                      style: TextStyle(color: efficialsYellow, fontSize: 12),
+                      'Add Members',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
               ],
             ),
             const SizedBox(height: 16),
-            TextField(
-              controller: _searchController,
-              style: const TextStyle(color: efficialsWhite),
-              decoration: InputDecoration(
-                hintText: 'Search members...',
-                hintStyle: TextStyle(color: Colors.grey[400]),
-                prefixIcon: Icon(Icons.search, color: Colors.grey[400]),
-                filled: true,
-                fillColor: Colors.grey[900],
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide.none,
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: efficialsYellow),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            if (_filteredMembers.isEmpty && _filteredInvitations.isEmpty)
-              Text(
-                _searchQuery.isEmpty
-                    ? 'No members added yet'
-                    : 'No members found matching "$_searchQuery"',
-                style: const TextStyle(color: Colors.grey),
+            if (_members.isEmpty && _pendingInvitations.isEmpty)
+              const Text(
+                'No members added yet',
+                style: TextStyle(color: Colors.grey),
               )
             else
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Active Members
-                  if (_filteredMembers.isNotEmpty) ...[
-                    if (_filteredInvitations.isNotEmpty)
+                  if (_members.isNotEmpty) ...[
+                    if (_pendingInvitations.isNotEmpty)
                       const Padding(
                         padding: EdgeInsets.only(bottom: 12),
                         child: Text(
@@ -429,13 +390,12 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
                           ),
                         ),
                       ),
-                    ..._filteredMembers
-                        .map((member) => _buildMemberTile(member)),
+                    ..._members.map((member) => _buildMemberTile(member)),
                   ],
 
                   // Pending Invitations
-                  if (_filteredInvitations.isNotEmpty) ...[
-                    if (_filteredMembers.isNotEmpty) const SizedBox(height: 16),
+                  if (_pendingInvitations.isNotEmpty) ...[
+                    if (_members.isNotEmpty) const SizedBox(height: 16),
                     const Padding(
                       padding: EdgeInsets.only(bottom: 12),
                       child: Text(
@@ -447,7 +407,7 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
                         ),
                       ),
                     ),
-                    ..._filteredInvitations
+                    ..._pendingInvitations
                         .map((invitation) => _buildInvitationTile(invitation)),
                   ],
                 ],
@@ -625,7 +585,7 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
             style: TextStyle(color: efficialsWhite),
           ),
           content: Text(
-            'Are you sure you want to cancel the invitation to ${invitation.invitedOfficialName}?',
+            'Are you sure you want to cancel the invitation to ${invitation.invitedOfficialName}? You will be able to re-invite them later if needed.',
             style: const TextStyle(color: efficialsWhite),
           ),
           actions: [
@@ -663,8 +623,9 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                  'Invitation to ${invitation.invitedOfficialName} has been cancelled'),
+                  'Invitation to ${invitation.invitedOfficialName} has been cancelled. You can re-invite them later if needed.'),
               backgroundColor: Colors.orange,
+              duration: const Duration(seconds: 4),
             ),
           );
         }
@@ -790,15 +751,19 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
     );
   }
 
-  void _handleMenuSelection(String value) {
+  void _handleMenuSelection(String value) async {
     switch (value) {
       case 'manage_availability':
         Navigator.pushNamed(context, '/crew_availability',
             arguments: widget.crew);
         break;
       case 'add_member':
-        Navigator.pushNamed(context, '/add_crew_member',
+        final result = await Navigator.pushNamed(context, '/add_crew_member',
             arguments: widget.crew);
+        if (result == true) {
+          // Refresh crew details after successful invitation
+          await _loadCrewDetails();
+        }
         break;
       case 'edit_crew':
         Navigator.pushNamed(context, '/edit_crew', arguments: widget.crew);
@@ -1213,7 +1178,7 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
   String _buildLocationString(String? city, String? state) {
     final cityStr = city?.trim() ?? '';
     final stateStr = state?.trim() ?? '';
-    
+
     if (cityStr.isNotEmpty && stateStr.isNotEmpty) {
       return '$cityStr, $stateStr';
     } else if (cityStr.isNotEmpty) {
@@ -1276,15 +1241,19 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
             'name': (officialData['name']?.toString() ?? 'Unknown Official'),
             'email': (officialData['email']?.toString() ?? ''),
             'phone': (officialData['phone']?.toString() ?? ''),
-            'location': _buildLocationString(officialData['city']?.toString(), officialData['state']?.toString()),
+            'location': _buildLocationString(officialData['city']?.toString(),
+                officialData['state']?.toString()),
             'experienceYears': (officialData['experience_years'] as int?) ?? 0,
             'primarySport': (officialData['sport_name']?.toString() ?? 'N/A'),
-            'certificationLevel': (officialData['certification_level']?.toString() ?? 'N/A'),
+            'certificationLevel':
+                (officialData['certification_level']?.toString() ?? 'N/A'),
             'joinedDate': DateTime.tryParse(
                     officialData['created_at']?.toString() ?? '') ??
                 DateTime.now(),
             'totalGames': (officialData['total_accepted_games'] as int?) ?? 0,
-            'followThroughRate': (officialData['follow_through_rate'] as num?)?.toDouble() ?? 100.0,
+            'followThroughRate':
+                (officialData['follow_through_rate'] as num?)?.toDouble() ??
+                    100.0,
             'showCareerStats': true, // Default to showing stats
           },
         );

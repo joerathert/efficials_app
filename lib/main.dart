@@ -84,6 +84,7 @@ import 'features/crews/filter_crews_screen.dart';
 import 'features/crews/crew_dashboard_screen.dart';
 import 'features/crews/create_crew_screen.dart';
 import 'features/crews/select_crew_members_screen.dart';
+import 'features/crews/add_crew_members_screen.dart';
 import 'features/crews/crew_invitations_screen.dart';
 import 'features/crews/crew_details_screen.dart';
 import 'features/crews/lists_of_crews_screen.dart';
@@ -265,6 +266,10 @@ class EfficialsApp extends StatelessWidget {
         '/crew_details': (context) {
           final crew = ModalRoute.of(context)!.settings.arguments as Crew;
           return CrewDetailsScreen(crew: crew);
+        },
+        '/add_crew_member': (context) {
+          final crew = ModalRoute.of(context)!.settings.arguments as Crew;
+          return AddCrewMembersScreen(crew: crew);
         },
         '/backout_notifications': (context) =>
             const BackoutNotificationsScreen(),
