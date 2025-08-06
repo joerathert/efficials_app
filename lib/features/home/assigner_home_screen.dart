@@ -134,16 +134,35 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
   }
 
   Future<void> _loadGamesNeedingOfficials() async {
+    debugPrint('🏠 _loadGamesNeedingOfficials() STARTING');
     try {
+      debugPrint('🏠 About to call _gameService.getPublishedGames()');
       final games = await _gameService.getPublishedGames();
+      debugPrint('🏠 Got ${games.length} games from getPublishedGames()');
+      
+      // Debug: Print all games to see what we're getting
+      debugPrint('🏠 All published games (${games.length}):');
+      for (final game in games) {
+        debugPrint('  Game ${game.id}: opponent="${game.opponent}", date=${game.date}, hired=${game.officialsHired}/${game.officialsRequired}, method="${game.method}"');
+      }
+      
       final gamesNeedingOfficials = games.where((game) {
-        return game.officialsHired < game.officialsRequired &&
-            game.date != null &&
-            game.date!.isAfter(DateTime.now());
+        final needsOfficials = game.officialsHired < game.officialsRequired;
+        final hasDate = game.date != null;
+        final isFuture = hasDate && game.date!.isAfter(DateTime.now());
+        
+        // Debug: Show filtering decision for each game
+        if (hasDate) {
+          debugPrint('🏠 Game ${game.id} filtering: needsOfficials=$needsOfficials, hasDate=$hasDate, isFuture=$isFuture (${game.date})');
+        }
+        
+        return needsOfficials && hasDate && isFuture;
       }).toList();
 
       gamesNeedingOfficials.sort((a, b) => a.date!.compareTo(b.date!));
 
+      debugPrint('🏠 About to set state with ${gamesNeedingOfficials.length} games');
+      
       if (mounted) {
         setState(() {
           _gamesNeedingOfficials = gamesNeedingOfficials.map((game) {
@@ -166,11 +185,18 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
               'isAway': game.isAway,
             };
           }).toList();
+          
+          debugPrint('🏠 Final _gamesNeedingOfficials list has ${_gamesNeedingOfficials.length} games:');
+          for (final game in _gamesNeedingOfficials) {
+            debugPrint('  - Game ${game['id']}: ${game['opponent']} on ${game['date']}');
+          }
         });
       }
-    } catch (e) {
-      debugPrint('Error loading games needing officials: $e');
+    } catch (e, stackTrace) {
+      debugPrint('🏠 ERROR in _loadGamesNeedingOfficials: $e');
+      debugPrint('🏠 Stack trace: $stackTrace');
     }
+    debugPrint('🏠 _loadGamesNeedingOfficials() FINISHED');
   }
 
   void _toggleExpandedView() {
@@ -588,7 +614,9 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
   }
 
   Widget _buildGamesNeedingOfficialsSection() {
+    debugPrint('🏠 _buildGamesNeedingOfficialsSection called with ${_gamesNeedingOfficials.length} games');
     if (_gamesNeedingOfficials.isEmpty) {
+      debugPrint('🏠 Games list is empty, showing empty state');
       // Check if there are any upcoming games at all
       final now = DateTime.now();
       final hasUpcomingGames = _gameService.getPublishedGames().then((games) {
@@ -648,6 +676,7 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
       );
     }
 
+    debugPrint('🏠 Games list is NOT empty, showing ${_gamesNeedingOfficials.length} games');
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -660,21 +689,10 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
           ),
         ),
         const SizedBox(height: 16),
-        Container(
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(context).size.height -
-                MediaQuery.of(context).padding.top -
-                kToolbarHeight -
-                kBottomNavigationBarHeight -
-                300, // Account for other UI elements (league info, quick actions, etc.)
-          ),
-          child: ListView.builder(
-            itemCount: _gamesNeedingOfficials.length,
-            itemBuilder: (context, index) {
-              final game = _gamesNeedingOfficials[index];
-              return _buildGameNeedingOfficialsCard(game);
-            },
-          ),
+        Column(
+          children: _gamesNeedingOfficials.map((game) {
+            return _buildGameNeedingOfficialsCard(game);
+          }).toList(),
         ),
       ],
     );

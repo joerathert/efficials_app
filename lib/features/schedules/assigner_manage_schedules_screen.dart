@@ -1031,8 +1031,15 @@ class _AssignerManageSchedulesScreenState
                             }
 
 
-                            // Check if template uses crew method - skip directly to review
-                            if (template != null &&
+                            // Check if template has location set - if not, go to location screen first
+                            if (template == null ||
+                                !template.includeLocation ||
+                                template.location == null ||
+                                template.location!.isEmpty) {
+                              nextRoute = '/choose_location';
+                            }
+                            // Check if template uses crew method - skip directly to review (only if location is set)
+                            else if (template != null &&
                                 template.method == 'hire_crew' &&
                                 template.selectedCrews != null &&
                                 template.selectedCrews!.isNotEmpty) {
@@ -1042,12 +1049,6 @@ class _AssignerManageSchedulesScreenState
                                 'selectedCrews': template.selectedCrews,
                                 'selectedCrew': template.selectedCrews!.first,
                               });
-                            }
-                            // Check if template has location set - if not, go to location screen first
-                            else if (template == null ||
-                                !template.includeLocation ||
-                                template.location == null) {
-                              nextRoute = '/choose_location';
                             }
                             // Check if template has time set and we can skip date_time screen
                             else if (template.includeTime &&

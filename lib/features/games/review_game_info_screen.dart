@@ -247,12 +247,12 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
           final method = gameData['method'] as String?;
 
           // Create assignments based on method type
-          if (!isAwayGame && method != null && !hireAutomatically) {
+          if (!isAwayGame && method != null) {
             if (method == 'hire_crew') {
-              // For crew hiring, only create assignments for crew chiefs
+              // For crew hiring, always create crew assignments regardless of hireAutomatically setting
               await _createCrewChiefAssignments(gameId, gameData);
-            } else if (method != 'advanced') {
-              // For other methods (use_list, standard), create normal assignments
+            } else if (method != 'advanced' && !hireAutomatically) {
+              // For other methods (use_list, standard), only create assignments if not hiring automatically
               await _gameService.createInitialAssignments(gameId, method, gameData);
             }
           }
@@ -960,8 +960,12 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
 
   Future<void> _createCrewChiefAssignments(int gameId, Map<String, dynamic> gameData) async {
     try {
+      print('🚢 _createCrewChiefAssignments: Starting for game $gameId');
       final selectedCrews = gameData['selectedCrews'] as List<dynamic>?;
       final selectedCrew = gameData['selectedCrew'];
+      
+      print('🚢 selectedCrews: $selectedCrews');
+      print('🚢 selectedCrew: $selectedCrew');
       
       List<dynamic> crewsToProcess = [];
       if (selectedCrews != null) {
@@ -970,8 +974,10 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
         crewsToProcess = [selectedCrew];
       }
       
+      print('🚢 crewsToProcess: $crewsToProcess (length: ${crewsToProcess.length})');
+      
       if (crewsToProcess.isEmpty) {
-        debugPrint('No crews selected for game $gameId');
+        print('🚢 ERROR: No crews selected for game $gameId');
         return;
       }
       
@@ -981,10 +987,22 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
         final crewId = crewData is Map<String, dynamic> 
             ? crewData['id'] as int?
             : (crewData as dynamic).id as int?;
-        final crewChiefId = crewData is Map<String, dynamic> 
-            ? crewData['crewChiefId'] as int?
-            : (crewData as dynamic).crewChiefId as int?;
             
+        print('🚢 Processing crew: ID=$crewId');
+        
+        // Look up the actual crew_chief_id from the database
+        int? crewChiefId;
+        if (crewId != null) {
+          final crewQuery = await _gameAssignmentRepository.rawQuery(
+            'SELECT crew_chief_id FROM crews WHERE id = ? AND is_active = 1',
+            [crewId]
+          );
+          crewChiefId = crewQuery.isNotEmpty ? crewQuery.first['crew_chief_id'] as int? : null;
+          print('🚢 Looked up ChiefID=$crewChiefId from database for crew $crewId');
+        }
+            
+        print('🚢 Final crew data: ID=$crewId, ChiefID=$crewChiefId');
+        
         if (crewId != null && crewChiefId != null) {
           // Create crew assignment instead of individual game assignment
           final crewAssignment = {
@@ -993,34 +1011,48 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
             'status': 'pending',
             'assigned_by': await _getCurrentUserId(),
             'assigned_at': DateTime.now().toIso8601String(),
-            'fee_amount': (gameData['gameFee'] as num?)?.toDouble(),
+            'total_fee_amount': _parseDouble(gameData['gameFee']),
             'response_notes': 'Crew hiring - notification sent to crew chief',
           };
           
+          print('🚢 Inserting crew assignment: $crewAssignment');
+          
           await _gameAssignmentRepository.rawQuery(
-            'INSERT INTO crew_assignments (game_id, crew_id, status, assigned_by, assigned_at, fee_amount, response_notes) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            'INSERT INTO crew_assignments (game_id, crew_id, status, assigned_by, assigned_at, total_fee_amount, response_notes) VALUES (?, ?, ?, ?, ?, ?, ?)',
             [
               crewAssignment['game_id'],
               crewAssignment['crew_id'],
               crewAssignment['status'],
               crewAssignment['assigned_by'],
               crewAssignment['assigned_at'],
-              crewAssignment['fee_amount'],
+              crewAssignment['total_fee_amount'],
               crewAssignment['response_notes'],
             ]
           );
           
-          debugPrint('Created crew assignment for crew $crewId on game $gameId');
+          print('🚢 Successfully created crew assignment for crew $crewId on game $gameId');
+          
+          // Small delay to ensure database transaction is committed
+          await Future.delayed(const Duration(milliseconds: 100));
           
           // Create notification for crew chief
           await _createCrewChiefNotification(crewChiefId, gameData);
         }
       }
     } catch (e) {
-      debugPrint('Error creating crew chief assignments: $e');
+      print('🚢 ERROR creating crew chief assignments: $e');
+      print('🚢 Stack trace: ${StackTrace.current}');
     }
   }
   
+  double? _parseDouble(dynamic value) {
+    if (value == null) return null;
+    if (value is double) return value;
+    if (value is int) return value.toDouble();
+    if (value is String) return double.tryParse(value);
+    return null;
+  }
+
   Future<void> _createCrewChiefNotification(int crewChiefId, Map<String, dynamic> gameData) async {
     try {
       final sportName = gameData['sport'] as String? ?? 'Game';
@@ -1028,7 +1060,7 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
       final homeTeam = gameData['homeTeam'] as String? ?? 'TBD';
       final gameDate = gameData['date'] as DateTime?;
       final gameTime = gameData['time'] as TimeOfDay?;
-      final gameFee = gameData['gameFee'] as num? ?? 0;
+      final gameFee = _parseDouble(gameData['gameFee']) ?? 0;
       
       final gameTitle = opponent != 'TBD' && homeTeam != 'TBD' 
           ? '$opponent @ $homeTeam' 

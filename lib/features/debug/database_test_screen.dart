@@ -12,6 +12,8 @@ import '../../shared/services/auth_service.dart';
 import '../../shared/models/database_models.dart';
 import '../../shared/utils/database_cleanup.dart';
 import '../../create_officials_from_csv.dart';
+import '../../shared/services/repositories/crew_repository.dart';
+import '../../shared/services/repositories/official_repository.dart';
 
 class DatabaseTestScreen extends StatefulWidget {
   const DatabaseTestScreen({super.key});
@@ -2483,6 +2485,189 @@ All users have password: test123''';
     );
   }
 
+  Future<void> _createTestFootballCrew() async {
+    setState(() {
+      isLoading = true;
+      testResult = 'Creating test Football Crew from existing officials...';
+    });
+
+    try {
+      final db = await DatabaseHelper().database;
+      final crewRepo = CrewRepository();
+      
+      // Define the specific officials from the existing 123 Football officials
+      final crewMemberNames = [
+        'Derek Greenfield',
+        'Beaux Greenfield', 
+        'Brian Jackson',
+        'Joe Rathert',
+        'Chris Walters',
+      ];
+
+      String result = '🏈 Creating Football Test Crew from existing officials:\n\n';
+
+      // First, let's debug what officials are actually in the database
+      final allOfficials = await db.rawQuery('''
+        SELECT name, id, sport_id FROM officials 
+        WHERE name LIKE '%Greenfield%' OR name LIKE '%Jackson%' OR name LIKE '%Rathert%' OR name LIKE '%Walters%'
+        ORDER BY name
+      ''');
+      
+      result += '🔍 DEBUG - Found these matching officials in database:\n';
+      for (var official in allOfficials) {
+        result += '  • "${official['name']}" (ID: ${official['id']}, sport_id: ${official['sport_id']})\n';
+      }
+      result += '\n';
+
+      // Find the existing officials by name
+      List<Map<String, dynamic>> foundOfficials = [];
+      List<int> officialIds = [];
+      
+      for (var officialName in crewMemberNames) {
+        // Try without sport_id filter first
+        final officialResults = await db.rawQuery('''
+          SELECT * FROM officials 
+          WHERE name = ?
+          LIMIT 1
+        ''', [officialName]);
+        
+        if (officialResults.isNotEmpty) {
+          foundOfficials.add(officialResults.first);
+          officialIds.add(officialResults.first['id'] as int);
+          result += '✅ Found existing official: $officialName (ID: ${officialResults.first['id']}, sport_id: ${officialResults.first['sport_id']})\n';
+        } else {
+          result += '❌ Could not find official: $officialName\n';
+        }
+      }
+
+      if (foundOfficials.length != 5) {
+        result += '\n❌ Error: Could only find ${foundOfficials.length} of 5 required officials.\n';
+        result += 'Please make sure you have run "🏈 Create AD + Assigner + Coach + 123 Football Officials" first.\n';
+        setState(() {
+          testResult = result;
+          isLoading = false;
+        });
+        return;
+      }
+
+      // Get or create crew type for Football (5 officials, Varsity level)
+      final crewTypeResults = await db.rawQuery('''
+        SELECT ct.id FROM crew_types ct
+        JOIN sports s ON ct.sport_id = s.id
+        WHERE s.name = 'Football' AND ct.required_officials = 5 AND ct.level_of_competition = 'Varsity'
+        LIMIT 1
+      ''');
+      
+      int crewTypeId;
+      if (crewTypeResults.isEmpty) {
+        // Create crew type
+        crewTypeId = await db.insert('crew_types', {
+          'sport_id': 1, // Football
+          'required_officials': 5,
+          'level_of_competition': 'Varsity',
+          'description': 'Football 5-person Varsity crew',
+          'created_at': DateTime.now().toIso8601String(),
+        });
+        result += '✅ Created Football Varsity crew type (ID: $crewTypeId)\n';
+      } else {
+        crewTypeId = crewTypeResults.first['id'] as int;
+        result += '✅ Found existing Football Varsity crew type (ID: $crewTypeId)\n';
+      }
+
+      // Check if crew already exists
+      final existingCrewResults = await db.rawQuery('''
+        SELECT * FROM crews WHERE name = 'Greenfield Crew' AND is_active = 1
+      ''');
+      
+      if (existingCrewResults.isNotEmpty) {
+        result += '\n❌ Crew "Greenfield Crew" already exists!\n';
+        result += 'Please delete the existing crew first or use a different name.\n';
+      } else {
+        // Create the crew
+        final crew = Crew(
+          name: 'Greenfield Crew',
+          crewTypeId: crewTypeId,
+          crewChiefId: officialIds[0], // Derek Greenfield as crew chief
+          createdBy: 1, // Default user
+          isActive: true,
+          paymentMethod: 'equal_split',
+          crewFeePerGame: 0.0,
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        );
+
+        // Get Official objects for the members (excluding crew chief)
+        List<Official> crewMembers = [];
+        for (int i = 1; i < foundOfficials.length; i++) {
+          crewMembers.add(Official.fromMap(foundOfficials[i]));
+        }
+
+        // Create crew with members and invitations
+        final crewId = await crewRepo.createCrewWithMembersAndInvitations(
+          crew: crew,
+          selectedMembers: crewMembers,
+          crewChiefId: officialIds[0],
+        );
+
+        result += '\n🎉 Successfully created crew "Greenfield Crew" (ID: $crewId)\n';
+        result += '📨 Automatically accepting invitations for all members...\n';
+
+        // Auto-accept all pending invitations for this crew
+        final pendingInvitations = await db.rawQuery('''
+          SELECT * FROM crew_invitations 
+          WHERE crew_id = ? AND status = 'pending'
+        ''', [crewId]);
+
+        int acceptedCount = 0;
+        for (final invitation in pendingInvitations) {
+          final invitationId = invitation['id'] as int;
+          final officialId = invitation['invited_official_id'] as int;
+          
+          try {
+            await crewRepo.respondToInvitation(
+              invitationId, 
+              'accepted', 
+              'Auto-accepted for testing',
+              officialId
+            );
+            acceptedCount++;
+            
+            // Get the official's name for the result
+            final officialName = foundOfficials.firstWhere(
+              (official) => official['id'] == officialId,
+              orElse: () => {'name': 'Unknown Official'}
+            )['name'];
+            
+            result += '  ✅ Auto-accepted invitation for $officialName\n';
+          } catch (e) {
+            result += '  ❌ Failed to accept invitation for official ID $officialId: $e\n';
+          }
+        }
+
+        result += '\n🎉 Crew formation complete!\n';
+        result += '\n👥 Final Crew Members:\n';
+        result += '  • Derek Greenfield (Crew Chief) ✅\n';
+        result += '  • Beaux Greenfield (Active Member) ✅\n';
+        result += '  • Brian Jackson (Active Member) ✅\n';
+        result += '  • Joe Rathert (Active Member) ✅\n';
+        result += '  • Chris Walters (Active Member) ✅\n';
+        result += '\n✅ The complete Varsity Football crew is ready for immediate testing!\n';
+        result += '\nℹ️ All ${acceptedCount + 1} members are now active and available for game assignments.';
+      }
+
+      setState(() {
+        testResult = result;
+        isLoading = false;
+      });
+
+    } catch (e) {
+      setState(() {
+        testResult = 'Error creating test Football crew: $e';
+        isLoading = false;
+      });
+    }
+  }
+
   Widget _buildStatusRow(String label, bool isTrue) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
@@ -2786,6 +2971,18 @@ All users have password: test123''';
             ),
             child: const Text(
                 '🏈 Create AD + Assigner + Coach + 123 Football Officials'),
+          ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: _createTestFootballCrew,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('⚡ Create Complete "Greenfield Crew" (5 active officials)'),
           ),
         ),
         const SizedBox(height: 12),

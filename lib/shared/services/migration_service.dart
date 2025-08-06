@@ -167,7 +167,15 @@ class MigrationService {
         await db.delete('schedules');
         await db.delete('games'); 
         await db.delete('user_settings', where: 'key LIKE ?', whereArgs: ['schedule_template_%']);
-        debugPrint('Cleared schedules, games, and template associations from database before full reset');
+        
+        // Clear all crew-related tables
+        await db.delete('crew_payment_distributions');
+        await db.delete('crew_assignments');
+        await db.delete('crew_invitations');
+        await db.delete('crew_availability');
+        await db.delete('crew_members');
+        await db.delete('crews');
+        debugPrint('Cleared schedules, games, template associations, and all crew data from database before full reset');
         
       } catch (e) {
         debugPrint('Error clearing data before reset (database may not exist yet): $e');
@@ -198,6 +206,7 @@ class MigrationService {
       await prefs.remove('saved_locations');
       await prefs.remove('game_templates');
       await prefs.remove('saved_lists');
+      await prefs.remove('saved_crew_lists');
       await prefs.remove('ad_published_games');
       await prefs.remove('ad_unpublished_games');
       await prefs.remove('coach_published_games');

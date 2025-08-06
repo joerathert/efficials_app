@@ -999,31 +999,29 @@ class GameAssignmentRepository extends BaseRepository {
   // Handle crew chief claiming a game - assigns entire crew
   Future<bool> _handleCrewChiefClaim(int gameId, int officialId) async {
     try {
+      print('🚢 _handleCrewChiefClaim: Starting claim process for game $gameId, official $officialId');
+      
       // First, verify this official is a crew chief for a crew that was selected for this game
-      final crewChiefResult = await rawQuery('''
-        SELECT position, response_notes FROM game_assignments 
-        WHERE game_id = ? AND official_id = ? AND position = 'Crew Chief'
+      // Look in crew_assignments table to see if there's a pending crew assignment
+      final crewAssignmentResult = await rawQuery('''
+        SELECT ca.crew_id, ca.status, c.name as crew_name
+        FROM crew_assignments ca
+        JOIN crews c ON ca.crew_id = c.id
+        WHERE ca.game_id = ? AND c.crew_chief_id = ? AND ca.status = 'pending'
       ''', [gameId, officialId]);
 
-      if (crewChiefResult.isEmpty) {
-        print('Official $officialId is not a crew chief for game $gameId');
+      print('🚢 _handleCrewChiefClaim: Found ${crewAssignmentResult.length} crew assignments');
+      for (var result in crewAssignmentResult) {
+        print('🚢   - Crew: ${result['crew_name']}, ID: ${result['crew_id']}, Status: ${result['status']}');
+      }
+
+      if (crewAssignmentResult.isEmpty) {
+        print('🚢 _handleCrewChiefClaim: Official $officialId is not a crew chief for any crew assigned to game $gameId');
         return false;
       }
 
-      // Get the crew that this official is chief of
-      final crewResult = await rawQuery('''
-        SELECT c.id as crew_id, c.name as crew_name 
-        FROM crews c 
-        WHERE c.crew_chief_id = ? AND c.is_active = 1
-      ''', [officialId]);
-
-      if (crewResult.isEmpty) {
-        print('No active crew found with chief $officialId');
-        return false;
-      }
-
-      final crewId = crewResult.first['crew_id'] as int;
-      final crewName = crewResult.first['crew_name'] as String;
+      final crewId = crewAssignmentResult.first['crew_id'] as int;
+      final crewName = crewAssignmentResult.first['crew_name'] as String;
 
       // Get all crew members
       final crewMembersResult = await rawQuery('''
@@ -1048,16 +1046,16 @@ class GameAssignmentRepository extends BaseRepository {
           : 0.0;
 
       await withTransaction((txn) async {
-        // Update the crew chief's assignment to accepted
+        // Update the crew assignment to accepted
         await txn.update(
-          'game_assignments',
+          'crew_assignments',
           {
             'status': 'accepted',
             'responded_at': DateTime.now().toIso8601String(),
             'response_notes': 'Crew chief accepted - crew $crewName assigned',
           },
-          where: 'game_id = ? AND official_id = ?',
-          whereArgs: [gameId, officialId],
+          where: 'game_id = ? AND crew_id = ?',
+          whereArgs: [gameId, crewId],
         );
 
         // Create assignments for all crew members (including chief)
