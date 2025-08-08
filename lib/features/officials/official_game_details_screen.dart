@@ -336,7 +336,7 @@ class _OfficialGameDetailsScreenState extends State<OfficialGameDetailsScreen> {
                               'name': official['name'],
                               'email': '${official['name'].toLowerCase().replaceAll(' ', '.')}@email.com',
                               'phone': '(555) ${(officialId * 123).toString().padLeft(7, '0').substring(0, 3)}-${(officialId * 456).toString().padLeft(4, '0')}',
-                              'location': 'Chicago, IL',
+                              'location': _formatOfficialLocation(official),
                               'experienceYears': 5 + (officialId % 10),
                               'primarySport': 'Football',
                               'certificationLevel': 'IHSA Certified',
@@ -366,7 +366,7 @@ class _OfficialGameDetailsScreenState extends State<OfficialGameDetailsScreen> {
                           ),
                         ),
                         Text(
-                          _getOfficialLocation(official['id'] as int),
+                          _formatOfficialLocation(official),
                           style: TextStyle(
                             fontSize: 14,
                             color: Colors.grey[400],
@@ -838,16 +838,18 @@ class _OfficialGameDetailsScreenState extends State<OfficialGameDetailsScreen> {
     }
   }
 
-  String _getOfficialLocation(int officialId) {
-    // Generate consistent city, state based on official ID
-    // This is placeholder data until proper location fields are added to the database
-    final cities = [
-      'Chicago, IL', 'Springfield, IL', 'Peoria, IL', 'Rockford, IL', 
-      'Aurora, IL', 'Joliet, IL', 'Naperville, IL', 'Elgin, IL',
-      'Waukegan, IL', 'Cicero, IL', 'Champaign, IL', 'Bloomington, IL',
-      'Arlington Heights, IL', 'Evanston, IL', 'Decatur, IL'
-    ];
+  String _formatOfficialLocation(Map<String, dynamic> official) {
+    final city = official['city']?.toString().trim() ?? '';
+    final state = official['state']?.toString().trim() ?? '';
     
-    return cities[officialId % cities.length];
+    if (city.isNotEmpty && state.isNotEmpty) {
+      return '$city, $state';
+    } else if (city.isNotEmpty) {
+      return city;
+    } else if (state.isNotEmpty) {
+      return state;
+    } else {
+      return 'Location not specified';
+    }
   }
 }

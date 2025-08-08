@@ -473,7 +473,7 @@ class GameAssignmentRepository extends BaseRepository {
   Future<List<Map<String, dynamic>>> getConfirmedOfficialsForGame(
       int gameId) async {
     final results = await rawQuery('''
-      SELECT o.id, o.name, o.phone, o.email, o.experience_years,
+      SELECT o.id, o.name, o.phone, o.email, o.experience_years, o.city, o.state,
              ga.assigned_at, ga.responded_at, ga.fee_amount,
              COALESCE(0, 0) as distance
       FROM game_assignments ga

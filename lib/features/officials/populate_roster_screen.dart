@@ -52,6 +52,11 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
     'Adult': ['Adult'],
   };
 
+  String _getLastName(String fullName) {
+    final parts = fullName.trim().split(' ');
+    return parts.isNotEmpty ? parts.last : fullName;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -154,6 +159,12 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
         officials = List.from(newOfficials);
         filteredOfficials = List.from(newOfficials);
         filteredOfficialsWithoutSearch = List.from(newOfficials);
+        
+        // Sort all lists alphabetically by last name
+        officials.sort((a, b) => _getLastName(a['name'].toString()).toLowerCase().compareTo(_getLastName(b['name'].toString()).toLowerCase()));
+        filteredOfficials.sort((a, b) => _getLastName(a['name'].toString()).toLowerCase().compareTo(_getLastName(b['name'].toString()).toLowerCase()));
+        filteredOfficialsWithoutSearch.sort((a, b) => _getLastName(a['name'].toString()).toLowerCase().compareTo(_getLastName(b['name'].toString()).toLowerCase()));
+        
         isLoading = false;
       });
       
@@ -189,6 +200,8 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
                   .contains(query.toLowerCase()))
               .toList();
         }
+        // Sort alphabetically by last name
+        filteredOfficials.sort((a, b) => _getLastName(a['name'].toString()).toLowerCase().compareTo(_getLastName(b['name'].toString()).toLowerCase()));
       }
     });
   }
