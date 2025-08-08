@@ -2172,11 +2172,18 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
       
       // Show error message
       if (mounted) {
+        String errorMessage = 'Failed to express interest. Please try again.';
+        
+        // Provide specific error messages for common issues
+        if (e.toString().contains('No active crew found for this crew chief')) {
+          errorMessage = 'You must be part of an active crew to express interest in crew-hire games. Please contact your administrator to set up your crew.';
+        }
+        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to express interest. Please try again.'),
+            content: Text(errorMessage),
             backgroundColor: Colors.red,
-            duration: const Duration(seconds: 3),
+            duration: const Duration(seconds: 5),
           ),
         );
       }

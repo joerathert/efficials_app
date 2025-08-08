@@ -269,30 +269,65 @@ class GameAssignmentRepository extends BaseRepository {
     final crewId = crewResult.first['id'] as int;
     final crewName = crewResult.first['name'] as String;
 
-    // Create a crew assignment record to track crew-level interest
-    final crewAssignmentId = await insert('crew_assignments', {
-      'game_id': gameId,
-      'crew_id': crewId,
-      'crew_chief_id': crewChiefId,
-      'status': 'pending',
-      'assigned_by': crewChiefId,
-      'assigned_at': DateTime.now().toIso8601String(),
-      'crew_chief_response_required': 1,
-    });
+    // Check if a crew assignment already exists
+    final existingAssignment = await rawQuery('''
+      SELECT id FROM crew_assignments 
+      WHERE game_id = ? AND crew_id = ?
+    ''', [gameId, crewId]);
 
-    // Also create individual assignment for the crew chief for compatibility
-    final assignment = GameAssignment(
-      gameId: gameId,
-      officialId: crewChiefId,
-      status: 'pending',
-      assignedBy: crewChiefId,
-      assignedAt: DateTime.now(),
-      feeAmount: feeAmount,
-      position: 'Crew Chief',
-      responseNotes: 'Crew "$crewName" expressed interest',
-    );
+    int crewAssignmentId;
+    if (existingAssignment.isNotEmpty) {
+      // Update existing crew assignment to mark that crew chief has responded
+      crewAssignmentId = existingAssignment.first['id'] as int;
+      await update('crew_assignments', {
+        'responded_at': DateTime.now().toIso8601String(),
+        'crew_chief_response_required': 1,
+      }, 'id = ?', [crewAssignmentId]);
+      
+      debugPrint('Updated existing crew assignment $crewAssignmentId with responded_at timestamp');
+    } else {
+      // Create a new crew assignment record
+      crewAssignmentId = await insert('crew_assignments', {
+        'game_id': gameId,
+        'crew_id': crewId,
+        'crew_chief_id': crewChiefId,
+        'status': 'pending',
+        'assigned_by': crewChiefId,
+        'assigned_at': DateTime.now().toIso8601String(),
+        'responded_at': DateTime.now().toIso8601String(),
+        'crew_chief_response_required': 1,
+      });
+      
+      debugPrint('Created new crew assignment $crewAssignmentId');
+    }
 
-    await createAssignment(assignment);
+    // Check if individual assignment for crew chief already exists
+    final existingIndividualAssignment = await getAssignmentByGameAndOfficial(gameId, crewChiefId);
+    
+    if (existingIndividualAssignment == null) {
+      // Create individual assignment for the crew chief for compatibility
+      final assignment = GameAssignment(
+        gameId: gameId,
+        officialId: crewChiefId,
+        status: 'pending',
+        assignedBy: crewChiefId,
+        assignedAt: DateTime.now(),
+        feeAmount: feeAmount,
+        position: 'Crew Chief',
+        responseNotes: 'Crew "$crewName" expressed interest',
+      );
+
+      await createAssignment(assignment);
+      debugPrint('Created individual assignment for crew chief $crewChiefId');
+    } else {
+      // Update existing individual assignment
+      await update('game_assignments', {
+        'responded_at': DateTime.now().toIso8601String(),
+        'response_notes': 'Crew "$crewName" expressed interest',
+      }, 'id = ?', [existingIndividualAssignment.id]);
+      
+      debugPrint('Updated existing individual assignment for crew chief $crewChiefId');
+    }
 
     return crewAssignmentId;
   }
@@ -374,7 +409,7 @@ class GameAssignmentRepository extends BaseRepository {
     return results;
   }
 
-  // Get all interested crews for a specific game (pending crew assignments)
+  // Get all interested crews for a specific game (crews that have actually expressed interest)
   Future<List<Map<String, dynamic>>> getInterestedCrewsForGame(
       int gameId) async {
     final results = await rawQuery('''
@@ -388,7 +423,29 @@ class GameAssignmentRepository extends BaseRepository {
       JOIN officials o ON c.crew_chief_id = o.id
       JOIN crew_types ct ON c.crew_type_id = ct.id
       LEFT JOIN crew_members cm ON c.id = cm.crew_id AND cm.status = 'active'
-      WHERE ca.game_id = ? AND ca.status = 'pending'
+      WHERE ca.game_id = ? AND ca.status = 'pending' AND ca.responded_at IS NOT NULL
+      GROUP BY ca.id, ca.crew_id, ca.assigned_at, c.name, c.crew_chief_id, o.name, ct.required_officials
+      ORDER BY ca.assigned_at ASC
+    ''', [gameId]);
+
+    return results;
+  }
+
+  // Get all crews offered a game but haven't expressed interest yet
+  Future<List<Map<String, dynamic>>> getOfferedCrewsForGame(
+      int gameId) async {
+    final results = await rawQuery('''
+      SELECT ca.id as crew_assignment_id, ca.crew_id, ca.assigned_at,
+             c.name as crew_name, c.crew_chief_id,
+             o.name as crew_chief_name,
+             COUNT(cm.id) as member_count,
+             ct.required_officials
+      FROM crew_assignments ca
+      JOIN crews c ON ca.crew_id = c.id
+      JOIN officials o ON c.crew_chief_id = o.id
+      JOIN crew_types ct ON c.crew_type_id = ct.id
+      LEFT JOIN crew_members cm ON c.id = cm.crew_id AND cm.status = 'active'
+      WHERE ca.game_id = ? AND ca.status = 'pending' AND ca.responded_at IS NULL
       GROUP BY ca.id, ca.crew_id, ca.assigned_at, c.name, c.crew_chief_id, o.name, ct.required_officials
       ORDER BY ca.assigned_at ASC
     ''', [gameId]);

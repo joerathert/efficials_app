@@ -547,14 +547,52 @@ class _AvailableGameDetailsScreenState extends State<AvailableGameDetailsScreen>
     );
   }
 
-  void _expressInterest() {
-    // TODO: Implement express interest functionality
+  void _expressInterest() async {
+    if (assignment.officialId == null || assignment.gameId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Unable to express interest - missing information'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    final gameId = assignment.gameId!;
+    final officialId = assignment.officialId!;
+    final feeAmount = assignment.feeAmount ?? 0.0;
+    
+    // Show immediate feedback to user
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Interest expressed! The scheduler will be notified.'),
+      SnackBar(
+        content: Text('Interest expressed in ${assignment.sportName} game'),
         backgroundColor: Colors.green,
       ),
     );
+    
+    // Persist to database in the background
+    try {
+      final assignmentId = await _assignmentRepo.expressInterest(gameId, officialId, feeAmount);
+      debugPrint('Successfully persisted interest expression to database with ID: $assignmentId');
+    } catch (e) {
+      debugPrint('Error expressing interest: $e');
+      if (mounted) {
+        String errorMessage = 'Failed to express interest. Please try again.';
+        
+        // Provide specific error messages for common issues
+        if (e.toString().contains('No active crew found for this crew chief')) {
+          errorMessage = 'You must be part of an active crew to express interest in crew-hire games. Please contact your administrator to set up your crew.';
+        }
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMessage),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    }
   }
 
   void _getDirections() {

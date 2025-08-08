@@ -1087,6 +1087,26 @@ class GameService {
           } else {
             gameMap['selectedLists'] = [];
           }
+        } else if (game.method == 'hire_crew') {
+          // For hire_crew method, try to reconstruct crew data
+          final prefs = await SharedPreferences.getInstance();
+          final String? recentCrewData =
+              prefs.getString('recent_hire_crew_selection_${game.id}');
+          if (recentCrewData != null) {
+            try {
+              final data = jsonDecode(recentCrewData);
+              gameMap['selectedCrews'] =
+                  List<Map<String, dynamic>>.from(data['selectedCrews'] ?? []);
+              gameMap['selectedCrewListName'] = data['selectedCrewListName'];
+              debugPrint(
+                  'Loaded cached hire_crew data for game ${game.id}: ${data['selectedCrewListName']}');
+            } catch (e) {
+              debugPrint('Error parsing recent hire_crew selection data: $e');
+              gameMap['selectedCrews'] = [];
+            }
+          } else {
+            gameMap['selectedCrews'] = [];
+          }
         } else if (game.method == 'manual') {
           // For manual method, we could load officials from game_officials relationship
           gameMap['selectedOfficials'] = [];
@@ -1099,6 +1119,7 @@ class GameService {
     // Ensure these fields exist (even if empty) to prevent null errors
     gameMap['selectedOfficials'] ??= <Map<String, dynamic>>[];
     gameMap['selectedLists'] ??= <Map<String, dynamic>>[];
+    gameMap['selectedCrews'] ??= <Map<String, dynamic>>[];
 
     return gameMap;
   }

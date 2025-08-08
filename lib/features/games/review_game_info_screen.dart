@@ -361,6 +361,17 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
                 'recent_use_list_selection_$gameId', jsonEncode(useListData));
             debugPrint(
                 'Saved use_list selection data for game $gameId: ${gameData['selectedListName']}');
+          } else if (gameData['method'] == 'hire_crew' &&
+              (gameData['selectedCrews'] != null || gameData['selectedCrewListName'] != null)) {
+            final prefs = await SharedPreferences.getInstance();
+            final hireCrewData = {
+              'selectedCrews': gameData['selectedCrews'] ?? [],
+              'selectedCrewListName': gameData['selectedCrewListName'],
+            };
+            await prefs.setString(
+                'recent_hire_crew_selection_$gameId', jsonEncode(hireCrewData));
+            debugPrint(
+                'Saved hire_crew selection data for game $gameId: ${gameData['selectedCrewListName']}');
           }
         } else {
           debugPrint('Failed to save game to database - result was null');
@@ -815,6 +826,16 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
               'recent_use_list_selection_$gameId', jsonEncode(useListData));
           debugPrint(
               'Updated use_list selection data for game $gameId: ${gameData['selectedListName']}');
+        } else if (gameData['method'] == 'hire_crew' &&
+            (gameData['selectedCrews'] != null || gameData['selectedCrewListName'] != null)) {
+          final hireCrewData = {
+            'selectedCrews': gameData['selectedCrews'] ?? [],
+            'selectedCrewListName': gameData['selectedCrewListName'],
+          };
+          await prefs.setString(
+              'recent_hire_crew_selection_$gameId', jsonEncode(hireCrewData));
+          debugPrint(
+              'Updated hire_crew selection data for game $gameId: ${gameData['selectedCrewListName']}');
         }
       }
     } catch (e) {
