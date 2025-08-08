@@ -1031,33 +1031,22 @@ class _AssignerManageSchedulesScreenState
                             }
 
 
-                            // Check if template has location set - if not, go to location screen first
+                            // Determine the navigation flow based on template settings
+                            // Always go to date_time screen first if no template or template doesn't have time set
                             if (template == null ||
-                                !template.includeLocation ||
+                                !template.includeTime ||
+                                template.time == null) {
+                              nextRoute = '/date_time';
+                            }
+                            // Check if template has location set - if not, go to location screen
+                            else if (!template.includeLocation ||
                                 template.location == null ||
                                 template.location!.isEmpty) {
                               nextRoute = '/choose_location';
                             }
-                            // Check if template uses crew method - skip directly to review (only if location is set)
-                            else if (template != null &&
-                                template.method == 'hire_crew' &&
-                                template.selectedCrews != null &&
-                                template.selectedCrews!.isNotEmpty) {
-                              nextRoute = '/review_game_info';
-                              routeArgs.addAll({
-                                'method': 'hire_crew',
-                                'selectedCrews': template.selectedCrews,
-                                'selectedCrew': template.selectedCrews!.first,
-                              });
-                            }
-                            // Check if template has time set and we can skip date_time screen
-                            else if (template.includeTime &&
-                                template.time != null) {
-                              // Skip date_time screen and go directly to additional_game_info
+                            // Template has time and location set - go to additional_game_info to enter opponent and other details
+                            else {
                               nextRoute = '/additional_game_info';
-                            } else {
-                              // Normal flow through date_time screen
-                              nextRoute = '/date_time';
                             }
 
                             // ignore: use_build_context_synchronously

@@ -36,6 +36,11 @@ class _SelectCrewMembersScreenState extends State<SelectCrewMembersScreen> {
   bool _isCreating = false;
   int? _currentUserOfficialId;
 
+  String _getLastName(String fullName) {
+    final parts = fullName.trim().split(' ');
+    return parts.isNotEmpty ? parts.last : fullName;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -251,15 +256,15 @@ class _SelectCrewMembersScreenState extends State<SelectCrewMembersScreen> {
                   _filteredOfficials =
                       []; // Show empty list when no search text
                 } else {
-                  // Filter officials and sort alphabetically
+                  // Filter officials and sort alphabetically by last name
                   _filteredOfficials = _availableOfficials
                       .where((official) => official['name']
                           .toLowerCase()
                           .contains(value.toLowerCase()))
                       .toList()
-                    ..sort((a, b) => a['name']
+                    ..sort((a, b) => _getLastName(a['name'])
                         .toLowerCase()
-                        .compareTo(b['name'].toLowerCase()));
+                        .compareTo(_getLastName(b['name']).toLowerCase()));
                 }
               });
             },

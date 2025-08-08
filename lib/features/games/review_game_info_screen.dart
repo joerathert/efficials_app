@@ -194,6 +194,16 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
     });
 
     try {
+      // Validate that time is set before publishing
+      if (args['time'] == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text(
+                  'Please set a game time before publishing.')),
+        );
+        return;
+      }
+
       if (!isAwayGame &&
           !(args['hireAutomatically'] == true) &&
           args['selectedCrew'] == null &&
@@ -477,6 +487,16 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
     });
 
     try {
+      // Validate that time is set before saving
+      if (args['time'] == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text(
+                  'Please set a game time before saving.')),
+        );
+        return;
+      }
+
       final gameData = Map<String, dynamic>.from(args);
       gameData['id'] = gameData['id'] ?? DateTime.now().millisecondsSinceEpoch;
       gameData['createdAt'] = DateTime.now().toIso8601String();

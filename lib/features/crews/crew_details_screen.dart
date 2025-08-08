@@ -137,36 +137,42 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
             ),
         ],
       ),
-      body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(color: efficialsYellow),
-            )
-          : RefreshIndicator(
-              onRefresh: _loadCrewDetails,
-              color: efficialsYellow,
-              child: _buildContent(),
-            ),
+      body: SafeArea(
+        child: _isLoading
+            ? const Center(
+                child: CircularProgressIndicator(color: efficialsYellow),
+              )
+            : RefreshIndicator(
+                onRefresh: _loadCrewDetails,
+                color: efficialsYellow,
+                child: _buildContent(),
+              ),
+      ),
     );
   }
 
   Widget _buildContent() {
-    return SafeArea(
-      bottom: true,
-      child: ListView(
-        padding: EdgeInsets.fromLTRB(
-            16, 16, 16, 16 + MediaQuery.of(context).padding.bottom),
-        children: [
-          _buildCrewInfo(),
-          const SizedBox(height: 24),
-          _buildMembersSection(),
-          if (_isCrewChief && _performanceStats.isNotEmpty) ...[
-            const SizedBox(height: 24),
-            _buildPerformanceSection(),
-          ],
-          const SizedBox(height: 24),
-          _buildActionsSection(),
-        ],
-      ),
+    return Column(
+      children: [
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              _buildCrewInfo(),
+              const SizedBox(height: 24),
+              _buildMembersSection(),
+              if (_isCrewChief && _performanceStats.isNotEmpty) ...[
+                const SizedBox(height: 24),
+                _buildPerformanceSection(),
+              ],
+              const SizedBox(height: 24),
+              _buildActionsSection(),
+              // Add extra padding at the bottom to ensure content is visible
+              SizedBox(height: MediaQuery.of(context).padding.bottom),
+            ],
+          ),
+        ),
+      ],
     );
   }
 

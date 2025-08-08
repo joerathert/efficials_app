@@ -689,10 +689,13 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
           ),
         ),
         const SizedBox(height: 16),
-        Column(
-          children: _gamesNeedingOfficials.map((game) {
-            return _buildGameNeedingOfficialsCard(game);
-          }).toList(),
+        ListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: _gamesNeedingOfficials.length,
+          itemBuilder: (context, index) {
+            return _buildGameNeedingOfficialsCard(_gamesNeedingOfficials[index]);
+          },
         ),
       ],
     );
