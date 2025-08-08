@@ -12,9 +12,46 @@ class _NameListScreenState extends State<NameListScreen> {
   final _nameController = TextEditingController();
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+      final creatingSecondList = args?['creatingSecondList'] as bool? ?? false;
+      
+      if (creatingSecondList) {
+        _showSecondListExplanationDialog();
+      }
+    });
+  }
+
+  @override
   void dispose() {
     _nameController.dispose();
     super.dispose();
+  }
+
+  void _showSecondListExplanationDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: darkSurface,
+        title: const Text('Creating Second List',
+            style: TextStyle(
+                color: efficialsYellow,
+                fontSize: 20,
+                fontWeight: FontWeight.bold)),
+        content: const Text(
+            'You need at least two lists to use the Multiple Lists method. Create your second list here, then you\'ll be able to use Multiple Lists to combine and filter across both lists.',
+            style: TextStyle(color: Colors.white)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child:
+                const Text('Got it!', style: TextStyle(color: efficialsYellow)),
+          ),
+        ],
+      ),
+    );
   }
 
   @override

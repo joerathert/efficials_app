@@ -246,7 +246,7 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              Navigator.pushNamed(context, '/create_new_list', arguments: {
+              Navigator.pushNamed(context, '/name_list', arguments: {
                 'sport': sport,
                 'fromGameCreation': true,
                 ...args, // Pass through all game creation context

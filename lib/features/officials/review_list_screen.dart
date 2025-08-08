@@ -83,6 +83,7 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
                 arguments: {
                   'sport': sport ?? 'Baseball',
                   'fromGameCreation': true,
+                  'creatingSecondList': true, // Flag to show explanation popup
                   ...arguments, // Pass through all game creation context
                 },
               );
