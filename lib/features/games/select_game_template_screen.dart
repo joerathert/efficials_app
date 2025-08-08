@@ -432,6 +432,31 @@ class _SelectGameTemplateScreenState extends State<SelectGameTemplateScreen> {
                                   setState(() {
                                     selectedTemplateId = newValue;
                                   });
+                                  
+                                  // Auto-navigate to template creation if "+ Create new template" is selected
+                                  if (newValue == '0') {
+                                    Navigator.pushNamed(
+                                      context,
+                                      '/create_game_template',
+                                      arguments: {
+                                        'scheduleName': scheduleName,
+                                        'sport': sport,
+                                      },
+                                    ).then((result) async {
+                                      // Add a small delay to ensure database write completes
+                                      await Future.delayed(const Duration(milliseconds: 100));
+
+                                      // Refresh templates after creation and wait for completion
+                                      await _fetchTemplates();
+
+                                      // If a template was created, select it automatically
+                                      if (result != null && result is GameTemplate) {
+                                        setState(() {
+                                          selectedTemplateId = result.id;
+                                        });
+                                      }
+                                    });
+                                  }
                                 },
                                 items: templates.map((template) {
                                   return DropdownMenuItem(

@@ -284,18 +284,17 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
           children: [
             Container(
               height: totalBannerHeight,
-              decoration: const BoxDecoration(color: efficialsBlue),
+              decoration: const BoxDecoration(color: efficialsBlack),
               child: Padding(
                 padding: EdgeInsets.only(
-                  top: statusBarHeight + 8.0,
-                  bottom: 8.0,
-                  left: 16.0,
-                  right: 16.0,
-                ),
+                    top: statusBarHeight + 8.0,
+                    bottom: 8.0,
+                    left: 16.0,
+                    right: 16.0),
                 child: const Text(
                   'Menu',
                   style: TextStyle(
-                      color: darkSurface,
+                      color: efficialsWhite,
                       fontSize: 20,
                       fontWeight: FontWeight.bold),
                 ),

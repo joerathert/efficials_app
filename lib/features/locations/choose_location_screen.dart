@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../shared/theme.dart';
 import '../games/game_template.dart' as game_template;
-import '../../shared/models/database_models.dart';
-import '../../shared/services/repositories/location_repository.dart';
-import '../../shared/services/user_session_service.dart';
+import '../../shared/services/location_service.dart';
 
 class ChooseLocationScreen extends StatefulWidget {
   const ChooseLocationScreen({super.key});
@@ -21,8 +19,7 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
   bool originalIsAway = false;
   bool isAssignerFlow = false;
   game_template.GameTemplate? template;
-  final LocationRepository _locationRepository = LocationRepository();
-  final UserSessionService _sessionService = UserSessionService.instance;
+  final LocationService _locationService = LocationService();
 
   @override
   void initState() {
@@ -89,15 +86,7 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
 
   Future<void> _fetchLocations() async {
     try {
-      final userId = await _sessionService.getCurrentUserId();
-      if (userId == null) {
-        setState(() {
-          isLoading = false;
-        });
-        return;
-      }
-
-      final dbLocations = await _locationRepository.getLocationsByUser(userId);
+      final dbLocations = await _locationService.getLocations();
       
       setState(() {
         locations = [];
@@ -107,15 +96,8 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
           locations.add({'name': 'Away Game', 'id': -2});
         }
         
-        // Add locations from database
-        for (final location in dbLocations) {
-          locations.add({
-            'name': location.name,
-            'address': location.address,
-            'notes': location.notes,
-            'id': location.id,
-          });
-        }
+        // Add locations from database (now properly formatted with separate address components)
+        locations.addAll(dbLocations);
         
         locations.add({'name': '+ Create new location', 'id': 0});
         isLoading = false;
@@ -148,12 +130,24 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
           TextButton(
             onPressed: () async {
               try {
-                await _locationRepository.deleteLocation(locationId);
-                setState(() {
-                  locations.removeWhere((loc) => loc['id'] == locationId);
-                  if (selectedLocation == locationName) selectedLocation = null;
-                });
-                if (mounted) Navigator.pop(context);
+                final success = await _locationService.deleteLocation(locationId);
+                if (success) {
+                  setState(() {
+                    locations.removeWhere((loc) => loc['id'] == locationId);
+                    if (selectedLocation == locationName) selectedLocation = null;
+                  });
+                  if (mounted) Navigator.pop(context);
+                } else {
+                  if (mounted) {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Error deleting location'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                }
               } catch (e) {
                 if (mounted) {
                   Navigator.pop(context);
@@ -322,41 +316,14 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                           arguments: {'location': selected}).then((result) async {
                         if (result != null) {
                           final updatedLoc = result as Map<String, dynamic>;
-                          try {
-                            final userId = await _sessionService.getCurrentUserId();
-                            if (userId != null) {
-                              final location = Location(
-                                id: selected['id'],
-                                name: updatedLoc['name'],
-                                address: updatedLoc['address'],
-                                notes: updatedLoc['notes'],
-                                userId: userId,
-                              );
-                              await _locationRepository.updateLocation(location);
-                              setState(() {
-                                final index = locations
-                                    .indexWhere((l) => l['id'] == selected['id']);
-                                if (index != -1) {
-                                  locations[index] = {
-                                    'name': updatedLoc['name'],
-                                    'address': updatedLoc['address'],
-                                    'notes': updatedLoc['notes'],
-                                    'id': selected['id'],
-                                  };
-                                  selectedLocation = updatedLoc['name'];
-                                }
-                              });
+                          setState(() {
+                            final index = locations
+                                .indexWhere((l) => l['id'] == selected['id']);
+                            if (index != -1) {
+                              locations[index] = updatedLoc;
+                              selectedLocation = updatedLoc['name'];
                             }
-                          } catch (e) {
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('Error updating location: ${e.toString()}'),
-                                  backgroundColor: Colors.red,
-                                ),
-                              );
-                            }
-                          }
+                          });
                         }
                       });
                     },

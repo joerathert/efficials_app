@@ -757,7 +757,12 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
         ),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
+        padding: EdgeInsets.only(
+          left: 16.0,
+          right: 16.0,
+          top: 16.0,
+          bottom: MediaQuery.of(context).padding.bottom + 90, // Add bottom padding for system nav bar + button bar
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

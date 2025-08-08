@@ -230,8 +230,13 @@ class _AddNewLocationScreenState extends State<AddNewLocationScreen> {
                               textCapitalization: TextCapitalization.characters,
                               maxLength: 2,
                               inputFormatters: [
+                                TextInputFormatter.withFunction((oldValue, newValue) {
+                                  return newValue.copyWith(
+                                    text: newValue.text.toUpperCase(),
+                                  );
+                                }),
                                 FilteringTextInputFormatter.allow(
-                                    RegExp(r'[a-zA-Z]'))
+                                    RegExp(r'[A-Z]'))
                               ],
                               buildCounter: (context,
                                       {required currentLength,

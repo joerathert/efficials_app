@@ -930,19 +930,15 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen>
                       ),
                       const SizedBox(width: 16),
                       Expanded(
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            templateName,
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: primaryTextColor,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                        child: Text(
+                          templateName,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: primaryTextColor,
                           ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                       Icon(
@@ -1101,57 +1097,69 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen>
             },
             borderRadius: BorderRadius.circular(12),
             child: Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(12),
               child: Column(
                 children: [
-                  Row(
+                  Column(
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: getSportIconColor(sport).withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Icon(
-                          getSportIcon(sport),
-                          color: getSportIconColor(sport),
-                          size: 24,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              templateName,
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: primaryTextColor,
-                              ),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: getSportIconColor(sport).withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              _formatTemplateDetails(template),
-                              style: const TextStyle(
-                                fontSize: 14,
-                                color: secondaryTextColor,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                              maxLines: 2,
+                            child: Icon(
+                              getSportIcon(sport),
+                              color: getSportIconColor(sport),
+                              size: 24,
                             ),
-                          ],
-                        ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  templateName,
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: primaryTextColor,
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  _formatTemplateDetails(template),
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    color: secondaryTextColor,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 2,
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (!isInDialog)
+                            Icon(
+                              isExpanded ? Icons.expand_less : Icons.expand_more,
+                              color: secondaryTextColor,
+                              size: 24,
+                            ),
+                        ],
                       ),
                       if (!isInDialog) ...[
-                        Icon(
-                          isExpanded ? Icons.expand_less : Icons.expand_more,
-                          color: secondaryTextColor,
-                          size: 24,
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            _buildTemplateActions(template),
+                          ],
                         ),
-                        const SizedBox(width: 8),
-                        _buildTemplateActions(template),
                       ],
                     ],
                   ),
