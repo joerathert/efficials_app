@@ -105,7 +105,7 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
           : null;
       gameFee = args['gameFee']?.toString() ?? 'Not set';
       hireAutomatically = args['hireAutomatically'] as bool? ?? false;
-      isAwayGame = args['isAwayGame'] as bool? ?? false;
+      isAwayGame = args['isAwayGame'] as bool? ?? args['isAway'] as bool? ?? false;
       opponent = args['opponent'] as String? ?? 'Not set';
       officialsHired = args['officialsHired'] as int? ?? 0;
       try {
@@ -1433,15 +1433,19 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
           : 'Not set',
       'Time': selectedTime != null ? selectedTime!.format(context) : 'Not set',
       'Location': location,
-      if (!isAwayGame) ...{
+      'Opponent': opponent,
+    };
+
+    // Only add additional details for non-away games
+    if (!isAwayGame) {
+      gameDetails.addAll({
         'Officials Required': officialsRequired?.toString() ?? '0',
         'Fee per Official': gameFee != 'Not set' ? '\$$gameFee' : 'Not set',
         'Gender': displayGender,
         'Competition Level': levelOfCompetition,
         'Hire Automatically': hireAutomatically ? 'Yes' : 'No',
-      },
-      'Opponent': opponent,
-    };
+      });
+    }
 
     final requiredOfficials = officialsRequired ?? 0;
 
@@ -1560,7 +1564,7 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                                     args['hireAutomatically'] as bool? ??
                                         hireAutomatically;
                                 isAwayGame =
-                                    args['isAwayGame'] as bool? ?? isAwayGame;
+                                    args['isAwayGame'] as bool? ?? args['isAway'] as bool? ?? isAwayGame;
                                 opponent =
                                     args['opponent'] as String? ?? opponent;
                                 officialsHired =

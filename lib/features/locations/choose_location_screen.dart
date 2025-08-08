@@ -91,10 +91,8 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
       setState(() {
         locations = [];
         
-        // Only add "Away Game" if not in Assigner flow
-        if (!isAssignerFlow) {
-          locations.add({'name': 'Away Game', 'id': -2});
-        }
+        // Always add "Away Game" as an option
+        locations.add({'name': 'Away Game', 'id': -2});
         
         // Add locations from database (now properly formatted with separate address components)
         locations.addAll(dbLocations);
@@ -105,7 +103,7 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
     } catch (e) {
       setState(() {
         locations = [
-          if (!isAssignerFlow) {'name': 'Away Game', 'id': -2},
+          {'name': 'Away Game', 'id': -2},
           {'name': '+ Create new location', 'id': 0},
         ];
         isLoading = false;
@@ -397,10 +395,6 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                           final isCoach =
                               args['teamName'] != null; // Detect Coach flow
                           
-                          // Debug: Print location being passed
-                          debugPrint('🔍 ChooseLocation - Location being set: ${nextArgs['location']}');
-                          debugPrint('🔍 ChooseLocation - isAwayGame: $isAwayGame');
-                          debugPrint('🔍 ChooseLocation - selected name: ${selected['name']}');
                           
                           // Check if we're in edit mode to determine correct navigation
                           if (isFromEdit) {

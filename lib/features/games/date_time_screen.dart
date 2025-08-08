@@ -371,6 +371,7 @@ class _DateTimeScreenState extends State<DateTimeScreen>
                                 'time': _selectedTime,
                                 'template': template,
                                 'scheduleName': scheduleName,
+                                'isAssignerFlow': args?['isAssignerFlow'] ?? false, // Explicitly preserve isAssignerFlow flag
                               };
 
                               if (_isFromEdit) {
@@ -381,6 +382,7 @@ class _DateTimeScreenState extends State<DateTimeScreen>
                                     ...updatedArgs,
                                     'isEdit': true,
                                     'isFromGameInfo': _isFromGameInfo,
+                                    'isAssignerFlow': args?['isAssignerFlow'] ?? false, // Preserve isAssignerFlow in edit mode too
                                   },
                                 );
                               } else {

@@ -78,7 +78,7 @@ class _AdditionalGameInfoCondensedScreenState
         ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
     if (args != null) {
       _isFromEdit = args['isEdit'] == true;
-      _isAwayGame = args['isAwayGame'] == true;
+      _isAwayGame = args['isAwayGame'] == true || args['isAway'] == true;
       template = args['template'] as GameTemplate?; // Extract the template
 
       // Load assigner defaults (only for assigner flow, not for edit mode)
@@ -157,7 +157,7 @@ class _AdditionalGameInfoCondensedScreenState
     final updatedArgs = {
       ...args,
       'id': args['id'] ?? DateTime.now().millisecondsSinceEpoch,
-      'levelOfCompetition': _isAwayGame ? null : args['grade'],
+      'levelOfCompetition': _isAwayGame ? null : args['levelOfCompetition'],
       'gender': _isAwayGame ? null : args['gender'],
       'officialsRequired': _isAwayGame ? 0 : _officialsRequired,
       'gameFee': _isAwayGame ? '0' : _gameFeeController.text.trim(),

@@ -315,9 +315,10 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
                           width: 300,
                           child: ElevatedButton(
                             onPressed: () {
-                              // Check if this is a coach flow by checking for teamName
+                              // Check if this is an Away Game or a coach flow
                               final isCoach = args['teamName'] != null;
-                              final route = isCoach ? '/additional_game_info_condensed' : '/additional_game_info';
+                              final isAway = args['isAway'] == true || args['isAwayGame'] == true;
+                              final route = (isCoach || isAway) ? '/additional_game_info_condensed' : '/additional_game_info';
                               
                               Navigator.pushNamed(
                                   context, route,
@@ -328,6 +329,9 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
                                         args['isFromGameInfo'] ?? false,
                                     'template':
                                         template, // Pass the GameTemplate object
+                                    // Ensure consistent away game flags
+                                    'isAwayGame': isAway,
+                                    'isAway': isAway,
                                   }).then((result) {
                                 if (result != null) {
                                   final updatedArgs =

@@ -1325,87 +1325,87 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
                           ),
                         ),
                       ),
-                      const SizedBox(height: 20),
-                      const Text('Selected Officials',
-                          style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: efficialsYellow)),
-                      const SizedBox(height: 10),
-                      if (isAwayGame)
-                        const Text('No officials needed for away games.',
-                            style: TextStyle(fontSize: 16, color: Colors.grey))
-                      else if (args['method'] == 'hire_crew' && 
-                          (args['selectedCrews'] != null || args['selectedCrew'] != null)) ...[
-                        if (args['selectedCrews'] != null) ...[
-                          ...((args['selectedCrews'] as List<dynamic>).map((crewData) {
-                            // Handle both Crew objects and Map data
-                            final crewName = crewData is Map<String, dynamic> 
-                                ? crewData['name'] as String? ?? 'Unknown Crew'
-                                : (crewData as dynamic).name ?? 'Unknown Crew';
-                            final memberCount = crewData is Map<String, dynamic>
-                                ? crewData['memberCount'] as int? ?? 0
-                                : (crewData as dynamic).memberCount as int? ?? 0;
-                            
-                            return Padding(
+                      // Only show Selected Officials section for non-away games
+                      if (!isAwayGame) ...[
+                        const SizedBox(height: 20),
+                        const Text('Selected Officials',
+                            style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: efficialsYellow)),
+                        const SizedBox(height: 10),
+                        if (args['method'] == 'hire_crew' && 
+                            (args['selectedCrews'] != null || args['selectedCrew'] != null)) ...[
+                          if (args['selectedCrews'] != null) ...[
+                            ...((args['selectedCrews'] as List<dynamic>).map((crewData) {
+                              // Handle both Crew objects and Map data
+                              final crewName = crewData is Map<String, dynamic> 
+                                  ? crewData['name'] as String? ?? 'Unknown Crew'
+                                  : (crewData as dynamic).name ?? 'Unknown Crew';
+                              final memberCount = crewData is Map<String, dynamic>
+                                  ? crewData['memberCount'] as int? ?? 0
+                                  : (crewData as dynamic).memberCount as int? ?? 0;
+                              
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 4),
+                                child: Text(
+                                  'Crew: $crewName ($memberCount officials)',
+                                  style: const TextStyle(
+                                      fontSize: 16, color: Colors.white),
+                                ),
+                              );
+                            })),
+                          ] else if (args['selectedCrew'] != null) ...[
+                            Padding(
                               padding: const EdgeInsets.symmetric(vertical: 4),
                               child: Text(
-                                'Crew: $crewName ($memberCount officials)',
+                                'Crew: ${(args['selectedCrew'] as dynamic).name} (${(args['selectedCrew'] as dynamic).memberCount ?? 0} officials)',
                                 style: const TextStyle(
                                     fontSize: 16, color: Colors.white),
                               ),
-                            );
-                          })),
-                        ] else if (args['selectedCrew'] != null) ...[
+                            ),
+                          ],
+                        ] else if (args['method'] == 'use_list' &&
+                            args['selectedListName'] != null) ...[
                           Padding(
                             padding: const EdgeInsets.symmetric(vertical: 4),
                             child: Text(
-                              'Crew: ${(args['selectedCrew'] as dynamic).name} (${(args['selectedCrew'] as dynamic).memberCount ?? 0} officials)',
+                              'List Used: ${args['selectedListName']}',
                               style: const TextStyle(
                                   fontSize: 16, color: Colors.white),
                             ),
                           ),
+                        ] else if (args['selectedOfficials'] == null ||
+                            (args['selectedOfficials'] as List).isEmpty)
+                          const Text('No officials selected.',
+                              style: TextStyle(fontSize: 16, color: Colors.grey))
+                        else if (args['method'] == 'advanced' &&
+                            args['selectedLists'] != null) ...[
+                          ...((args['selectedLists']
+                                  as List<Map<String, dynamic>>)
+                              .map(
+                            (list) => Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 4),
+                              child: Text(
+                                '${list['name']}: Min ${list['minOfficials']}, Max ${list['maxOfficials']}',
+                                style: const TextStyle(
+                                    fontSize: 16, color: Colors.white),
+                              ),
+                            ),
+                          )),
+                        ] else ...[
+                          ...((args['selectedOfficials']
+                                  as List<Map<String, dynamic>>)
+                              .map(
+                            (official) => ListTile(
+                              title: Text(official['name'] as String,
+                                  style: const TextStyle(color: Colors.white)),
+                              subtitle: Text(
+                                  'Distance: ${(official['distance'] as num?)?.toStringAsFixed(1) ?? '0.0'} mi',
+                                  style: const TextStyle(color: Colors.grey)),
+                            ),
+                          )),
                         ],
-                      ] else if (args['method'] == 'use_list' &&
-                          args['selectedListName'] != null) ...[
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 4),
-                          child: Text(
-                            'List Used: ${args['selectedListName']}',
-                            style: const TextStyle(
-                                fontSize: 16, color: Colors.white),
-                          ),
-                        ),
-                      ] else if (args['selectedOfficials'] == null ||
-                          (args['selectedOfficials'] as List).isEmpty)
-                        const Text('No officials selected.',
-                            style: TextStyle(fontSize: 16, color: Colors.grey))
-                      else if (args['method'] == 'advanced' &&
-                          args['selectedLists'] != null) ...[
-                        ...((args['selectedLists']
-                                as List<Map<String, dynamic>>)
-                            .map(
-                          (list) => Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 4),
-                            child: Text(
-                              '${list['name']}: Min ${list['minOfficials']}, Max ${list['maxOfficials']}',
-                              style: const TextStyle(
-                                  fontSize: 16, color: Colors.white),
-                            ),
-                          ),
-                        )),
-                      ] else ...[
-                        ...((args['selectedOfficials']
-                                as List<Map<String, dynamic>>)
-                            .map(
-                          (official) => ListTile(
-                            title: Text(official['name'] as String,
-                                style: const TextStyle(color: Colors.white)),
-                            subtitle: Text(
-                                'Distance: ${(official['distance'] as num?)?.toStringAsFixed(1) ?? '0.0'} mi',
-                                style: const TextStyle(color: Colors.grey)),
-                          ),
-                        )),
                       ],
                       const SizedBox(height: 100),
                     ],
