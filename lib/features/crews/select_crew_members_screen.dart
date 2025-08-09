@@ -115,6 +115,7 @@ class _SelectCrewMembersScreenState extends State<SelectCrewMembersScreen> {
 
     return Scaffold(
       backgroundColor: darkBackground,
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(
         backgroundColor: efficialsBlack,
         title: const Text(
@@ -128,12 +129,14 @@ class _SelectCrewMembersScreenState extends State<SelectCrewMembersScreen> {
           ? const Center(
               child: CircularProgressIndicator(color: efficialsYellow),
             )
-          : Column(
-              children: [
-                _buildHeader(needToSelect),
-                Expanded(child: _buildMembersList(needToSelect)),
-                _buildBottomBar(needToSelect),
-              ],
+          : SafeArea(
+              child: Column(
+                children: [
+                  _buildHeader(needToSelect),
+                  Expanded(child: _buildMembersList(needToSelect)),
+                  _buildBottomBar(needToSelect),
+                ],
+              ),
             ),
     );
   }
@@ -215,66 +218,71 @@ class _SelectCrewMembersScreenState extends State<SelectCrewMembersScreen> {
   }
 
   Widget _buildMembersList(int needToSelect) {
-    return Column(
-      children: [
-        // Search Field
-        Container(
-          padding: const EdgeInsets.all(20),
-          child: TextFormField(
-            controller: _searchController,
-            style: const TextStyle(color: efficialsWhite),
-            decoration: InputDecoration(
-              hintText: 'Type official\'s name to search...',
-              hintStyle: TextStyle(color: Colors.grey[600]),
-              prefixIcon: const Icon(Icons.search, color: efficialsYellow),
-              suffixIcon: _searchController.text.isNotEmpty
-                  ? IconButton(
-                      icon: const Icon(Icons.clear, color: efficialsYellow),
-                      onPressed: () {
-                        setState(() {
-                          _searchController.clear();
-                          _filteredOfficials =
-                              []; // Clear list when clearing search
-                        });
-                      },
-                    )
-                  : null,
-              filled: true,
-              fillColor: efficialsBlack,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide.none,
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          // Search Field
+          Container(
+            padding: const EdgeInsets.all(20),
+            child: TextFormField(
+              controller: _searchController,
+              style: const TextStyle(color: efficialsWhite),
+              decoration: InputDecoration(
+                hintText: 'Type official\'s name to search...',
+                hintStyle: TextStyle(color: Colors.grey[600]),
+                prefixIcon: const Icon(Icons.search, color: efficialsYellow),
+                suffixIcon: _searchController.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, color: efficialsYellow),
+                        onPressed: () {
+                          setState(() {
+                            _searchController.clear();
+                            _filteredOfficials =
+                                []; // Clear list when clearing search
+                          });
+                        },
+                      )
+                    : null,
+                filled: true,
+                fillColor: efficialsBlack,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: efficialsYellow),
+                ),
               ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: efficialsYellow),
-              ),
-            ),
-            onChanged: (value) {
-              setState(() {
-                if (value.isEmpty) {
-                  _filteredOfficials =
-                      []; // Show empty list when no search text
-                } else {
-                  // Filter officials and sort alphabetically by last name
-                  _filteredOfficials = _availableOfficials
-                      .where((official) => official['name']
+              onChanged: (value) {
+                setState(() {
+                  if (value.isEmpty) {
+                    _filteredOfficials =
+                        []; // Show empty list when no search text
+                  } else {
+                    // Filter officials and sort alphabetically by last name
+                    _filteredOfficials = _availableOfficials
+                        .where((official) => official['name']
+                            .toLowerCase()
+                            .contains(value.toLowerCase()))
+                        .toList()
+                      ..sort((a, b) => _getLastName(a['name'])
                           .toLowerCase()
-                          .contains(value.toLowerCase()))
-                      .toList()
-                    ..sort((a, b) => _getLastName(a['name'])
-                        .toLowerCase()
-                        .compareTo(_getLastName(b['name']).toLowerCase()));
-                }
-              });
-            },
+                          .compareTo(_getLastName(b['name']).toLowerCase()));
+                  }
+                });
+              },
+            ),
           ),
-        ),
-        // Officials List
-        Expanded(
-          child: _filteredOfficials.isEmpty
-              ? _buildEmptyState()
+          // Officials List
+          _filteredOfficials.isEmpty
+              ? SizedBox(
+                  height: MediaQuery.of(context).size.height * 0.4,
+                  child: _buildEmptyState(),
+                )
               : ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   itemCount: _filteredOfficials.length,
                   itemBuilder: (context, index) {
@@ -329,8 +337,10 @@ class _SelectCrewMembersScreenState extends State<SelectCrewMembersScreen> {
                     );
                   },
                 ),
-        ),
-      ],
+          // Add bottom padding to ensure content is visible above keyboard
+          SizedBox(height: MediaQuery.of(context).viewInsets.bottom),
+        ],
+      ),
     );
   }
 

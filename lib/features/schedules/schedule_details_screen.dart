@@ -444,6 +444,142 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
     }).toList();
   }
 
+  Future<void> _showGameTypeDialog(DateTime day) async {
+    if (scheduleName == null) return;
+
+    final String? gameType = await showDialog<String>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: darkSurface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              const Icon(
+                Icons.add_circle_outline,
+                color: efficialsYellow,
+                size: 24,
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Add Game',
+                style: const TextStyle(
+                  color: efficialsYellow,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          content: Text(
+            'Add a game for ${day.month}/${day.day}/${day.year}?',
+            style: const TextStyle(
+              color: primaryTextColor,
+              fontSize: 16,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(color: secondaryTextColor),
+              ),
+            ),
+            const SizedBox(width: 4),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop('away'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: efficialsYellow,
+                foregroundColor: efficialsBlack,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.directions_bus, size: 16),
+                  const SizedBox(width: 4),
+                  const Text('Away', style: TextStyle(fontSize: 14)),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop('home'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: efficialsYellow,
+                foregroundColor: efficialsBlack,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.home, size: 16),
+                  const SizedBox(width: 4),
+                  const Text('Home', style: TextStyle(fontSize: 14)),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (gameType != null && mounted) {
+      await _createGame(day, gameType == 'away');
+    }
+  }
+
+  Future<void> _createGame(DateTime selectedDate, bool isAway) async {
+    if (!mounted) return;
+
+    // Ensure template is loaded
+    if (scheduleName != null) {
+      await _loadAssociatedTemplate();
+    }
+
+    // Set up navigation arguments
+    Map<String, dynamic> routeArgs = {
+      'scheduleName': scheduleName,
+      'scheduleId': scheduleId,
+      'date': selectedDate,
+      'fromScheduleDetails': true,
+      'sport': sport ?? _inferSportFromScheduleName(scheduleName ?? ''),
+      'template': template,
+      'isAwayGame': isAway,
+      'isAway': isAway,
+    };
+
+    // Add template time if available
+    if (template != null && template!.includeTime && template!.time != null) {
+      routeArgs['time'] = template!.time;
+    }
+
+    // Determine navigation route
+    String nextRoute;
+    bool canSkipToAdditionalInfo = template != null &&
+        ((template!.includeTime && template!.time != null) ||
+            (template!.method == 'advanced' &&
+                template!.selectedLists != null &&
+                template!.selectedLists!.isNotEmpty));
+
+    if (canSkipToAdditionalInfo) {
+      nextRoute = '/additional_game_info';
+    } else {
+      nextRoute = '/date_time';
+    }
+
+    Navigator.pushNamed(
+      context,
+      nextRoute,
+      arguments: routeArgs,
+    ).then((_) {
+      _fetchGames();
+    });
+  }
+
   Future<void> _createTemplateFromGame(Map<String, dynamic> game) async {
     // Navigate to the create game template screen with the game data pre-filled
     final result = await Navigator.pushNamed(
@@ -972,6 +1108,73 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                           titleCentered: true,
                         ),
                         calendarBuilders: CalendarBuilders(
+                          selectedBuilder: (context, day, focusedDay) {
+                            final events = _getGamesForDay(day);
+                            final hasEvents = events.isNotEmpty;
+                            
+                            Color backgroundColor = efficialsYellow;
+                            Color textColor = Colors.black;
+
+                            if (hasEvents) {
+                              bool allAway = true;
+                              bool allFullyHired = true;
+                              bool needsOfficials = false;
+
+                              for (var event in events) {
+                                final isEventAway = event['isAway'] as bool? ?? false;
+                                final hiredOfficials = event['officialsHired'] as int? ?? 0;
+                                final requiredOfficials = int.tryParse(
+                                        event['officialsRequired']?.toString() ?? '0') ??
+                                    0;
+                                final isFullyHired = hiredOfficials >= requiredOfficials;
+
+                                if (!isEventAway) allAway = false;
+                                if (!isFullyHired) allFullyHired = false;
+                                if (!isEventAway && !isFullyHired) {
+                                  needsOfficials = true;
+                                }
+                              }
+
+                              if (allAway) {
+                                backgroundColor = Colors.grey[300]!;
+                                textColor = Colors.black;
+                              } else if (needsOfficials) {
+                                backgroundColor = Colors.red;
+                                textColor = Colors.white;
+                              } else if (allFullyHired) {
+                                backgroundColor = Colors.green;
+                                textColor = Colors.white;
+                              }
+                            }
+
+                            return GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  _selectedDay = day;
+                                  _selectedDayGames = _getGamesForDay(day);
+                                });
+                              },
+                              onLongPress: () => _showGameTypeDialog(day),
+                              onSecondaryTap: () => _showGameTypeDialog(day),
+                              child: Container(
+                                margin: const EdgeInsets.all(4.0),
+                                decoration: BoxDecoration(
+                                  color: backgroundColor,
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(color: efficialsYellow, width: 2),
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    '${day.day}',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      color: textColor,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
                           defaultBuilder: (context, day, focusedDay) {
                             final events = _getGamesForDay(day);
                             final hasEvents = events.isNotEmpty;
@@ -1041,6 +1244,8 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                                   _selectedDayGames = _getGamesForDay(day);
                                 });
                               },
+                              onLongPress: () => _showGameTypeDialog(day),
+                              onSecondaryTap: () => _showGameTypeDialog(day), // Right-click for web
                               child: Container(
                                 margin: const EdgeInsets.all(4.0),
                                 decoration: BoxDecoration(

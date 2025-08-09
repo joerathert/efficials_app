@@ -300,6 +300,152 @@ class _AssignerManageSchedulesScreenState
     }).toList();
   }
 
+  Future<void> _showGameTypeDialog(DateTime day) async {
+    if (selectedTeam == null) return;
+
+    final String? gameType = await showDialog<String>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: darkSurface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              const Icon(
+                Icons.add_circle_outline,
+                color: efficialsYellow,
+                size: 24,
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Add Game',
+                style: const TextStyle(
+                  color: efficialsYellow,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          content: Text(
+            'Add a game for ${day.month}/${day.day}/${day.year}?',
+            style: const TextStyle(
+              color: primaryTextColor,
+              fontSize: 16,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(color: secondaryTextColor),
+              ),
+            ),
+            const SizedBox(width: 4),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop('away'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: efficialsYellow,
+                foregroundColor: efficialsBlack,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.directions_bus, size: 16),
+                  const SizedBox(width: 4),
+                  const Text('Away', style: TextStyle(fontSize: 14)),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop('home'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: efficialsYellow,
+                foregroundColor: efficialsBlack,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.home, size: 16),
+                  const SizedBox(width: 4),
+                  const Text('Home', style: TextStyle(fontSize: 14)),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (gameType != null && mounted) {
+      await _createGame(day, gameType == 'away');
+    }
+  }
+
+  Future<void> _createGame(DateTime selectedDate, bool isAway) async {
+    // Load template from database if one is associated with this team
+    ui.GameTemplate? template;
+
+    if (associatedTemplateName != null) {
+      try {
+        final userId = await _userSessionService.getCurrentUserId();
+        if (userId != null) {
+          final templateData = await _templateRepository
+              .getTemplateData(userId, selectedTeam!);
+          if (templateData != null) {
+            template = ui.GameTemplate.fromJson(templateData);
+          }
+        }
+      } catch (e) {
+        debugPrint('Error loading template: $e');
+      }
+    }
+
+    if (mounted) {
+      // Set up navigation arguments
+      Map<String, dynamic> routeArgs = {
+        'scheduleName': selectedTeam,
+        'date': selectedDate,
+        'fromScheduleDetails': true,
+        'template': template,
+        'isAssignerFlow': true,
+        'opponent': selectedTeam,
+        'sport': assignerSport,
+        'isAwayGame': isAway,
+        'isAway': isAway,
+      };
+
+      // Add template time if available
+      if (template != null && template.includeTime && template.time != null) {
+        routeArgs['time'] = template.time;
+      }
+
+      // Determine navigation route
+      String nextRoute;
+      if (template == null || !template.includeTime || template.time == null) {
+        nextRoute = '/date_time';
+      } else if (!template.includeLocation || template.location == null || template.location!.isEmpty) {
+        nextRoute = '/choose_location';
+      } else {
+        nextRoute = '/additional_game_info';
+      }
+
+      Navigator.pushNamed(
+        context,
+        nextRoute,
+        arguments: routeArgs,
+      ).then((_) {
+        _fetchGames();
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -602,6 +748,97 @@ class _AssignerManageSchedulesScreenState
                                       titleCentered: true,
                                     ),
                                     calendarBuilders: CalendarBuilders(
+                                      selectedBuilder: (context, day, focusedDay) {
+                                        final events = _getGamesForDay(day);
+                                        final hasEvents = events.isNotEmpty;
+                                        
+                                        Color? backgroundColor = efficialsBlue;
+                                        Color textColor = efficialsBlack;
+
+                                        if (hasEvents) {
+                                          bool allAway = true;
+                                          bool allFullyHired = true;
+                                          bool needsOfficials = false;
+
+                                          for (var event in events) {
+                                            final isEventAway =
+                                                event['isAway'] as bool? ??
+                                                    false;
+                                            final hiredOfficials =
+                                                event['officialsHired']
+                                                        as int? ??
+                                                    0;
+                                            final requiredOfficials =
+                                                int.tryParse(
+                                                        event['officialsRequired']
+                                                                ?.toString() ??
+                                                            '0') ??
+                                                    0;
+                                            final isFullyHired =
+                                                hiredOfficials >=
+                                                    requiredOfficials;
+
+                                            if (!isEventAway) allAway = false;
+                                            if (!isFullyHired) {
+                                              allFullyHired = false;
+                                            }
+                                            if (!isEventAway && !isFullyHired) {
+                                              needsOfficials = true;
+                                            }
+                                          }
+
+                                          if (allAway) {
+                                            backgroundColor = Colors.grey[300];
+                                            textColor = Colors.white;
+                                          } else if (needsOfficials) {
+                                            backgroundColor = Colors.red[400];
+                                            textColor = Colors.white;
+                                          } else if (allFullyHired) {
+                                            backgroundColor = Colors.green[400];
+                                            textColor = Colors.white;
+                                          }
+                                        }
+
+                                        return GestureDetector(
+                                          onLongPress: () => _showGameTypeDialog(day),
+                                          onSecondaryTap: () => _showGameTypeDialog(day),
+                                          child: Container(
+                                            margin: const EdgeInsets.all(4.0),
+                                            decoration: BoxDecoration(
+                                              color: backgroundColor,
+                                              borderRadius:
+                                                  BorderRadius.circular(4),
+                                              border: Border.all(
+                                                  color: efficialsBlue,
+                                                  width: 2),
+                                              boxShadow: hasEvents
+                                                  ? [
+                                                      BoxShadow(
+                                                        color: Colors.black
+                                                            .withOpacity(0.1),
+                                                        spreadRadius: 1,
+                                                        blurRadius: 1,
+                                                        offset:
+                                                            const Offset(0, 1),
+                                                      ),
+                                                    ]
+                                                  : null,
+                                            ),
+                                            child: Center(
+                                              child: Text(
+                                                '${day.day}',
+                                                style: TextStyle(
+                                                  fontSize: 16,
+                                                  fontWeight: hasEvents
+                                                      ? FontWeight.w600
+                                                      : FontWeight.normal,
+                                                  color: textColor,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        );
+                                      },
                                       defaultBuilder:
                                           (context, day, focusedDay) {
                                         final events = _getGamesForDay(day);
@@ -670,45 +907,49 @@ class _AssignerManageSchedulesScreenState
                                           textColor = efficialsBlack;
                                         }
 
-                                        return Container(
-                                          margin: const EdgeInsets.all(4.0),
-                                          decoration: BoxDecoration(
-                                            color: backgroundColor,
-                                            borderRadius:
-                                                BorderRadius.circular(4),
-                                            border: isSelected
-                                                ? Border.all(
-                                                    color: efficialsBlue,
-                                                    width: 2)
-                                                : isToday &&
-                                                        backgroundColor == null
-                                                    ? Border.all(
-                                                        color: efficialsBlue
-                                                            .withOpacity(0.5),
-                                                        width: 1)
-                                                    : null,
-                                            boxShadow: hasEvents
-                                                ? [
-                                                    BoxShadow(
-                                                      color: Colors.black
-                                                          .withOpacity(0.1),
-                                                      spreadRadius: 1,
-                                                      blurRadius: 1,
-                                                      offset:
-                                                          const Offset(0, 1),
-                                                    ),
-                                                  ]
-                                                : null,
-                                          ),
-                                          child: Center(
-                                            child: Text(
-                                              '${day.day}',
-                                              style: TextStyle(
-                                                fontSize: 16,
-                                                fontWeight: hasEvents
-                                                    ? FontWeight.w600
-                                                    : FontWeight.normal,
-                                                color: textColor,
+                                        return GestureDetector(
+                                          onLongPress: () => _showGameTypeDialog(day),
+                                          onSecondaryTap: () => _showGameTypeDialog(day), // Right-click for web
+                                          child: Container(
+                                            margin: const EdgeInsets.all(4.0),
+                                            decoration: BoxDecoration(
+                                              color: backgroundColor,
+                                              borderRadius:
+                                                  BorderRadius.circular(4),
+                                              border: isSelected
+                                                  ? Border.all(
+                                                      color: efficialsBlue,
+                                                      width: 2)
+                                                  : isToday &&
+                                                          backgroundColor == null
+                                                      ? Border.all(
+                                                          color: efficialsBlue
+                                                              .withOpacity(0.5),
+                                                          width: 1)
+                                                      : null,
+                                              boxShadow: hasEvents
+                                                  ? [
+                                                      BoxShadow(
+                                                        color: Colors.black
+                                                            .withOpacity(0.1),
+                                                        spreadRadius: 1,
+                                                        blurRadius: 1,
+                                                        offset:
+                                                            const Offset(0, 1),
+                                                      ),
+                                                    ]
+                                                  : null,
+                                            ),
+                                            child: Center(
+                                              child: Text(
+                                                '${day.day}',
+                                                style: TextStyle(
+                                                  fontSize: 16,
+                                                  fontWeight: hasEvents
+                                                      ? FontWeight.w600
+                                                      : FontWeight.normal,
+                                                  color: textColor,
+                                                ),
                                               ),
                                             ),
                                           ),
