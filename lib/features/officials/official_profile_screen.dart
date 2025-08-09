@@ -6,7 +6,6 @@ import '../../shared/services/repositories/official_repository.dart';
 import '../../shared/services/repositories/endorsement_repository.dart';
 import '../../shared/services/repositories/user_repository.dart';
 import '../../shared/services/verification_service.dart';
-import 'dart:convert';
 import '../../shared/models/database_models.dart';
 
 class OfficialProfileScreen extends StatefulWidget {
@@ -26,6 +25,7 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
   bool _isLoading = true;
   bool _hasLoadedOtherProfileData =
       false; // Track if other profile data has been loaded
+  bool _isVerificationExpanded = false; // Track if verification section is expanded
   Official? _currentOfficial;
 
   // Repositories and services
@@ -202,8 +202,6 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
         'phone': _currentOfficial!.phone ?? 'No phone',
         'location': location.trim().isEmpty ? 'No location' : location,
         'experienceYears': _currentOfficial!.experienceYears ?? 0,
-        'primarySport': _currentOfficial!.sportName ??
-            'N/A', // Use sportName from joined data
         'certificationLevel': _currentOfficial!.certificationLevel ?? 'N/A',
         'ratePerGame': ratePerGame,
         'maxTravelDistance': maxTravelDistance,
@@ -419,24 +417,53 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
           children: [
             Row(
               children: [
-                // Profile Picture
-                Container(
-                  width: 80,
-                  height: 80,
-                  decoration: BoxDecoration(
-                    color: efficialsYellow,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Center(
-                    child: Text(
-                      _getInitials(currentProfileData['name']),
-                      style: const TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: efficialsBlack,
+                // Profile Picture with edit button overlay
+                Stack(
+                  children: [
+                    Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        color: efficialsYellow,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Center(
+                        child: Text(
+                          _getInitials(currentProfileData['name']),
+                          style: const TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: efficialsBlack,
+                          ),
+                        ),
                       ),
                     ),
-                  ),
+                    if (isViewingOwnProfile)
+                      Positioned(
+                        bottom: 0,
+                        right: 0,
+                        child: Container(
+                          width: 28,
+                          height: 28,
+                          decoration: BoxDecoration(
+                            color: efficialsYellow,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: darkSurface, width: 2),
+                          ),
+                          child: IconButton(
+                            onPressed: () {
+                              _showEditProfilePhotoDialog();
+                            },
+                            icon: const Icon(
+                              Icons.edit,
+                              size: 14,
+                              color: efficialsBlack,
+                            ),
+                            padding: EdgeInsets.zero,
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
                 const SizedBox(width: 16),
                 // Name and basic info
@@ -444,13 +471,32 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        currentProfileData['name'] ?? 'Unknown Official',
-                        style: const TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          color: efficialsYellow,
-                        ),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              currentProfileData['name'] ?? 'Unknown Official',
+                              style: const TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                                color: efficialsYellow,
+                              ),
+                            ),
+                          ),
+                          if (isViewingOwnProfile)
+                            IconButton(
+                              onPressed: () {
+                                _showEditNameDialog();
+                              },
+                              icon: const Icon(
+                                Icons.edit,
+                                size: 18,
+                                color: efficialsYellow,
+                              ),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                            ),
+                        ],
                       ),
                       const SizedBox(height: 4),
                       Text(
@@ -522,15 +568,8 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
                     ],
                   ),
                 ),
-                // Edit button (only show for own profile) or Endorse button (for other profiles)
-                if (isViewingOwnProfile)
-                  IconButton(
-                    onPressed: () {
-                      Navigator.pushNamed(context, '/edit_profile');
-                    },
-                    icon: const Icon(Icons.edit, color: efficialsYellow),
-                  )
-                else
+                // Endorse button (for other profiles only)
+                if (!isViewingOwnProfile)
                   FutureBuilder<bool>(
                     future: _isViewingCurrentUserProfile(),
                     builder: (context, snapshot) {
@@ -598,6 +637,12 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
   }
 
   Widget _buildVerificationStatus() {
+    // Calculate overall verification status
+    final profileVerified = profileData['profileVerified'] ?? false;
+    final emailVerified = profileData['emailVerified'] ?? false;
+    final phoneVerified = profileData['phoneVerified'] ?? false;
+    final allVerified = profileVerified && emailVerified && phoneVerified;
+    
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -607,30 +652,58 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Verification Status',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: efficialsYellow,
+          GestureDetector(
+            onTap: () {
+              setState(() {
+                _isVerificationExpanded = !_isVerificationExpanded;
+              });
+            },
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    const Text(
+                      'Verification Status',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: efficialsYellow,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Icon(
+                      allVerified ? Icons.check_circle : Icons.cancel,
+                      color: allVerified ? Colors.green : Colors.red,
+                      size: 20,
+                    ),
+                  ],
+                ),
+                Icon(
+                  _isVerificationExpanded ? Icons.expand_less : Icons.expand_more,
+                  color: efficialsYellow,
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 12),
-          _buildVerificationItem(
-            'Profile Verified',
-            profileData['profileVerified'],
-            'Your profile has been verified by administrators',
-          ),
-          _buildVerificationItem(
-            'Email Verified',
-            profileData['emailVerified'],
-            'Your email address has been confirmed',
-          ),
-          _buildVerificationItem(
-            'Phone Verified',
-            profileData['phoneVerified'],
-            'Your phone number has been confirmed',
-          ),
+          if (_isVerificationExpanded) ...[
+            const SizedBox(height: 12),
+            _buildVerificationItem(
+              'Profile Verified',
+              profileVerified,
+              'Your profile has been verified by administrators',
+            ),
+            _buildVerificationItem(
+              'Email Verified',
+              emailVerified,
+              'Your email address has been confirmed',
+            ),
+            _buildVerificationItem(
+              'Phone Verified',
+              phoneVerified,
+              'Your phone number has been confirmed',
+            ),
+          ],
         ],
       ),
     );
@@ -831,35 +904,13 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Text(
-                      sport['name'],
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                    if (sport['isPrimary'])
-                      Container(
-                        margin: const EdgeInsets.only(left: 8),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: efficialsYellow,
-                          borderRadius: BorderRadius.circular(3),
-                        ),
-                        child: const Text(
-                          'PRIMARY',
-                          style: TextStyle(
-                            fontSize: 8,
-                            fontWeight: FontWeight.bold,
-                            color: efficialsBlack,
-                          ),
-                        ),
-                      ),
-                  ],
+                Text(
+                  sport['name'],
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -982,13 +1033,26 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Work Preferences',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: efficialsYellow,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Work Preferences',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: efficialsYellow,
+                ),
+              ),
+              IconButton(
+                onPressed: () {
+                  _showEditWorkPreferencesDialog();
+                },
+                icon: const Icon(Icons.edit, color: efficialsYellow, size: 20),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+            ],
           ),
           const SizedBox(height: 12),
           _buildPreferenceItem(
@@ -998,10 +1062,6 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
           _buildPreferenceItem(
             'Max Travel Distance',
             '${currentProfileData['maxTravelDistance'] ?? 0} miles',
-          ),
-          _buildPreferenceItem(
-            'Primary Sport',
-            currentProfileData['primarySport'] ?? 'N/A',
           ),
         ],
       ),
@@ -1900,6 +1960,245 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
           duration: const Duration(seconds: 3),
         ),
       );
+    }
+  }
+
+  void _showEditNameDialog() {
+    final TextEditingController nameController = TextEditingController();
+    nameController.text = currentProfileData['name'] ?? '';
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: darkSurface,
+        title: const Text(
+          'Edit Name',
+          style: TextStyle(color: efficialsYellow),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              style: const TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                labelText: 'Full Name',
+                labelStyle: const TextStyle(color: Colors.grey),
+                border: OutlineInputBorder(
+                  borderSide: const BorderSide(color: efficialsYellow),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderSide: const BorderSide(color: efficialsYellow),
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final newName = nameController.text.trim();
+              if (newName.isEmpty) {
+                _showErrorMessage('Name cannot be empty');
+                return;
+              }
+              
+              Navigator.pop(context);
+              await _updateProfileName(newName);
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: efficialsYellow),
+            child: const Text('Save', style: TextStyle(color: efficialsBlack)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEditProfilePhotoDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: darkSurface,
+        title: const Text(
+          'Edit Profile Photo',
+          style: TextStyle(color: efficialsYellow),
+        ),
+        content: const Text(
+          'Photo upload functionality will be implemented in a future update. For now, your profile displays your initials.',
+          style: TextStyle(color: Colors.white),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK', style: TextStyle(color: efficialsYellow)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _updateProfileName(String newName) async {
+    try {
+      final userSession = UserSessionService.instance;
+      final userId = await userSession.getCurrentUserId();
+      
+      if (userId == null || _currentOfficial?.id == null) {
+        _showErrorMessage('Unable to update profile');
+        return;
+      }
+
+      // Update the official's name in the database
+      await _officialRepo.rawQuery('''
+        UPDATE officials 
+        SET name = ? 
+        WHERE id = ?
+      ''', [newName, _currentOfficial!.id]);
+
+      // Update local state
+      setState(() {
+        profileData['name'] = newName;
+        // Note: Update _currentOfficial would require recreating the object
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Profile name updated successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      print('Error updating profile name: $e');
+      _showErrorMessage('Failed to update profile name');
+    }
+  }
+
+  void _showEditWorkPreferencesDialog() {
+    final TextEditingController rateController = TextEditingController();
+    final TextEditingController distanceController = TextEditingController();
+    
+    rateController.text = (currentProfileData['ratePerGame'] as double?)?.toStringAsFixed(0) ?? '0';
+    distanceController.text = (currentProfileData['maxTravelDistance'] ?? 0).toString();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: darkSurface,
+        title: const Text(
+          'Edit Work Preferences',
+          style: TextStyle(color: efficialsYellow),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: rateController,
+              keyboardType: TextInputType.number,
+              style: const TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                labelText: 'Rate per Game (\$)',
+                labelStyle: const TextStyle(color: Colors.grey),
+                border: OutlineInputBorder(
+                  borderSide: const BorderSide(color: efficialsYellow),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderSide: const BorderSide(color: efficialsYellow),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: distanceController,
+              keyboardType: TextInputType.number,
+              style: const TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                labelText: 'Max Travel Distance (miles)',
+                labelStyle: const TextStyle(color: Colors.grey),
+                border: OutlineInputBorder(
+                  borderSide: const BorderSide(color: efficialsYellow),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderSide: const BorderSide(color: efficialsYellow),
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final rateText = rateController.text.trim();
+              final distanceText = distanceController.text.trim();
+              
+              if (rateText.isEmpty || distanceText.isEmpty) {
+                _showErrorMessage('Both fields are required');
+                return;
+              }
+              
+              final rate = double.tryParse(rateText);
+              final distance = int.tryParse(distanceText);
+              
+              if (rate == null || rate < 0) {
+                _showErrorMessage('Invalid rate amount');
+                return;
+              }
+              
+              if (distance == null || distance < 0 || distance > 999) {
+                _showErrorMessage('Distance must be between 0 and 999 miles');
+                return;
+              }
+              
+              Navigator.pop(context);
+              await _updateWorkPreferences(rate, distance);
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: efficialsYellow),
+            child: const Text('Save', style: TextStyle(color: efficialsBlack)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _updateWorkPreferences(double rate, int distance) async {
+    try {
+      final userSession = UserSessionService.instance;
+      final userId = await userSession.getCurrentUserId();
+      
+      if (userId == null) {
+        _showErrorMessage('Unable to update preferences');
+        return;
+      }
+
+      // Save to user settings
+      await _userRepo.setSetting(userId, 'ratePerGame', rate.toString());
+      await _userRepo.setSetting(userId, 'maxTravelDistance', distance.toString());
+
+      // Update local state
+      setState(() {
+        profileData['ratePerGame'] = rate;
+        profileData['maxTravelDistance'] = distance;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Work preferences updated successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      print('Error updating work preferences: $e');
+      _showErrorMessage('Failed to update work preferences');
     }
   }
 }
