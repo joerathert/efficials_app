@@ -21,6 +21,7 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
   bool isLoading = true;
   int _currentIndex = 0;
   int _unreadNotificationCount = 0;
+  int _unpublishedGamesCount = 0;
   List<Map<String, dynamic>> _gamesNeedingOfficials = [];
 
   // Animation controllers
@@ -61,6 +62,7 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
     await Future.wait([
       _checkAssignerSetup(),
       _loadUnreadNotificationCount(),
+      _loadUnpublishedGamesCount(),
       _loadGamesNeedingOfficials(),
     ]);
   }
@@ -130,6 +132,19 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
       }
     } catch (e) {
       debugPrint('Error loading unread notification count: $e');
+    }
+  }
+
+  Future<void> _loadUnpublishedGamesCount() async {
+    try {
+      final unpublishedGames = await _gameService.getUnpublishedGames();
+      if (mounted) {
+        setState(() {
+          _unpublishedGamesCount = unpublishedGames.length;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading unpublished games count: $e');
     }
   }
 
@@ -227,18 +242,21 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
       case 1: // Schedules
         Navigator.pushNamed(context, '/assigner_manage_schedules').then((_) {
           // Refresh games needing officials when returning from schedules
+          _loadUnpublishedGamesCount();
           _loadGamesNeedingOfficials();
         });
         break;
       case 2: // Officials/Crews Choice
         Navigator.pushNamed(context, '/officials_crews_choice').then((_) {
           // Refresh games needing officials when returning from choice screen
+          _loadUnpublishedGamesCount();
           _loadGamesNeedingOfficials();
         });
         break;
       case 3: // Templates (Game Templates)
         Navigator.pushNamed(context, '/game_templates').then((_) {
           // Refresh games needing officials when returning from templates screen
+          _loadUnpublishedGamesCount();
           _loadGamesNeedingOfficials();
         });
         break;
@@ -246,6 +264,7 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
         Navigator.pushNamed(context, '/backout_notifications').then((_) {
           // Refresh notification count and games when returning from notifications screen
           _loadUnreadNotificationCount();
+          _loadUnpublishedGamesCount();
           _loadGamesNeedingOfficials();
         });
         break;
@@ -321,6 +340,41 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
                 Navigator.pop(context);
                 Navigator.pushNamed(context, '/assigner_manage_schedules')
                     .then((_) {
+                  _loadUnpublishedGamesCount();
+                  _loadGamesNeedingOfficials();
+                });
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.unpublished, color: efficialsYellow),
+              title: Row(
+                children: [
+                  const Text('Unpublished Games',
+                      style: TextStyle(color: Colors.white)),
+                  if (_unpublishedGamesCount > 0) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.orange,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        '$_unpublishedGamesCount',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/unpublished_games').then((_) {
+                  _loadUnpublishedGamesCount(); // Refresh count after returning
                   _loadGamesNeedingOfficials();
                 });
               },
@@ -332,6 +386,7 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
               onTap: () {
                 Navigator.pop(context);
                 Navigator.pushNamed(context, '/officials_crews_choice').then((_) {
+                  _loadUnpublishedGamesCount();
                   _loadGamesNeedingOfficials();
                 });
               },
@@ -343,6 +398,7 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
               onTap: () {
                 Navigator.pop(context);
                 Navigator.pushNamed(context, '/game_templates').then((_) {
+                  _loadUnpublishedGamesCount();
                   _loadGamesNeedingOfficials();
                 });
               },

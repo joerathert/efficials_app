@@ -48,29 +48,19 @@ class _UnpublishedGamesScreenState extends State<UnpublishedGamesScreen> {
       final games = await _gameService.getUnpublishedGames();
       debugPrint('Retrieved ${games.length} unpublished games from database');
       
+      // Get full game data with officials information for each game
+      List<Map<String, dynamic>> gamesWithOfficials = [];
+      for (final game in games) {
+        if (game.id != null) {
+          final gameWithOfficials = await _gameService.getGameByIdWithOfficials(game.id!);
+          if (gameWithOfficials != null) {
+            gamesWithOfficials.add(gameWithOfficials);
+          }
+        }
+      }
+      
       setState(() {
-        // Convert Game objects to maps for this screen's existing logic
-        unpublishedGames = games.map((game) => {
-          'id': game.id,
-          'scheduleName': game.scheduleName,
-          'sport': game.sportName,
-          'date': game.date,
-          'time': game.time,
-          'location': game.locationName,
-          'isAway': game.isAway,
-          'levelOfCompetition': game.levelOfCompetition,
-          'gender': game.gender,
-          'officialsRequired': game.officialsRequired,
-          'officialsHired': game.officialsHired,
-          'gameFee': game.gameFee,
-          'opponent': game.opponent,
-          'homeTeam': game.homeTeam,
-          'hireAutomatically': game.hireAutomatically,
-          'method': game.method,
-          'status': game.status,
-          'createdAt': game.createdAt,
-          'updatedAt': game.updatedAt,
-        }).toList();
+        unpublishedGames = gamesWithOfficials;
         
         isLoading = false;
       });
@@ -326,6 +316,9 @@ class _UnpublishedGamesScreenState extends State<UnpublishedGamesScreen> {
                           )
                         : ListView.builder(
                             itemCount: unpublishedGames.length,
+                            padding: EdgeInsets.only(
+                              bottom: hasSelectedGames ? 100 + MediaQuery.of(context).padding.bottom : 0,
+                            ),
                             itemBuilder: (context, index) {
                               final game = unpublishedGames[index];
                               final gameId = game['id'] as int;
@@ -355,20 +348,14 @@ class _UnpublishedGamesScreenState extends State<UnpublishedGamesScreen> {
                                   onTap: () {
                                     Navigator.pushNamed(
                                       context,
-                                      '/review_game_info',
+                                      '/game_information',
                                       arguments: game,
                                     ).then((result) {
-                                      if (result != null &&
-                                          result is Map<String, dynamic>) {
-                                        // Update the game in unpublished_games if edited
-                                        setState(() {
-                                          final index =
-                                              unpublishedGames.indexWhere(
-                                                  (g) => g['id'] == game['id']);
-                                          if (index != -1) {
-                                            unpublishedGames[index] = result;
-                                          }
-                                        });
+                                      if (result == true ||
+                                          (result is Map<String, dynamic> &&
+                                              result.isNotEmpty)) {
+                                        // Refresh the unpublished games list
+                                        _fetchUnpublishedGames();
                                       }
                                     });
                                   },
@@ -551,25 +538,38 @@ class _UnpublishedGamesScreenState extends State<UnpublishedGamesScreen> {
       ),
       floatingActionButton: hasSelectedGames
           ? Container(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0),
-              margin: EdgeInsets.only(
-                  bottom: MediaQuery.of(context).padding.bottom + 16),
               width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _publishSelectedGames,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: efficialsYellow,
-                  foregroundColor: efficialsBlack,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: Text(
-                  'Publish ${selectedGameIds.length} Game${selectedGameIds.length == 1 ? '' : 's'}',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+              height: 100 + MediaQuery.of(context).padding.bottom,
+              decoration: const BoxDecoration(
+                color: darkBackground,
+              ),
+              padding: EdgeInsets.fromLTRB(
+                24.0,
+                16.0,
+                24.0,
+                MediaQuery.of(context).padding.bottom + 16.0,
+              ),
+              child: Align(
+                alignment: Alignment.topCenter,
+                child: SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _publishSelectedGames,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: efficialsYellow,
+                      foregroundColor: efficialsBlack,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: Text(
+                      'Publish ${selectedGameIds.length} Game${selectedGameIds.length == 1 ? '' : 's'}',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                 ),
               ),
