@@ -35,8 +35,15 @@
       "WebFetch(domain:docs.anthropic.com)",
       "Bash(sqlite3:*)",
       "Bash(true)",
-      "Bash(adb:*)"
+      "Bash(adb:*)",
+      "Bash(/home/efficials/bin/flutter --version)",
+      "Bash(/home/efficials/bin/flutter analyze --no-pub lib/features/games/bulk_import_wizard_screen.dart)",
+      "Bash(/home/efficials/bin/flutter analyze:*)",
+      "Bash(claude code config)",
+      "Bash(claude code config edit)",
+      "Bash(claude code --help)"
     ],
     "deny": []
-  }
+  },
+  "submitOnEnter": false
 }

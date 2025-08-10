@@ -23,6 +23,9 @@ dependencies:
   url_launcher: ^6.1.12
   permission_handler: ^11.0.1
   firebase_messaging: ^14.7.10
+  excel: ^4.0.6
+  file_picker: ^8.1.2
+  share_plus: ^10.1.0
 
 dev_dependencies:
   flutter_test:

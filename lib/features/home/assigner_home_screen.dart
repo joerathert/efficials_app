@@ -230,9 +230,9 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
           _loadGamesNeedingOfficials();
         });
         break;
-      case 2: // Officials (Lists of Officials)
-        Navigator.pushNamed(context, '/lists_of_officials').then((_) {
-          // Refresh games needing officials when returning from officials screen
+      case 2: // Officials/Crews Choice
+        Navigator.pushNamed(context, '/officials_crews_choice').then((_) {
+          // Refresh games needing officials when returning from choice screen
           _loadGamesNeedingOfficials();
         });
         break;
@@ -331,7 +331,7 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
                   style: TextStyle(color: Colors.white)),
               onTap: () {
                 Navigator.pop(context);
-                Navigator.pushNamed(context, '/lists_of_officials').then((_) {
+                Navigator.pushNamed(context, '/officials_crews_choice').then((_) {
                   _loadGamesNeedingOfficials();
                 });
               },
@@ -363,6 +363,15 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
               onTap: () {
                 Navigator.pop(context);
                 Navigator.pushNamed(context, '/assigner_sport_defaults');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.upload_file, color: efficialsYellow),
+              title: const Text('Bulk Import Games',
+                  style: TextStyle(color: Colors.white)),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/bulk_import_preflight');
               },
             ),
             const Divider(color: Colors.grey),
@@ -514,7 +523,7 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
                                             title: 'Manage Officials',
                                             onTap: () {
                                               Navigator.pushNamed(context,
-                                                      '/lists_of_officials')
+                                                      '/officials_crews_choice')
                                                   .then((_) {
                                                 _loadGamesNeedingOfficials();
                                               });

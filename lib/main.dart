@@ -24,6 +24,7 @@ import 'features/home/coach_home_screen.dart';
 import 'features/home/official_home_screen.dart';
 import 'features/home/assigner_sport_selection_screen.dart';
 import 'features/home/settings_screen.dart';
+import 'features/home/officials_crews_choice_screen.dart';
 import 'features/settings/assigner_sport_defaults_screen.dart';
 
 // Officials screens
@@ -57,6 +58,10 @@ import 'features/games/create_game_template_screen.dart';
 import 'features/games/new_game_template_screen.dart';
 import 'features/games/select_sport_screen.dart';
 import 'features/games/select_team_screen.dart';
+import 'features/games/bulk_import_preflight_screen.dart';
+import 'features/games/bulk_import_wizard_screen.dart';
+import 'features/games/bulk_import_generate_screen.dart';
+import 'features/games/bulk_import_upload_screen.dart';
 
 // Schedule screens
 import 'features/schedules/dynamic_name_schedule_screen.dart';
@@ -192,6 +197,7 @@ class EfficialsApp extends StatelessWidget {
             const AssignerSportSelectionScreen(),
         '/assigner_manage_schedules': (context) =>
             const AssignerManageSchedulesScreen(),
+        '/officials_crews_choice': (context) => const OfficialsCrewsChoiceScreen(),
         '/lists_of_officials': (context) => const ListsOfOfficialsScreen(),
         '/create_new_list': (context) => const CreateNewListScreen(),
         '/name_list': (context) => const NameListScreen(),
@@ -228,6 +234,10 @@ class EfficialsApp extends StatelessWidget {
         '/sport_templates': (context) => const SportTemplatesScreen(),
         '/select_game_template': (context) => const SelectGameTemplateScreen(),
         '/create_game_template': (context) => const CreateGameTemplateScreen(),
+        '/bulk_import_preflight': (context) => const BulkImportPreflightScreen(),
+        '/bulk_import_wizard': (context) => const BulkImportWizardScreen(),
+        '/bulk_import_generate': (context) => const BulkImportGenerateScreen(),
+        '/bulk_import_upload': (context) => const BulkImportUploadScreen(),
         '/additional_game_info_condensed': (context) =>
             const AdditionalGameInfoCondensedScreen(),
         '/settings': (context) => const SettingsScreen(),
