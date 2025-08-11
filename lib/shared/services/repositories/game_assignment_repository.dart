@@ -898,27 +898,16 @@ class GameAssignmentRepository extends BaseRepository {
         gameQuery += " AND g.method != 'hire_crew'";
         print('🔍 DEBUG: Adding filter to exclude hire_crew games for non-crew-chief');
       } else {
-        // If the official IS a crew chief, include all non-hire_crew games PLUS hire_crew games where they have pending assignments
-        gameQuery += '''
-        AND (
-          g.method != 'hire_crew' OR 
-          g.id IN (
-            SELECT ca.game_id 
-            FROM crew_assignments ca
-            JOIN crews c ON ca.crew_id = c.id
-            WHERE c.crew_chief_id = ? AND ca.status = 'pending'
-          )
-        )''';
-        print('🔍 DEBUG: Adding filter to include hire_crew games with pending assignments for crew chief');
+        // If the official IS a crew chief, show them ALL hire_crew games (they can express interest in any)
+        // No additional filtering needed - crew chiefs should see all hire_crew games
+        print('🔍 DEBUG: Crew chief can see all hire_crew games');
       }
 
       gameQuery += " ORDER BY g.date ASC, g.time ASC";
 
       // Build parameter list
       List<dynamic> params = [officialId, officialId]; // For game_assignments and game_dismissals exclusions
-      if (isCrewChief) {
-        params.add(officialId); // Extra parameter for crew chief query
-      }
+      // No extra parameter needed since crew chiefs now see all hire_crew games
       
       final basicResults = await rawQuery(gameQuery, params);
 
@@ -987,7 +976,10 @@ class GameAssignmentRepository extends BaseRepository {
     } catch (e) {
       print('Error filtering available games with Advanced Method: $e');
       // Fallback to basic filtering if Advanced Method fails
-      return await rawQuery('''
+      // Check if this official is a crew chief for fallback filtering
+      final isCrewChief = await _isOfficialCrewChief(officialId);
+      
+      String fallbackQuery = '''
         SELECT DISTINCT 
                g.id, g.sport_id, g.location_id, g.user_id,
                g.date, g.time, g.is_away, g.level_of_competition,
@@ -1026,9 +1018,17 @@ class GameAssignmentRepository extends BaseRepository {
         )
         AND g.status = 'Published'
         AND g.date >= date('now')
-        AND g.officials_required > g.officials_hired
-        ORDER BY g.date ASC, g.time ASC
-      ''', [officialId, officialId, officialId]);
+        AND g.officials_required > g.officials_hired''';
+      
+      // Apply hire_crew filtering consistent with main query
+      if (!isCrewChief) {
+        fallbackQuery += " AND g.method != 'hire_crew'";
+      }
+      // If is crew chief, show all games including hire_crew (no additional filter needed)
+      
+      fallbackQuery += " ORDER BY g.date ASC, g.time ASC";
+      
+      return await rawQuery(fallbackQuery, [officialId, officialId]);
     }
   }
 

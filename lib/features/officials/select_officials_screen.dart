@@ -207,7 +207,7 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
                 fontSize: 20,
                 fontWeight: FontWeight.bold)),
         content: const Text(
-            '• Manual Selection: Search and pick individual officials\n\n• Multiple Lists: Combine and filter across multiple saved lists\n\n• Single List: Select all officials from one saved list\n\n• Hire a Crew: Select an entire pre-formed crew',
+            '• Multiple Lists: Combine and filter across multiple saved lists\n\n• Single List: Select all officials from one saved list\n\n• Hire a Crew: Select an entire pre-formed crew',
             style: TextStyle(color: Colors.white)),
         actions: [
           TextButton(
@@ -427,41 +427,6 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 30),
-                      SizedBox(
-                        width: 200,
-                        child: ElevatedButton(
-                          onPressed: () {
-                            _saveDefaultChoice('standard');
-                            Navigator.pushNamed(
-                              context,
-                              '/populate_roster',
-                              arguments: <String, dynamic>{
-                                ...args,
-                                'sport': sport,
-                                'listName': listName,
-                                'listId': listId,
-                                'method': 'standard',
-                                'requiredCount': 2,
-                                'locationData': args['locationData'],
-                                'isAwayGame': args['isAwayGame'] ?? false,
-                                'template': template,
-                                'fromScheduleDetails':
-                                    args['fromScheduleDetails'] ??
-                                        false, // Add flag
-                                'scheduleId':
-                                    args['scheduleId'], // Add scheduleId
-                              },
-                            );
-                          },
-                          style: elevatedButtonStyle(
-                            padding: const EdgeInsets.symmetric(
-                                vertical: 15, horizontal: 32),
-                          ),
-                          child: const Text('Manual Selection',
-                              style: signInButtonTextStyle),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
                       SizedBox(
                         width: 200,
                         child: ElevatedButton(

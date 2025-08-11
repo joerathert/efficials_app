@@ -185,11 +185,10 @@ class _BulkImportUploadScreenState extends State<BulkImportUploadScreen> {
 
   String _mapMethodFromDisplay(String displayValue) {
     switch (displayValue) {
-      case 'Manual Selection': return 'standard';
       case 'Single List': return 'use_list';
       case 'Multiple Lists': return 'advanced';
       case 'Hire a Crew': return 'hire_crew';
-      default: return 'standard';
+      default: return 'use_list';
     }
   }
 
@@ -677,6 +676,9 @@ class _BulkImportUploadScreenState extends State<BulkImportUploadScreen> {
         debugPrint('--- Importing Game ${i + 1} ---');
         debugPrint('Game data: $gameData');
         
+        // Convert Multiple Lists Excel data to selectedLists format
+        _convertMultipleListsData(gameData);
+        
         try {
           final result = await _gameService.createGame(gameData);
           debugPrint('GameService.createGame result: $result');
@@ -1089,5 +1091,61 @@ class _BulkImportUploadScreenState extends State<BulkImportUploadScreen> {
             )
           : null,
     );
+  }
+
+  /// Convert Multiple Lists Excel column data to selectedLists format expected by GameService
+  void _convertMultipleListsData(Map<String, dynamic> gameData) {
+    // Only process if method is Multiple Lists (advanced)
+    if (gameData['method'] != 'advanced') {
+      return;
+    }
+
+    final selectedLists = <Map<String, dynamic>>[];
+
+    // Convert Officials List 1 data
+    if (gameData['officialsList1'] != null && gameData['officialsList1'].toString().isNotEmpty) {
+      selectedLists.add({
+        'name': gameData['officialsList1'],
+        'listName': gameData['officialsList1'],
+        'min': gameData['officialsList1Min'] ?? 0,
+        'max': gameData['officialsList1Max'] ?? 1,
+        'minOfficials': gameData['officialsList1Min'] ?? 0,
+        'maxOfficials': gameData['officialsList1Max'] ?? 1,
+      });
+    }
+
+    // Convert Officials List 2 data
+    if (gameData['officialsList2'] != null && gameData['officialsList2'].toString().isNotEmpty) {
+      selectedLists.add({
+        'name': gameData['officialsList2'],
+        'listName': gameData['officialsList2'],
+        'min': gameData['officialsList2Min'] ?? 0,
+        'max': gameData['officialsList2Max'] ?? 1,
+        'minOfficials': gameData['officialsList2Min'] ?? 0,
+        'maxOfficials': gameData['officialsList2Max'] ?? 1,
+      });
+    }
+
+    // Convert Officials List 3 data
+    if (gameData['officialsList3'] != null && gameData['officialsList3'].toString().isNotEmpty) {
+      selectedLists.add({
+        'name': gameData['officialsList3'],
+        'listName': gameData['officialsList3'],
+        'min': gameData['officialsList3Min'] ?? 0,
+        'max': gameData['officialsList3Max'] ?? 1,
+        'minOfficials': gameData['officialsList3Min'] ?? 0,
+        'maxOfficials': gameData['officialsList3Max'] ?? 1,
+      });
+    }
+
+    // Add selectedLists to gameData if we have any
+    if (selectedLists.isNotEmpty) {
+      gameData['selectedLists'] = selectedLists;
+      debugPrint('✅ Converted Multiple Lists data: ${selectedLists.length} lists');
+      for (int i = 0; i < selectedLists.length; i++) {
+        final list = selectedLists[i];
+        debugPrint('  List ${i + 1}: ${list['name']} (${list['min']}-${list['max']})');
+      }
+    }
   }
 }

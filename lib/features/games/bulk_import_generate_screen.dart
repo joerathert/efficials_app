@@ -92,6 +92,30 @@ class _BulkImportGenerateScreenState extends State<BulkImportGenerateScreen> {
         config['teamName'] = globalValues['teamName'] ?? '';
       }
 
+      // Handle global Multiple Lists configuration
+      if ((globalSettings['method'] ?? false) && globalValues['method'] == 'Multiple Lists') {
+        final selectedMultipleLists = wizardConfig!['selectedMultipleLists'] as List<Map<String, dynamic>>? ?? [];
+        if (selectedMultipleLists.isNotEmpty) {
+          config['multipleLists'] = List<Map<String, dynamic>>.from(selectedMultipleLists);
+        }
+      }
+
+      // Handle global Single List configuration  
+      if ((globalSettings['method'] ?? false) && globalValues['method'] == 'Single List') {
+        final selectedList = wizardConfig!['selectedList'] as String?;
+        if (selectedList != null) {
+          config['singleList'] = selectedList;
+        }
+      }
+
+      // Handle global Hire a Crew configuration
+      if ((globalSettings['method'] ?? false) && globalValues['method'] == 'Hire a Crew') {
+        final selectedCrew = wizardConfig!['selectedCrew'] as String?;
+        if (selectedCrew != null) {
+          config['crewList'] = selectedCrew;
+        }
+      }
+
       return config;
     });
   }
@@ -560,7 +584,6 @@ class _BulkImportGenerateScreenState extends State<BulkImportGenerateScreen> {
     row++;
 
     final officialsMethods = [
-      'Manual Selection',
       'Single List',
       'Multiple Lists',
       'Hire a Crew'
@@ -1335,7 +1358,6 @@ class _BulkImportGenerateScreenState extends State<BulkImportGenerateScreen> {
 
   Widget _buildMethodDropdown(int index) {
     final methodOptions = [
-      'Manual Selection',
       'Single List',
       'Multiple Lists',
       'Hire a Crew'

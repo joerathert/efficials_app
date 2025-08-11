@@ -26,7 +26,7 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
   int? officialsRequired;
   bool hireAutomatically = false;
   String? selectedListName;
-  String? method; // Method for officials selection: 'standard', 'use_list', 'advanced', 'hire_crew'
+  String? method; // Method for officials selection: 'use_list', 'advanced', 'hire_crew'
   List<Map<String, dynamic>> selectedLists = []; // For advanced method
   List<Map<String, dynamic>> selectedCrews = []; // For crew selection
   String? selectedCrewListName; // For crew list name
@@ -1311,11 +1311,6 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                               },
                               items: const [
                                 DropdownMenuItem(
-                                  value: 'standard',
-                                  child: Text('Manual Selection',
-                                      style: TextStyle(color: Colors.white)),
-                                ),
-                                DropdownMenuItem(
                                   value: 'advanced',
                                   child: Text('Multiple Lists',
                                       style: TextStyle(color: Colors.white)),
@@ -1438,27 +1433,6 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                                   ),
                                 )),
                               ],
-                            ] else if (method == 'standard') ...[
-                              Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  border: Border.all(color: Colors.grey.withOpacity(0.3)),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: const Row(
-                                  children: [
-                                    Icon(Icons.person, color: efficialsYellow),
-                                    SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        'Officials will be selected manually when using this template',
-                                        style: TextStyle(
-                                            fontSize: 14, color: Colors.white),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
                             ],
                           ],
                         ),

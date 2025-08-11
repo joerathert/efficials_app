@@ -4,7 +4,10 @@ import 'dart:convert';
 import '../../shared/theme.dart';
 import '../../shared/services/location_service.dart';
 import '../../shared/services/repositories/user_repository.dart';
+import '../../shared/services/repositories/crew_repository.dart';
+import '../../shared/services/user_session_service.dart';
 import '../../shared/services/schedule_service.dart';
+import '../../shared/models/database_models.dart';
 
 class BulkImportWizardScreen extends StatefulWidget {
   const BulkImportWizardScreen({super.key});
@@ -49,9 +52,15 @@ class _BulkImportWizardScreenState extends State<BulkImportWizardScreen> {
   List<String> genderOptions = ['Boys', 'Girls', 'Co-ed'];
   List<String> adultGenderOptions = ['Men', 'Women', 'Co-ed'];
   List<int> officialsOptions = [1, 2, 3, 4, 5, 6, 7, 8, 9];
-  List<String> methodOptions = ['Manual Selection', 'Single List', 'Multiple Lists', 'Hire a Crew'];
+  List<String> methodOptions = ['Single List', 'Multiple Lists', 'Hire a Crew'];
   List<Map<String, dynamic>> availableLocations = [];
   List<Map<String, dynamic>> availableLists = [];
+  List<Crew> availableCrews = [];
+  
+  // Secondary dropdown state
+  String? selectedList;
+  String? selectedCrew;
+  List<Map<String, dynamic>> selectedMultipleLists = [];
   
   String? currentUserSport;
   bool isLoading = true;
@@ -68,6 +77,7 @@ class _BulkImportWizardScreenState extends State<BulkImportWizardScreen> {
         _loadUserSport(),
         _loadLocations(),
         _loadOfficialsLists(),
+        _loadCrews(),
       ]);
       
       // Set default global values - start empty to show hints
@@ -124,13 +134,65 @@ class _BulkImportWizardScreenState extends State<BulkImportWizardScreen> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final String? listsJson = prefs.getString('saved_lists');
-      if (listsJson != null && listsJson.isNotEmpty) {
+      setState(() {
+        availableLists.clear();
+        if (listsJson != null && listsJson.isNotEmpty) {
+          try {
+            final decodedLists = jsonDecode(listsJson) as List<dynamic>;
+            availableLists = decodedLists.map((list) {
+              final listMap = Map<String, dynamic>.from(list as Map);
+              if (listMap['officials'] != null) {
+                listMap['officials'] = (listMap['officials'] as List<dynamic>)
+                    .map((official) => Map<String, dynamic>.from(official as Map))
+                    .toList();
+              } else {
+                listMap['officials'] = [];
+              }
+              return listMap;
+            }).toList();
+          } catch (e) {
+            debugPrint('Error decoding lists: $e');
+            availableLists = [];
+          }
+        }
+        
+        if (availableLists.isEmpty) {
+          availableLists.add({'name': 'No saved lists', 'id': -1});
+        }
+        availableLists.add({'name': '+ Create new list', 'id': 0});
+      });
+    } catch (e) {
+      debugPrint('Error loading officials lists: $e');
+    }
+  }
+
+  Future<void> _loadCrews() async {
+    try {
+      final crewRepository = CrewRepository();
+      final userSession = UserSessionService.instance;
+      final currentUserId = await userSession.getCurrentUserId();
+      
+      if (currentUserId != null) {
+        // Get all crews for the current user (as chief or member)
+        final crewsAsChief = await crewRepository.getCrewsWhereChief(currentUserId);
+        final crewsAsMember = await crewRepository.getCrewsForOfficial(currentUserId);
+        
+        // Combine and deduplicate crews
+        final allCrews = <Crew>[];
+        allCrews.addAll(crewsAsChief);
+        
+        for (final memberCrew in crewsAsMember) {
+          if (!crewsAsChief.any((chiefCrew) => chiefCrew.id == memberCrew.id)) {
+            allCrews.add(memberCrew);
+          }
+        }
+        
         setState(() {
-          availableLists = List<Map<String, dynamic>>.from(jsonDecode(listsJson));
+          availableCrews = allCrews;
         });
       }
     } catch (e) {
-      debugPrint('Error loading officials lists: $e');
+      debugPrint('Error loading crews: $e');
     }
   }
 
@@ -164,6 +226,9 @@ class _BulkImportWizardScreenState extends State<BulkImportWizardScreen> {
       'globalSettings': globalSettings,
       'globalValues': globalValues,
       'scheduleSettings': scheduleSettings,
+      'selectedList': selectedList,
+      'selectedCrew': selectedCrew,
+      'selectedMultipleLists': selectedMultipleLists,
     };
     
     Navigator.pushNamed(
@@ -395,8 +460,26 @@ class _BulkImportWizardScreenState extends State<BulkImportWizardScreen> {
             'method',
             'Officials Assignment Method',
             globalValues['method']?.toString() ?? '',
-            onValueChanged: (value) => globalValues['method'] = value,
+            onValueChanged: (value) {
+              setState(() {
+                globalValues['method'] = value;
+                // Clear secondary selections when method changes
+                selectedList = null;
+                selectedCrew = null;
+                
+                // Initialize Multiple Lists with 2 lists by default
+                if (value == 'Multiple Lists') {
+                  selectedMultipleLists = [
+                    {'list': null, 'min': 0, 'max': 1},
+                    {'list': null, 'min': 0, 'max': 1},
+                  ];
+                } else {
+                  selectedMultipleLists.clear();
+                }
+              });
+            },
             options: methodOptions,
+            hasSecondaryDropdown: true,
           ),
 
           _buildGlobalSettingTile(
@@ -751,6 +834,7 @@ class _BulkImportWizardScreenState extends State<BulkImportWizardScreen> {
     List<String>? options,
     bool isTextField = false,
     bool isTeamNameDropdown = false,
+    bool hasSecondaryDropdown = false,
     Function(String)? onValueChanged,
   }) {
     return Container(
@@ -832,6 +916,237 @@ class _BulkImportWizardScreenState extends State<BulkImportWizardScreen> {
                         ),
             ),
           ],
+          // Secondary dropdown for method field
+          if (hasSecondaryDropdown && key == 'method' && (globalSettings[key] ?? false) && currentValue.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.only(left: 48),
+              child: _buildSecondaryMethodDropdown(currentValue),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSecondaryMethodDropdown(String method) {
+    switch (method) {
+      case 'Single List':
+        final validLists = availableLists.where((list) => list['name'] != null && list['name'] != 'No saved lists' && list['name'] != '+ Create new list').toList();
+        if (validLists.isEmpty) {
+          return const Text(
+            'No officials lists available. Create a list first.',
+            style: TextStyle(color: Colors.white70, fontSize: 14),
+          );
+        }
+        return DropdownButtonFormField<String>(
+          decoration: textFieldDecoration('Select Officials List'),
+          value: selectedList,
+          style: const TextStyle(color: Colors.white, fontSize: 16),
+          dropdownColor: darkSurface,
+          onChanged: (value) {
+            setState(() {
+              selectedList = value;
+            });
+          },
+          items: validLists.map((list) {
+            final listName = list['name'] as String;
+            return DropdownMenuItem(
+              value: listName,
+              child: Text(listName, style: const TextStyle(color: Colors.white)),
+            );
+          }).toList(),
+        );
+
+      case 'Multiple Lists':
+        final validLists = availableLists.where((list) => list['name'] != null && list['name'] != 'No saved lists' && list['name'] != '+ Create new list').toList();
+        if (validLists.isEmpty) {
+          return const Text(
+            'No officials lists available. Create multiple lists first.',
+            style: TextStyle(color: Colors.white70, fontSize: 14),
+          );
+        }
+        return _buildMultipleListsConfiguration();
+
+      case 'Hire a Crew':
+        if (availableCrews.isEmpty) {
+          return const Text(
+            'No crews available. Create a crew first.',
+            style: TextStyle(color: Colors.white70, fontSize: 14),
+          );
+        }
+        return DropdownButtonFormField<String>(
+          decoration: textFieldDecoration('Select Crew'),
+          value: selectedCrew,
+          style: const TextStyle(color: Colors.white, fontSize: 16),
+          dropdownColor: darkSurface,
+          onChanged: (value) {
+            setState(() {
+              selectedCrew = value;
+            });
+          },
+          items: availableCrews.map((crew) {
+            return DropdownMenuItem(
+              value: crew.name,
+              child: Text(crew.name, style: const TextStyle(color: Colors.white)),
+            );
+          }).toList(),
+        );
+
+      default:
+        return const SizedBox.shrink();
+    }
+  }
+
+  Widget _buildMultipleListsConfiguration() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey.withOpacity(0.3)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        children: [
+          // Header row with title and + button
+          Row(
+            children: [
+              const Text(
+                'Configure Multiple Lists',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const Spacer(),
+              if (selectedMultipleLists.length < 3)
+                IconButton(
+                  onPressed: () {
+                    setState(() {
+                      selectedMultipleLists.add({'list': null, 'min': 0, 'max': 1});
+                    });
+                  },
+                  icon: const Icon(Icons.add_circle, color: efficialsYellow),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // List items
+          ...selectedMultipleLists.asMap().entries.map((entry) {
+            final listIndex = entry.key;
+            final listConfig = entry.value;
+            return _buildMultipleListItem(listIndex, listConfig);
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMultipleListItem(int listIndex, Map<String, dynamic> listConfig) {
+    final validLists = availableLists.where((list) => list['name'] != null && list['name'] != 'No saved lists' && list['name'] != '+ Create new list').toList();
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: darkSurface,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Text(
+                'List ${listIndex + 1}',
+                style: const TextStyle(
+                  color: efficialsYellow,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const Spacer(),
+              if (selectedMultipleLists.length > 2)
+                IconButton(
+                  onPressed: () {
+                    setState(() {
+                      selectedMultipleLists.removeAt(listIndex);
+                    });
+                  },
+                  icon: const Icon(Icons.remove_circle, color: Colors.red, size: 20),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          // List selection dropdown
+          DropdownButtonFormField<String>(
+            decoration: textFieldDecoration('Select Officials List'),
+            value: listConfig['list'],
+            style: const TextStyle(color: Colors.white, fontSize: 14),
+            dropdownColor: darkSurface,
+            onChanged: (value) {
+              setState(() {
+                listConfig['list'] = value;
+              });
+            },
+            items: validLists.map((list) {
+              return DropdownMenuItem(
+                value: list['name'] as String,
+                child: Text(
+                  list['name'] as String,
+                  style: const TextStyle(color: Colors.white),
+                ),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 8),
+          // Min/Max configuration
+          Row(
+            children: [
+              Expanded(
+                child: DropdownButtonFormField<int>(
+                  decoration: textFieldDecoration('Min'),
+                  value: listConfig['min'],
+                  style: const TextStyle(color: Colors.white, fontSize: 14),
+                  dropdownColor: darkSurface,
+                  onChanged: (value) {
+                    setState(() {
+                      listConfig['min'] = value;
+                    });
+                  },
+                  items: List.generate(10, (i) => i).map((num) {
+                    return DropdownMenuItem(
+                      value: num,
+                      child: Text(
+                        num.toString(),
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: DropdownButtonFormField<int>(
+                  decoration: textFieldDecoration('Max'),
+                  value: listConfig['max'],
+                  style: const TextStyle(color: Colors.white, fontSize: 14),
+                  dropdownColor: darkSurface,
+                  onChanged: (value) {
+                    setState(() {
+                      listConfig['max'] = value;
+                    });
+                  },
+                  items: List.generate(10, (i) => i + 1).map((num) {
+                    return DropdownMenuItem(
+                      value: num,
+                      child: Text(
+                        num.toString(),
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
