@@ -18,6 +18,7 @@ class _AvailableGameDetailsScreenState extends State<AvailableGameDetailsScreen>
   List<Map<String, dynamic>> otherOfficials = [];
   Map<String, dynamic>? schedulerInfo;
   bool _isLoading = true;
+  bool _hireAutomatically = false;
   
   final GameAssignmentRepository _assignmentRepo = GameAssignmentRepository();
   final OfficialRepository _officialRepo = OfficialRepository();
@@ -32,9 +33,11 @@ class _AvailableGameDetailsScreenState extends State<AvailableGameDetailsScreen>
       // New format with assignment and scheduler info
       assignment = routeArgs['assignment'] as GameAssignment;
       schedulerInfo = routeArgs['schedulerInfo'] as Map<String, dynamic>?;
+      _hireAutomatically = routeArgs['hireAutomatically'] as bool? ?? false;
     } else {
       // Legacy format - just the assignment
       assignment = routeArgs as GameAssignment;
+      _hireAutomatically = false; // Default for legacy calls
     }
     
     _loadGameDetails();
@@ -340,7 +343,7 @@ class _AvailableGameDetailsScreenState extends State<AvailableGameDetailsScreen>
                           ),
                         ),
                         Text(
-                          _getOfficialLocation(official['id'] as int),
+                          _formatOfficialLocation(official),
                           style: TextStyle(
                             fontSize: 14,
                             color: Colors.grey[400],
@@ -479,12 +482,12 @@ class _AvailableGameDetailsScreenState extends State<AvailableGameDetailsScreen>
         SizedBox(
           width: double.infinity,
           child: ElevatedButton.icon(
-            onPressed: _expressInterest,
-            icon: const Icon(Icons.add, size: 20),
-            label: const Text('Express Interest'),
+            onPressed: _hireAutomatically ? _claimGame : _expressInterest,
+            icon: Icon(_hireAutomatically ? Icons.check : Icons.add, size: 20),
+            label: Text(_hireAutomatically ? 'Claim' : 'Express Interest'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: efficialsYellow,
-              foregroundColor: Colors.black,
+              backgroundColor: _hireAutomatically ? Colors.green : efficialsYellow,
+              foregroundColor: _hireAutomatically ? Colors.white : Colors.black,
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -547,8 +550,83 @@ class _AvailableGameDetailsScreenState extends State<AvailableGameDetailsScreen>
     );
   }
 
+  void _claimGame() async {
+    if (assignment.gameId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Unable to claim game - missing information'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    final gameId = assignment.gameId!;
+    final feeAmount = assignment.feeAmount ?? 0.0;
+    
+    // Get current user and official info
+    final userSession = UserSessionService.instance;
+    final userId = await userSession.getCurrentUserId();
+    
+    if (userId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No user logged in'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+    
+    final official = await _officialRepo.getOfficialByOfficialUserId(userId);
+    
+    if (official?.id == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Official record not found'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+    
+    final officialId = official!.id!;
+    
+    // Show immediate feedback to user
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Claimed ${assignment.sportName} game'),
+        backgroundColor: Colors.green,
+      ),
+    );
+    
+    // Persist to database in the background
+    try {
+      final assignmentId = await _assignmentRepo.claimGame(gameId, officialId, feeAmount);
+      debugPrint('Successfully claimed game with assignment ID: $assignmentId');
+    } catch (e) {
+      debugPrint('Error claiming game: $e');
+      if (mounted) {
+        String errorMessage = 'Failed to claim game. Please try again.';
+        
+        // Provide specific error messages for common issues
+        if (e.toString().contains('No active crew found for this crew chief')) {
+          errorMessage = 'You must be part of an active crew to claim crew-hire games. Please contact your administrator to set up your crew.';
+        }
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMessage),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    }
+  }
+
   void _expressInterest() async {
-    if (assignment.officialId == null || assignment.gameId == null) {
+    if (assignment.gameId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Unable to express interest - missing information'),
@@ -559,8 +637,35 @@ class _AvailableGameDetailsScreenState extends State<AvailableGameDetailsScreen>
     }
 
     final gameId = assignment.gameId!;
-    final officialId = assignment.officialId!;
     final feeAmount = assignment.feeAmount ?? 0.0;
+    
+    // Get current user and official info
+    final userSession = UserSessionService.instance;
+    final userId = await userSession.getCurrentUserId();
+    
+    if (userId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No user logged in'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+    
+    final official = await _officialRepo.getOfficialByOfficialUserId(userId);
+    
+    if (official?.id == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Official record not found'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+    
+    final officialId = official!.id!;
     
     // Show immediate feedback to user
     ScaffoldMessenger.of(context).showSnackBar(
@@ -839,16 +944,18 @@ class _AvailableGameDetailsScreenState extends State<AvailableGameDetailsScreen>
     }
   }
 
-  String _getOfficialLocation(int officialId) {
-    // Generate consistent city, state based on official ID
-    final cities = [
-      'Chicago, IL', 'Springfield, IL', 'Peoria, IL', 'Rockford, IL', 
-      'Aurora, IL', 'Joliet, IL', 'Naperville, IL', 'Elgin, IL',
-      'Waukegan, IL', 'Cicero, IL', 'Champaign, IL', 'Bloomington, IL',
-      'Arlington Heights, IL', 'Evanston, IL', 'Decatur, IL'
-    ];
+  String _formatOfficialLocation(Map<String, dynamic> official) {
+    // Use actual location data from the database
+    final city = official['city'] as String?;
+    final state = official['state'] as String?;
     
-    return cities[officialId % cities.length];
+    if (city != null && state != null) {
+      return '$city, $state';
+    } else if (city != null) {
+      return '$city, IL'; // Default to IL if state is missing
+    } else {
+      return 'Location not available';
+    }
   }
 
   String _calculateDistance() {
@@ -869,7 +976,7 @@ class _AvailableGameDetailsScreenState extends State<AvailableGameDetailsScreen>
       'showCareerStats': false, // Default to false for privacy
       'email': 'Contact via platform', // Don't expose email directly
       'phone': 'Contact via platform', // Don't expose phone directly
-      'location': _getOfficialLocation(official['id'] as int),
+      'location': _formatOfficialLocation(official),
       'primarySport': 'N/A', // Default placeholder
       'certificationLevel': 'N/A', // Default placeholder
       'totalGames': 0, // Default placeholder

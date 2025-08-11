@@ -6,6 +6,7 @@ import 'dart:io';
 import '../../shared/theme.dart';
 import '../../shared/services/game_service.dart';
 import '../../shared/services/location_service.dart';
+import '../../shared/services/database_helper.dart';
 
 class BulkImportUploadScreen extends StatefulWidget {
   const BulkImportUploadScreen({super.key});
@@ -677,7 +678,7 @@ class _BulkImportUploadScreenState extends State<BulkImportUploadScreen> {
         debugPrint('Game data: $gameData');
         
         // Convert Multiple Lists Excel data to selectedLists format
-        _convertMultipleListsData(gameData);
+        await _convertMultipleListsData(gameData);
         
         try {
           final result = await _gameService.createGame(gameData);
@@ -1094,7 +1095,7 @@ class _BulkImportUploadScreenState extends State<BulkImportUploadScreen> {
   }
 
   /// Convert Multiple Lists Excel column data to selectedLists format expected by GameService
-  void _convertMultipleListsData(Map<String, dynamic> gameData) {
+  Future<void> _convertMultipleListsData(Map<String, dynamic> gameData) async {
     // Only process if method is Multiple Lists (advanced)
     if (gameData['method'] != 'advanced') {
       return;
@@ -1102,39 +1103,81 @@ class _BulkImportUploadScreenState extends State<BulkImportUploadScreen> {
 
     final selectedLists = <Map<String, dynamic>>[];
 
+    // Get sport ID for looking up lists
+    final sportName = gameData['sport'] as String?;
+    int? sportId;
+    if (sportName != null) {
+      final db = await DatabaseHelper().database;
+      final sportResults = await db.rawQuery(
+        'SELECT id FROM sports WHERE name = ? LIMIT 1',
+        [sportName]
+      );
+      if (sportResults.isNotEmpty) {
+        sportId = sportResults.first['id'] as int;
+      }
+    }
+
+    // Helper function to get list ID by name and sport
+    Future<int?> getListId(String listName) async {
+      if (sportId == null) return null;
+      
+      final db = await DatabaseHelper().database;
+      final results = await db.rawQuery(
+        'SELECT id FROM official_lists WHERE name = ? AND sport_id = ? LIMIT 1',
+        [listName, sportId]
+      );
+      
+      return results.isNotEmpty ? results.first['id'] as int : null;
+    }
+
     // Convert Officials List 1 data
     if (gameData['officialsList1'] != null && gameData['officialsList1'].toString().isNotEmpty) {
+      final listName = gameData['officialsList1'].toString();
+      final listId = await getListId(listName);
+      
       selectedLists.add({
-        'name': gameData['officialsList1'],
-        'listName': gameData['officialsList1'],
+        'id': listId,
+        'name': listName,
+        'listName': listName,
         'min': gameData['officialsList1Min'] ?? 0,
         'max': gameData['officialsList1Max'] ?? 1,
         'minOfficials': gameData['officialsList1Min'] ?? 0,
         'maxOfficials': gameData['officialsList1Max'] ?? 1,
+        'officials': [], // Will be populated by the database
       });
     }
 
     // Convert Officials List 2 data
     if (gameData['officialsList2'] != null && gameData['officialsList2'].toString().isNotEmpty) {
+      final listName = gameData['officialsList2'].toString();
+      final listId = await getListId(listName);
+      
       selectedLists.add({
-        'name': gameData['officialsList2'],
-        'listName': gameData['officialsList2'],
+        'id': listId,
+        'name': listName,
+        'listName': listName,
         'min': gameData['officialsList2Min'] ?? 0,
         'max': gameData['officialsList2Max'] ?? 1,
         'minOfficials': gameData['officialsList2Min'] ?? 0,
         'maxOfficials': gameData['officialsList2Max'] ?? 1,
+        'officials': [], // Will be populated by the database
       });
     }
 
     // Convert Officials List 3 data
     if (gameData['officialsList3'] != null && gameData['officialsList3'].toString().isNotEmpty) {
+      final listName = gameData['officialsList3'].toString();
+      final listId = await getListId(listName);
+      
       selectedLists.add({
-        'name': gameData['officialsList3'],
-        'listName': gameData['officialsList3'],
+        'id': listId,
+        'name': listName,
+        'listName': listName,
         'min': gameData['officialsList3Min'] ?? 0,
         'max': gameData['officialsList3Max'] ?? 1,
         'minOfficials': gameData['officialsList3Min'] ?? 0,
         'maxOfficials': gameData['officialsList3Max'] ?? 1,
+        'officials': [], // Will be populated by the database
       });
     }
 

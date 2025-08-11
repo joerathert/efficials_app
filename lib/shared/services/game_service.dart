@@ -294,17 +294,10 @@ class GameService {
       final gameId = await _gameRepository.createGame(game);
       final createdGame = await _gameRepository.getGameById(gameId);
 
-      // Store selectedLists data in SharedPreferences if it exists and method is advanced
+      // For advanced method, store Multiple Lists data in database tables
       if (gameData['method'] == 'advanced' &&
           gameData['selectedLists'] != null) {
-        final prefs = await SharedPreferences.getInstance();
-        final key = 'recent_advanced_selection_$gameId';
-        await prefs.setString(
-            key,
-            jsonEncode({
-              'selectedLists': gameData['selectedLists'],
-              'selectedOfficials': gameData['selectedOfficials'] ?? []
-            }));
+        await _storeMultipleListsInDatabase(gameId, gameData['selectedLists']);
       }
 
       return createdGame != null ? _gameToMap(createdGame) : null;
@@ -360,6 +353,15 @@ class GameService {
 
       await _gameRepository.updateGame(updatedGame);
       final updated = await _gameRepository.getGameById(gameId);
+
+      // For advanced method, update Multiple Lists data in database tables
+      if (gameData['method'] == 'advanced' &&
+          gameData['selectedLists'] != null) {
+        // Clear existing data first
+        await _clearGameMultipleListsData(gameId);
+        // Store new data
+        await _storeMultipleListsInDatabase(gameId, gameData['selectedLists']);
+      }
 
       return updated != null ? _gameToMap(updated) : null;
     } catch (e) {
@@ -430,7 +432,7 @@ class GameService {
         // Add selectedLists data for advanced method templates
         if (template.method == 'advanced') {
           templateMap['selectedLists'] =
-              await _getTemplateSelectedLists(template.id!);
+              await _getTemplateMultipleListsFromDatabase(template.id!);
         }
         templateMaps.add(templateMap);
       }
@@ -460,7 +462,7 @@ class GameService {
         // Add selectedLists data for advanced method templates
         if (template.method == 'advanced') {
           templateMap['selectedLists'] =
-              await _getTemplateSelectedLists(template.id!);
+              await _getTemplateMultipleListsFromDatabase(template.id!);
         }
         templateMaps.add(templateMap);
       }
@@ -547,10 +549,10 @@ class GameService {
 
       final templateId = await _templateRepository.createGameTemplate(template);
 
-      // Store selectedLists data separately if it exists
+      // Store selectedLists data in database if it exists
       if (templateData['selectedLists'] != null &&
           templateData['method'] == 'advanced') {
-        await _storeTemplateSelectedLists(
+        await _storeTemplateMultipleListsInDatabase(
             templateId, templateData['selectedLists']);
       }
 
@@ -756,8 +758,8 @@ class GameService {
         return null;
       }
 
-      // Get selectedLists data from SharedPreferences
-      final selectedLists = await _getTemplateSelectedLists(templateId);
+      // Get selectedLists data from database
+      final selectedLists = await _getTemplateMultipleListsFromDatabase(templateId);
 
       final gameData =
           await _templateRepository.createGameFromTemplate(template, userId);
@@ -1068,25 +1070,9 @@ class GameService {
             }
           }
         } else if (game.method == 'advanced') {
-          // For advanced method, try to reconstruct from the most recent creation
-          // Check SharedPreferences for recently used advanced selection data
-          final prefs = await SharedPreferences.getInstance();
-          final String? recentAdvancedData =
-              prefs.getString('recent_advanced_selection_${game.id}');
-          if (recentAdvancedData != null) {
-            try {
-              final data = jsonDecode(recentAdvancedData);
-              gameMap['selectedLists'] =
-                  List<Map<String, dynamic>>.from(data['selectedLists'] ?? []);
-              gameMap['selectedOfficials'] = List<Map<String, dynamic>>.from(
-                  data['selectedOfficials'] ?? []);
-            } catch (e) {
-              debugPrint('Error parsing recent advanced selection data: $e');
-              gameMap['selectedLists'] = [];
-            }
-          } else {
-            gameMap['selectedLists'] = [];
-          }
+          // For advanced method, load Multiple Lists data from database
+          gameMap['selectedLists'] = await _loadMultipleListsFromDatabase(game.id!);
+          gameMap['selectedOfficials'] = await _getAssignedOfficialsForGame(game.id!);
         } else if (game.method == 'hire_crew') {
           // For hire_crew method, try to reconstruct crew data
           final prefs = await SharedPreferences.getInstance();
@@ -1244,31 +1230,294 @@ class GameService {
     };
   }
 
-  // Store selectedLists data for a template
-  Future<void> _storeTemplateSelectedLists(
+  // Store Multiple Lists data for a template in database
+  Future<void> _storeTemplateMultipleListsInDatabase(
       int templateId, List<dynamic> selectedLists) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final key = 'template_selectedLists_$templateId';
-      await prefs.setString(key, jsonEncode(selectedLists));
+      // Use a special table for template list configurations
+      // We'll use negative game IDs for templates to reuse the same table structure
+      final templateGameId = -templateId; // Negative to distinguish from real games
+      
+      // Clear existing template data first
+      await _gameRepository.rawQuery(
+          'DELETE FROM game_list_quotas WHERE game_id = ?', [templateGameId]);
+      
+      // Store the template's list configurations
+      for (final listData in selectedLists) {
+        if (listData is Map<String, dynamic>) {
+          final listId = listData['id'] as int?;
+          final minOfficials = listData['minOfficials'] as int? ?? 0;
+          final maxOfficials = listData['maxOfficials'] as int? ?? 0;
+          
+          if (listId == null || listId <= 0) continue;
+          
+          await _gameRepository.rawQuery('''
+            INSERT INTO game_list_quotas 
+            (game_id, list_id, min_officials, max_officials, current_officials)
+            VALUES (?, ?, ?, ?, 0)
+          ''', [templateGameId, listId, minOfficials, maxOfficials]);
+        }
+      }
+      
+      debugPrint('✅ Stored Multiple Lists template data for template $templateId');
     } catch (e) {
-      debugPrint('Error storing template selectedLists: $e');
+      debugPrint('❌ Error storing template Multiple Lists: $e');
     }
   }
 
-  // Retrieve selectedLists data for a template
-  Future<List<Map<String, dynamic>>?> _getTemplateSelectedLists(
+  // Retrieve Multiple Lists data for a template from database
+  Future<List<Map<String, dynamic>>> _getTemplateMultipleListsFromDatabase(
       int templateId) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final key = 'template_selectedLists_$templateId';
-      final data = prefs.getString(key);
-      if (data != null) {
-        return List<Map<String, dynamic>>.from(jsonDecode(data));
+      final templateGameId = -templateId; // Negative to distinguish from real games
+      
+      final results = await _gameRepository.rawQuery('''
+        SELECT 
+          glq.list_id,
+          ol.name as list_name,
+          glq.min_officials as minOfficials,
+          glq.max_officials as maxOfficials
+        FROM game_list_quotas glq
+        JOIN official_lists ol ON glq.list_id = ol.id
+        WHERE glq.game_id = ?
+        ORDER BY ol.name ASC
+      ''', [templateGameId]);
+
+      final selectedLists = <Map<String, dynamic>>[];
+      
+      for (final row in results) {
+        final listId = row['list_id'] as int;
+        final listName = row['list_name'] as String;
+        final minOfficials = row['minOfficials'] as int? ?? 0;
+        final maxOfficials = row['maxOfficials'] as int? ?? 0;
+        
+        // Get all officials in this list (without game constraint for templates)
+        final officials = await _getAllOfficialsInList(listId);
+        
+        selectedLists.add({
+          'id': listId,
+          'name': listName,
+          'minOfficials': minOfficials,
+          'maxOfficials': maxOfficials,
+          'officials': officials,
+        });
       }
+      
+      return selectedLists;
+      
     } catch (e) {
-      debugPrint('Error retrieving template selectedLists: $e');
+      debugPrint('❌ Error retrieving template Multiple Lists: $e');
+      return [];
     }
-    return null;
+  }
+
+  // Get all officials in a list (for templates)
+  Future<List<Map<String, dynamic>>> _getAllOfficialsInList(int listId) async {
+    try {
+      final results = await _gameRepository.rawQuery('''
+        SELECT DISTINCT
+          o.id,
+          o.name,
+          o.email,
+          o.phone,
+          o.city,
+          o.state
+        FROM official_list_members olm
+        JOIN officials o ON olm.official_id = o.id
+        WHERE olm.list_id = ?
+        ORDER BY o.name ASC
+      ''', [listId]);
+
+      return results.map((row) => {
+        'id': row['id'] as int,
+        'name': row['name'] as String,
+        'email': row['email'] as String?,
+        'phone': row['phone'] as String?,
+        'city': row['city'] as String?,
+        'state': row['state'] as String?,
+      }).toList();
+      
+    } catch (e) {
+      debugPrint('❌ Error getting all officials in list $listId: $e');
+      return [];
+    }
+  }
+
+  // Store Multiple Lists data in database tables (replaces SharedPreferences approach)
+  Future<void> _storeMultipleListsInDatabase(int gameId, List<dynamic> selectedLists) async {
+    try {
+      debugPrint('💾 Storing Multiple Lists data in database for game $gameId');
+      
+      for (final listData in selectedLists) {
+        if (listData is Map<String, dynamic>) {
+          final listId = listData['id'] as int?;
+          final minOfficials = listData['minOfficials'] as int? ?? 0;
+          final maxOfficials = listData['maxOfficials'] as int? ?? 0;
+          final officials = listData['officials'] as List<dynamic>? ?? [];
+          
+          if (listId == null || listId <= 0) {
+            debugPrint('⚠️  Skipping invalid list ID: $listId');
+            continue;
+          }
+          
+          // 1. Store game list quota
+          await _gameRepository.rawQuery('''
+            INSERT OR REPLACE INTO game_list_quotas 
+            (game_id, list_id, min_officials, max_officials, current_officials)
+            VALUES (?, ?, ?, ?, 0)
+          ''', [gameId, listId, minOfficials, maxOfficials]);
+          
+          debugPrint('✅ Stored quota for list $listId: min=$minOfficials, max=$maxOfficials');
+          
+          // 2. Ensure officials are in the official_list_members table
+          for (final official in officials) {
+            if (official is Map<String, dynamic>) {
+              final officialId = official['id'] as int?;
+              
+              if (officialId == null || officialId <= 0) {
+                continue;
+              }
+              
+              // Add official to list if not already there
+              await _gameRepository.rawQuery('''
+                INSERT OR IGNORE INTO official_list_members (official_id, list_id)
+                VALUES (?, ?)
+              ''', [officialId, listId]);
+            }
+          }
+          
+          debugPrint('✅ Ensured ${officials.length} officials are in list $listId');
+        }
+      }
+      
+      debugPrint('🎉 Multiple Lists database storage completed for game $gameId');
+      
+    } catch (e) {
+      debugPrint('❌ Error storing Multiple Lists in database: $e');
+      rethrow;
+    }
+  }
+
+  // Clear existing Multiple Lists data for a game
+  Future<void> _clearGameMultipleListsData(int gameId) async {
+    try {
+      await _gameRepository.rawQuery('DELETE FROM game_list_quotas WHERE game_id = ?', [gameId]);
+      debugPrint('🗑️ Cleared existing Multiple Lists data for game $gameId');
+    } catch (e) {
+      debugPrint('❌ Error clearing Multiple Lists data: $e');
+      rethrow;
+    }
+  }
+
+  // Load Multiple Lists data from database (replaces SharedPreferences approach)
+  Future<List<Map<String, dynamic>>> _loadMultipleListsFromDatabase(int gameId) async {
+    try {
+      final results = await _gameRepository.rawQuery('''
+        SELECT 
+          glq.list_id,
+          ol.name as list_name,
+          glq.min_officials as minOfficials,
+          glq.max_officials as maxOfficials,
+          glq.current_officials
+        FROM game_list_quotas glq
+        JOIN official_lists ol ON glq.list_id = ol.id
+        WHERE glq.game_id = ?
+        ORDER BY ol.name ASC
+      ''', [gameId]);
+
+      final selectedLists = <Map<String, dynamic>>[];
+      
+      for (final row in results) {
+        final listId = row['list_id'] as int;
+        final listName = row['list_name'] as String;
+        final minOfficials = row['minOfficials'] as int? ?? 0;
+        final maxOfficials = row['maxOfficials'] as int? ?? 0;
+        
+        // Get officials in this list for this game's sport
+        final officials = await _getOfficialsInList(listId, gameId);
+        
+        selectedLists.add({
+          'id': listId,
+          'name': listName,
+          'minOfficials': minOfficials,
+          'maxOfficials': maxOfficials,
+          'officials': officials,
+        });
+      }
+      
+      return selectedLists;
+      
+    } catch (e) {
+      debugPrint('❌ Error loading Multiple Lists from database: $e');
+      return [];
+    }
+  }
+
+  // Get officials in a specific list for a game's sport
+  Future<List<Map<String, dynamic>>> _getOfficialsInList(int listId, int gameId) async {
+    try {
+      final results = await _gameRepository.rawQuery('''
+        SELECT DISTINCT
+          o.id,
+          o.name,
+          o.email,
+          o.phone,
+          o.city,
+          o.state
+        FROM official_list_members olm
+        JOIN officials o ON olm.official_id = o.id
+        JOIN official_lists ol ON olm.list_id = ol.id
+        JOIN games g ON ol.sport_id = g.sport_id
+        WHERE olm.list_id = ? AND g.id = ?
+        ORDER BY o.name ASC
+      ''', [listId, gameId]);
+
+      return results.map((row) => {
+        'id': row['id'] as int,
+        'name': row['name'] as String,
+        'email': row['email'] as String?,
+        'phone': row['phone'] as String?,
+        'city': row['city'] as String?,
+        'state': row['state'] as String?,
+      }).toList();
+      
+    } catch (e) {
+      debugPrint('❌ Error getting officials in list $listId: $e');
+      return [];
+    }
+  }
+
+  // Get assigned officials for a game
+  Future<List<Map<String, dynamic>>> _getAssignedOfficialsForGame(int gameId) async {
+    try {
+      final results = await _gameRepository.rawQuery('''
+        SELECT 
+          o.id,
+          o.name,
+          o.email,
+          o.phone,
+          o.city,
+          o.state,
+          ga.status as assignment_status
+        FROM game_assignments ga
+        JOIN officials o ON ga.official_id = o.id
+        WHERE ga.game_id = ?
+        ORDER BY o.name ASC
+      ''', [gameId]);
+
+      return results.map((row) => {
+        'id': row['id'] as int,
+        'name': row['name'] as String,
+        'email': row['email'] as String?,
+        'phone': row['phone'] as String?,
+        'city': row['city'] as String?,
+        'state': row['state'] as String?,
+        'status': row['assignment_status'] as String?,
+      }).toList();
+      
+    } catch (e) {
+      debugPrint('❌ Error getting assigned officials for game $gameId: $e');
+      return [];
+    }
   }
 }

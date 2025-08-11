@@ -693,6 +693,7 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
               'last_name': game['last_name'],
               'user_id': game['user_id'],
             },
+            'hireAutomatically': game['hire_automatically'] == 1,
           },
         );
       },

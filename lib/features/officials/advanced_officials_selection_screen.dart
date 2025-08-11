@@ -32,6 +32,11 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
     lists = [
       {'name': 'No saved lists', 'id': -1},
     ];
+    // Initialize with 2 empty list slots
+    selectedLists = [
+      {'name': null, 'id': null, 'officials': [], 'minOfficials': null, 'maxOfficials': null},
+      {'name': null, 'id': null, 'officials': [], 'minOfficials': null, 'maxOfficials': null},
+    ];
     _fetchLists();
   }
 
@@ -113,13 +118,27 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
     }
   }
 
-  void _addList(String listName) {
+  void _setListForSlot(int slotIndex, String listName) {
     final selectedList = lists.firstWhere((l) => l['name'] == listName);
     setState(() {
-      selectedLists.add({
+      selectedLists[slotIndex] = {
         'name': listName,
         'id': selectedList['id'],
         'officials': selectedList['officials'] ?? [],
+        'minOfficials': selectedLists[slotIndex]['minOfficials'],
+        'maxOfficials': selectedLists[slotIndex]['maxOfficials'],
+      };
+    });
+  }
+
+  void _addThirdListSlot() {
+    setState(() {
+      selectedLists.add({
+        'name': null,
+        'id': null,
+        'officials': [],
+        'minOfficials': null,
+        'maxOfficials': null,
       });
     });
   }
@@ -317,25 +336,28 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
     final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
     final requiredOfficials = int.tryParse(args['officialsRequired'].toString()) ?? 0;
 
-    if (selectedLists.length < 2) {
+    // Filter out only the configured lists (those with names selected)
+    final configuredLists = selectedLists.where((list) => list['name'] != null && list['name'] != '').toList();
+
+    if (configuredLists.length < 2) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select at least two lists for the advanced method')),
       );
       return;
     }
 
-    // Check that min/max are set for all lists
-    for (var list in selectedLists) {
+    // Check that min/max are set for all configured lists
+    for (var list in configuredLists) {
       if (list['minOfficials'] == null || list['maxOfficials'] == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please set minimum and maximum officials for all lists')),
+          const SnackBar(content: Text('Please set minimum and maximum officials for all selected lists')),
         );
         return;
       }
     }
 
-    int totalMin = selectedLists.fold(0, (sum, list) => sum + (list['minOfficials'] as int));
-    int totalMax = selectedLists.fold(0, (sum, list) => sum + (list['maxOfficials'] as int));
+    int totalMin = configuredLists.fold(0, (sum, list) => sum + (list['minOfficials'] as int));
+    int totalMax = configuredLists.fold(0, (sum, list) => sum + (list['maxOfficials'] as int));
 
     if (totalMin > requiredOfficials || totalMax < requiredOfficials) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -345,7 +367,7 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
     }
 
     List<Map<String, dynamic>> selectedOfficials = [];
-    for (var list in selectedLists) {
+    for (var list in configuredLists) {
       final officials = (list['officials'] as List<dynamic>?)?.cast<Map<String, dynamic>>() ?? [];
       selectedOfficials.addAll(officials);
     }
@@ -354,7 +376,7 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
       ...args,
       'selectedOfficials': selectedOfficials,
       'method': 'advanced',
-      'selectedLists': selectedLists.map((list) => {
+      'selectedLists': configuredLists.map((list) => {
         'name': list['name'],
         'id': list['id'],
         'minOfficials': list['minOfficials'],
@@ -383,7 +405,7 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
     } else if (isFromTemplateCreation) {
       // Return to template creation screen with the advanced configuration data
       Navigator.pop(context, {
-        'selectedLists': selectedLists.map((list) => {
+        'selectedLists': configuredLists.map((list) => {
           'name': list['name'],
           'id': list['id'],
           'minOfficials': list['minOfficials'],
@@ -556,42 +578,8 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
                     children: [
                       if (isLoading)
                         const Center(child: CircularProgressIndicator())
-                      else if (selectedLists.isEmpty) ...[
-                        Container(
-                          decoration: BoxDecoration(
-                            color: darkSurface,
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.3),
-                                spreadRadius: 1,
-                                blurRadius: 3,
-                                offset: const Offset(0, 1),
-                              ),
-                            ],
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: DropdownButtonFormField<String>(
-                              decoration: textFieldDecoration('Select First List'),
-                              dropdownColor: darkSurface,
-                              style: const TextStyle(color: primaryTextColor),
-                              value: null,
-                              onChanged: (newValue) {
-                                if (newValue != null) {
-                                  if (newValue == '+ Create new list') {
-                                    _navigateToCreateNewList();
-                                  } else if (newValue != 'No saved lists' && !selectedLists.any((l) => l['name'] == newValue)) {
-                                    _addList(newValue);
-                                  }
-                                }
-                              },
-                              items: dropdownItems,
-                            ),
-                          ),
-                        ),
-                      ],
-                      ...selectedLists.asMap().entries.map((entry) {
+                      else
+                        ...selectedLists.asMap().entries.map((entry) {
                         final index = entry.key;
                         final list = entry.value;
                         return Padding(
@@ -617,170 +605,101 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
                                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                     children: [
                                       Text(
-                                        list['name'] as String,
+                                        'List ${index + 1}',
                                         style: const TextStyle(
                                           fontSize: 18,
                                           fontWeight: FontWeight.bold,
-                                          color: primaryTextColor,
+                                          color: efficialsYellow,
                                         ),
                                       ),
-                                      IconButton(
-                                        icon: Icon(
-                                          Icons.delete_outline,
-                                          color: Colors.red.shade600,
+                                      if (selectedLists.length > 2)
+                                        IconButton(
+                                          icon: Icon(
+                                            Icons.delete_outline,
+                                            color: Colors.red.shade600,
+                                          ),
+                                          onPressed: () => _removeList(index),
                                         ),
-                                        onPressed: () => _removeList(index),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 10),
+                                  DropdownButtonFormField<String>(
+                                    decoration: textFieldDecoration('Select Officials List'),
+                                    dropdownColor: darkSurface,
+                                    style: const TextStyle(color: primaryTextColor),
+                                    value: list['name'],
+                                    onChanged: (newValue) {
+                                      if (newValue != null) {
+                                        if (newValue == '+ Create new list') {
+                                          _navigateToCreateNewList();
+                                        } else if (newValue != 'No saved lists') {
+                                          _setListForSlot(index, newValue);
+                                        }
+                                      }
+                                    },
+                                    items: dropdownItems,
+                                  ),
+                                  const SizedBox(height: 10),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: TextField(
+                                          decoration: textFieldDecoration('Min. Officials'),
+                                          keyboardType: TextInputType.number,
+                                          style: const TextStyle(color: primaryTextColor),
+                                          controller: TextEditingController(
+                                            text: list['minOfficials']?.toString() ?? '',
+                                          ),
+                                          onChanged: (value) => _updateMinOfficials(index, value),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: TextField(
+                                          decoration: textFieldDecoration('Max. Officials'),
+                                          keyboardType: TextInputType.number,
+                                          style: const TextStyle(color: primaryTextColor),
+                                          controller: TextEditingController(
+                                            text: list['maxOfficials']?.toString() ?? '',
+                                          ),
+                                          onChanged: (value) => _updateMaxOfficials(index, value),
+                                        ),
                                       ),
                                     ],
                                   ),
                                   const SizedBox(height: 10),
-                                  TextField(
-                                    decoration: textFieldDecoration('Minimum Officials'),
-                                    keyboardType: TextInputType.number,
-                                    style: const TextStyle(color: primaryTextColor),
-                                    controller: TextEditingController(
-                                      text: list['minOfficials']?.toString() ?? '',
-                                    ),
-                                    onChanged: (value) => _updateMinOfficials(index, value),
-                                  ),
-                                  const SizedBox(height: 10),
-                                  TextField(
-                                    decoration: textFieldDecoration('Maximum Officials'),
-                                    keyboardType: TextInputType.number,
-                                    style: const TextStyle(color: primaryTextColor),
-                                    controller: TextEditingController(
-                                      text: list['maxOfficials']?.toString() ?? '',
-                                    ),
-                                    onChanged: (value) => _updateMaxOfficials(index, value),
-                                  ),
-                                  const SizedBox(height: 10),
-                                  ElevatedButton.icon(
-                                    onPressed: () => _showListOfficials(index),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: efficialsYellow,
-                                      foregroundColor: efficialsBlack,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(8),
+                                  if (list['name'] != null && list['name'] != '')
+                                    ElevatedButton.icon(
+                                      onPressed: () => _showListOfficials(index),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: efficialsYellow,
+                                        foregroundColor: efficialsBlack,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                      ),
+                                      icon: const Icon(Icons.people, color: efficialsBlack),
+                                      label: Text(
+                                        'View Officials (${(list['officials'] as List?)?.length ?? 0})',
+                                        style: const TextStyle(
+                                          color: efficialsBlack,
+                                          fontWeight: FontWeight.bold,
+                                        ),
                                       ),
                                     ),
-                                    icon: const Icon(Icons.people, color: efficialsBlack),
-                                    label: Text(
-                                      'View Officials (${(list['officials'] as List?)?.length ?? 0})',
-                                      style: const TextStyle(
-                                        color: efficialsBlack,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
                                 ],
                               ),
                             ),
                           ),
                         );
                       }),
-                      if (selectedLists.isNotEmpty) ...[
+                      if (selectedLists.length < 3) ...[
                         const SizedBox(height: 20),
                         Center(
                           child: Container(
                             width: 250,
                             child: ElevatedButton.icon(
-                              onPressed: () {
-                                String? selectedValue;
-                                showDialog(
-                                  context: context,
-                                  builder: (context) => StatefulBuilder(
-                                    builder: (context, setDialogState) => AlertDialog(
-                                      backgroundColor: darkSurface,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                        side: const BorderSide(
-                                          color: efficialsYellow,
-                                          width: 2,
-                                        ),
-                                      ),
-                                      title: const Text(
-                                        'Add Another List',
-                                        style: TextStyle(
-                                          color: primaryTextColor,
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      content: Container(
-                                        decoration: BoxDecoration(
-                                          color: darkBackground,
-                                          borderRadius: BorderRadius.circular(8),
-                                          border: Border.all(
-                                            color: efficialsYellow.withOpacity(0.3),
-                                            width: 1,
-                                          ),
-                                        ),
-                                        child: Padding(
-                                          padding: const EdgeInsets.all(12),
-                                          child: DropdownButtonFormField<String>(
-                                            decoration: textFieldDecoration('Select List'),
-                                            dropdownColor: darkSurface,
-                                            style: const TextStyle(color: primaryTextColor),
-                                            value: selectedValue,
-                                            onChanged: (newValue) {
-                                              if (newValue == '+ Create new list') {
-                                                Navigator.pop(context); // Close dialog first
-                                                _navigateToCreateNewList();
-                                              } else {
-                                                setDialogState(() {
-                                                  selectedValue = newValue;
-                                                });
-                                              }
-                                            },
-                                            items: dropdownItems,
-                                          ),
-                                        ),
-                                      ),
-                                      actions: [
-                                        TextButton(
-                                          onPressed: () => Navigator.pop(context),
-                                          style: TextButton.styleFrom(
-                                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                          ),
-                                          child: const Text(
-                                            'Cancel',
-                                            style: TextStyle(
-                                              color: secondaryTextColor,
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                        ),
-                                        ElevatedButton(
-                                          onPressed: selectedValue != null && 
-                                                    selectedValue != 'No saved lists' && 
-                                                    !selectedLists.any((l) => l['name'] == selectedValue)
-                                              ? () {
-                                                  _addList(selectedValue!);
-                                                  Navigator.pop(context);
-                                                }
-                                              : null,
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: efficialsYellow,
-                                            foregroundColor: efficialsBlack,
-                                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius: BorderRadius.circular(8),
-                                            ),
-                                          ),
-                                          child: const Text(
-                                            'Add List',
-                                            style: TextStyle(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                );
-                              },
+                              onPressed: _addThirdListSlot,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: efficialsYellow,
                                 foregroundColor: efficialsBlack,
@@ -807,9 +726,17 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
                         child: Container(
                           width: 250,
                           child: ElevatedButton(
-                            onPressed: selectedLists.length >= 2 ? _handleContinue : null,
+                            onPressed: () {
+                              final configuredCount = selectedLists.where((list) => list['name'] != null && list['name'] != '').length;
+                              if (configuredCount >= 2) {
+                                _handleContinue();
+                              }
+                            },
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: selectedLists.length >= 2 ? efficialsYellow : efficialsGray,
+                              backgroundColor: () {
+                                final configuredCount = selectedLists.where((list) => list['name'] != null && list['name'] != '').length;
+                                return configuredCount >= 2 ? efficialsYellow : efficialsGray;
+                              }(),
                               foregroundColor: efficialsBlack,
                               padding: const EdgeInsets.symmetric(
                                   vertical: 15, horizontal: 32),

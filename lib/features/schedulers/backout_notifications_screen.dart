@@ -309,7 +309,7 @@ class _BackoutNotificationsScreenState extends State<BackoutNotificationsScreen>
       actions: [
         Expanded(
           child: OutlinedButton.icon(
-            onPressed: () => _showExcuseDialog(notification),
+            onPressed: () => _excuseOfficial(notification, 'Excused by scheduler'),
             icon: const Icon(Icons.check_circle_outline, size: 18),
             label: const Text('Excuse Official'),
             style: OutlinedButton.styleFrom(
@@ -432,7 +432,7 @@ class _BackoutNotificationsScreenState extends State<BackoutNotificationsScreen>
       actions: [
         Expanded(
           child: OutlinedButton.icon(
-            onPressed: () => _showExcuseDialog(notification),
+            onPressed: () => _excuseOfficial(notification, 'Excused by scheduler'),
             icon: const Icon(Icons.check_circle_outline, size: 18),
             label: const Text('Excuse Crew'),
             style: OutlinedButton.styleFrom(
@@ -817,108 +817,9 @@ class _BackoutNotificationsScreenState extends State<BackoutNotificationsScreen>
     );
   }
 
-  void _showExcuseDialog(models.Notification notification) {
-    final TextEditingController reasonController = TextEditingController();
-    final data = notification.data ?? {};
-    final officialName = data['official_name'] ?? 'Unknown Official';
-
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: darkSurface,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: Row(
-            children: [
-              Icon(Icons.check_circle, color: Colors.green, size: 24),
-              const SizedBox(width: 8),
-              const Text(
-                'Excuse Official',
-                style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold),
-              ),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'You are about to excuse $officialName for backing out of this game. This will not negatively impact their follow-through rate.',
-                style: TextStyle(color: Colors.grey[300], fontSize: 16),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Reason for excuse (optional):',
-                style: TextStyle(
-                  color: Colors.grey[300],
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: reasonController,
-                maxLines: 3,
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  hintText: 'e.g., Emergency, illness, family matter...',
-                  hintStyle: TextStyle(color: Colors.grey[500]),
-                  filled: true,
-                  fillColor: Colors.black.withOpacity(0.3),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(color: Colors.grey[600]!),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(color: Colors.grey[600]!),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Colors.green),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            OutlinedButton(
-              onPressed: () => Navigator.pop(context),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.grey[400],
-                side: BorderSide(color: Colors.grey[600]!),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              ),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-                _excuseOfficial(notification, reasonController.text.trim());
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              ),
-              child: const Text('Excuse Official'),
-            ),
-          ],
-        );
-      },
-    );
-  }
 
   Future<void> _excuseOfficial(models.Notification notification, String reason) async {
     try {
-      final excuseReason = reason.isEmpty ? 'Excused by scheduler' : reason;
       final data = notification.data ?? {};
       final officialName = data['official_name'] ?? 'Unknown Official';
       

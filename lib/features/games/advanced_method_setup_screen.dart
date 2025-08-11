@@ -18,13 +18,14 @@ class _AdvancedMethodSetupScreenState extends State<AdvancedMethodSetupScreen> {
   final AdvancedMethodRepository _advancedRepo = AdvancedMethodRepository();
   
   List<Map<String, dynamic>> availableLists = [];
-  List<QuotaSetup> quotaSetups = [];
+  List<Map<String, dynamic>> selectedMultipleLists = [];
   bool _isLoading = true;
   bool _isSaving = false;
   
   int? gameId;
   String? sportName;
   int? currentUserId;
+  int officialsRequired = 0;
 
   @override
   void didChangeDependencies() {
@@ -49,6 +50,15 @@ class _AdvancedMethodSetupScreenState extends State<AdvancedMethodSetupScreen> {
       
       if (currentUserId == null) return;
 
+      // Get game info to fetch officials required
+      final gameResults = await _advancedRepo.rawQuery('''
+        SELECT officials_required FROM games WHERE id = ?
+      ''', [gameId!]);
+      
+      if (gameResults.isNotEmpty) {
+        officialsRequired = gameResults.first['officials_required'] as int? ?? 0;
+      }
+
       // Get available lists for this sport
       final listsCount = await _officialRepo.getListsCountBySport(currentUserId!, sportName ?? '');
       
@@ -71,21 +81,25 @@ class _AdvancedMethodSetupScreenState extends State<AdvancedMethodSetupScreen> {
       final existingQuotas = await _advancedRepo.getGameListQuotas(gameId!);
       
       if (existingQuotas.isNotEmpty) {
-        // Convert existing quotas to setup objects
-        quotaSetups = existingQuotas.map((quota) => QuotaSetup(
-          listId: quota.listId,
-          listName: quota.listName ?? 'Unknown List',
-          minOfficials: quota.minOfficials,
-          maxOfficials: quota.maxOfficials,
-        )).toList();
+        // Convert existing quotas to selectedMultipleLists format
+        selectedMultipleLists = existingQuotas.map((quota) {
+          final listName = availableLists.firstWhere(
+            (list) => list['id'] == quota.listId,
+            orElse: () => {'name': 'Unknown List'},
+          )['name'] as String;
+          
+          return {
+            'list': listName,
+            'min': quota.minOfficials,
+            'max': quota.maxOfficials,
+          };
+        }).toList();
       } else {
-        // Initialize with available lists
-        quotaSetups = availableLists.map((list) => QuotaSetup(
-          listId: list['id'] as int,
-          listName: list['name'] as String,
-          minOfficials: 0,
-          maxOfficials: 0,
-        )).toList();
+        // Initialize with 2 empty list slots by default
+        selectedMultipleLists = [
+          {'list': null, 'min': 0, 'max': 1},
+          {'list': null, 'min': 0, 'max': 1},
+        ];
       }
 
       setState(() => _isLoading = false);
@@ -111,12 +125,27 @@ class _AdvancedMethodSetupScreenState extends State<AdvancedMethodSetupScreen> {
     try {
       setState(() => _isSaving = true);
 
-      // Convert quota setups to database format
-      final quotas = quotaSetups.map((setup) => {
-        'listId': setup.listId,
-        'minOfficials': setup.minOfficials,
-        'maxOfficials': setup.maxOfficials,
-      }).toList();
+      // Convert selectedMultipleLists to database format
+      final quotas = <Map<String, dynamic>>[];
+      
+      for (final listConfig in selectedMultipleLists) {
+        final listName = listConfig['list'] as String?;
+        if (listName != null && listName.isNotEmpty) {
+          // Find the list ID from availableLists
+          final listData = availableLists.firstWhere(
+            (list) => list['name'] == listName,
+            orElse: () => <String, dynamic>{},
+          );
+          
+          if (listData.isNotEmpty) {
+            quotas.add({
+              'listId': listData['id'],
+              'minOfficials': listConfig['min'] as int,
+              'maxOfficials': listConfig['max'] as int,
+            });
+          }
+        }
+      }
 
       // Save quotas
       await _advancedRepo.setGameListQuotas(gameId!, quotas);
@@ -150,27 +179,40 @@ class _AdvancedMethodSetupScreenState extends State<AdvancedMethodSetupScreen> {
   }
 
   String? _validateQuotas() {
-    if (quotaSetups.isEmpty) {
+    if (availableLists.isEmpty) {
       return 'No official lists available. Please create official lists first.';
     }
 
     int totalMin = 0;
     int totalMax = 0;
+    int configuredListsCount = 0;
 
-    for (final quota in quotaSetups) {
-      if (quota.minOfficials < 0) {
-        return 'Minimum officials cannot be negative for ${quota.listName}';
-      }
+    for (final listConfig in selectedMultipleLists) {
+      final listName = listConfig['list'] as String?;
+      final min = listConfig['min'] as int;
+      final max = listConfig['max'] as int;
       
-      if (quota.maxOfficials < quota.minOfficials) {
-        return 'Maximum cannot be less than minimum for ${quota.listName}';
-      }
+      if (listName != null && listName.isNotEmpty) {
+        configuredListsCount++;
+        
+        if (min < 0) {
+          return 'Minimum officials cannot be negative for $listName';
+        }
+        
+        if (max < min) {
+          return 'Maximum cannot be less than minimum for $listName';
+        }
 
-      // Only count if this quota is actually used (max > 0)
-      if (quota.maxOfficials > 0) {
-        totalMin += quota.minOfficials;
-        totalMax += quota.maxOfficials;
+        // Only count if this quota is actually used (max > 0)
+        if (max > 0) {
+          totalMin += min;
+          totalMax += max;
+        }
       }
+    }
+
+    if (configuredListsCount == 0) {
+      return 'Please select at least one officials list';
     }
 
     if (totalMax == 0) {
@@ -204,29 +246,69 @@ class _AdvancedMethodSetupScreenState extends State<AdvancedMethodSetupScreen> {
         backgroundColor: efficialsBlack,
         title: const Text(
           'Advanced Method Setup',
-          style: TextStyle(color: efficialsWhite),
+          style: TextStyle(color: efficialsYellow, fontSize: 18),
         ),
+        elevation: 0,
+        centerTitle: true,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: efficialsWhite),
           onPressed: () => Navigator.pop(context),
         ),
-        actions: [
-          if (!_isLoading && !_isSaving)
-            TextButton(
-              onPressed: _saveQuotas,
-              child: const Text(
-                'Save',
-                style: TextStyle(
-                  color: efficialsYellow,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-        ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator(color: efficialsYellow))
           : _buildContent(),
+      bottomNavigationBar: _isLoading
+          ? null
+          : Container(
+              color: efficialsBlack,
+              padding: EdgeInsets.only(
+                left: 20,
+                right: 20,
+                top: 16,
+                bottom: MediaQuery.of(context).padding.bottom + 16,
+              ),
+              child: ElevatedButton(
+                onPressed: _isSaving ? null : _saveQuotas,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: efficialsYellow,
+                  foregroundColor: efficialsBlack,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: _isSaving
+                    ? const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(efficialsBlack),
+                            ),
+                          ),
+                          SizedBox(width: 8),
+                          Text(
+                            'Saving...',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      )
+                    : const Text(
+                        'Save Advanced Method Setup',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+              ),
+            ),
     );
   }
 
@@ -235,19 +317,19 @@ class _AdvancedMethodSetupScreenState extends State<AdvancedMethodSetupScreen> {
       return _buildNoListsMessage();
     }
 
-    return Column(
-      children: [
-        _buildHeader(),
-        Expanded(
-          child: ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: quotaSetups.length,
-            itemBuilder: (context, index) => _buildQuotaCard(quotaSetups[index]),
-          ),
-        ),
-        _buildSummary(),
-        _buildSaveButton(),
-      ],
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildHeader(),
+          const SizedBox(height: 20),
+          _buildMultipleListsConfiguration(),
+          const SizedBox(height: 20),
+          _buildSummary(),
+          const SizedBox(height: 100), // Bottom padding for navigation bar
+        ],
+      ),
     );
   }
 
@@ -305,213 +387,287 @@ class _AdvancedMethodSetupScreenState extends State<AdvancedMethodSetupScreen> {
   }
 
   Widget _buildHeader() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Advanced Method Setup',
+          style: const TextStyle(
+            fontSize: 28,
+            fontWeight: FontWeight.bold,
+            color: efficialsYellow,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Configure minimum and maximum officials from each list. This ensures proper experience distribution.',
+          style: const TextStyle(
+            fontSize: 16,
+            color: Colors.white70,
+          ),
+        ),
+        const SizedBox(height: 20),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: efficialsYellow.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: efficialsYellow.withOpacity(0.3)),
+          ),
+          child: Row(
+            children: [
+              const Icon(
+                Icons.people,
+                color: efficialsYellow,
+                size: 24,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Total Officials Required',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: efficialsYellow,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '$officialsRequired officials needed for this $sportName game',
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.9),
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMultipleListsConfiguration() {
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      color: darkSurface,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey.withOpacity(0.3)),
+        borderRadius: BorderRadius.circular(8),
+      ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Set Quotas for $sportName Game',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: primaryTextColor,
-            ),
+          // Header row with title and + button
+          Row(
+            children: [
+              const Text(
+                'Configure Multiple Lists',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const Spacer(),
+              if (selectedMultipleLists.length < 3)
+                IconButton(
+                  onPressed: () {
+                    setState(() {
+                      selectedMultipleLists.add({'list': null, 'min': 0, 'max': 1});
+                    });
+                  },
+                  icon: const Icon(Icons.add_circle, color: efficialsYellow),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // List items
+          ...selectedMultipleLists.asMap().entries.map((entry) {
+            final listIndex = entry.key;
+            final listConfig = entry.value;
+            return _buildMultipleListItem(listIndex, listConfig);
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMultipleListItem(int listIndex, Map<String, dynamic> listConfig) {
+    final validLists = availableLists.where((list) => list['name'] != null && list['name'] != 'No saved lists' && list['name'] != '+ Create new list').toList();
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: darkSurface,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Text(
+                'List ${listIndex + 1}',
+                style: const TextStyle(
+                  color: efficialsYellow,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const Spacer(),
+              if (selectedMultipleLists.length > 2)
+                IconButton(
+                  onPressed: () {
+                    setState(() {
+                      selectedMultipleLists.removeAt(listIndex);
+                    });
+                  },
+                  icon: const Icon(Icons.remove_circle, color: Colors.red, size: 20),
+                ),
+            ],
           ),
           const SizedBox(height: 8),
-          Text(
-            'Configure minimum and maximum officials from each list. This ensures proper experience distribution.',
-            style: TextStyle(
-              fontSize: 14,
-              color: secondaryTextColor,
-            ),
+          // List selection dropdown
+          DropdownButtonFormField<String>(
+            decoration: _textFieldDecoration('Select Officials List'),
+            value: listConfig['list'],
+            style: const TextStyle(color: Colors.white, fontSize: 14),
+            dropdownColor: darkSurface,
+            onChanged: (value) {
+              setState(() {
+                listConfig['list'] = value;
+              });
+            },
+            items: validLists.map((list) {
+              return DropdownMenuItem(
+                value: list['name'] as String,
+                child: Text(
+                  list['name'] as String,
+                  style: const TextStyle(color: Colors.white),
+                ),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 8),
+          // Min/Max configuration
+          Row(
+            children: [
+              Expanded(
+                child: DropdownButtonFormField<int>(
+                  decoration: _textFieldDecoration('Min'),
+                  value: listConfig['min'],
+                  style: const TextStyle(color: Colors.white, fontSize: 14),
+                  dropdownColor: darkSurface,
+                  onChanged: (value) {
+                    setState(() {
+                      listConfig['min'] = value;
+                    });
+                  },
+                  items: List.generate(10, (i) => i).map((num) {
+                    return DropdownMenuItem(
+                      value: num,
+                      child: Text(
+                        num.toString(),
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: DropdownButtonFormField<int>(
+                  decoration: _textFieldDecoration('Max'),
+                  value: listConfig['max'],
+                  style: const TextStyle(color: Colors.white, fontSize: 14),
+                  dropdownColor: darkSurface,
+                  onChanged: (value) {
+                    setState(() {
+                      listConfig['max'] = value;
+                    });
+                  },
+                  items: List.generate(10, (i) => i + 1).map((num) {
+                    return DropdownMenuItem(
+                      value: num,
+                      child: Text(
+                        num.toString(),
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _buildQuotaCard(QuotaSetup quota) {
-    final listInfo = availableLists.firstWhere(
-      (list) => list['id'] == quota.listId,
-      orElse: () => {'member_count': 0},
-    );
-    final memberCount = listInfo['member_count'] as int? ?? 0;
-
-    return Card(
-      color: darkSurface,
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    quota.listName,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: primaryTextColor,
-                    ),
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: efficialsYellow.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    '$memberCount officials',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: efficialsYellow,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildNumberInput(
-                    label: 'Minimum',
-                    value: quota.minOfficials,
-                    onChanged: (value) {
-                      setState(() {
-                        quota.minOfficials = value;
-                      });
-                    },
-                    max: memberCount,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _buildNumberInput(
-                    label: 'Maximum',
-                    value: quota.maxOfficials,
-                    onChanged: (value) {
-                      setState(() {
-                        quota.maxOfficials = value;
-                      });
-                    },
-                    max: memberCount,
-                  ),
-                ),
-              ],
-            ),
-            if (quota.maxOfficials > 0) ...[
-              const SizedBox(height: 8),
-              Text(
-                quota.minOfficials == quota.maxOfficials
-                    ? 'Exactly ${quota.minOfficials} official${quota.minOfficials == 1 ? '' : 's'} required'
-                    : '${quota.minOfficials}-${quota.maxOfficials} officials allowed',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: secondaryTextColor,
-                ),
-              ),
-            ],
-          ],
-        ),
+  InputDecoration _textFieldDecoration(String hint) {
+    return InputDecoration(
+      hintText: hint,
+      hintStyle: const TextStyle(color: Colors.grey),
+      filled: true,
+      fillColor: darkBackground,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: BorderSide(color: Colors.grey.withOpacity(0.3)),
       ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: BorderSide(color: Colors.grey.withOpacity(0.3)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: const BorderSide(color: efficialsYellow),
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
     );
   }
 
-  Widget _buildNumberInput({
-    required String label,
-    required int value,
-    required ValueChanged<int> onChanged,
-    required int max,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: primaryTextColor,
-          ),
-        ),
-        const SizedBox(height: 4),
-        TextFormField(
-          initialValue: value.toString(),
-          keyboardType: TextInputType.number,
-          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-          style: TextStyle(color: primaryTextColor),
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: darkBackground,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(color: secondaryTextColor),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(color: secondaryTextColor),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: efficialsYellow),
-            ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          ),
-          onChanged: (text) {
-            final newValue = int.tryParse(text) ?? 0;
-            final clampedValue = newValue.clamp(0, max);
-            onChanged(clampedValue);
-          },
-        ),
-      ],
-    );
-  }
+
 
   Widget _buildSummary() {
-    final activeQuotas = quotaSetups.where((q) => q.maxOfficials > 0).toList();
-    final totalMin = activeQuotas.fold<int>(0, (sum, q) => sum + q.minOfficials);
-    final totalMax = activeQuotas.fold<int>(0, (sum, q) => sum + q.maxOfficials);
+    final activeListConfigs = selectedMultipleLists.where((config) => 
+      config['list'] != null && config['list'] != '' && config['max'] > 0).toList();
+    final totalMin = activeListConfigs.fold<int>(0, (sum, config) => sum + (config['min'] as int));
+    final totalMax = activeListConfigs.fold<int>(0, (sum, config) => sum + (config['max'] as int));
 
     return Container(
-      width: double.infinity,
       padding: const EdgeInsets.all(16),
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       decoration: BoxDecoration(
-        color: darkSurface,
-        borderRadius: BorderRadius.circular(8),
+        color: efficialsYellow.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: efficialsYellow.withOpacity(0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
+          const Text(
             'Summary',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
-              color: primaryTextColor,
+              color: efficialsYellow,
             ),
           ),
           const SizedBox(height: 8),
           Text(
             'Total Officials: $totalMin minimum, $totalMax maximum',
             style: TextStyle(
+              color: Colors.white.withOpacity(0.9),
               fontSize: 14,
-              color: secondaryTextColor,
             ),
           ),
+          const SizedBox(height: 4),
           Text(
-            'Active Lists: ${activeQuotas.length}',
+            'Active Lists: ${activeListConfigs.length}',
             style: TextStyle(
+              color: Colors.white.withOpacity(0.9),
               fontSize: 14,
-              color: secondaryTextColor,
             ),
           ),
         ],
@@ -519,58 +675,4 @@ class _AdvancedMethodSetupScreenState extends State<AdvancedMethodSetupScreen> {
     );
   }
 
-  Widget _buildSaveButton() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      child: ElevatedButton(
-        onPressed: _isSaving ? null : _saveQuotas,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: efficialsYellow,
-          foregroundColor: efficialsBlack,
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
-        ),
-        child: _isSaving
-            ? const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(efficialsBlack),
-                    ),
-                  ),
-                  SizedBox(width: 8),
-                  Text('Saving...'),
-                ],
-              )
-            : const Text(
-                'Save Advanced Method Setup',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-      ),
-    );
-  }
-}
-
-class QuotaSetup {
-  final int listId;
-  final String listName;
-  int minOfficials;
-  int maxOfficials;
-
-  QuotaSetup({
-    required this.listId,
-    required this.listName,
-    required this.minOfficials,
-    required this.maxOfficials,
-  });
 }
