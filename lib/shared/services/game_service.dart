@@ -1520,4 +1520,269 @@ class GameService {
       return [];
     }
   }
+
+  // GAME LINKING OPERATIONS
+
+  // Get eligible games for linking (same location and date)
+  Future<List<Map<String, dynamic>>> getEligibleGamesForLinking(int gameId) async {
+    try {
+      // First get the current game's details
+      final currentGame = await getGameByIdWithOfficials(gameId);
+      if (currentGame == null) {
+        debugPrint('❌ Current game not found for ID: $gameId');
+        return [];
+      }
+
+      final locationName = currentGame['location'] as String?;
+      final gameDateObj = currentGame['date'] as DateTime?;
+      final gameDate = gameDateObj?.toIso8601String().split('T')[0]; // Convert DateTime to YYYY-MM-DD string
+      
+      debugPrint('🔍 Looking for games matching:');
+      debugPrint('  - Location: "$locationName" (type: ${locationName.runtimeType})');
+      debugPrint('  - Date: "$gameDate" (type: ${gameDate.runtimeType})');
+      debugPrint('  - Current Game ID: $gameId');
+      debugPrint('🔍 Full current game data:');
+      currentGame.forEach((key, value) => debugPrint('  $key: $value (${value.runtimeType})'));
+      
+      if (locationName == null || gameDate == null) {
+        debugPrint('❌ Missing location or date');
+        return [];
+      }
+
+      final userId = await _getCurrentUserId();
+      debugPrint('  - User ID: $userId');
+
+      // First, let's see ALL games for this user on the same date
+      debugPrint('🔍 Checking database date format...');
+      
+      // Let's first see what date formats exist in the database
+      final allUserGames = await _gameRepository.rawQuery('''
+        SELECT g.id, g.date, l.name as location_name, s.name as schedule_name
+        FROM games g
+        LEFT JOIN schedules s ON g.schedule_id = s.id
+        LEFT JOIN locations l ON g.location_id = l.id
+        WHERE g.user_id = ?
+        ORDER BY g.date ASC
+      ''', [userId]);
+      
+      debugPrint('📊 All games for user (first 5):');
+      for (int i = 0; i < allUserGames.length && i < 5; i++) {
+        final game = allUserGames[i];
+        debugPrint('  - ID: ${game['id']}, Date: "${game['date']}" (${game['date'].runtimeType}), Location: "${game['location_name']}"');
+      }
+
+      final allGamesOnDate = await _gameRepository.rawQuery('''
+        SELECT g.id, g.date, g.time, g.opponent, g.home_team, 
+               l.name as location_name, s.name as schedule_name
+        FROM games g
+        LEFT JOIN schedules s ON g.schedule_id = s.id
+        LEFT JOIN locations l ON g.location_id = l.id
+        WHERE g.user_id = ? AND DATE(g.date) = ?
+        ORDER BY g.time ASC
+      ''', [userId, gameDate]);
+
+      debugPrint('📅 All games on this date (${allGamesOnDate.length} found):');
+      for (final game in allGamesOnDate) {
+        debugPrint('  - ID: ${game['id']}, Location: "${game['location_name']}", Time: ${game['time']}, Opponent: ${game['opponent']}');
+        debugPrint('    Location comparison: "${game['location_name']}" == "$locationName" ? ${game['location_name'] == locationName}');
+      }
+
+      // Find other games at same location and date that aren't already linked to this game
+      debugPrint('🔍 Final query parameters:');
+      debugPrint('  - userId: $userId');
+      debugPrint('  - gameDate: "$gameDate"');
+      debugPrint('  - locationName: "$locationName"');
+      debugPrint('  - gameId: $gameId');
+
+      final results = await _gameRepository.rawQuery('''
+        SELECT g.id, g.date, g.time, g.opponent, g.home_team, g.level_of_competition, g.gender,
+               g.officials_required, g.game_fee, s.name as schedule_name, sp.name as sport_name,
+               l.name as location_name,
+               CASE WHEN glm.link_id IS NOT NULL THEN 1 ELSE 0 END as is_linked
+        FROM games g
+        LEFT JOIN schedules s ON g.schedule_id = s.id
+        LEFT JOIN sports sp ON g.sport_id = sp.id
+        LEFT JOIN locations l ON g.location_id = l.id
+        LEFT JOIN game_link_members glm ON g.id = glm.game_id
+        WHERE g.user_id = ? 
+          AND DATE(g.date) = ? 
+          AND l.name = ? 
+          AND g.id != ?
+          AND g.id NOT IN (
+            SELECT glm2.game_id 
+            FROM game_link_members glm2 
+            WHERE glm2.link_id IN (
+              SELECT glm3.link_id 
+              FROM game_link_members glm3 
+              WHERE glm3.game_id = ?
+            )
+          )
+        ORDER BY g.time ASC
+      ''', [userId, gameDate, locationName, gameId, gameId]);
+
+      debugPrint('✅ Eligible games for linking: ${results.length}');
+      if (results.isEmpty) {
+        debugPrint('❌ No results found. Let me try a simpler query to debug...');
+        
+        // Try a simpler query without location filtering
+        final simpleResults = await _gameRepository.rawQuery('''
+          SELECT g.id, g.date, g.time, g.opponent, l.name as location_name
+          FROM games g
+          LEFT JOIN locations l ON g.location_id = l.id
+          WHERE g.user_id = ? AND DATE(g.date) = ? AND g.id != ?
+        ''', [userId, gameDate, gameId]);
+        
+        debugPrint('📊 Simple query results (${simpleResults.length}):');
+        for (final game in simpleResults) {
+          debugPrint('  - ID: ${game['id']}, Location: "${game['location_name']}", Opponent: ${game['opponent']}');
+        }
+      } else {
+        for (final game in results) {
+          debugPrint('  - ID: ${game['id']}, Time: ${game['time']}, Opponent: ${game['opponent']}');
+        }
+      }
+
+      return results.map((row) => Map<String, dynamic>.from(row)).toList();
+    } catch (e) {
+      debugPrint('Error getting eligible games for linking: $e');
+      return [];
+    }
+  }
+
+  // Create a new game link
+  Future<int?> createGameLink(List<int> gameIds, {String? name, String? description}) async {
+    if (gameIds.length < 2) return null;
+
+    try {
+      final userId = await _getCurrentUserId();
+      
+      // Generate a default name if none provided
+      final linkName = name ?? 'Game Link ${DateTime.now().millisecondsSinceEpoch}';
+
+      // Start transaction
+      int? linkId;
+      await _gameRepository.withTransaction((txn) async {
+        // Create the link group
+        linkId = await txn.insert('game_links', {
+          'name': linkName,
+          'description': description,
+          'created_by': userId,
+          'created_at': DateTime.now().toIso8601String(),
+          'updated_at': DateTime.now().toIso8601String(),
+        });
+
+        // Add all games to the link
+        for (final gameId in gameIds) {
+          await txn.insert('game_link_members', {
+            'link_id': linkId,
+            'game_id': gameId,
+            'added_at': DateTime.now().toIso8601String(),
+          });
+        }
+      });
+
+      debugPrint('✅ Created game link $linkId with ${gameIds.length} games');
+      return linkId;
+    } catch (e) {
+      debugPrint('Error creating game link: $e');
+      return null;
+    }
+  }
+
+  // Get linked games for a specific game
+  Future<List<Map<String, dynamic>>> getLinkedGames(int gameId) async {
+    try {
+      final results = await _gameRepository.rawQuery('''
+        SELECT g.id, g.date, g.time, g.opponent, g.home_team, g.level_of_competition, g.gender,
+               g.officials_required, g.game_fee, s.name as schedule_name, sp.name as sport_name,
+               l.name as location_name, gl.name as link_name, gl.description as link_description
+        FROM games g
+        LEFT JOIN schedules s ON g.schedule_id = s.id
+        LEFT JOIN sports sp ON g.sport_id = sp.id
+        LEFT JOIN locations l ON g.location_id = l.id
+        JOIN game_link_members glm ON g.id = glm.game_id
+        JOIN game_links gl ON glm.link_id = gl.id
+        WHERE glm.link_id IN (
+          SELECT glm2.link_id 
+          FROM game_link_members glm2 
+          WHERE glm2.game_id = ?
+        )
+        AND g.id != ?
+        ORDER BY g.time ASC
+      ''', [gameId, gameId]);
+
+      return results.map((row) => Map<String, dynamic>.from(row)).toList();
+    } catch (e) {
+      debugPrint('Error getting linked games: $e');
+      return [];
+    }
+  }
+
+  // Check if a game is linked
+  Future<bool> isGameLinked(int gameId) async {
+    try {
+      final results = await _gameRepository.rawQuery('''
+        SELECT COUNT(*) as count
+        FROM game_link_members
+        WHERE game_id = ?
+      ''', [gameId]);
+
+      return (results.first['count'] as int) > 0;
+    } catch (e) {
+      debugPrint('Error checking if game is linked: $e');
+      return false;
+    }
+  }
+
+  // Remove a game from its link group
+  Future<bool> unlinkGame(int gameId) async {
+    try {
+      await _gameRepository.withTransaction((txn) async {
+        // Get the link ID first
+        final linkResult = await txn.query(
+          'game_link_members',
+          where: 'game_id = ?',
+          whereArgs: [gameId],
+        );
+
+        if (linkResult.isNotEmpty) {
+          final linkId = linkResult.first['link_id'] as int;
+
+          // Remove this game from the link
+          await txn.delete(
+            'game_link_members',
+            where: 'game_id = ?',
+            whereArgs: [gameId],
+          );
+
+          // Check if this was the last game in the link
+          final remainingGames = await txn.query(
+            'game_link_members',
+            where: 'link_id = ?',
+            whereArgs: [linkId],
+          );
+
+          // If only one game left, remove the link entirely
+          if (remainingGames.length <= 1) {
+            await txn.delete(
+              'game_link_members',
+              where: 'link_id = ?',
+              whereArgs: [linkId],
+            );
+            await txn.delete(
+              'game_links',
+              where: 'id = ?',
+              whereArgs: [linkId],
+            );
+          }
+        }
+      });
+
+      debugPrint('✅ Unlinked game $gameId');
+      return true;
+    } catch (e) {
+      debugPrint('Error unlinking game: $e');
+      return false;
+    }
+  }
 }

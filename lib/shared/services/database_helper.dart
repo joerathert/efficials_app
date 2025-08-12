@@ -24,7 +24,7 @@ class DatabaseHelper {
 
     final db = await openDatabase(
       path,
-      version: 28, // Increment version to force upgrade
+      version: 29, // Increment version to force upgrade
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -532,6 +532,11 @@ class DatabaseHelper {
         debugPrint('Error ensuring crew columns in game_templates: $e');
       }
     }
+
+    if (oldVersion < 29) {
+      // Add game linking functionality
+      await _addGameLinkingTables(db);
+    }
   }
 
   Future<void> _createTables(Database db) async {
@@ -925,6 +930,9 @@ class DatabaseHelper {
     
     // Add crew system tables
     await _addCrewSystemTables(db);
+    
+    // Add game linking tables
+    await _addGameLinkingTables(db);
   }
 
   Future<void> _createIndexes(Database db) async {
@@ -2290,6 +2298,50 @@ class DatabaseHelper {
       
     } catch (e) {
       debugPrint('Error fixing database schema: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> _addGameLinkingTables(Database db) async {
+    try {
+      print('Adding game linking tables...');
+
+      // Game links table - tracks which games are linked together
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS game_links (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT,
+          description TEXT,
+          created_by INTEGER REFERENCES users(id),
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      ''');
+
+      // Game link members table - tracks which games belong to each link group
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS game_link_members (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          link_id INTEGER REFERENCES game_links(id) ON DELETE CASCADE,
+          game_id INTEGER REFERENCES games(id) ON DELETE CASCADE,
+          added_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(link_id, game_id)
+        )
+      ''');
+
+      // Create indexes for performance
+      await db.execute(
+          'CREATE INDEX IF NOT EXISTS idx_game_links_created_by ON game_links(created_by)');
+      await db.execute(
+          'CREATE INDEX IF NOT EXISTS idx_game_link_members_link_id ON game_link_members(link_id)');
+      await db.execute(
+          'CREATE INDEX IF NOT EXISTS idx_game_link_members_game_id ON game_link_members(game_id)');
+      await db.execute(
+          'CREATE INDEX IF NOT EXISTS idx_game_link_members_link_game ON game_link_members(link_id, game_id)');
+
+      print('✅ Game linking tables created successfully');
+    } catch (e) {
+      print('❌ Error creating game linking tables: $e');
       rethrow;
     }
   }

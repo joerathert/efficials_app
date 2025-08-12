@@ -109,12 +109,18 @@ class _AssignerManageSchedulesScreenState
   Future<void> _fetchTeams() async {
     try {
       final userId = await _userSessionService.getCurrentUserId();
+      debugPrint('DEBUG: _fetchTeams - userId from session: $userId');
       if (userId != null) {
         final schedules = await _scheduleRepository.getSchedulesByUser(userId);
+        debugPrint('DEBUG: _fetchTeams - found ${schedules.length} schedules for user $userId');
+        for (final schedule in schedules) {
+          debugPrint('DEBUG: _fetchTeams - schedule: ${schedule.name} (ID: ${schedule.id}, userID: ${schedule.userId})');
+        }
         setState(() {
           teams = schedules.map((schedule) => schedule.name).toList();
         });
       } else {
+        debugPrint('DEBUG: _fetchTeams - userId is null');
         setState(() {
           teams = [];
         });

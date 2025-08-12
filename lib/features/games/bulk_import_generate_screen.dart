@@ -1908,13 +1908,17 @@ class _BulkImportGenerateScreenState extends State<BulkImportGenerateScreen> {
   Future<List<String>> _loadTeamNames() async {
     try {
       final scheduleService = ScheduleService();
-      final schedules = await scheduleService.getRecentSchedules();
+      final schedules = await scheduleService.getSchedules(); // Get ALL schedules, not just recent 10
       final teamNames = schedules
           .map((schedule) => schedule['homeTeamName'] as String?)
           .where((name) => name != null && name.isNotEmpty)
           .cast<String>()
           .toSet()
           .toList();
+      
+      // Sort team names alphabetically
+      teamNames.sort();
+      
       return teamNames;
     } catch (e) {
       debugPrint('Error loading team names: $e');
@@ -2119,9 +2123,11 @@ class _BulkImportGenerateScreenState extends State<BulkImportGenerateScreen> {
           // Pre-fill if set globally or at schedule level
           if (globalSettings['teamName'] ?? false) {
             cell.value = TextCellValue(globalValues['teamName']?.toString() ?? '');
+          } else if (scheduleSettings['teamName'] ?? false) {
+            cell.value = TextCellValue(teamConfigs[teamIndex]['teamName']?.toString() ?? '');
           } else {
-            // Leave empty for user to fill per-game
-            cell.value = TextCellValue('');
+            // Use the team name from the schedule config (always available)
+            cell.value = TextCellValue(teamConfigs[teamIndex]['teamName']?.toString() ?? '');
           }
           break;
           

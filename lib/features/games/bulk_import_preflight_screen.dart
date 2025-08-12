@@ -97,22 +97,31 @@ class _BulkImportPreflightScreenState extends State<BulkImportPreflightScreen> {
 
   Future<void> _checkCrewLists() async {
     try {
-      final crews = await _crewRepository.getAllCrews();
-      setState(() {
-        crewListCount = crews.length;
-        // Crew lists are optional - don't block if none exist
-        crewListsReady = true;
-      });
+      final prefs = await SharedPreferences.getInstance();
+      final String? crewListsJson = prefs.getString('saved_crew_lists');
+      
+      if (crewListsJson != null && crewListsJson.isNotEmpty) {
+        final List<dynamic> crewLists = jsonDecode(crewListsJson);
+        setState(() {
+          crewListCount = crewLists.length;
+          crewListsReady = crewListCount >= 1; // Need at least 1 crew list
+        });
+      } else {
+        setState(() {
+          crewListCount = 0;
+          crewListsReady = false;
+        });
+      }
     } catch (e) {
       debugPrint('Error checking crew lists: $e');
       setState(() {
         crewListCount = 0;
-        crewListsReady = true; // Don't block on crew lists
+        crewListsReady = false;
       });
     }
   }
 
-  bool get canProceed => locationsReady && officialsListsReady && crewListsReady;
+  bool get canProceed => locationsReady && (officialsListsReady || crewListsReady);
 
   @override
   Widget build(BuildContext context) {
@@ -166,6 +175,7 @@ class _BulkImportPreflightScreenState extends State<BulkImportPreflightScreen> {
                     title: 'Locations',
                     count: locationCount,
                     isReady: locationsReady,
+                    isSatisfied: locationsReady,
                     description: locationsReady
                         ? 'Great! You have $locationCount location${locationCount == 1 ? '' : 's'} ready.'
                         : 'You need to create at least one location before generating Excel files.',
@@ -182,9 +192,12 @@ class _BulkImportPreflightScreenState extends State<BulkImportPreflightScreen> {
                     title: 'Officials Lists',
                     count: officialsListCount,
                     isReady: officialsListsReady,
+                    isSatisfied: officialsListsReady || crewListsReady,
                     description: officialsListsReady
                         ? 'Perfect! You have $officialsListCount list${officialsListCount == 1 ? '' : 's'} of officials ready.'
-                        : 'You need to create at least one officials list for game assignments.',
+                        : crewListsReady 
+                            ? 'Officials Lists not needed - you have crew lists ready.'
+                            : 'You need either Officials Lists OR Crew Lists to proceed.',
                     actionText: 'Manage Officials',
                     onActionTap: () async {
                       await Navigator.pushNamed(context, '/lists_of_officials');
@@ -198,15 +211,18 @@ class _BulkImportPreflightScreenState extends State<BulkImportPreflightScreen> {
                     title: 'Crew Lists',
                     count: crewListCount,
                     isReady: crewListsReady,
-                    description: crewListCount > 0
+                    isSatisfied: officialsListsReady || crewListsReady,
+                    description: crewListsReady
                         ? 'Excellent! You have $crewListCount crew${crewListCount == 1 ? '' : 's'} available for hire.'
-                        : 'No crew lists found. This is optional - you can still create Excel files without crews.',
+                        : officialsListsReady
+                            ? 'Crew Lists not needed - you have officials lists ready.'
+                            : 'You need either Officials Lists OR Crew Lists to proceed.',
                     actionText: crewListCount == 0 ? 'Create Crew Lists' : 'Manage Crews',
                     onActionTap: () async {
                       await Navigator.pushNamed(context, '/lists_of_crews');
                       _checkCrewLists(); // Refresh count
                     },
-                    isOptional: true,
+                    isOptional: false,
                   ),
                   const SizedBox(height: 40),
 
@@ -361,6 +377,7 @@ class _BulkImportPreflightScreenState extends State<BulkImportPreflightScreen> {
     required String title,
     required int count,
     required bool isReady,
+    required bool isSatisfied,
     required String description,
     required String actionText,
     required VoidCallback onActionTap,
@@ -372,7 +389,7 @@ class _BulkImportPreflightScreenState extends State<BulkImportPreflightScreen> {
         color: darkSurface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isReady ? Colors.green.withOpacity(0.5) : (isOptional ? efficialsYellow.withOpacity(0.5) : Colors.red.withOpacity(0.5)),
+          color: isSatisfied ? Colors.green.withOpacity(0.5) : (isOptional ? efficialsYellow.withOpacity(0.5) : Colors.red.withOpacity(0.5)),
         ),
       ),
       child: Column(
@@ -382,7 +399,7 @@ class _BulkImportPreflightScreenState extends State<BulkImportPreflightScreen> {
             children: [
               Icon(
                 icon,
-                color: isReady ? Colors.green : (isOptional ? efficialsYellow : Colors.red),
+                color: isSatisfied ? Colors.green : (isOptional ? efficialsYellow : Colors.red),
                 size: 28,
               ),
               const SizedBox(width: 12),
@@ -397,8 +414,8 @@ class _BulkImportPreflightScreenState extends State<BulkImportPreflightScreen> {
                 ),
               ),
               Icon(
-                isReady ? Icons.check_circle : (isOptional ? Icons.info : Icons.warning),
-                color: isReady ? Colors.green : (isOptional ? efficialsYellow : Colors.red),
+                isSatisfied ? Icons.check_circle : (isOptional ? Icons.info : Icons.warning),
+                color: isSatisfied ? Colors.green : (isOptional ? efficialsYellow : Colors.red),
                 size: 24,
               ),
             ],
@@ -417,13 +434,13 @@ class _BulkImportPreflightScreenState extends State<BulkImportPreflightScreen> {
             child: TextButton(
               onPressed: onActionTap,
               style: TextButton.styleFrom(
-                backgroundColor: (isReady && !isOptional) ? Colors.grey.withOpacity(0.2) : efficialsYellow.withOpacity(0.1),
+                backgroundColor: (isSatisfied && !isOptional) ? Colors.grey.withOpacity(0.2) : efficialsYellow.withOpacity(0.1),
                 padding: const EdgeInsets.symmetric(vertical: 8),
               ),
               child: Text(
                 actionText,
                 style: TextStyle(
-                  color: (isReady && !isOptional) ? Colors.grey : efficialsYellow,
+                  color: (isSatisfied && !isOptional) ? Colors.grey : efficialsYellow,
                   fontWeight: FontWeight.w500,
                 ),
               ),

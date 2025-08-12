@@ -155,56 +155,95 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
       final games = await _gameService.getPublishedGames();
       debugPrint('🏠 Got ${games.length} games from getPublishedGames()');
       
-      // Debug: Print all games to see what we're getting
-      debugPrint('🏠 All published games (${games.length}):');
-      for (final game in games) {
-        debugPrint('  Game ${game.id}: opponent="${game.opponent}", date=${game.date}, hired=${game.officialsHired}/${game.officialsRequired}, method="${game.method}"');
-      }
-      
       final gamesNeedingOfficials = games.where((game) {
         final needsOfficials = game.officialsHired < game.officialsRequired;
         final hasDate = game.date != null;
         final isFuture = hasDate && game.date!.isAfter(DateTime.now());
-        
-        // Debug: Show filtering decision for each game
-        if (hasDate) {
-          debugPrint('🏠 Game ${game.id} filtering: needsOfficials=$needsOfficials, hasDate=$hasDate, isFuture=$isFuture (${game.date})');
-        }
         
         return needsOfficials && hasDate && isFuture;
       }).toList();
 
       gamesNeedingOfficials.sort((a, b) => a.date!.compareTo(b.date!));
 
-      debugPrint('🏠 About to set state with ${gamesNeedingOfficials.length} games');
+      // Get linking information for each game
+      final gamesWithLinkInfo = <Map<String, dynamic>>[];
+      final processedGameIds = <int>{};
+      
+      for (final game in gamesNeedingOfficials) {
+        if (processedGameIds.contains(game.id)) continue;
+        
+        final gameMap = {
+          'id': game.id,
+          'opponent': game.opponent ?? 'TBD',
+          'homeTeam': game.scheduleHomeTeamName ?? game.homeTeam ?? 'Home Team',
+          'scheduleName': game.scheduleName ?? 'Unknown Schedule',
+          'date': game.date,
+          'time': game.time,
+          'sport': game.sportName ?? 'Unknown',
+          'location': game.locationName ?? 'TBD',
+          'officialsRequired': game.officialsRequired,
+          'officialsHired': game.officialsHired,
+          'isAway': game.isAway,
+          'isLinked': false,
+          'linkedGames': <Map<String, dynamic>>[],
+        };
+        
+        // Check if this game is linked to others
+        try {
+          final isLinked = await _gameService.isGameLinked(game.id!);
+          if (isLinked) {
+            final linkedGames = await _gameService.getLinkedGames(game.id!);
+            
+            // Filter linked games to only include those that also need officials
+            final linkedGamesNeedingOfficials = <Map<String, dynamic>>[];
+            
+            for (final linkedGame in linkedGames) {
+              try {
+                // Find the corresponding game in our original list
+                final linkedGameMatches = gamesNeedingOfficials.where(
+                  (g) => g.id == linkedGame['id'],
+                );
+                final linkedGameData = linkedGameMatches.isNotEmpty ? linkedGameMatches.first : null;
+                
+                if (linkedGameData != null) {
+                  linkedGamesNeedingOfficials.add({
+                    'id': linkedGame['id'] ?? 0,
+                    'opponent': linkedGame['opponent'] ?? linkedGameData.opponent ?? 'TBD',
+                    'homeTeam': linkedGameData.scheduleHomeTeamName ?? linkedGameData.homeTeam ?? linkedGame['home_team'] ?? 'Home Team',
+                    'scheduleName': linkedGameData.scheduleName ?? linkedGame['schedule_name'] ?? 'Unknown Schedule',
+                    'date': linkedGameData.date, // Use original date object
+                    'time': linkedGameData.time, // Use original time object
+                    'sport': linkedGameData.sportName ?? linkedGame['sport_name'] ?? 'Unknown',
+                    'location': linkedGameData.locationName ?? linkedGame['location_name'] ?? 'TBD',
+                    'officialsRequired': linkedGameData.officialsRequired ?? linkedGame['officials_required'] ?? 0,
+                    'officialsHired': linkedGameData.officialsHired ?? linkedGame['officials_hired'] ?? 0,
+                    'isAway': linkedGameData.isAway ?? (linkedGame['is_away'] == 1),
+                  });
+                  
+                  // Mark this game as processed
+                  processedGameIds.add(linkedGame['id'] ?? 0);
+                }
+              } catch (e) {
+                debugPrint('Error processing linked game ${linkedGame['id']}: $e');
+              }
+            }
+            
+            if (linkedGamesNeedingOfficials.isNotEmpty) {
+              gameMap['isLinked'] = true;
+              gameMap['linkedGames'] = linkedGamesNeedingOfficials;
+            }
+          }
+        } catch (e) {
+          debugPrint('Error checking if game ${game.id} is linked: $e');
+        }
+        
+        gamesWithLinkInfo.add(gameMap);
+        processedGameIds.add(game.id!);
+      }
       
       if (mounted) {
         setState(() {
-          _gamesNeedingOfficials = gamesNeedingOfficials.map((game) {
-            // Debug: Print the game data to see what we're getting
-            debugPrint(
-                'Game ${game.id}: homeTeam=${game.homeTeam}, scheduleHomeTeamName=${game.scheduleHomeTeamName}, scheduleName=${game.scheduleName}');
-
-            return {
-              'id': game.id,
-              'opponent': game.opponent ?? 'TBD',
-              'homeTeam':
-                  game.scheduleHomeTeamName ?? game.homeTeam ?? 'Home Team',
-              'scheduleName': game.scheduleName ?? 'Unknown Schedule',
-              'date': game.date,
-              'time': game.time,
-              'sport': game.sportName ?? 'Unknown',
-              'location': game.locationName ?? 'TBD',
-              'officialsRequired': game.officialsRequired,
-              'officialsHired': game.officialsHired,
-              'isAway': game.isAway,
-            };
-          }).toList();
-          
-          debugPrint('🏠 Final _gamesNeedingOfficials list has ${_gamesNeedingOfficials.length} games:');
-          for (final game in _gamesNeedingOfficials) {
-            debugPrint('  - Game ${game['id']}: ${game['opponent']} on ${game['date']}');
-          }
+          _gamesNeedingOfficials = gamesWithLinkInfo;
         });
       }
     } catch (e, stackTrace) {
@@ -758,17 +797,432 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
           physics: const NeverScrollableScrollPhysics(),
           itemCount: _gamesNeedingOfficials.length,
           itemBuilder: (context, index) {
-            return _buildGameNeedingOfficialsCard(_gamesNeedingOfficials[index]);
+            final game = _gamesNeedingOfficials[index];
+            try {
+              if (game['isLinked'] == true && game['linkedGames'] != null && game['linkedGames'].isNotEmpty) {
+                return _buildLinkedGamesCard(game);
+              } else {
+                return _buildGameNeedingOfficialsCard(game);
+              }
+            } catch (e) {
+              debugPrint('Error building game card for game ${game['id']}: $e');
+              // Fallback to regular card if linked card fails
+              return _buildGameNeedingOfficialsCard(game);
+            }
           },
         ),
       ],
     );
   }
 
+  Widget _buildLinkedGamesCard(Map<String, dynamic> primaryGame) {
+    final linkedGames = primaryGame['linkedGames'] as List<Map<String, dynamic>>;
+    if (linkedGames.isEmpty) return _buildGameNeedingOfficialsCard(primaryGame);
+    
+    final allGames = [primaryGame, ...linkedGames];
+    // Sort by time if available
+    allGames.sort((a, b) {
+      final timeA = a['time'] as TimeOfDay?;
+      final timeB = b['time'] as TimeOfDay?;
+      if (timeA == null && timeB == null) return 0;
+      if (timeA == null) return 1;
+      if (timeB == null) return -1;
+      final minutesA = timeA.hour * 60 + timeA.minute;
+      final minutesB = timeB.hour * 60 + timeB.minute;
+      return minutesA.compareTo(minutesB);
+    });
+    
+    final location = primaryGame['location'];
+    final date = primaryGame['date'] as DateTime?;
+    String dateText = 'TBD';
+    if (date != null) {
+      dateText = '${date.month}/${date.day}/${date.year}';
+    }
+
+    // For linked games, the same officials work both games
+    // So we just need to show the requirement from one game (they should be the same)
+    final officialsRequired = primaryGame['officialsRequired'] as int? ?? 0;
+    final officialsHired = primaryGame['officialsHired'] as int? ?? 0;
+    final officialsNeeded = officialsRequired - officialsHired;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Stack(
+        children: [
+          // Two cards stacked with minimal gap and shared border
+          Column(
+            children: [
+              // Top card
+              Container(
+                decoration: BoxDecoration(
+                  color: darkSurface,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(12),
+                    topRight: Radius.circular(12),
+                    bottomLeft: Radius.circular(2),
+                    bottomRight: Radius.circular(2),
+                  ),
+                  border: Border.all(color: Colors.orange.withOpacity(0.3), width: 1),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.3),
+                      spreadRadius: 1,
+                      blurRadius: 3,
+                      offset: const Offset(0, 1),
+                    ),
+                  ],
+                ),
+                child: _buildLinkedGameContent(allGames[0], showNeedBadge: false, onTap: () => _navigateToGame(allGames[0])),
+              ),
+              // Minimal gap with location info
+              Container(
+                height: 2,
+                margin: const EdgeInsets.symmetric(horizontal: 1),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.2),
+                ),
+              ),
+              // Bottom card
+              Container(
+                decoration: BoxDecoration(
+                  color: darkSurface,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(2),
+                    topRight: Radius.circular(2),
+                    bottomLeft: Radius.circular(12),
+                    bottomRight: Radius.circular(12),
+                  ),
+                  border: Border.all(color: Colors.orange.withOpacity(0.3), width: 1),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.3),
+                      spreadRadius: 1,
+                      blurRadius: 3,
+                      offset: const Offset(0, 1),
+                    ),
+                  ],
+                ),
+                child: _buildLinkedGameContent(allGames[1], showNeedBadge: false, onTap: () => _navigateToGame(allGames[1])),
+              ),
+            ],
+          ),
+          // Shared "Need X" badge in top-right
+          Positioned(
+            top: 8,
+            right: 8,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.orange,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                'Need $officialsNeeded',
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ),
+          // Small link indicator in top-left  
+          Positioned(
+            top: 8,
+            left: 8,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              decoration: BoxDecoration(
+                color: efficialsYellow.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: efficialsYellow, width: 1),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.link, color: efficialsYellow, size: 8),
+                  const SizedBox(width: 2),
+                  Text(
+                    'Linked',
+                    style: const TextStyle(
+                      fontSize: 7,
+                      color: efficialsYellow,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLinkedGameContent(Map<String, dynamic> game, {bool showNeedBadge = true, required VoidCallback onTap}) {
+    final time = game['time'] as TimeOfDay?;
+    final officialsRequired = game['officialsRequired'] as int? ?? 0;
+    final officialsHired = game['officialsHired'] as int? ?? 0;
+    final officialsNeeded = officialsRequired - officialsHired;
+    
+    String timeText = '';
+    if (time != null) {
+      final hour = time.hour == 0 ? 12 : (time.hour > 12 ? time.hour - 12 : time.hour);
+      final minute = time.minute.toString().padLeft(2, '0');
+      final period = time.hour >= 12 ? 'PM' : 'AM';
+      timeText = '$hour:$minute $period';
+    }
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  getSportIcon(game['sport']),
+                  color: efficialsYellow,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        game['isAway']
+                            ? '${game['homeTeam']} @ ${game['opponent']}'
+                            : '${game['opponent']} @ ${game['homeTeam']}',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: primaryTextColor,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          Text(
+                            game['scheduleName'],
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: secondaryTextColor,
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
+                          if (timeText.isNotEmpty) ...[
+                            const SizedBox(width: 8),
+                            Text(
+                              timeText,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: efficialsYellow,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                if (showNeedBadge)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.orange,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      'Need $officialsNeeded',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '${game['officialsHired']} of ${game['officialsRequired']} officials confirmed',
+              style: const TextStyle(
+                fontSize: 12,
+                color: secondaryTextColor,
+              ),
+            ),
+            if (game['location'] != null && game['location'] != 'TBD') ...[
+              const SizedBox(height: 4),
+              Text(
+                game['location'],
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: secondaryTextColor,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLinkedGameSection(
+    Map<String, dynamic> game, {
+    required bool isTop,
+    required bool showLocation,
+    bool isLast = false,
+    required VoidCallback onTap,
+  }) {
+    final time = game['time'] as TimeOfDay?;
+    final officialsRequired = game['officialsRequired'] as int? ?? 0;
+    final officialsHired = game['officialsHired'] as int? ?? 0;
+    final officialsNeeded = officialsRequired - officialsHired;
+    
+    String timeText = '';
+    if (time != null) {
+      final hour = time.hour == 0 ? 12 : (time.hour > 12 ? time.hour - 12 : time.hour);
+      final minute = time.minute.toString().padLeft(2, '0');
+      final period = time.hour >= 12 ? 'PM' : 'AM';
+      timeText = '$hour:$minute $period';
+    }
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: darkSurface,
+          borderRadius: BorderRadius.only(
+            topLeft: isTop ? const Radius.circular(11) : const Radius.circular(4),
+            topRight: isTop ? const Radius.circular(11) : const Radius.circular(4),
+            bottomLeft: isLast ? const Radius.circular(11) : const Radius.circular(4),
+            bottomRight: isLast ? const Radius.circular(11) : const Radius.circular(4),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.3),
+              spreadRadius: 1,
+              blurRadius: 3,
+              offset: const Offset(0, 1),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  getSportIcon(game['sport']),
+                  color: efficialsYellow,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        game['isAway']
+                            ? '${game['homeTeam']} @ ${game['opponent']}'
+                            : '${game['opponent']} @ ${game['homeTeam']}',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: primaryTextColor,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          Text(
+                            game['scheduleName'],
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: secondaryTextColor,
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
+                          if (timeText.isNotEmpty) ...[
+                            const SizedBox(width: 8),
+                            Text(
+                              timeText,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: efficialsYellow,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.orange,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      'Need $officialsNeeded',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '${game['officialsHired']} of ${game['officialsRequired']} officials confirmed',
+              style: const TextStyle(
+                fontSize: 12,
+                color: secondaryTextColor,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _navigateToGame(Map<String, dynamic> game) {
+    Navigator.pushNamed(
+      context,
+      '/game_information',
+      arguments: {
+        'id': game['id'],
+        'sport': game['sport'],
+        'sportName': game['sport'],
+        'opponent': game['opponent'],
+        'date': game['date'],
+        'time': game['time'],
+        'location': game['location'],
+        'locationName': game['location'],
+        'officialsRequired': game['officialsRequired'],
+        'officialsHired': game['officialsHired'],
+        'isAway': game['isAway'],
+        'sourceScreen': 'assigner_home',
+      },
+    );
+  }
+
   Widget _buildGameNeedingOfficialsCard(Map<String, dynamic> game) {
     final date = game['date'] as DateTime?;
     final time = game['time'] as TimeOfDay?;
-    final officialsNeeded = game['officialsRequired'] - game['officialsHired'];
+    final officialsRequired = game['officialsRequired'] as int? ?? 0;
+    final officialsHired = game['officialsHired'] as int? ?? 0;
+    final officialsNeeded = officialsRequired - officialsHired;
 
     String dateText = 'TBD';
     if (date != null) {

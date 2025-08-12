@@ -55,11 +55,11 @@ class _BulkImportWizardScreenState extends State<BulkImportWizardScreen> {
   List<String> methodOptions = ['Single List', 'Multiple Lists', 'Hire a Crew'];
   List<Map<String, dynamic>> availableLocations = [];
   List<Map<String, dynamic>> availableLists = [];
-  List<Crew> availableCrews = [];
+  List<Map<String, dynamic>> availableCrewLists = [];
   
   // Secondary dropdown state
   String? selectedList;
-  String? selectedCrew;
+  String? selectedCrewList;
   List<Map<String, dynamic>> selectedMultipleLists = [];
   
   String? currentUserSport;
@@ -77,7 +77,7 @@ class _BulkImportWizardScreenState extends State<BulkImportWizardScreen> {
         _loadUserSport(),
         _loadLocations(),
         _loadOfficialsLists(),
-        _loadCrews(),
+        _loadCrewLists(),
       ]);
       
       // Set default global values - start empty to show hints
@@ -166,33 +166,50 @@ class _BulkImportWizardScreenState extends State<BulkImportWizardScreen> {
     }
   }
 
-  Future<void> _loadCrews() async {
+  Future<void> _loadCrewLists() async {
     try {
-      final crewRepository = CrewRepository();
-      final userSession = UserSessionService.instance;
-      final currentUserId = await userSession.getCurrentUserId();
+      final prefs = await SharedPreferences.getInstance();
+      final String? crewListsJson = prefs.getString('saved_crew_lists');
       
-      if (currentUserId != null) {
-        // Get all crews for the current user (as chief or member)
-        final crewsAsChief = await crewRepository.getCrewsWhereChief(currentUserId);
-        final crewsAsMember = await crewRepository.getCrewsForOfficial(currentUserId);
-        
-        // Combine and deduplicate crews
-        final allCrews = <Crew>[];
-        allCrews.addAll(crewsAsChief);
-        
-        for (final memberCrew in crewsAsMember) {
-          if (!crewsAsChief.any((chiefCrew) => chiefCrew.id == memberCrew.id)) {
-            allCrews.add(memberCrew);
+      debugPrint('Loading crew lists from SharedPreferences');
+      
+      setState(() {
+        availableCrewLists.clear();
+        if (crewListsJson != null && crewListsJson.isNotEmpty) {
+          try {
+            final decodedLists = jsonDecode(crewListsJson) as List<dynamic>;
+            availableCrewLists = decodedLists.map((list) {
+              final listMap = Map<String, dynamic>.from(list as Map);
+              if (listMap['crews'] != null) {
+                listMap['crews'] = (listMap['crews'] as List<dynamic>)
+                    .map((crew) => Map<String, dynamic>.from(crew as Map))
+                    .toList();
+              } else {
+                listMap['crews'] = [];
+              }
+              return listMap;
+            }).toList();
+            
+            debugPrint('Found ${availableCrewLists.length} crew lists');
+            for (var crewList in availableCrewLists) {
+              debugPrint('  - Crew List: ${crewList['name']} (${crewList['crews']?.length ?? 0} crews)');
+            }
+          } catch (e) {
+            debugPrint('Error decoding crew lists: $e');
+            availableCrewLists = [];
           }
         }
         
-        setState(() {
-          availableCrews = allCrews;
-        });
-      }
+        if (availableCrewLists.isEmpty) {
+          availableCrewLists.add({'name': 'No saved crew lists', 'id': -1});
+        }
+        availableCrewLists.add({'name': '+ Create new crew list', 'id': 0});
+      });
     } catch (e) {
-      debugPrint('Error loading crews: $e');
+      debugPrint('Error loading crew lists: $e');
+      setState(() {
+        availableCrewLists = [];
+      });
     }
   }
 
@@ -227,7 +244,7 @@ class _BulkImportWizardScreenState extends State<BulkImportWizardScreen> {
       'globalValues': globalValues,
       'scheduleSettings': scheduleSettings,
       'selectedList': selectedList,
-      'selectedCrew': selectedCrew,
+      'selectedCrewList': selectedCrewList,
       'selectedMultipleLists': selectedMultipleLists,
     };
     
@@ -465,7 +482,7 @@ class _BulkImportWizardScreenState extends State<BulkImportWizardScreen> {
                 globalValues['method'] = value;
                 // Clear secondary selections when method changes
                 selectedList = null;
-                selectedCrew = null;
+                selectedCrewList = null;
                 
                 // Initialize Multiple Lists with 2 lists by default
                 if (value == 'Multiple Lists') {
@@ -514,7 +531,7 @@ class _BulkImportWizardScreenState extends State<BulkImportWizardScreen> {
             'Game Time',
             globalValues['time']?.toString() ?? '',
             onValueChanged: (value) => globalValues['time'] = value,
-            isTextField: true,
+            isTimePicker: true,
             description: 'Use same start time for all games',
           ),
         ],
@@ -682,9 +699,11 @@ class _BulkImportWizardScreenState extends State<BulkImportWizardScreen> {
   }
   
   Widget _buildTeamNameDropdownForGlobal(String currentValue, Function(String) onValueChanged) {
+    debugPrint('DEBUG: _buildTeamNameDropdownForGlobal called with currentValue: $currentValue');
     return FutureBuilder<List<String>>(
       future: _loadTeamNamesForGlobal(),
       builder: (context, snapshot) {
+        debugPrint('DEBUG: FutureBuilder snapshot: ${snapshot.connectionState}, hasData: ${snapshot.hasData}, data: ${snapshot.data}');
         if (!snapshot.hasData) {
           return const CircularProgressIndicator(color: efficialsYellow);
         }
@@ -726,13 +745,21 @@ class _BulkImportWizardScreenState extends State<BulkImportWizardScreen> {
   Future<List<String>> _loadTeamNamesForGlobal() async {
     try {
       final scheduleService = ScheduleService();
-      final schedules = await scheduleService.getRecentSchedules();
+      final schedules = await scheduleService.getSchedules(); // Get ALL schedules, not just recent 10
+      debugPrint('DEBUG: _loadTeamNamesForGlobal - found ${schedules.length} total schedules');
+      
+      for (final schedule in schedules) {
+        debugPrint('DEBUG: Schedule: ${schedule['name']} -> homeTeamName: ${schedule['homeTeamName']}');
+      }
+      
       final teamNames = schedules
           .map((schedule) => schedule['homeTeamName'] as String?)
           .where((name) => name != null && name.isNotEmpty)
           .cast<String>()
           .toSet()
           .toList();
+      
+      debugPrint('DEBUG: _loadTeamNamesForGlobal - unique team names (${teamNames.length}): $teamNames');
       return teamNames;
     } catch (e) {
       debugPrint('Error loading team names for global: $e');
@@ -834,6 +861,7 @@ class _BulkImportWizardScreenState extends State<BulkImportWizardScreen> {
     List<String>? options,
     bool isTextField = false,
     bool isTeamNameDropdown = false,
+    bool isTimePicker = false,
     bool hasSecondaryDropdown = false,
     Function(String)? onValueChanged,
   }) {
@@ -895,25 +923,31 @@ class _BulkImportWizardScreenState extends State<BulkImportWizardScreen> {
               padding: const EdgeInsets.only(left: 48),
               child: isTeamNameDropdown
                   ? _buildTeamNameDropdownForGlobal(currentValue, onValueChanged)
-                  : isTextField
-                      ? TextField(
-                          decoration: textFieldDecoration(key == 'teamName' ? 'Ex. Edwardsville Tigers' : _getHintForField(key)),
-                          style: const TextStyle(color: Colors.white),
-                          onChanged: onValueChanged,
-                        )
-                      : DropdownButtonFormField<String>(
-                          decoration: textFieldDecoration(_getHintForField(key)),
-                          value: (currentValue.isEmpty || currentValue == 'null') ? null : currentValue,
-                          style: const TextStyle(color: Colors.white, fontSize: 16),
-                          dropdownColor: darkSurface,
-                          onChanged: (value) => setState(() => onValueChanged(value ?? '')),
-                          items: (options ?? []).map((option) {
-                            return DropdownMenuItem(
-                              value: option,
-                              child: Text(option, style: const TextStyle(color: Colors.white)),
-                            );
-                          }).toList(),
-                        ),
+                  : isTimePicker
+                      ? _buildTimePickerForGlobal(currentValue, onValueChanged)
+                      : isTextField
+                          ? TextField(
+                              decoration: textFieldDecoration(key == 'teamName' ? 'Ex. Edwardsville Tigers' : _getHintForField(key)),
+                              style: const TextStyle(color: Colors.white),
+                              onChanged: onValueChanged,
+                            )
+                          : SizedBox(
+                              width: double.infinity,
+                              child: DropdownButtonFormField<String>(
+                                decoration: textFieldDecoration(_getHintForField(key)),
+                                value: (currentValue.isEmpty || currentValue == 'null') ? null : currentValue,
+                                style: const TextStyle(color: Colors.white, fontSize: 16),
+                                dropdownColor: darkSurface,
+                                isExpanded: true,
+                                onChanged: (value) => setState(() => onValueChanged(value ?? '')),
+                                items: (options ?? []).map((option) {
+                                  return DropdownMenuItem(
+                                    value: option,
+                                    child: Text(option, style: const TextStyle(color: Colors.white)),
+                                  );
+                                }).toList(),
+                              ),
+                            ),
             ),
           ],
           // Secondary dropdown for method field
@@ -969,26 +1003,32 @@ class _BulkImportWizardScreenState extends State<BulkImportWizardScreen> {
         return _buildMultipleListsConfiguration();
 
       case 'Hire a Crew':
-        if (availableCrews.isEmpty) {
+        final validCrewLists = availableCrewLists.where((list) => list['name'] != null && list['name'] != 'No saved crew lists' && list['name'] != '+ Create new crew list').toList();
+        if (validCrewLists.isEmpty) {
           return const Text(
-            'No crews available. Create a crew first.',
+            'No crew lists available. Create a crew list first.',
             style: TextStyle(color: Colors.white70, fontSize: 14),
           );
         }
         return DropdownButtonFormField<String>(
-          decoration: textFieldDecoration('Select Crew'),
-          value: selectedCrew,
+          decoration: textFieldDecoration('Select Crew List'),
+          value: selectedCrewList,
           style: const TextStyle(color: Colors.white, fontSize: 16),
           dropdownColor: darkSurface,
           onChanged: (value) {
             setState(() {
-              selectedCrew = value;
+              selectedCrewList = value;
             });
           },
-          items: availableCrews.map((crew) {
+          items: validCrewLists.map((crewList) {
+            final listName = crewList['name'] as String;
+            final crewCount = crewList['crews']?.length ?? 0;
             return DropdownMenuItem(
-              value: crew.name,
-              child: Text(crew.name, style: const TextStyle(color: Colors.white)),
+              value: listName,
+              child: Text(
+                '$listName ($crewCount crews)',
+                style: const TextStyle(color: Colors.white),
+              ),
             );
           }).toList(),
         );
@@ -1148,6 +1188,130 @@ class _BulkImportWizardScreenState extends State<BulkImportWizardScreen> {
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildTimePickerForGlobal(String currentValue, Function(String) onValueChanged) {
+    TimeOfDay? timeOfDay;
+
+    // Parse existing time if available
+    if (currentValue.isNotEmpty) {
+      try {
+        final parts = currentValue.split(' ');
+        final timePart = parts[0];
+        final period = parts.length > 1 ? parts[1] : 'AM';
+        final hourMinute = timePart.split(':');
+
+        if (hourMinute.length == 2) {
+          int hour = int.parse(hourMinute[0]);
+          final minute = int.parse(hourMinute[1]);
+
+          if (period.toUpperCase() == 'PM' && hour != 12) {
+            hour += 12;
+          } else if (period.toUpperCase() == 'AM' && hour == 12) {
+            hour = 0;
+          }
+
+          timeOfDay = TimeOfDay(hour: hour, minute: minute);
+        }
+      } catch (e) {
+        // If parsing fails, timeOfDay remains null
+      }
+    }
+
+    return GestureDetector(
+      onTap: () async {
+        final pickedTime = await showTimePicker(
+          context: context,
+          initialTime: timeOfDay ??
+              const TimeOfDay(hour: 19, minute: 0), // Default to 7:00 PM
+          builder: (context, child) {
+            return Theme(
+              data: Theme.of(context).copyWith(
+                colorScheme: ColorScheme.dark(
+                  primary: efficialsYellow,
+                  onPrimary: Colors.black,
+                  primaryContainer: efficialsYellow,
+                  onPrimaryContainer: Colors.black,
+                  surface: darkSurface,
+                  onSurface: Colors.white,
+                  background: darkBackground,
+                  onBackground: Colors.white,
+                  secondary: efficialsYellow,
+                  onSecondary: Colors.black,
+                ),
+                timePickerTheme: TimePickerThemeData(
+                  backgroundColor: darkSurface,
+                  hourMinuteColor: darkBackground,
+                  hourMinuteTextColor: primaryTextColor,
+                  dayPeriodColor: WidgetStateColor.resolveWith((states) {
+                    if (states.contains(WidgetState.selected)) {
+                      return efficialsYellow;
+                    }
+                    return darkBackground;
+                  }),
+                  dayPeriodTextColor: WidgetStateColor.resolveWith((states) {
+                    if (states.contains(WidgetState.selected)) {
+                      return efficialsBlack;
+                    }
+                    return Colors.white;
+                  }),
+                  dialBackgroundColor: darkBackground,
+                  dialHandColor: efficialsYellow,
+                  dialTextColor: WidgetStateColor.resolveWith((states) {
+                    if (states.contains(WidgetState.selected)) {
+                      return efficialsBlack;
+                    }
+                    return primaryTextColor;
+                  }),
+                  entryModeIconColor: efficialsYellow,
+                  helpTextStyle: const TextStyle(color: primaryTextColor),
+                ),
+              ),
+              child: child!,
+            );
+          },
+        );
+
+        if (pickedTime != null) {
+          // Format time as "7:00 PM"
+          final hour =
+              pickedTime.hourOfPeriod == 0 ? 12 : pickedTime.hourOfPeriod;
+          final minute = pickedTime.minute.toString().padLeft(2, '0');
+          final period = pickedTime.period == DayPeriod.am ? 'AM' : 'PM';
+          final formattedTime = '$hour:$minute $period';
+
+          setState(() {
+            onValueChanged(formattedTime);
+          });
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.access_time, color: Colors.grey),
+            const SizedBox(width: 12),
+            Text(
+              currentValue.isNotEmpty
+                  ? currentValue
+                  : 'Select Game Time',
+              style: TextStyle(
+                color: currentValue.isNotEmpty
+                    ? Colors.white
+                    : Colors.grey,
+                fontSize: 16,
+              ),
+            ),
+            const Spacer(),
+            const Icon(Icons.arrow_drop_down, color: Colors.grey),
+          ],
+        ),
       ),
     );
   }

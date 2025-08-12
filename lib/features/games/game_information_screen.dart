@@ -38,6 +38,8 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
   List<Map<String, dynamic>> dismissedOfficials = [];
   Map<int, bool> selectedForHire = {};
   Map<int, bool> selectedCrewsForHire = {};
+  bool isGameLinked = false;
+  List<Map<String, dynamic>> linkedGames = [];
 
   // Repository for fetching real interested officials data
   final GameAssignmentRepository _gameAssignmentRepo =
@@ -169,12 +171,31 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
           'scheduleId': newArgs['scheduleId'] ?? gameData['scheduleId'],
         };
         _initializeFromArguments(updatedArgs);
+        // Check if this game is linked to others
+        _checkGameLinkStatus(databaseGameId);
       } else {
         _initializeFromArguments(newArgs);
       }
     } catch (e) {
       debugPrint('Error reloading game data from database: $e');
       _initializeFromArguments(newArgs);
+    }
+  }
+
+  // Check if the current game is linked to others
+  Future<void> _checkGameLinkStatus(int gameId) async {
+    try {
+      final isLinked = await _gameService.isGameLinked(gameId);
+      final linkedGamesList = await _gameService.getLinkedGames(gameId);
+      
+      if (mounted) {
+        setState(() {
+          isGameLinked = isLinked;
+          linkedGames = linkedGamesList;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error checking game link status: $e');
     }
   }
 
@@ -1270,6 +1291,52 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
     );
   }
 
+  Future<void> _showLinkGamesDialog() async {
+    final gameId = args['id'];
+    if (gameId == null || !_isDatabaseGame(gameId)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Game linking is not available for legacy games'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    try {
+      final eligibleGames = await _gameService.getEligibleGamesForLinking(gameId);
+      final isCurrentlyLinked = await _gameService.isGameLinked(gameId);
+      
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => _LinkGamesDialog(
+            currentGameId: gameId,
+            eligibleGames: eligibleGames,
+            isCurrentlyLinked: isCurrentlyLinked,
+            gameService: _gameService,
+            onLinkCreated: () {
+              // Refresh the screen to show linked status
+              final gameId = args['id'];
+              if (gameId != null) {
+                _checkGameLinkStatus(gameId);
+              }
+            },
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading linkable games: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   Future<void> _removeOfficialFromGame(
       int officialId, String officialName) async {
     final gameId = args['id'];
@@ -1494,18 +1561,56 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('Game Details',
-                        style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: efficialsYellow)),
+                    Row(
+                      children: [
+                        const Text('Game Details',
+                            style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: efficialsYellow)),
+                        if (isGameLinked) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: efficialsYellow.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: efficialsYellow, width: 1),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.link, color: efficialsYellow, size: 14),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Linked (${linkedGames.length + 1})',
+                                  style: const TextStyle(
+                                    color: efficialsYellow,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         IconButton(
                           onPressed: _createTemplateFromGame,
-                          icon: const Icon(Icons.link, color: efficialsYellow),
+                          icon: const Icon(Icons.content_copy, color: efficialsYellow),
                           tooltip: 'Create Template from Game',
+                        ),
+                        IconButton(
+                          onPressed: _showLinkGamesDialog,
+                          icon: Icon(
+                            isGameLinked ? Icons.link_off : Icons.link, 
+                            color: efficialsYellow
+                          ),
+                          tooltip: isGameLinked ? 'Manage Linked Games' : 'Link Games',
                         ),
                         TextButton(
                           onPressed: () => Navigator.pushNamed(
@@ -2036,4 +2141,252 @@ class _SliverHeaderDelegate extends SliverPersistentHeaderDelegate {
   @override
   bool shouldRebuild(covariant SliverPersistentHeaderDelegate oldDelegate) =>
       true;
+}
+
+class _LinkGamesDialog extends StatefulWidget {
+  final int currentGameId;
+  final List<Map<String, dynamic>> eligibleGames;
+  final bool isCurrentlyLinked;
+  final GameService gameService;
+  final VoidCallback onLinkCreated;
+
+  const _LinkGamesDialog({
+    required this.currentGameId,
+    required this.eligibleGames,
+    required this.isCurrentlyLinked,
+    required this.gameService,
+    required this.onLinkCreated,
+  });
+
+  @override
+  State<_LinkGamesDialog> createState() => _LinkGamesDialogState();
+}
+
+class _LinkGamesDialogState extends State<_LinkGamesDialog> {
+  final Set<int> selectedGameIds = {};
+  bool isLoading = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: darkSurface,
+      title: Text(
+        widget.isCurrentlyLinked ? 'Manage Game Links' : 'Link Games',
+        style: const TextStyle(
+          color: efficialsYellow,
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      content: SizedBox(
+        width: double.maxFinite,
+        height: 400,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (widget.isCurrentlyLinked) ...[
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: efficialsYellow.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: efficialsYellow.withOpacity(0.3)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.link, color: efficialsYellow, size: 20),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text(
+                        'This game is already linked with other games',
+                        style: TextStyle(color: efficialsYellow, fontSize: 14),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: _unlinkGame,
+                      child: const Text(
+                        'Unlink',
+                        style: TextStyle(color: Colors.red, fontSize: 12),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+            Text(
+              widget.eligibleGames.isEmpty
+                  ? 'No other games found at the same location and date.'
+                  : 'Select games to link together (same location & date):',
+              style: const TextStyle(color: Colors.white, fontSize: 16),
+            ),
+            const SizedBox(height: 12),
+            if (widget.eligibleGames.isEmpty)
+              const Expanded(
+                child: Center(
+                  child: Text(
+                    'Games must be at the same location on the same date to be linked.',
+                    style: TextStyle(color: Colors.grey, fontSize: 14),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              )
+            else
+              Expanded(
+                child: ListView.builder(
+                  itemCount: widget.eligibleGames.length,
+                  itemBuilder: (context, index) {
+                    final game = widget.eligibleGames[index];
+                    final gameId = game['id'] as int;
+                    final isSelected = selectedGameIds.contains(gameId);
+
+                    return CheckboxListTile(
+                      title: Text(
+                        '${game['time']} - ${game['opponent'] ?? 'vs TBD'}',
+                        style: const TextStyle(color: Colors.white, fontSize: 16),
+                      ),
+                      subtitle: Text(
+                        '${game['level_of_competition']} ${game['gender']} • ${game['officials_required']} officials',
+                        style: const TextStyle(color: Colors.grey, fontSize: 14),
+                      ),
+                      value: isSelected,
+                      onChanged: (value) {
+                        setState(() {
+                          if (value == true) {
+                            selectedGameIds.add(gameId);
+                          } else {
+                            selectedGameIds.remove(gameId);
+                          }
+                        });
+                      },
+                      activeColor: efficialsYellow,
+                      checkColor: efficialsBlack,
+                    );
+                  },
+                ),
+              ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel', style: TextStyle(color: efficialsYellow)),
+        ),
+        if (widget.eligibleGames.isNotEmpty && !widget.isCurrentlyLinked)
+          ElevatedButton(
+            onPressed: selectedGameIds.isEmpty || isLoading ? null : _createLink,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: efficialsYellow,
+              foregroundColor: efficialsBlack,
+            ),
+            child: isLoading
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(efficialsBlack),
+                    ),
+                  )
+                : const Text('Link Games'),
+          ),
+      ],
+    );
+  }
+
+  Future<void> _createLink() async {
+    setState(() {
+      isLoading = true;
+    });
+
+    try {
+      final gameIds = [widget.currentGameId, ...selectedGameIds];
+      final linkId = await widget.gameService.createGameLink(gameIds);
+
+      if (linkId != null) {
+        widget.onLinkCreated();
+        if (mounted) {
+          Navigator.pop(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Successfully linked ${gameIds.length} games'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Failed to create game link'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error creating link: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _unlinkGame() async {
+    setState(() {
+      isLoading = true;
+    });
+
+    try {
+      final success = await widget.gameService.unlinkGame(widget.currentGameId);
+
+      if (success) {
+        widget.onLinkCreated();
+        if (mounted) {
+          Navigator.pop(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Game unlinked successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Failed to unlink game'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error unlinking game: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
+    }
+  }
 }

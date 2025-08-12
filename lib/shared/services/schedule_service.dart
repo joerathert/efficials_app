@@ -3,6 +3,7 @@ import '../models/database_models.dart';
 import 'repositories/schedule_repository.dart';
 import 'repositories/user_repository.dart';
 import 'repositories/sport_repository.dart';
+import 'user_session_service.dart';
 
 class ScheduleService {
   static final ScheduleService _instance = ScheduleService._internal();
@@ -12,11 +13,21 @@ class ScheduleService {
   final ScheduleRepository _scheduleRepository = ScheduleRepository();
   final UserRepository _userRepository = UserRepository();
   final SportRepository _sportRepository = SportRepository();
+  final UserSessionService _userSessionService = UserSessionService.instance;
 
   // Get current user ID (for database operations)
   Future<int> _getCurrentUserId() async {
+    final userId = await _userSessionService.getCurrentUserId();
+    debugPrint('DEBUG: ScheduleService._getCurrentUserId - session userId: $userId');
+    if (userId != null) {
+      debugPrint('DEBUG: ScheduleService._getCurrentUserId - using session userId: $userId');
+      return userId;
+    }
+    // Fallback to UserRepository method
     final user = await _userRepository.getCurrentUser();
-    return user?.id ?? 1; // Default to 1 if no user found
+    final fallbackId = user?.id ?? 1;
+    debugPrint('DEBUG: ScheduleService._getCurrentUserId - fallback to userId: $fallbackId');
+    return fallbackId; // Default to 1 if no user found
   }
 
   // SCHEDULE OPERATIONS
@@ -72,6 +83,7 @@ class ScheduleService {
   }) async {
     try {
       final userId = await _getCurrentUserId();
+      debugPrint('DEBUG: ScheduleService.createSchedule - creating schedule "$name" for userId: $userId');
 
       // Get or create sport
       final sport = await _sportRepository.getOrCreateSport(sportName);
@@ -94,6 +106,7 @@ class ScheduleService {
       );
 
       final scheduleId = await _scheduleRepository.createSchedule(schedule);
+      debugPrint('DEBUG: ScheduleService.createSchedule - created schedule with ID: $scheduleId');
       final createdSchedule =
           await _scheduleRepository.getScheduleById(scheduleId);
 
