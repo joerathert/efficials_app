@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../shared/theme.dart';
+import '../../shared/services/user_session_service.dart';
 import 'game_template.dart'; // Import the GameTemplate model
 
 class AdditionalGameInfoCondensedScreen extends StatefulWidget {
@@ -120,9 +121,32 @@ class _AdditionalGameInfoCondensedScreenState
       }
     }
     
+    // Auto-populate opponent field for away games with AD's school info
+    if (_isAwayGame) {
+      _populateOpponentForAwayGame();
+    }
+    
     setState(() {
       _isInitialized = true;
     });
+  }
+
+  Future<void> _populateOpponentForAwayGame() async {
+    try {
+      final userSessionService = UserSessionService.instance;
+      final currentUser = await userSessionService.getCurrentSchedulerUser();
+      
+      if (currentUser != null &&
+          currentUser.schoolName != null &&
+          currentUser.mascot != null &&
+          currentUser.schoolName!.trim().isNotEmpty &&
+          currentUser.mascot!.trim().isNotEmpty) {
+        final schoolInfo = '${currentUser.schoolName!.trim()} ${currentUser.mascot!.trim()}';
+        _opponentController.text = schoolInfo;
+      }
+    } catch (e) {
+      debugPrint('Error populating opponent for away game: $e');
+    }
   }
 
   void _handleContinue() {
@@ -255,13 +279,23 @@ class _AdditionalGameInfoCondensedScreenState
                   ],
                   TextField(
                     controller: _opponentController,
-                    style: textFieldTextStyle,
-                    decoration: textFieldDecoration('Opponent'),
+                    enabled: !_isAwayGame,  // Disable for away games
+                    style: TextStyle(
+                        color: _isAwayGame ? Colors.grey : Colors.white,
+                        fontSize: 16),
+                    decoration: textFieldDecoration(_isAwayGame ? 'Opponent (Auto-filled)' : 'Opponent').copyWith(
+                      hintText: _isAwayGame 
+                          ? 'Will be auto-filled with your school name'
+                          : 'Enter the visiting team name (e.g., "Collinsville Kahoks")',
+                      hintStyle: const TextStyle(color: efficialsGray),
+                    ),
                     keyboardType: TextInputType.text,
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'This name will be displayed to officials to help them identify the opponent',
+                    _isAwayGame
+                        ? 'For away games, this will automatically be set to your school name'
+                        : 'Enter the visiting team name and mascot that is coming to play you',
                     style: TextStyle(
                       color: Colors.grey[400],
                       fontSize: 12,

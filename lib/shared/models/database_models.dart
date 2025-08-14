@@ -502,6 +502,7 @@ class Game {
     int? officialsHired,
     String? gameFee,
     String? opponent,
+    String? homeTeam,
     bool? hireAutomatically,
     String? method,
     String? status,
@@ -528,6 +529,7 @@ class Game {
       officialsHired: officialsHired ?? this.officialsHired,
       gameFee: gameFee ?? this.gameFee,
       opponent: opponent ?? this.opponent,
+      homeTeam: homeTeam ?? this.homeTeam,
       hireAutomatically: hireAutomatically ?? this.hireAutomatically,
       method: method ?? this.method,
       status: status ?? this.status,
@@ -905,6 +907,7 @@ class GameAssignment {
   String? _homeTeam;
   String? _locationName;
   String? _locationAddress;
+  String? _scheduleName;
 
   // Getters for the additional fields
   DateTime? get gameDate => _gameDate;
@@ -914,6 +917,7 @@ class GameAssignment {
   String? get homeTeam => _homeTeam;
   String? get locationName => _locationName;
   String? get locationAddress => _locationAddress;
+  String? get scheduleName => _scheduleName;
 
   GameAssignment({
     this.id,
@@ -1007,6 +1011,9 @@ class GameAssignment {
     }
     if (map.containsKey('location_address')) {
       assignment._locationAddress = map['location_address'];
+    }
+    if (map.containsKey('schedule_name')) {
+      assignment._scheduleName = map['schedule_name'];
     }
 
     return assignment;

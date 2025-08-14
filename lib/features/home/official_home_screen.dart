@@ -11,7 +11,9 @@ import '../../shared/services/repositories/game_assignment_repository.dart';
 import '../../shared/services/repositories/official_repository.dart';
 import '../../shared/services/repositories/crew_repository.dart';
 import '../../shared/services/repositories/notification_repository.dart';
+import '../../shared/services/game_service.dart';
 import '../../shared/models/database_models.dart';
+import '../../shared/widgets/linked_games_list.dart';
 
 class OfficialHomeScreen extends StatefulWidget {
   const OfficialHomeScreen({super.key});
@@ -28,6 +30,7 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
   final OfficialRepository _officialRepo = OfficialRepository();
   final CrewRepository _crewRepo = CrewRepository();
   final NotificationRepository _notificationRepo = NotificationRepository();
+  final GameService _gameService = GameService();
   
   // State variables
   String officialName = "";
@@ -388,17 +391,36 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                 ? SliverFillRemaining(
                     child: _buildEnhancedEmptyState(),
                   )
-                : SliverList(
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) {
-                        final assignment = acceptedGames[index];
-                        final isNext = index == 0;
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
-                          child: _buildEnhancedGameCard(assignment, isNext),
-                        );
-                      },
-                      childCount: acceptedGames.length,
+                : SliverFillRemaining(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: FutureBuilder<List<dynamic>>(
+                        future: _processConfirmedGamesWithLinking(),
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState == ConnectionState.waiting) {
+                            return const Center(child: CircularProgressIndicator(color: efficialsYellow));
+                          }
+                          
+                          final processedGames = snapshot.data ?? [];
+                          if (processedGames.isEmpty) {
+                            return _buildEmptyState('No confirmed games', Icons.assignment_turned_in);
+                          }
+                          
+                          return ListView.builder(
+                            itemCount: processedGames.length,
+                            itemBuilder: (context, index) {
+                              final item = processedGames[index];
+                              if (item is List<Map<String, dynamic>>) {
+                                // This is a group of linked games
+                                return _buildLinkedConfirmedGamesCard(item);
+                              } else {
+                                // This is a single game
+                                return _buildConfirmedGameCard(item as Map<String, dynamic>);
+                              }
+                            },
+                          );
+                        },
+                      ),
                     ),
                   ),
             // Bottom padding
@@ -444,12 +466,28 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
           Expanded(
             child: availableGames.isEmpty
                 ? _buildEmptyState('No available games', Icons.sports)
-                : ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    itemCount: availableGames.length,
-                    itemBuilder: (context, index) {
-                      final game = availableGames[index];
-                      return _buildAvailableGameCard(game);
+                : FutureBuilder<List<dynamic>>(
+                    future: _processAvailableGamesWithLinking(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator(color: efficialsYellow));
+                      }
+                      
+                      final processedGames = snapshot.data ?? [];
+                      return ListView.builder(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        itemCount: processedGames.length,
+                        itemBuilder: (context, index) {
+                          final item = processedGames[index];
+                          if (item is List<Map<String, dynamic>>) {
+                            // This is a group of linked games
+                            return _buildLinkedAvailableGamesCard(item);
+                          } else {
+                            // This is a single game
+                            return _buildAvailableGameCard(item as Map<String, dynamic>);
+                          }
+                        },
+                      );
                     },
                   ),
           ),
@@ -655,6 +693,1321 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
     );
   }
 
+  Future<List<dynamic>> _processAvailableGamesWithLinking() async {
+    final processedItems = <dynamic>[];
+    final processedGameIds = <int>{};
+    
+    debugPrint('🔗 Processing ${availableGames.length} available games for linking...');
+    
+    for (final game in availableGames) {
+      final gameId = game['id'] as int?;
+      if (gameId == null || processedGameIds.contains(gameId)) continue;
+      
+      try {
+        debugPrint('🔗 Checking if game $gameId is linked...');
+        final isLinked = await _gameService.isGameLinked(gameId);
+        debugPrint('🔗 Game $gameId linked status: $isLinked');
+        if (isLinked) {
+          final linkedGames = await _gameService.getLinkedGames(gameId);
+          debugPrint('🔗 Found ${linkedGames.length} linked games for game $gameId');
+          
+          // Find linked games that are also in our available games list
+          final linkedGamesInList = <Map<String, dynamic>>[]; 
+          linkedGamesInList.add(game); // Add the primary game
+          
+          for (final linkedGame in linkedGames) {
+            final linkedGameId = linkedGame['id'] as int?;
+            if (linkedGameId == null) continue;
+            
+            debugPrint('🔗 Looking for linked game $linkedGameId in available games list...');
+            final matchingAvailableGame = availableGames.where(
+              (g) => (g['id'] as int?) == linkedGameId,
+            );
+            
+            if (matchingAvailableGame.isNotEmpty) {
+              debugPrint('🔗 Found matching available game $linkedGameId');
+              linkedGamesInList.add(matchingAvailableGame.first);
+              processedGameIds.add(linkedGameId);
+            } else {
+              debugPrint('🔗 Linked game $linkedGameId not found in available games list');
+            }
+          }
+          
+          debugPrint('🔗 Total games in linked group: ${linkedGamesInList.length}');
+          if (linkedGamesInList.length > 1) {
+            // Sort by time if available (safely handle different time formats)
+            linkedGamesInList.sort((a, b) {
+              TimeOfDay? timeA, timeB;
+              
+              try {
+                final timeValueA = a['time'];
+                if (timeValueA is TimeOfDay) {
+                  timeA = timeValueA;
+                } else if (timeValueA is DateTime) {
+                  timeA = TimeOfDay.fromDateTime(timeValueA);
+                }
+              } catch (e) {
+                debugPrint('Error parsing time for game ${a['id']}: $e');
+              }
+              
+              try {
+                final timeValueB = b['time'];
+                if (timeValueB is TimeOfDay) {
+                  timeB = timeValueB;
+                } else if (timeValueB is DateTime) {
+                  timeB = TimeOfDay.fromDateTime(timeValueB);
+                }
+              } catch (e) {
+                debugPrint('Error parsing time for game ${b['id']}: $e');
+              }
+              
+              if (timeA == null && timeB == null) return 0;
+              if (timeA == null) return 1;
+              if (timeB == null) return -1;
+              final minutesA = timeA.hour * 60 + timeA.minute;
+              final minutesB = timeB.hour * 60 + timeB.minute;
+              return minutesA.compareTo(minutesB);
+            });
+            
+            processedItems.add(linkedGamesInList);
+            processedGameIds.add(gameId);
+          } else {
+            processedItems.add(game);
+            processedGameIds.add(gameId);
+          }
+        } else {
+          processedItems.add(game);
+          processedGameIds.add(gameId);
+        }
+      } catch (e) {
+        debugPrint('Error checking if game $gameId is linked: $e');
+        processedItems.add(game);
+        processedGameIds.add(gameId);
+      }
+    }
+    
+    debugPrint('🔗 Final processed items count: ${processedItems.length}');
+    return processedItems;
+  }
+
+  Widget _buildLinkedAvailableGamesCard(List<Map<String, dynamic>> linkedGames) {
+    if (linkedGames.length < 2) {
+      return _buildAvailableGameCard(linkedGames.first);
+    }
+    
+    // Calculate total fee for linked games
+    double totalFee = 0.0;
+    for (final game in linkedGames) {
+      final fee = double.tryParse(game['game_fee']?.toString() ?? '0') ?? 0.0;
+      totalFee += fee;
+    }
+    
+    // Get shared information (location, scheduler)
+    final primaryGame = linkedGames.first;
+    final location = primaryGame['location_name'] ?? 'TBD';
+    final scheduler = '${primaryGame['first_name'] ?? ''} ${primaryGame['last_name'] ?? ''}'.trim();
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Stack(
+        children: [
+          Column(
+            children: [
+              // Top card - just game info
+              Container(
+                decoration: BoxDecoration(
+                  color: darkSurface,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(12),
+                    topRight: Radius.circular(12),
+                    bottomLeft: Radius.circular(2),
+                    bottomRight: Radius.circular(2),
+                  ),
+                  border: Border.all(color: Colors.blue.withOpacity(0.3), width: 1),
+                ),
+                child: _buildTopLinkedGameContent(linkedGames[0]),
+              ),
+              // No gap - cards pressed together
+              // Bottom card - game info + shared info + buttons
+              Container(
+                decoration: BoxDecoration(
+                  color: darkSurface,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(2),
+                    topRight: Radius.circular(2),
+                    bottomLeft: Radius.circular(12),
+                    bottomRight: Radius.circular(12),
+                  ),
+                  border: Border.all(color: Colors.blue.withOpacity(0.3), width: 1),
+                ),
+                child: _buildBottomLinkedGameContent(linkedGames[1], location, scheduler, totalFee, linkedGames),
+              ),
+            ],
+          ),
+          // Linked badge in top-right corner
+          Positioned(
+            top: 8,
+            right: 8,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: efficialsYellow.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: efficialsYellow, width: 1),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.link, color: efficialsYellow, size: 14),
+                  const SizedBox(width: 4),
+                  const Text(
+                    'Linked Games',
+                    style: TextStyle(
+                      color: efficialsYellow,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTopLinkedGameContent(Map<String, dynamic> game) {
+    return GestureDetector(
+      onTap: () => _handleAvailableGameTap(game),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              game['sport_name'] ?? 'Sport',
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: efficialsYellow,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _formatGameTitle(game),
+              style: const TextStyle(
+                fontSize: 14,
+                color: Colors.white,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Icon(Icons.schedule, size: 14, color: Colors.grey[400]),
+                const SizedBox(width: 4),
+                Text(
+                  '${_formatAvailableGameDate(game)} at ${_formatAvailableGameTime(game)}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[400],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              game['schedule_name'] ?? game['scheduleName'] ?? 'Schedule',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[400],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBottomLinkedGameContent(
+    Map<String, dynamic> game, 
+    String location, 
+    String scheduler, 
+    double totalFee, 
+    List<Map<String, dynamic>> linkedGames
+  ) {
+    return GestureDetector(
+      onTap: () => _handleAvailableGameTap(game),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              _formatGameTitle(game),
+              style: const TextStyle(
+                fontSize: 14,
+                color: Colors.white,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Icon(Icons.schedule, size: 14, color: Colors.grey[400]),
+                const SizedBox(width: 4),
+                Text(
+                  '${_formatAvailableGameDate(game)} at ${_formatAvailableGameTime(game)}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[400],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              game['schedule_name'] ?? game['scheduleName'] ?? 'Schedule',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[400],
+              ),
+            ),
+            const SizedBox(height: 8),
+            // Shared information
+            Row(
+              children: [
+                Icon(Icons.location_on, size: 14, color: Colors.grey[400]),
+                const SizedBox(width: 4),
+                Text(
+                  location,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[400],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Icon(Icons.person, size: 14, color: Colors.grey[400]),
+                const SizedBox(width: 4),
+                Text(
+                  'Posted by: $scheduler',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[400],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Total Fee: \$${totalFee.toStringAsFixed(0)}',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.green,
+                  ),
+                ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ElevatedButton(
+                      onPressed: () => _dismissLinkedGames(linkedGames),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        minimumSize: Size.zero,
+                      ),
+                      child: const Text(
+                        'Dismiss',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      onPressed: () => _handleLinkedGamesAction(linkedGames),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _getLinkedGamesActionColor(linkedGames),
+                        foregroundColor: _getLinkedGamesActionTextColor(linkedGames),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        minimumSize: Size.zero,
+                      ),
+                      child: Text(
+                        _getLinkedGamesActionText(linkedGames),
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLinkedGameContent(Map<String, dynamic> game, {bool showButtons = true}) {
+    return GestureDetector(
+      onTap: () => _handleAvailableGameTap(game),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  game['sport_name'] ?? 'Sport',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: efficialsYellow,
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    'AVAILABLE',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blue[300],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _formatGameTitle(game),
+              style: const TextStyle(
+                fontSize: 14,
+                color: Colors.white,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Icon(Icons.schedule, size: 14, color: Colors.grey[400]),
+                const SizedBox(width: 4),
+                Text(
+                  '${_formatAvailableGameDate(game)} at ${_formatAvailableGameTime(game)}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[400],
+                  ),
+                ),
+              ],
+            ),
+            if (!showButtons) const SizedBox(height: 60), // Spacer for overlay
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _dismissLinkedGames(List<Map<String, dynamic>> linkedGames) {
+    for (final game in linkedGames) {
+      _dismissGame(game);
+    }
+  }
+
+  void _handleLinkedGamesAction(List<Map<String, dynamic>> linkedGames) {
+    // Check if all games have the same action type
+    final firstGame = linkedGames.first;
+    final isClaimAction = firstGame['hire_automatically'] == 1;
+    
+    // For simplicity, use the action type of the first game
+    if (isClaimAction) {
+      _showClaimLinkedGamesDialog(linkedGames);
+    } else {
+      _showExpressInterestLinkedGamesDialog(linkedGames);
+    }
+  }
+
+  Color _getLinkedGamesActionColor(List<Map<String, dynamic>> linkedGames) {
+    final firstGame = linkedGames.first;
+    return firstGame['hire_automatically'] == 1 ? Colors.green : efficialsYellow;
+  }
+
+  Color _getLinkedGamesActionTextColor(List<Map<String, dynamic>> linkedGames) {
+    final firstGame = linkedGames.first;
+    return firstGame['hire_automatically'] == 1 ? Colors.white : Colors.black;
+  }
+
+  String _getLinkedGamesActionText(List<Map<String, dynamic>> linkedGames) {
+    final firstGame = linkedGames.first;
+    return firstGame['hire_automatically'] == 1 ? 'Claim' : 'Express Interest';
+  }
+
+  void _showClaimLinkedGamesDialog(List<Map<String, dynamic>> linkedGames) {
+    // Calculate total fee for both games
+    double totalFee = 0.0;
+    for (final game in linkedGames) {
+      final fee = double.tryParse(game['game_fee']?.toString() ?? '0') ?? 0.0;
+      totalFee += fee;
+    }
+    
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: darkSurface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              Icon(Icons.link, color: Colors.green, size: 24),
+              const SizedBox(width: 8),
+              const Text(
+                'Claim Linked Games',
+                style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Are you sure you want to claim these linked games?',
+                style: TextStyle(color: Colors.grey[300], fontSize: 16),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: darkBackground,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.link, color: efficialsYellow, size: 16),
+                        const SizedBox(width: 4),
+                        const Text(
+                          'Linked Games',
+                          style: TextStyle(color: efficialsYellow, fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    ...linkedGames.map((game) => Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '• ${_formatGameTitle(game)}',
+                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
+                          ),
+                          const SizedBox(height: 2),
+                          Padding(
+                            padding: const EdgeInsets.only(left: 12),
+                            child: Text(
+                              '${_formatAvailableGameDate(game)} at ${_formatAvailableGameTime(game)}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey[400],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )).toList(),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Total Fee: \$${totalFee.toStringAsFixed(2)}',
+                      style: const TextStyle(
+                        color: Colors.green,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'By claiming these linked games, you are committing to officiate both games.',
+                style: TextStyle(
+                  color: Colors.grey[400],
+                  fontSize: 12,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _claimLinkedGames(linkedGames);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Claim Both Games'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showExpressInterestLinkedGamesDialog(List<Map<String, dynamic>> linkedGames) {
+    // Calculate total fee for both games
+    double totalFee = 0.0;
+    for (final game in linkedGames) {
+      final fee = double.tryParse(game['game_fee']?.toString() ?? '0') ?? 0.0;
+      totalFee += fee;
+    }
+    
+    // Get response timeframe from first game (assuming both have same timeframe)
+    final responseTime = linkedGames.first['response_timeframe'] ?? 24;
+    final responseUnit = linkedGames.first['response_unit'] ?? 'hours';
+    String timeframeText = _formatResponseTimeframe(responseTime, responseUnit);
+    
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: darkSurface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              Icon(Icons.link, color: efficialsYellow, size: 24),
+              const SizedBox(width: 8),
+              const Text(
+                'Express Interest in Linked Games',
+                style: TextStyle(color: efficialsYellow, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Express interest in these linked games?',
+                style: TextStyle(color: Colors.grey[300], fontSize: 16),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: darkBackground,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.link, color: efficialsYellow, size: 16),
+                        const SizedBox(width: 4),
+                        const Text(
+                          'Linked Games',
+                          style: TextStyle(color: efficialsYellow, fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    ...linkedGames.map((game) => Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Text(
+                        '• ${_formatGameTitle(game)}',
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                    )).toList(),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Total Fee: \$${totalFee.toStringAsFixed(2)}',
+                      style: const TextStyle(
+                        color: efficialsYellow,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'The scheduler will respond within $timeframeText. If selected, you will be assigned to both games.',
+                style: TextStyle(
+                  color: Colors.grey[400],
+                  fontSize: 12,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _expressInterestInLinkedGames(linkedGames);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: efficialsYellow,
+                foregroundColor: Colors.black,
+              ),
+              child: const Text('Express Interest'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _claimLinkedGames(List<Map<String, dynamic>> linkedGames) async {
+    try {
+      // Show loading indicator
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Claiming linked games...'),
+          backgroundColor: Colors.blue,
+        ),
+      );
+
+      // Claim each game in the linked set
+      for (final game in linkedGames) {
+        await _claimSingleGame(game);
+      }
+
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Successfully claimed ${linkedGames.length} linked games'),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      // Refresh the data
+      await _loadData();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to claim linked games: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void _expressInterestInLinkedGames(List<Map<String, dynamic>> linkedGames) async {
+    try {
+      // Show loading indicator
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Expressing interest in linked games...'),
+          backgroundColor: Colors.blue,
+        ),
+      );
+
+      // Express interest in each game in the linked set
+      for (final game in linkedGames) {
+        await _expressInterestInSingleGame(game);
+      }
+
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Successfully expressed interest in ${linkedGames.length} linked games'),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      // Refresh the data
+      await _loadData();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to express interest in linked games: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _claimSingleGame(Map<String, dynamic> game) async {
+    final gameId = game['id'] as int?;
+    final feeAmount = double.tryParse(game['game_fee']?.toString() ?? '0') ?? 0.0;
+    
+    if (gameId == null) {
+      throw Exception('Invalid game ID');
+    }
+    
+    // Get current user and official info
+    final userSession = UserSessionService.instance;
+    final userId = await userSession.getCurrentUserId();
+    
+    if (userId == null) {
+      throw Exception('No user logged in');
+    }
+    
+    final official = await _officialRepo.getOfficialByOfficialUserId(userId);
+    
+    if (official?.id == null) {
+      throw Exception('Official record not found');
+    }
+    
+    final officialId = official!.id!;
+    
+    // Claim the game
+    await _assignmentRepo.claimGame(gameId, officialId, feeAmount);
+  }
+
+  Future<void> _expressInterestInSingleGame(Map<String, dynamic> game) async {
+    final gameId = game['id'] as int?;
+    final feeAmount = double.tryParse(game['game_fee']?.toString() ?? '0') ?? 0.0;
+    
+    if (gameId == null) {
+      throw Exception('Invalid game ID');
+    }
+    
+    // Get current user and official info
+    final userSession = UserSessionService.instance;
+    final userId = await userSession.getCurrentUserId();
+    
+    if (userId == null) {
+      throw Exception('No user logged in');
+    }
+    
+    final official = await _officialRepo.getOfficialByOfficialUserId(userId);
+    
+    if (official?.id == null) {
+      throw Exception('Official record not found');
+    }
+    
+    final officialId = official!.id!;
+    
+    // Express interest in the game
+    await _assignmentRepo.expressInterest(gameId, officialId, feeAmount);
+  }
+
+  Future<List<dynamic>> _processConfirmedGamesWithLinking() async {
+    final List<dynamic> processedGames = [];
+    final Set<int> processedGameIds = {};
+    
+    final confirmedGameMaps = _convertGameAssignmentsToMaps(acceptedGames);
+    
+    debugPrint('Processing ${confirmedGameMaps.length} confirmed games for linking');
+    
+    for (final game in confirmedGameMaps) {
+      final gameId = game['id'] as int?;
+      if (gameId == null || processedGameIds.contains(gameId)) continue;
+      
+      debugPrint('Processing game ID: $gameId');
+      
+      try {
+        // Check if this game is linked to others
+        final isLinked = await _gameService.isGameLinked(gameId);
+        debugPrint('Game $gameId is linked: $isLinked');
+        
+        if (isLinked) {
+          final linkedGames = await _gameService.getLinkedGames(gameId);
+          debugPrint('Found ${linkedGames.length} linked games for game $gameId');
+          
+          // Filter linked games to only include those that are also in our confirmed list
+          final linkedGamesInConfirmed = <Map<String, dynamic>>[];
+          linkedGamesInConfirmed.add(game); // Add current game first
+          
+          for (final linkedGame in linkedGames) {
+            final linkedGameId = linkedGame['id'] as int?;
+            if (linkedGameId == null || linkedGameId == gameId) continue;
+            
+            // Find the corresponding game in our confirmed list
+            final originalLinkedGame = confirmedGameMaps.where(
+              (g) => (g['id'] as int?) == linkedGameId,
+            );
+            
+            if (originalLinkedGame.isNotEmpty) {
+              linkedGamesInConfirmed.add(originalLinkedGame.first);
+              processedGameIds.add(linkedGameId);
+            }
+          }
+          
+          if (linkedGamesInConfirmed.length > 1) {
+            debugPrint('Adding ${linkedGamesInConfirmed.length} linked games as group');
+            processedGames.add(linkedGamesInConfirmed);
+            processedGameIds.add(gameId);
+            continue;
+          }
+        }
+      } catch (e) {
+        debugPrint('Error checking if game $gameId is linked: $e');
+      }
+      
+      // Single game (not linked or linking failed)
+      debugPrint('Adding single game: $gameId');
+      processedGames.add(game);
+      processedGameIds.add(gameId);
+    }
+    
+    debugPrint('Final processed games count: ${processedGames.length}');
+    return processedGames;
+  }
+
+  Widget _buildLinkedConfirmedGamesCard(List<Map<String, dynamic>> linkedGames) {
+    if (linkedGames.length < 2) {
+      return _buildConfirmedGameCard(linkedGames.first);
+    }
+    
+    // Calculate total fee for linked games
+    double totalFee = 0.0;
+    for (final game in linkedGames) {
+      final fee = double.tryParse(game['game_fee']?.toString() ?? '0') ?? 0.0;
+      totalFee += fee;
+    }
+    
+    // Get shared information (location, scheduler)
+    final primaryGame = linkedGames.first;
+    final location = primaryGame['location_name'] ?? 'TBD';
+    final assignment = primaryGame['_assignment'] as GameAssignment?;
+    final scheduler = 'Confirmed Game'; // For confirmed games, we don't need "Posted by"
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Stack(
+        children: [
+          Column(
+            children: [
+              // Top card - clickable for first game
+              GestureDetector(
+                onTap: () => _handleConfirmedGameTap(linkedGames[0]),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: darkSurface,
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(12),
+                      topRight: Radius.circular(12),
+                      bottomLeft: Radius.circular(2),
+                      bottomRight: Radius.circular(2),
+                    ),
+                    border: Border.all(color: Colors.blue.withOpacity(0.3), width: 1),
+                  ),
+                  child: _buildTopConfirmedGameContent(linkedGames[0]),
+                ),
+              ),
+              // No gap - cards pressed together
+              // Bottom card - clickable for second game + shared info
+              GestureDetector(
+                onTap: () => _handleConfirmedGameTap(linkedGames[1]),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: darkSurface,
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(2),
+                      topRight: Radius.circular(2),
+                      bottomLeft: Radius.circular(12),
+                      bottomRight: Radius.circular(12),
+                    ),
+                    border: Border.all(color: Colors.blue.withOpacity(0.3), width: 1),
+                  ),
+                  child: _buildBottomConfirmedGameContent(linkedGames[1], location, scheduler, totalFee),
+                ),
+              ),
+            ],
+          ),
+          // Linked badge in top-right corner
+          Positioned(
+            top: 8,
+            right: 8,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: efficialsYellow.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: efficialsYellow, width: 1),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.link, color: efficialsYellow, size: 14),
+                  const SizedBox(width: 4),
+                  const Text(
+                    'Linked Games',
+                    style: TextStyle(
+                      color: efficialsYellow,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildConfirmedGameCard(Map<String, dynamic> game) {
+    return GestureDetector(
+      onTap: () => _handleConfirmedGameTap(game),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: darkSurface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.blue.withOpacity(0.3), width: 1),
+        ),
+        child: _buildConfirmedGameContent(game),
+      ),
+    );
+  }
+
+  Widget _buildTopConfirmedGameContent(Map<String, dynamic> game) {
+    final assignment = game['_assignment'] as GameAssignment?;
+    
+    String dateTimeText = 'TBD';
+    if (assignment?.gameDate != null) {
+      dateTimeText = _formatDate(assignment!.gameDate!);
+      if (assignment.gameTime != null) {
+        dateTimeText += ' at ${_formatTime(assignment.gameTime!)}';
+      }
+    }
+    
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+            Text(
+              game['sport_name'] ?? 'Sport',
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: efficialsYellow,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _formatGameTitle(game),
+              style: const TextStyle(
+                fontSize: 14,
+                color: Colors.white,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Icon(Icons.schedule, size: 14, color: Colors.grey[400]),
+                const SizedBox(width: 4),
+                Text(
+                  dateTimeText,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[400],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              game['schedule_name'] ?? game['scheduleName'] ?? 'Schedule',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[400],
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ],
+        ),
+      );
+  }
+
+  Widget _buildBottomConfirmedGameContent(
+    Map<String, dynamic> game, 
+    String location, 
+    String scheduler, 
+    double totalFee
+  ) {
+    final assignment = game['_assignment'] as GameAssignment?;
+    
+    String dateTimeText = 'TBD';
+    if (assignment?.gameDate != null) {
+      dateTimeText = _formatDate(assignment!.gameDate!);
+      if (assignment.gameTime != null) {
+        dateTimeText += ' at ${_formatTime(assignment.gameTime!)}';
+      }
+    }
+    
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+            Text(
+              _formatGameTitle(game),
+              style: const TextStyle(
+                fontSize: 14,
+                color: Colors.white,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Icon(Icons.schedule, size: 14, color: Colors.grey[400]),
+                const SizedBox(width: 4),
+                Text(
+                  dateTimeText,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[400],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              game['schedule_name'] ?? game['scheduleName'] ?? 'Schedule',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[400],
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+            const SizedBox(height: 12),
+            // Shared information section
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.location_on, size: 14, color: Colors.grey[400]),
+                    const SizedBox(width: 4),
+                    Text(
+                      location,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[400],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                // Fee and CONFIRMED badge in same row (like Available Games)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Text(
+                      'Total Fee: \$${totalFee.toStringAsFixed(2)}',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        color: Colors.green,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.green,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Text(
+                        'CONFIRMED',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+  }
+
+  Widget _buildConfirmedGameContent(Map<String, dynamic> game) {
+    // For single games, show full content including fee and confirmed badge
+    final assignment = game['_assignment'] as GameAssignment?;
+    
+    String dateTimeText = 'TBD';
+    if (assignment?.gameDate != null) {
+      dateTimeText = _formatDate(assignment!.gameDate!);
+      if (assignment.gameTime != null) {
+        dateTimeText += ' at ${_formatTime(assignment.gameTime!)}';
+      }
+    }
+    
+    final fee = double.tryParse(game['game_fee']?.toString() ?? '0') ?? 0.0;
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          game['sport_name'] ?? 'Sport',
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: efficialsYellow,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          _formatGameTitle(game),
+          style: const TextStyle(
+            fontSize: 14,
+            color: Colors.white,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Row(
+          children: [
+            Icon(Icons.schedule, size: 14, color: Colors.grey[400]),
+            const SizedBox(width: 4),
+            Text(
+              dateTimeText,
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[400],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          game['schedule_name'] ?? game['scheduleName'] ?? 'Schedule',
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.grey[400],
+            fontStyle: FontStyle.italic,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.location_on, size: 14, color: Colors.grey[400]),
+                const SizedBox(width: 4),
+                Text(
+                  game['location_name'] ?? 'TBD',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[400],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            // Fee and CONFIRMED badge in same row (like Available Games)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Text(
+                  'Fee: \$${fee.toStringAsFixed(2)}',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    color: Colors.green,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.green,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Text(
+                    'CONFIRMED',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  void _handleAvailableGameTap(Map<String, dynamic> game) {
+    // Create a basic GameAssignment with the available data
+    final Map<String, dynamic> assignmentMap = {
+      'id': game['id'],
+      'game_id': game['id'], // Use the game's actual ID
+      'official_id': 0, // Not relevant for available games
+      'status': 'available',
+      'assigned_by': 0, // Not relevant for available games
+      'assigned_at': DateTime.now().toIso8601String(),
+      'fee_amount': double.tryParse(game['game_fee']?.toString() ?? '0') ?? 0.0,
+      // Scheduler information
+      'scheduler_first_name': game['first_name'],
+      'scheduler_last_name': game['last_name'],
+      'scheduler_user_id': game['user_id'],
+      // Additional fields from the game data (use actual field names from query)
+      'date': game['date'], // This comes from g.date in the SQL query
+      'time': game['time'], // This comes from g.time in the SQL query
+      'sport_name': game['sport_name'],
+      'opponent': game['opponent'],
+      'home_team': game['schedule_home_team_name'] ?? game['home_team'] ?? 'Home Team',
+      'location_name': game['location_name'],
+    };
+    
+    final gameAssignment = GameAssignment.fromMap(assignmentMap);
+    
+    Navigator.pushNamed(
+      context,
+      '/available_game_details',
+      arguments: {
+        'assignment': gameAssignment,
+        'schedulerInfo': {
+          'name': '${game['first_name'] ?? ''} ${game['last_name'] ?? ''}'.trim(),
+          'first_name': game['first_name'],
+          'last_name': game['last_name'],
+          'user_id': game['user_id'],
+        },
+        'hireAutomatically': game['hire_automatically'] == 1,
+      },
+    );
+  }
+
   Widget _buildAvailableGameCard(Map<String, dynamic> game) {
     return GestureDetector(
       onTap: () {
@@ -684,17 +2037,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
         
         Navigator.pushNamed(
           context,
-          '/available_game_details',
-          arguments: {
-            'assignment': gameAssignment,
-            'schedulerInfo': {
-              'name': '${game['first_name'] ?? ''} ${game['last_name'] ?? ''}'.trim(),
-              'first_name': game['first_name'],
-              'last_name': game['last_name'],
-              'user_id': game['user_id'],
-            },
-            'hireAutomatically': game['hire_automatically'] == 1,
-          },
+          '/official_game_details',
+          arguments: gameAssignment,
         );
       },
       child: Container(
@@ -1685,6 +3029,85 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
     ));
   }
 
+  List<Map<String, dynamic>> _convertGameAssignmentsToMaps(List<GameAssignment> assignments) {
+    debugPrint('Converting ${assignments.length} GameAssignments to maps');
+    return assignments.map((assignment) {
+      debugPrint('Assignment - GameID: ${assignment.gameId}, HomeTeam: ${assignment.homeTeam}, Opponent: ${assignment.opponent}');
+      return {
+      'id': assignment.gameId,
+      'game_id': assignment.gameId,
+      'date': assignment.gameDate?.toIso8601String(),
+      'time': assignment.gameTime?.toIso8601String(),
+      'opponent': assignment.opponent,
+      'home_team': assignment.homeTeam,
+      'schedule_home_team_name': assignment.homeTeam,
+      'homeTeam': assignment.homeTeam,
+      'schedule_name': assignment.scheduleName ?? assignment.homeTeam ?? assignment.opponent ?? 'Game',
+      'scheduleName': assignment.scheduleName ?? assignment.homeTeam ?? assignment.opponent ?? 'Game',
+      'sport_name': assignment.sportName,
+      'sport': assignment.sportName,
+      'location_name': assignment.locationName,
+      'location': assignment.locationName,
+      'is_away': false, // GameAssignment doesn't have isAway field, default to false
+      'isAway': false,
+      'officialsRequired': 1, // Individual official assignment
+      'officials_required': 1,
+      'officialsHired': 1, // This official is confirmed
+      'officials_hired': 1,
+      'game_fee': assignment.feeAmount?.toString() ?? '0',
+      // Store the original assignment for navigation
+      '_assignment': assignment,
+    };
+    }).toList();
+  }
+
+  void _handleConfirmedGameTap(Map<String, dynamic> gameMap) async {
+    final assignment = gameMap['_assignment'] as GameAssignment?;
+    if (assignment != null) {
+      // Check if this game is part of a linked set
+      try {
+        final gameId = assignment.gameId;
+        final isLinked = await _gameService.isGameLinked(gameId);
+        
+        if (isLinked) {
+          // Get all linked games for context
+          final linkedGames = await _gameService.getLinkedGames(gameId);
+          
+          // Find linked games that are also in confirmed list
+          final confirmedGameMaps = _convertGameAssignmentsToMaps(acceptedGames);
+          final linkedConfirmedGames = <GameAssignment>[];
+          
+          // Add the current game
+          linkedConfirmedGames.add(assignment);
+          
+          // Add other linked games that are confirmed
+          for (final linkedGame in linkedGames) {
+            final linkedGameId = linkedGame['id'] as int?;
+            if (linkedGameId != null && linkedGameId != gameId) {
+              final matchingConfirmed = confirmedGameMaps.where(
+                (g) => (g['id'] as int?) == linkedGameId,
+              );
+              if (matchingConfirmed.isNotEmpty) {
+                final matchingAssignment = matchingConfirmed.first['_assignment'] as GameAssignment?;
+                if (matchingAssignment != null) {
+                  linkedConfirmedGames.add(matchingAssignment);
+                }
+              }
+            }
+          }
+          
+          _navigateToLinkedGameDetails(assignment, linkedConfirmedGames);
+        } else {
+          _navigateToGameDetails(assignment);
+        }
+      } catch (e) {
+        debugPrint('Error checking linked games: $e');
+        // Fallback to single game details
+        _navigateToGameDetails(assignment);
+      }
+    }
+  }
+
   void _navigateToGameDetails(GameAssignment assignment) async {
     final result = await Navigator.pushNamed(
       context,
@@ -1695,6 +3118,26 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
     // If the user backed out of the game, refresh the data
     if (result == true) {
       // Show a subtle loading indicator while refreshing
+      await _loadData();
+    }
+  }
+
+  void _navigateToLinkedGameDetails(GameAssignment primaryAssignment, List<GameAssignment> linkedGames) async {
+    // Pass both the primary game and the linked games list
+    final arguments = {
+      'assignment': primaryAssignment,
+      'linkedGames': linkedGames,
+      'isLinkedView': true,
+    };
+    
+    final result = await Navigator.pushNamed(
+      context,
+      '/official_game_details', 
+      arguments: arguments,
+    );
+    
+    // If the user backed out of any games, refresh the data
+    if (result == true) {
       await _loadData();
     }
   }

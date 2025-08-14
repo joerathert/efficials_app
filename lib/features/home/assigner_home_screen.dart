@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../shared/theme.dart';
 import '../../shared/utils/utils.dart';
 import '../../shared/services/user_session_service.dart';
@@ -6,6 +7,7 @@ import '../../shared/services/repositories/user_repository.dart';
 import '../../shared/services/repositories/notification_repository.dart';
 import '../../shared/services/game_service.dart';
 import '../../shared/widgets/scheduler_bottom_navigation.dart';
+import '../../shared/widgets/linked_games_list.dart';
 
 class AssignerHomeScreen extends StatefulWidget {
   const AssignerHomeScreen({super.key});
@@ -29,6 +31,7 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
   late Animation<double> _slideAnimation;
   late Animation<double> _fadeAnimation;
   bool _isExpanded = false;
+  bool _showQuickActions = true;
 
   final NotificationRepository _notificationRepo = NotificationRepository();
   final UserRepository _userRepository = UserRepository();
@@ -61,6 +64,7 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
   Future<void> _initializeAssignerHome() async {
     await Future.wait([
       _checkAssignerSetup(),
+      _loadQuickActionsPreference(),
       _loadUnreadNotificationCount(),
       _loadUnpublishedGamesCount(),
       _loadGamesNeedingOfficials(),
@@ -118,6 +122,25 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
     }
   }
 
+  Future<void> _loadQuickActionsPreference() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (mounted) {
+        setState(() {
+          _showQuickActions = prefs.getBool('showQuickActions') ?? true;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading Quick Actions preference: $e');
+      // Default to showing Quick Actions if there's an error
+      if (mounted) {
+        setState(() {
+          _showQuickActions = true;
+        });
+      }
+    }
+  }
+
   Future<void> _loadUnreadNotificationCount() async {
     try {
       final currentUser = await _userRepository.getCurrentUser();
@@ -165,85 +188,24 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
 
       gamesNeedingOfficials.sort((a, b) => a.date!.compareTo(b.date!));
 
-      // Get linking information for each game
-      final gamesWithLinkInfo = <Map<String, dynamic>>[];
-      final processedGameIds = <int>{};
-      
-      for (final game in gamesNeedingOfficials) {
-        if (processedGameIds.contains(game.id)) continue;
-        
-        final gameMap = {
-          'id': game.id,
-          'opponent': game.opponent ?? 'TBD',
-          'homeTeam': game.scheduleHomeTeamName ?? game.homeTeam ?? 'Home Team',
-          'scheduleName': game.scheduleName ?? 'Unknown Schedule',
-          'date': game.date,
-          'time': game.time,
-          'sport': game.sportName ?? 'Unknown',
-          'location': game.locationName ?? 'TBD',
-          'officialsRequired': game.officialsRequired,
-          'officialsHired': game.officialsHired,
-          'isAway': game.isAway,
-          'isLinked': false,
-          'linkedGames': <Map<String, dynamic>>[],
-        };
-        
-        // Check if this game is linked to others
-        try {
-          final isLinked = await _gameService.isGameLinked(game.id!);
-          if (isLinked) {
-            final linkedGames = await _gameService.getLinkedGames(game.id!);
-            
-            // Filter linked games to only include those that also need officials
-            final linkedGamesNeedingOfficials = <Map<String, dynamic>>[];
-            
-            for (final linkedGame in linkedGames) {
-              try {
-                // Find the corresponding game in our original list
-                final linkedGameMatches = gamesNeedingOfficials.where(
-                  (g) => g.id == linkedGame['id'],
-                );
-                final linkedGameData = linkedGameMatches.isNotEmpty ? linkedGameMatches.first : null;
-                
-                if (linkedGameData != null) {
-                  linkedGamesNeedingOfficials.add({
-                    'id': linkedGame['id'] ?? 0,
-                    'opponent': linkedGame['opponent'] ?? linkedGameData.opponent ?? 'TBD',
-                    'homeTeam': linkedGameData.scheduleHomeTeamName ?? linkedGameData.homeTeam ?? linkedGame['home_team'] ?? 'Home Team',
-                    'scheduleName': linkedGameData.scheduleName ?? linkedGame['schedule_name'] ?? 'Unknown Schedule',
-                    'date': linkedGameData.date, // Use original date object
-                    'time': linkedGameData.time, // Use original time object
-                    'sport': linkedGameData.sportName ?? linkedGame['sport_name'] ?? 'Unknown',
-                    'location': linkedGameData.locationName ?? linkedGame['location_name'] ?? 'TBD',
-                    'officialsRequired': linkedGameData.officialsRequired ?? linkedGame['officials_required'] ?? 0,
-                    'officialsHired': linkedGameData.officialsHired ?? linkedGame['officials_hired'] ?? 0,
-                    'isAway': linkedGameData.isAway ?? (linkedGame['is_away'] == 1),
-                  });
-                  
-                  // Mark this game as processed
-                  processedGameIds.add(linkedGame['id'] ?? 0);
-                }
-              } catch (e) {
-                debugPrint('Error processing linked game ${linkedGame['id']}: $e');
-              }
-            }
-            
-            if (linkedGamesNeedingOfficials.isNotEmpty) {
-              gameMap['isLinked'] = true;
-              gameMap['linkedGames'] = linkedGamesNeedingOfficials;
-            }
-          }
-        } catch (e) {
-          debugPrint('Error checking if game ${game.id} is linked: $e');
-        }
-        
-        gamesWithLinkInfo.add(gameMap);
-        processedGameIds.add(game.id!);
-      }
+      // Convert games to the format expected by LinkedGamesList
+      final gamesWithBasicInfo = gamesNeedingOfficials.map((game) => {
+        'id': game.id,
+        'opponent': game.opponent ?? 'TBD',
+        'homeTeam': game.scheduleHomeTeamName ?? game.homeTeam ?? 'Home Team',
+        'scheduleName': game.scheduleName ?? 'Unknown Schedule',
+        'date': game.date,
+        'time': game.time,
+        'sport': game.sportName ?? 'Unknown',
+        'location': game.locationName ?? 'TBD',
+        'officialsRequired': game.officialsRequired,
+        'officialsHired': game.officialsHired,
+        'isAway': game.isAway,
+      }).toList();
       
       if (mounted) {
         setState(() {
-          _gamesNeedingOfficials = gamesWithLinkInfo;
+          _gamesNeedingOfficials = gamesWithBasicInfo;
         });
       }
     } catch (e, stackTrace) {
@@ -453,6 +415,18 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
             ),
             ListTile(
               leading: const Icon(Icons.settings, color: efficialsYellow),
+              title: const Text('Settings',
+                  style: TextStyle(color: Colors.white)),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/settings').then((_) {
+                  // Refresh Quick Actions preference when returning from settings
+                  _loadQuickActionsPreference();
+                });
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.tune, color: efficialsYellow),
               title: const Text('Game Defaults',
                   style: TextStyle(color: Colors.white)),
               onTap: () {
@@ -580,90 +554,95 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
                                   ),
                                 ),
                               ),
-                              const SizedBox(height: 30),
+                              
+                              // Spacing after Assigner tile
+                              const SizedBox(height: 20),
+                              
+                              if (_showQuickActions) ...[
+                                const SizedBox(height: 10),
 
-                              // Quick Actions Section
-                              FadeTransition(
-                                opacity: _fadeAnimation,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text(
-                                      'Quick Actions',
-                                      style: TextStyle(
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.bold,
+                                // Quick Actions Section
+                                FadeTransition(
+                                  opacity: _fadeAnimation,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Quick Actions',
+                                        style: TextStyle(
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.bold,
+                                        ),
                                       ),
-                                    ),
-                                    const SizedBox(height: 16),
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: _buildActionCard(
-                                            icon: Icons.calendar_today,
-                                            title: 'Manage Schedules',
-                                            onTap: () {
-                                              Navigator.pushNamed(context,
-                                                      '/assigner_manage_schedules')
-                                                  .then((_) {
-                                                _loadGamesNeedingOfficials();
-                                              });
-                                            },
+                                      const SizedBox(height: 16),
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: _buildActionCard(
+                                              icon: Icons.calendar_today,
+                                              title: 'Manage Schedules',
+                                              onTap: () {
+                                                Navigator.pushNamed(context,
+                                                        '/assigner_manage_schedules')
+                                                    .then((_) {
+                                                  _loadGamesNeedingOfficials();
+                                                });
+                                              },
+                                            ),
                                           ),
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: _buildActionCard(
-                                            icon: Icons.people,
-                                            title: 'Manage Officials',
-                                            onTap: () {
-                                              Navigator.pushNamed(context,
-                                                      '/officials_crews_choice')
-                                                  .then((_) {
-                                                _loadGamesNeedingOfficials();
-                                              });
-                                            },
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: _buildActionCard(
+                                              icon: Icons.people,
+                                              title: 'Manage Officials',
+                                              onTap: () {
+                                                Navigator.pushNamed(context,
+                                                        '/officials_crews_choice')
+                                                    .then((_) {
+                                                  _loadGamesNeedingOfficials();
+                                                });
+                                              },
+                                            ),
                                           ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 12),
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: _buildActionCard(
-                                            icon: Icons.copy,
-                                            title: 'Game Templates',
-                                            onTap: () {
-                                              Navigator.pushNamed(context,
-                                                      '/game_templates')
-                                                  .then((_) {
-                                                _loadGamesNeedingOfficials();
-                                              });
-                                            },
+                                        ],
+                                      ),
+                                      const SizedBox(height: 12),
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: _buildActionCard(
+                                              icon: Icons.copy,
+                                              title: 'Game Templates',
+                                              onTap: () {
+                                                Navigator.pushNamed(context,
+                                                        '/game_templates')
+                                                    .then((_) {
+                                                  _loadGamesNeedingOfficials();
+                                                });
+                                              },
+                                            ),
                                           ),
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: _buildActionCard(
-                                            icon: Icons.notifications,
-                                            title: 'Notifications',
-                                            onTap: () {
-                                              Navigator.pushNamed(context,
-                                                      '/backout_notifications')
-                                                  .then((_) {
-                                                _loadGamesNeedingOfficials();
-                                              });
-                                            },
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: _buildActionCard(
+                                              icon: Icons.notifications,
+                                              title: 'Notifications',
+                                              onTap: () {
+                                                Navigator.pushNamed(context,
+                                                        '/backout_notifications')
+                                                    .then((_) {
+                                                  _loadGamesNeedingOfficials();
+                                                });
+                                              },
+                                            ),
                                           ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
+                                        ],
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              ),
-
-                              const SizedBox(height: 30),
+                                const SizedBox(height: 30),
+                              ],
 
                               // Games Needing Officials Section
                               FadeTransition(
@@ -792,172 +771,19 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
           ),
         ),
         const SizedBox(height: 16),
-        ListView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: _gamesNeedingOfficials.length,
-          itemBuilder: (context, index) {
-            final game = _gamesNeedingOfficials[index];
-            try {
-              if (game['isLinked'] == true && game['linkedGames'] != null && game['linkedGames'].isNotEmpty) {
-                return _buildLinkedGamesCard(game);
-              } else {
-                return _buildGameNeedingOfficialsCard(game);
-              }
-            } catch (e) {
-              debugPrint('Error building game card for game ${game['id']}: $e');
-              // Fallback to regular card if linked card fails
-              return _buildGameNeedingOfficialsCard(game);
-            }
-          },
+        SizedBox(
+          height: 600, // Set a fixed height for the LinkedGamesList
+          child: LinkedGamesList(
+            games: _gamesNeedingOfficials,
+            onGameTap: _navigateToGame,
+            emptyMessage: 'No games needing officials',
+            emptyIcon: Icons.check_circle,
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildLinkedGamesCard(Map<String, dynamic> primaryGame) {
-    final linkedGames = primaryGame['linkedGames'] as List<Map<String, dynamic>>;
-    if (linkedGames.isEmpty) return _buildGameNeedingOfficialsCard(primaryGame);
-    
-    final allGames = [primaryGame, ...linkedGames];
-    // Sort by time if available
-    allGames.sort((a, b) {
-      final timeA = a['time'] as TimeOfDay?;
-      final timeB = b['time'] as TimeOfDay?;
-      if (timeA == null && timeB == null) return 0;
-      if (timeA == null) return 1;
-      if (timeB == null) return -1;
-      final minutesA = timeA.hour * 60 + timeA.minute;
-      final minutesB = timeB.hour * 60 + timeB.minute;
-      return minutesA.compareTo(minutesB);
-    });
-    
-    final location = primaryGame['location'];
-    final date = primaryGame['date'] as DateTime?;
-    String dateText = 'TBD';
-    if (date != null) {
-      dateText = '${date.month}/${date.day}/${date.year}';
-    }
-
-    // For linked games, the same officials work both games
-    // So we just need to show the requirement from one game (they should be the same)
-    final officialsRequired = primaryGame['officialsRequired'] as int? ?? 0;
-    final officialsHired = primaryGame['officialsHired'] as int? ?? 0;
-    final officialsNeeded = officialsRequired - officialsHired;
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Stack(
-        children: [
-          // Two cards stacked with minimal gap and shared border
-          Column(
-            children: [
-              // Top card
-              Container(
-                decoration: BoxDecoration(
-                  color: darkSurface,
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(12),
-                    topRight: Radius.circular(12),
-                    bottomLeft: Radius.circular(2),
-                    bottomRight: Radius.circular(2),
-                  ),
-                  border: Border.all(color: Colors.orange.withOpacity(0.3), width: 1),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.3),
-                      spreadRadius: 1,
-                      blurRadius: 3,
-                      offset: const Offset(0, 1),
-                    ),
-                  ],
-                ),
-                child: _buildLinkedGameContent(allGames[0], showNeedBadge: false, onTap: () => _navigateToGame(allGames[0])),
-              ),
-              // Minimal gap with location info
-              Container(
-                height: 2,
-                margin: const EdgeInsets.symmetric(horizontal: 1),
-                decoration: BoxDecoration(
-                  color: Colors.orange.withOpacity(0.2),
-                ),
-              ),
-              // Bottom card
-              Container(
-                decoration: BoxDecoration(
-                  color: darkSurface,
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(2),
-                    topRight: Radius.circular(2),
-                    bottomLeft: Radius.circular(12),
-                    bottomRight: Radius.circular(12),
-                  ),
-                  border: Border.all(color: Colors.orange.withOpacity(0.3), width: 1),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.3),
-                      spreadRadius: 1,
-                      blurRadius: 3,
-                      offset: const Offset(0, 1),
-                    ),
-                  ],
-                ),
-                child: _buildLinkedGameContent(allGames[1], showNeedBadge: false, onTap: () => _navigateToGame(allGames[1])),
-              ),
-            ],
-          ),
-          // Shared "Need X" badge in top-right
-          Positioned(
-            top: 8,
-            right: 8,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.orange,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                'Need $officialsNeeded',
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ),
-          // Small link indicator in top-left  
-          Positioned(
-            top: 8,
-            left: 8,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-              decoration: BoxDecoration(
-                color: efficialsYellow.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: efficialsYellow, width: 1),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.link, color: efficialsYellow, size: 8),
-                  const SizedBox(width: 2),
-                  Text(
-                    'Linked',
-                    style: const TextStyle(
-                      fontSize: 7,
-                      color: efficialsYellow,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildLinkedGameContent(Map<String, dynamic> game, {bool showNeedBadge = true, required VoidCallback onTap}) {
     final time = game['time'] as TimeOfDay?;

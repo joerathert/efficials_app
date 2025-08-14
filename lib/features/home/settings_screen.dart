@@ -20,6 +20,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool defaultDarkMode = false;
   String? defaultMethod;
   bool defaultChoice = false;
+  bool showQuickActions = true;
   
   // Notification Settings
   bool emailNotifications = true;
@@ -61,6 +62,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       defaultDarkMode = prefs.getBool('default_dark_mode') ?? false;
       defaultMethod = prefs.getString('defaultMethod');
       defaultChoice = prefs.getBool('defaultChoice') ?? false;
+      showQuickActions = prefs.getBool('showQuickActions') ?? true;
       
       // Load notification preferences
       emailNotifications = prefs.getBool('emailNotifications') ?? true;
@@ -112,6 +114,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       await prefs.setBool('dont_ask_create_template', dontAskCreateTemplate);
       await prefs.setBool('default_dark_mode', defaultDarkMode);
       await prefs.setBool('defaultChoice', defaultChoice);
+      await prefs.setBool('showQuickActions', showQuickActions);
       
       // Save notification preferences
       await prefs.setBool('emailNotifications', emailNotifications);
@@ -237,7 +240,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
             // Display Settings
             _buildSettingSection(
               'Display',
-              [
+              (schedulerType?.toLowerCase() == 'assigner') ? [
+                _buildSwitchTile(
+                  'Dark Mode',
+                  'Use dark theme throughout the app',
+                  defaultDarkMode,
+                  (value) => defaultDarkMode = value,
+                ),
+                const Divider(height: 1),
+                _buildSwitchTile(
+                  'Show Quick Actions',
+                  'Display Quick Actions buttons on Home screen',
+                  showQuickActions,
+                  (value) => showQuickActions = value,
+                ),
+              ] : [
                 _buildSwitchTile(
                   'Dark Mode',
                   'Use dark theme throughout the app',
@@ -248,8 +265,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
 
             // Game View Settings
-            if (schedulerType == 'Athletic Director' ||
-                schedulerType == 'Coach')
+            if (schedulerType?.toLowerCase() == 'athletic director' ||
+                schedulerType?.toLowerCase() == 'coach')
               _buildSettingSection(
                 'Game View',
                 [
@@ -270,8 +287,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
 
             // Template Settings
-            if (schedulerType == 'Athletic Director' ||
-                schedulerType == 'Assigner')
+            if (schedulerType?.toLowerCase() == 'athletic director' ||
+                schedulerType?.toLowerCase() == 'assigner')
               _buildSettingSection(
                 'Templates',
                 [
@@ -285,8 +302,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
 
             // Officials Selection Settings
-            if (schedulerType == 'Athletic Director' ||
-                schedulerType == 'Assigner')
+            if (schedulerType?.toLowerCase() == 'athletic director' ||
+                schedulerType?.toLowerCase() == 'assigner')
               _buildSettingSection(
                 'Officials Selection',
                 [
@@ -368,32 +385,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ],
             ),
 
-            // Privacy Settings
-            _buildSettingSection(
-              'Privacy',
-              [
-                _buildSwitchTile(
-                  'Share Profile',
-                  'Allow other users to view your profile',
-                  shareProfile,
-                  (value) => shareProfile = value,
-                ),
-                const Divider(height: 1),
-                _buildSwitchTile(
-                  'Show Availability',
-                  'Display your availability to schedulers',
-                  showAvailability,
-                  (value) => showAvailability = value,
-                ),
-                const Divider(height: 1),
-                _buildSwitchTile(
-                  'Allow Contact from Officials',
-                  'Let other officials contact you directly',
-                  allowContactFromOfficials,
-                  (value) => allowContactFromOfficials = value,
-                ),
-              ],
-            ),
+            // Privacy Settings (Officials only)
+            if (schedulerType?.toLowerCase() == 'official')
+              _buildSettingSection(
+                'Privacy',
+                [
+                  _buildSwitchTile(
+                    'Share Profile',
+                    'Allow other users to view your profile',
+                    shareProfile,
+                    (value) => shareProfile = value,
+                  ),
+                  const Divider(height: 1),
+                  _buildSwitchTile(
+                    'Show Availability',
+                    'Display your availability to schedulers',
+                    showAvailability,
+                    (value) => showAvailability = value,
+                  ),
+                  const Divider(height: 1),
+                  _buildSwitchTile(
+                    'Allow Contact from Officials',
+                    'Let other officials contact you directly',
+                    allowContactFromOfficials,
+                    (value) => allowContactFromOfficials = value,
+                  ),
+                ],
+              ),
 
             // App Preferences
             _buildSettingSection(

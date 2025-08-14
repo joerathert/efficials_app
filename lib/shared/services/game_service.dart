@@ -269,6 +269,16 @@ class GameService {
         debugPrint('Using fallback home team: $homeTeam');
       }
 
+      // For away games, automatically set opponent to AD's school info
+      String? finalOpponent = gameData['opponent'];
+      final isAwayGame = gameData['isAway'] ?? false;
+      
+      if (isAwayGame && homeTeam != null && homeTeam != 'Home Team') {
+        // For away games, the opponent should be the AD's school (where the game is NOT being played)
+        finalOpponent = homeTeam;
+        debugPrint('Away game detected - setting opponent to AD school: $finalOpponent');
+      }
+
       final game = Game(
         scheduleId: scheduleId,
         sportId: sportId,
@@ -282,7 +292,7 @@ class GameService {
         officialsRequired: gameData['officialsRequired'] ?? 0,
         officialsHired: gameData['officialsHired'] ?? 0,
         gameFee: gameData['gameFee'],
-        opponent: gameData['opponent'],
+        opponent: finalOpponent,
         homeTeam: homeTeam,
         hireAutomatically: gameData['hireAutomatically'] ?? false,
         method: gameData['method'],
@@ -332,6 +342,31 @@ class GameService {
         locationId = await _getLocationId(gameData['location']);
       }
 
+      // Get Athletic Director's school information for home team
+      String? homeTeam;
+      try {
+        final currentUser = await _userRepository.getCurrentUser();
+        if (currentUser != null &&
+            currentUser.schoolName != null &&
+            currentUser.mascot != null &&
+            currentUser.schoolName!.trim().isNotEmpty &&
+            currentUser.mascot!.trim().isNotEmpty) {
+          homeTeam = '${currentUser.schoolName!.trim()} ${currentUser.mascot!.trim()}';
+        }
+      } catch (e) {
+        debugPrint('Error getting AD school info for update: $e');
+      }
+
+      // For away games, automatically set opponent to AD's school info
+      String? finalOpponent = gameData['opponent'];
+      final isAwayGame = gameData['isAway'] ?? false;
+      
+      if (isAwayGame && homeTeam != null && homeTeam != 'Home Team') {
+        // For away games, the opponent should be the AD's school (where the game is NOT being played)
+        finalOpponent = homeTeam;
+        debugPrint('Away game update detected - setting opponent to AD school: $finalOpponent');
+      }
+
       final updatedGame = existingGame.copyWith(
         scheduleId: scheduleId,
         sportId: sportId,
@@ -344,7 +379,8 @@ class GameService {
         officialsRequired: gameData['officialsRequired'],
         officialsHired: gameData['officialsHired'],
         gameFee: gameData['gameFee'],
-        opponent: gameData['opponent'],
+        opponent: finalOpponent,
+        homeTeam: homeTeam,
         hireAutomatically: gameData['hireAutomatically'],
         method: gameData['method'],
         status: gameData['status'],

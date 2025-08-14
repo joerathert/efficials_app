@@ -71,7 +71,8 @@ class GameAssignmentRepository extends BaseRepository {
           ELSE COALESCE(g.home_team, 'Home Team')
         END as home_team,
         l.name as location_name, l.address as location_address,
-        s.name as sport_name
+        s.name as sport_name,
+        sch.name as schedule_name
       FROM game_assignments ga
       JOIN games g ON ga.game_id = g.id
       LEFT JOIN locations l ON g.location_id = l.id
@@ -103,7 +104,8 @@ class GameAssignmentRepository extends BaseRepository {
                ELSE COALESCE(g.home_team, 'Home Team')
              END as home_team,
              l.name as location_name, l.address as location_address,
-             s.name as sport_name
+             s.name as sport_name,
+             sch.name as schedule_name
       FROM game_assignments ga
       JOIN games g ON ga.game_id = g.id
       LEFT JOIN locations l ON g.location_id = l.id
@@ -860,6 +862,7 @@ class GameAssignmentRepository extends BaseRepository {
           g.method, g.status, g.created_at, g.updated_at,
           l.name as location_name, l.address as location_address,
           s.name as sport_name,
+          sch.name as schedule_name,
           sch.home_team_name as schedule_home_team_name,
           u.first_name, u.last_name,
           -- Dynamic home team: prioritize schedule_home_team_name for Assigners, then AD profile, then stored home_team
@@ -988,6 +991,7 @@ class GameAssignmentRepository extends BaseRepository {
                g.method, g.status, g.created_at, g.updated_at,
                l.name as location_name, l.address as location_address,
                s.name as sport_name,
+               sch.name as schedule_name,
                sch.home_team_name as schedule_home_team_name,
                u.first_name, u.last_name,
                -- Dynamic home team: prioritize schedule_home_team_name for Assigners, then AD profile, then stored home_team

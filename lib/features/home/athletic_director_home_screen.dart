@@ -46,6 +46,10 @@ class _AthleticDirectorHomeScreenState
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _initializeData();
+  }
+
+  Future<void> _initializeData() async {
     _fetchGames();
     _loadFilters();
     _loadUnreadNotificationCount();
@@ -110,6 +114,7 @@ class _AthleticDirectorHomeScreenState
     }
   }
 
+
   void _scrollToFirstUpcomingGame() {
     if (scrollController.hasClients) {
       try {
@@ -157,7 +162,7 @@ class _AthleticDirectorHomeScreenState
         // Debug logging to understand what's happening with games
         developer.log('Published games loaded: ${publishedGames.length}');
         for (var game in publishedGames) {
-          developer.log('Game: id=${game.id}, scheduleName=${game.scheduleName}, sportName=${game.sportName}, date=${game.date}');
+          developer.log('Game: id=${game.id}, scheduleName=${game.scheduleName}, sportName=${game.sportName}, opponent=${game.opponent}, isAway=${game.isAway}, date=${game.date}');
         }
       });
     } catch (e) {
@@ -800,7 +805,6 @@ class _AthleticDirectorHomeScreenState
         }
       }
       return ListView.builder(
-        controller: scrollController,
         itemCount: upcomingGames.length,
         itemBuilder: (context, index) {
           final game = upcomingGames[index];
@@ -1271,6 +1275,7 @@ class _AthleticDirectorHomeScreenState
     });
   }
 
+
   Widget _buildGameTile(Game game) {
     final gameTitle = game.scheduleName ?? 'Not set';
     final gameDate = game.date != null
@@ -1284,6 +1289,8 @@ class _AthleticDirectorHomeScreenState
     final sportIcon = getSportIcon(sport);
     final isAway = game.isAway;
     final opponent = game.opponent;
+    
+    // Restore exact previous working logic
     final opponentDisplay =
         opponent != null ? (isAway ? '@ $opponent' : 'vs $opponent') : null;
 
@@ -1356,8 +1363,7 @@ class _AthleticDirectorHomeScreenState
                     opponentDisplay != null
                         ? '$gameTime $opponentDisplay'
                         : '$gameTime - $gameTitle',
-                    style:
-                        const TextStyle(fontSize: 16, color: primaryTextColor),
+                    style: const TextStyle(fontSize: 16, color: primaryTextColor),
                   ),
                   if (opponentDisplay != null) ...[
                     const SizedBox(height: 4),

@@ -5,6 +5,7 @@ import '../../shared/models/database_models.dart';
 import '../../shared/services/repositories/game_assignment_repository.dart';
 import '../../shared/services/repositories/official_repository.dart';
 import '../../shared/services/user_session_service.dart';
+import '../../shared/services/game_service.dart';
 
 class AvailableGameDetailsScreen extends StatefulWidget {
   const AvailableGameDetailsScreen({super.key});
@@ -22,6 +23,11 @@ class _AvailableGameDetailsScreenState extends State<AvailableGameDetailsScreen>
   
   final GameAssignmentRepository _assignmentRepo = GameAssignmentRepository();
   final OfficialRepository _officialRepo = OfficialRepository();
+  final GameService _gameService = GameService();
+  
+  // Linking state
+  bool isGameLinked = false;
+  List<Map<String, dynamic>> linkedGames = [];
 
   @override
   void didChangeDependencies() {
@@ -30,10 +36,41 @@ class _AvailableGameDetailsScreenState extends State<AvailableGameDetailsScreen>
     final routeArgs = ModalRoute.of(context)!.settings.arguments;
     
     if (routeArgs is Map<String, dynamic>) {
-      // New format with assignment and scheduler info
-      assignment = routeArgs['assignment'] as GameAssignment;
-      schedulerInfo = routeArgs['schedulerInfo'] as Map<String, dynamic>?;
-      _hireAutomatically = routeArgs['hireAutomatically'] as bool? ?? false;
+      // Check for linked games format first
+      if (routeArgs.containsKey('isLinkedView') && routeArgs['isLinkedView'] == true) {
+        // Linked games format
+        assignment = routeArgs['assignment'] as GameAssignment;
+        
+        // Safely handle the linkedGames list
+        final linkedGamesRaw = routeArgs['linkedGames'];
+        if (linkedGamesRaw is List) {
+          linkedGames = <Map<String, dynamic>>[];
+          for (final item in linkedGamesRaw) {
+            if (item is GameAssignment) {
+              // Convert GameAssignment to Map format for display
+              linkedGames.add({
+                'id': item.gameId,
+                'game_date': item.gameDate?.toIso8601String(),
+                'game_time': item.gameTime?.toIso8601String(),
+                'sport_name': item.sportName,
+                'opponent': item.opponent,
+                'home_team': item.homeTeam,
+                'location_name': item.locationName,
+                'fee_amount': item.feeAmount,
+                'schedule_name': item.scheduleName,
+              });
+            }
+          }
+          isGameLinked = linkedGames.isNotEmpty;
+        }
+        schedulerInfo = null; // Not provided in this format
+        _hireAutomatically = false;
+      } else {
+        // Standard format with assignment and scheduler info
+        assignment = routeArgs['assignment'] as GameAssignment;
+        schedulerInfo = routeArgs['schedulerInfo'] as Map<String, dynamic>?;
+        _hireAutomatically = routeArgs['hireAutomatically'] as bool? ?? false;
+      }
     } else {
       // Legacy format - just the assignment
       assignment = routeArgs as GameAssignment;
@@ -58,6 +95,17 @@ class _AvailableGameDetailsScreenState extends State<AvailableGameDetailsScreen>
           // Get scheduler information 
           final scheduler = await _assignmentRepo.getSchedulerForGame(assignment.gameId!);
           print('Scheduler info: $scheduler');
+          
+          // Check if game is linked (only if not already set from arguments)
+          if (!isGameLinked) {
+            final gameLinked = await _gameService.isGameLinked(assignment.gameId!);
+            List<Map<String, dynamic>> linkedGamesList = [];
+            if (gameLinked) {
+              linkedGamesList = await _gameService.getLinkedGames(assignment.gameId!);
+            }
+            isGameLinked = gameLinked;
+            linkedGames = linkedGamesList;
+          }
           
           setState(() {
             otherOfficials = officials;
@@ -124,6 +172,10 @@ class _AvailableGameDetailsScreenState extends State<AvailableGameDetailsScreen>
           _buildGameHeader(),
           const SizedBox(height: 24),
           _buildGameDetails(),
+          if (isGameLinked && linkedGames.isNotEmpty) ...[ 
+            const SizedBox(height: 24),
+            _buildLinkedGamesInfo(),
+          ],
           const SizedBox(height: 24),
           _buildOtherOfficials(),
           const SizedBox(height: 24),
@@ -222,13 +274,43 @@ class _AvailableGameDetailsScreenState extends State<AvailableGameDetailsScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Game Details',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: efficialsYellow,
-            ),
+          Row(
+            children: [
+              const Text(
+                'Game Details',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: efficialsYellow,
+                ),
+              ),
+              if (isGameLinked) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: efficialsYellow.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: efficialsYellow, width: 1),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.link, color: efficialsYellow, size: 14),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Linked (${linkedGames.length + 1})',
+                        style: const TextStyle(
+                          color: efficialsYellow,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
           ),
           const SizedBox(height: 16),
           _buildDetailRow(Icons.schedule, 'Date & Time', '$gameDate at $gameTime'),
@@ -271,6 +353,144 @@ class _AvailableGameDetailsScreenState extends State<AvailableGameDetailsScreen>
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildLinkedGamesInfo() {
+    final totalFee = linkedGames.fold<double>(
+      assignment.feeAmount ?? 0.0, 
+      (sum, game) => sum + ((game['fee_amount'] as num?)?.toDouble() ?? 0.0)
+    );
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: darkSurface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: efficialsYellow.withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: efficialsYellow.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: efficialsYellow, width: 1),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.link, color: efficialsYellow, size: 14),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Linked Games (${linkedGames.length + 1})',
+                      style: const TextStyle(
+                        color: efficialsYellow,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'This game is part of a linked set. When you claim or express interest, you are committing to officiate all games in the set.',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey[300],
+            ),
+          ),
+          const SizedBox(height: 16),
+          ...linkedGames.map((game) => Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: darkBackground,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey.withOpacity(0.3)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _formatLinkedGameTitle(game),
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    game['schedule_name'] ?? 'Unknown Schedule',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[400],
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    _formatLinkedGameDateTime(game),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[400],
+                    ),
+                  ),
+                  if (game['location_name'] != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      game['location_name'] as String,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[400],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          )).toList(),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.green.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.green.withOpacity(0.3)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Total Fee for All Games:',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                Text(
+                  '\$${totalFee.toStringAsFixed(2)}',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.green,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -989,6 +1209,40 @@ class _AvailableGameDetailsScreenState extends State<AvailableGameDetailsScreen>
       '/official_profile',
       arguments: profileData,
     );
+  }
+
+  String _formatLinkedGameTitle(Map<String, dynamic> game) {
+    final opponent = game['opponent'] ?? 'TBD';
+    final homeTeam = game['home_team'] ?? 'Home Team';
+    
+    return '$opponent @ $homeTeam';
+  }
+
+  String _formatLinkedGameDateTime(Map<String, dynamic> game) {
+    final gameDate = game['game_date'] as String?;
+    final gameTime = game['game_time'] as String?;
+    
+    String dateText = 'TBD';
+    if (gameDate != null) {
+      try {
+        final date = DateTime.parse(gameDate);
+        dateText = DateFormat('EEEE, MMMM d, yyyy').format(date);
+        
+        if (gameTime != null) {
+          try {
+            final time = DateTime.parse(gameTime);
+            final timeText = DateFormat('h:mm a').format(time);
+            dateText += ' at $timeText';
+          } catch (e) {
+            // If time parsing fails, just show the date
+          }
+        }
+      } catch (e) {
+        dateText = 'Date TBD';
+      }
+    }
+    
+    return dateText;
   }
 
 }

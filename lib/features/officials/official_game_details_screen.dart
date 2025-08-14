@@ -24,7 +24,18 @@ class _OfficialGameDetailsScreenState extends State<OfficialGameDetailsScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    assignment = ModalRoute.of(context)!.settings.arguments as GameAssignment;
+    
+    final routeArgs = ModalRoute.of(context)!.settings.arguments;
+    
+    if (routeArgs is Map<String, dynamic> && routeArgs.containsKey('assignment')) {
+      // Handle the new format that may include linked games info
+      assignment = routeArgs['assignment'] as GameAssignment;
+      // Additional linked games handling can be added here if needed in the future
+    } else {
+      // Legacy format - direct GameAssignment
+      assignment = routeArgs as GameAssignment;
+    }
+    
     print('OfficialGameDetailsScreen loaded - Assignment ID: ${assignment.id}');
     print('Assignment sport: ${assignment.sportName}');
     
