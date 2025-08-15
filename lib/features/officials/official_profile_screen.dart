@@ -23,6 +23,7 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
       false; // Track if current user has endorsed this official
   bool isCurrentUserScheduler = false; // Track if current user is a scheduler
   bool _isLoading = true;
+  bool _isProcessingEndorsement = false; // Prevent double-clicking endorsement button
   bool _hasLoadedOtherProfileData =
       false; // Track if other profile data has been loaded
   bool _isVerificationExpanded = false; // Track if verification section is expanded
@@ -581,7 +582,7 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
                       }
                       
                       return IconButton(
-                        onPressed: () {
+                        onPressed: _isProcessingEndorsement ? null : () {
                           if (hasEndorsedThisOfficial) {
                             _showRemoveEndorsementDialog();
                           } else {
@@ -1364,7 +1365,11 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
   }
 
   void _handleEndorsement({required bool isRemoving}) async {
-    if (otherOfficialData == null) return;
+    if (otherOfficialData == null || _isProcessingEndorsement) return;
+
+    setState(() {
+      _isProcessingEndorsement = true;
+    });
 
     try {
       final userSession = UserSessionService.instance;
@@ -1379,13 +1384,49 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
       }
 
       // Check if user is trying to endorse themselves
-      final currentUserOfficial = await _officialRepo.getOfficialByOfficialUserId(currentUserId);
-      if (currentUserOfficial != null && currentUserOfficial.id == officialId) {
+      // Only prevent self-endorsement for officials, not for schedulers/ADs
+      if (!isCurrentUserScheduler) {
+        final currentUserOfficial = await _officialRepo.getOfficialByOfficialUserId(currentUserId);
+        if (currentUserOfficial != null && currentUserOfficial.id == officialId) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('You cannot endorse yourself.'),
+                backgroundColor: Colors.red,
+                duration: Duration(seconds: 3),
+              ),
+            );
+          }
+          return;
+        }
+      }
+
+      // Double-check the current endorsement status from database to prevent conflicts
+      final currentlyEndorsed = await _endorsementRepo.hasUserEndorsedOfficial(
+        endorsedOfficialId: officialId,
+        endorserUserId: currentUserId,
+      );
+
+      // If the user is trying to add an endorsement but already has one, or vice versa
+      if (!isRemoving && currentlyEndorsed) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('You cannot endorse yourself.'),
-              backgroundColor: Colors.red,
+              content: Text('You have already endorsed this official.'),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+        return;
+      }
+
+      if (isRemoving && !currentlyEndorsed) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('You have not endorsed this official.'),
+              backgroundColor: Colors.orange,
               duration: Duration(seconds: 3),
             ),
           );
@@ -1457,16 +1498,31 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
     } catch (e) {
       print('Error handling endorsement: $e');
 
-      // Show error message
+      // Show specific error message based on the error type
+      String errorMessage;
+      if (e.toString().contains('UNIQUE constraint failed') || 
+          e.toString().contains('already endorsed')) {
+        errorMessage = 'You have already endorsed this official.';
+      } else if (e.toString().contains('cannot endorse yourself')) {
+        errorMessage = 'You cannot endorse yourself.';
+      } else {
+        errorMessage = 'Failed to ${isRemoving ? 'remove' : 'add'} endorsement. Please try again.';
+      }
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-                'Failed to ${isRemoving ? 'remove' : 'add'} endorsement. Please try again.'),
+            content: Text(errorMessage),
             backgroundColor: Colors.red,
             duration: const Duration(seconds: 3),
           ),
         );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isProcessingEndorsement = false;
+        });
       }
     }
   }

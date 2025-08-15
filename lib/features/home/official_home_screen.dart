@@ -3517,55 +3517,151 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
     }
   }
 
-  void _expressInterest(Map<String, dynamic> game) async {
+  void _expressInterest(Map<String, dynamic> game, {bool ignoreSoftConflicts = false}) async {
     final gameId = game['game_id'] ?? game['id'];
     final officialId = _currentOfficial!.id!;
     final feeAmount = _parseDoubleFromString(game['game_fee']);
     
-    
-    // Immediately update the UI state for responsive UX
-    setState(() {
-      // Remove from available games
-      final removedCount = availableGames.length;
-      availableGames.removeWhere((availableGame) => 
-        availableGame['id'] == game['id'] || 
-        (availableGame['game_id'] == game['game_id'] && game['game_id'] != null)
+    // Check for conflicts first
+    try {
+      final assignmentId = await _assignmentRepo.expressInterestWithConflictCheck(
+        gameId, 
+        officialId, 
+        feeAmount, 
+        ignoreSoftConflicts: ignoreSoftConflicts
       );
       
-      // Create a GameAssignment object for pending list using fromMap
-      final pendingAssignmentMap = {
-        'id': null, // Will be set by database
-        'game_id': gameId,
-        'official_id': officialId,
-        'status': 'pending',
-        'assigned_by': officialId, // Official is expressing interest
-        'assigned_at': DateTime.now().toIso8601String(),
-        'fee_amount': feeAmount,
-        // Additional fields from game data
-        'date': game['date'],
-        'time': game['time'],
-        'sport_name': game['sport_name'],
-        'opponent': game['opponent'],
-        'location_name': game['location_name'],
-      };
-      
-      final pendingAssignment = GameAssignment.fromMap(pendingAssignmentMap);
-      
-      // Add to pending games
-      pendingGames.add(pendingAssignment);
-      
-    });
+      // Success - update UI and show feedback
+      if (mounted) {
+        setState(() {
+          // Remove from available games
+          availableGames.removeWhere((availableGame) => 
+            availableGame['id'] == game['id'] || 
+            (availableGame['game_id'] == game['game_id'] && game['game_id'] != null)
+          );
+          
+          // Create a GameAssignment object for pending list using fromMap
+          final pendingAssignmentMap = {
+            'id': assignmentId,
+            'game_id': gameId,
+            'official_id': officialId,
+            'status': 'pending',
+            'assigned_by': officialId,
+            'assigned_at': DateTime.now().toIso8601String(),
+            'fee_amount': feeAmount,
+            'date': game['date'],
+            'time': game['time'],
+            'sport_name': game['sport_name'],
+            'opponent': game['opponent'],
+            'location_name': game['location_name'],
+          };
+          
+          final pendingAssignment = GameAssignment.fromMap(pendingAssignmentMap);
+          pendingGames.add(pendingAssignment);
+        });
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Interest expressed in ${game['sport_name']} game'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (e is SoftConflictException) {
+        // Handle soft conflict - show confirmation dialog
+        await _showSoftConflictDialog(game, e.toString());
+      } else {
+        // Handle hard conflict or other errors
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Cannot express interest: ${e.toString()}'),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _showSoftConflictDialog(Map<String, dynamic> game, String conflictMessage) async {
+    // Get the specific conflict details
+    final gameId = game['game_id'] ?? game['id'];
+    final officialId = _currentOfficial!.id!;
+    final softConflicts = await _assignmentRepo.checkForSoftConflicts(officialId, gameId);
     
-    // Show immediate feedback
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Interest expressed in ${game['sport_name']} game'),
-        backgroundColor: Colors.green,
-        duration: const Duration(seconds: 2),
-      ),
+    if (!mounted) return;
+    
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text(
+            'Potential Scheduling Conflict',
+            style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'You already have a confirmed game on this day:',
+                style: const TextStyle(fontWeight: FontWeight.w500),
+              ),
+              const SizedBox(height: 8),
+              ...softConflicts.map((conflict) {
+                final opponent = conflict['opponent'] ?? conflict['home_team'] ?? 'TBD';
+                final timeDiff = conflict['time_difference_minutes'] as int;
+                final hours = (timeDiff / 60).floor();
+                final minutes = timeDiff % 60;
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Text(
+                    '• ${conflict['time']} - $opponent\n  (${hours}h ${minutes}m ${timeDiff > 0 ? 'after' : 'before'} this game)',
+                    style: const TextStyle(fontSize: 14),
+                  ),
+                );
+              }).toList(),
+              const SizedBox(height: 12),
+              const Text(
+                'Are you sure you are able to officiate both events?',
+                style: TextStyle(fontWeight: FontWeight.w500),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Yes, Continue'),
+            ),
+          ],
+        );
+      },
     );
     
-    // Persist to database in the background
+    if (result == true) {
+      // User confirmed - proceed with ignoring soft conflicts
+      _expressInterest(game, ignoreSoftConflicts: true);
+    }
+  }
+
+  void _legacyExpressInterest(Map<String, dynamic> game) async {
+    final gameId = game['game_id'] ?? game['id'];
+    final officialId = _currentOfficial!.id!;
+    final feeAmount = _parseDoubleFromString(game['game_fee']);
+    
+    // Persist to database
     try {
       final assignmentId = await _assignmentRepo.expressInterest(gameId, officialId, feeAmount);
       print('Successfully persisted interest expression to database with ID: $assignmentId');
@@ -3634,7 +3730,123 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
     }
   }
 
-  void _claimGame(Map<String, dynamic> game) async {
+  void _claimGame(Map<String, dynamic> game, {bool ignoreSoftConflicts = false}) async {
+    final gameId = game['game_id'] ?? game['id'];
+    final officialId = _currentOfficial!.id!;
+    final feeAmount = _parseDoubleFromString(game['game_fee']);
+    
+    // Check for conflicts first
+    try {
+      final assignmentId = await _assignmentRepo.claimGameWithConflictCheck(
+        gameId, 
+        officialId, 
+        feeAmount, 
+        ignoreSoftConflicts: ignoreSoftConflicts
+      );
+      
+      print('Successfully claimed game $gameId for official $officialId');
+      
+      // Reload the data to reflect the changes
+      if (mounted) {
+        await _loadData();
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Successfully claimed ${game['sport_name']} game!'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (e is SoftConflictException) {
+        // Handle soft conflict - show confirmation dialog
+        await _showClaimSoftConflictDialog(game);
+      } else {
+        // Handle hard conflict or other errors
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Cannot claim game: ${e.toString()}'),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _showClaimSoftConflictDialog(Map<String, dynamic> game) async {
+    // Get the specific conflict details
+    final gameId = game['game_id'] ?? game['id'];
+    final officialId = _currentOfficial!.id!;
+    final softConflicts = await _assignmentRepo.checkForSoftConflicts(officialId, gameId);
+    
+    if (!mounted) return;
+    
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text(
+            'Potential Scheduling Conflict',
+            style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'You already have a confirmed game on this day:',
+                style: const TextStyle(fontWeight: FontWeight.w500),
+              ),
+              const SizedBox(height: 8),
+              ...softConflicts.map((conflict) {
+                final opponent = conflict['opponent'] ?? conflict['home_team'] ?? 'TBD';
+                final timeDiff = conflict['time_difference_minutes'] as int;
+                final hours = (timeDiff / 60).floor();
+                final minutes = timeDiff % 60;
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Text(
+                    '• ${conflict['time']} - $opponent\n  (${hours}h ${minutes}m ${timeDiff > 0 ? 'after' : 'before'} this game)',
+                    style: const TextStyle(fontSize: 14),
+                  ),
+                );
+              }).toList(),
+              const SizedBox(height: 12),
+              const Text(
+                'Are you sure you are able to officiate both events?',
+                style: TextStyle(fontWeight: FontWeight.w500),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Yes, Claim Game'),
+            ),
+          ],
+        );
+      },
+    );
+    
+    if (result == true) {
+      // User confirmed - proceed with ignoring soft conflicts
+      _claimGame(game, ignoreSoftConflicts: true);
+    }
+  }
+
+  void _legacyClaimGame(Map<String, dynamic> game) async {
     final gameId = game['game_id'] ?? game['id'];
     final officialId = _currentOfficial!.id!;
     

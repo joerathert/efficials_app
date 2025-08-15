@@ -770,7 +770,7 @@ class _AvailableGameDetailsScreenState extends State<AvailableGameDetailsScreen>
     );
   }
 
-  void _claimGame() async {
+  void _claimGame({bool ignoreSoftConflicts = false}) async {
     if (assignment.gameId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -812,40 +812,61 @@ class _AvailableGameDetailsScreenState extends State<AvailableGameDetailsScreen>
     
     final officialId = official!.id!;
     
-    // Show immediate feedback to user
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Claimed ${assignment.sportName} game'),
-        backgroundColor: Colors.green,
-      ),
-    );
-    
-    // Persist to database in the background
+    // Check for conflicts and claim the game
     try {
-      final assignmentId = await _assignmentRepo.claimGame(gameId, officialId, feeAmount);
+      final assignmentId = await _assignmentRepo.claimGameWithConflictCheck(
+        gameId, 
+        officialId, 
+        feeAmount, 
+        ignoreSoftConflicts: ignoreSoftConflicts
+      );
+      
       debugPrint('Successfully claimed game with assignment ID: $assignmentId');
+      
+      // Show success feedback
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Successfully claimed ${assignment.sportName} game!'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+        
+        // Navigate back or close screen
+        Navigator.of(context).pop();
+      }
     } catch (e) {
       debugPrint('Error claiming game: $e');
       if (mounted) {
-        String errorMessage = 'Failed to claim game. Please try again.';
-        
-        // Provide specific error messages for common issues
-        if (e.toString().contains('No active crew found for this crew chief')) {
-          errorMessage = 'You must be part of an active crew to claim crew-hire games. Please contact your administrator to set up your crew.';
+        if (e is SoftConflictException) {
+          // Handle soft conflict - show confirmation dialog
+          await _showClaimSoftConflictDialog();
+        } else {
+          String errorMessage = 'Failed to claim game.';
+          
+          // Provide specific error messages for common issues
+          if (e.toString().contains('Cannot claim game')) {
+            errorMessage = e.toString().replaceFirst('Exception: ', '');
+          } else if (e.toString().contains('No active crew found for this crew chief')) {
+            errorMessage = 'You must be part of an active crew to claim crew-hire games. Please contact your administrator to set up your crew.';
+          } else {
+            errorMessage = 'Failed to claim game. Please try again.';
+          }
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(errorMessage),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 5),
+            ),
+          );
         }
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(errorMessage),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 5),
-          ),
-        );
       }
     }
   }
 
-  void _expressInterest() async {
+  void _expressInterest({bool ignoreSoftConflicts = false}) async {
     if (assignment.gameId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -887,36 +908,199 @@ class _AvailableGameDetailsScreenState extends State<AvailableGameDetailsScreen>
     
     final officialId = official!.id!;
     
-    // Show immediate feedback to user
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Interest expressed in ${assignment.sportName} game'),
-        backgroundColor: Colors.green,
-      ),
-    );
-    
-    // Persist to database in the background
+    // Check for conflicts and persist to database
     try {
-      final assignmentId = await _assignmentRepo.expressInterest(gameId, officialId, feeAmount);
+      final assignmentId = await _assignmentRepo.expressInterestWithConflictCheck(
+        gameId, 
+        officialId, 
+        feeAmount, 
+        ignoreSoftConflicts: ignoreSoftConflicts
+      );
+      
       debugPrint('Successfully persisted interest expression to database with ID: $assignmentId');
-    } catch (e) {
-      debugPrint('Error expressing interest: $e');
+      
+      // Show success feedback
       if (mounted) {
-        String errorMessage = 'Failed to express interest. Please try again.';
-        
-        // Provide specific error messages for common issues
-        if (e.toString().contains('No active crew found for this crew chief')) {
-          errorMessage = 'You must be part of an active crew to express interest in crew-hire games. Please contact your administrator to set up your crew.';
-        }
-        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(errorMessage),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 5),
+            content: Text('Interest expressed in ${assignment.sportName} game'),
+            backgroundColor: Colors.green,
           ),
         );
       }
+    } catch (e) {
+      debugPrint('Error expressing interest: $e');
+      if (mounted) {
+        if (e is SoftConflictException) {
+          // Handle soft conflict - show confirmation dialog
+          await _showSoftConflictDialog();
+        } else {
+          String errorMessage = 'Failed to express interest.';
+          
+          // Provide specific error messages for common issues
+          if (e.toString().contains('No active crew found for this crew chief')) {
+            errorMessage = 'You must be part of an active crew to express interest in crew-hire games. Please contact your administrator to set up your crew.';
+          } else if (e.toString().contains('Cannot express interest')) {
+            errorMessage = e.toString().replaceFirst('Exception: ', '');
+          } else {
+            errorMessage = 'Failed to express interest. Please try again.';
+          }
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(errorMessage),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 5),
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _showSoftConflictDialog() async {
+    final gameId = assignment.gameId!;
+    final userSession = UserSessionService.instance;
+    final userId = await userSession.getCurrentUserId();
+    final official = await _officialRepo.getOfficialByOfficialUserId(userId!);
+    final officialId = official!.id!;
+    
+    // Get the specific conflict details
+    final softConflicts = await _assignmentRepo.checkForSoftConflicts(officialId, gameId);
+    
+    if (!mounted) return;
+    
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text(
+            'Potential Scheduling Conflict',
+            style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'You already have a confirmed game on this day:',
+                style: const TextStyle(fontWeight: FontWeight.w500),
+              ),
+              const SizedBox(height: 8),
+              ...softConflicts.map((conflict) {
+                final opponent = conflict['opponent'] ?? conflict['home_team'] ?? 'TBD';
+                final timeDiff = conflict['time_difference_minutes'] as int;
+                final hours = (timeDiff / 60).floor();
+                final minutes = timeDiff % 60;
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Text(
+                    '• ${conflict['time']} - $opponent\n  (${hours}h ${minutes}m ${timeDiff > 0 ? 'after' : 'before'} this game)',
+                    style: const TextStyle(fontSize: 14),
+                  ),
+                );
+              }).toList(),
+              const SizedBox(height: 12),
+              const Text(
+                'Are you sure you are able to officiate both events?',
+                style: TextStyle(fontWeight: FontWeight.w500),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Yes, Continue'),
+            ),
+          ],
+        );
+      },
+    );
+    
+    if (result == true) {
+      // User confirmed - proceed with ignoring soft conflicts
+      _expressInterest(ignoreSoftConflicts: true);
+    }
+  }
+
+  Future<void> _showClaimSoftConflictDialog() async {
+    final gameId = assignment.gameId!;
+    final userSession = UserSessionService.instance;
+    final userId = await userSession.getCurrentUserId();
+    final official = await _officialRepo.getOfficialByOfficialUserId(userId!);
+    final officialId = official!.id!;
+    
+    // Get the specific conflict details
+    final softConflicts = await _assignmentRepo.checkForSoftConflicts(officialId, gameId);
+    
+    if (!mounted) return;
+    
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text(
+            'Potential Scheduling Conflict',
+            style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'You already have a confirmed game on this day:',
+                style: const TextStyle(fontWeight: FontWeight.w500),
+              ),
+              const SizedBox(height: 8),
+              ...softConflicts.map((conflict) {
+                final opponent = conflict['opponent'] ?? conflict['home_team'] ?? 'TBD';
+                final timeDiff = conflict['time_difference_minutes'] as int;
+                final hours = (timeDiff / 60).floor();
+                final minutes = timeDiff % 60;
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Text(
+                    '• ${conflict['time']} - $opponent\n  (${hours}h ${minutes}m ${timeDiff > 0 ? 'after' : 'before'} this game)',
+                    style: const TextStyle(fontSize: 14),
+                  ),
+                );
+              }).toList(),
+              const SizedBox(height: 12),
+              const Text(
+                'Are you sure you are able to officiate both events?',
+                style: TextStyle(fontWeight: FontWeight.w500),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Yes, Claim Game'),
+            ),
+          ],
+        );
+      },
+    );
+    
+    if (result == true) {
+      // User confirmed - proceed with ignoring soft conflicts
+      _claimGame(ignoreSoftConflicts: true);
     }
   }
 

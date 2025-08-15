@@ -70,6 +70,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   }
 
   void _quickLogin(String email, String password) {
+    // print('DEBUG: Quick login with email: $email, password: $password');
     _emailController.text = email;
     _passwordController.text = password;
     _handleSignIn();

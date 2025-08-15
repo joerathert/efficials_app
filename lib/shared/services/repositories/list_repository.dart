@@ -1,5 +1,6 @@
 import 'base_repository.dart';
 import '../../models/database_models.dart';
+import '../user_session_service.dart';
 
 class ListRepository extends BaseRepository {
   // Create a new official list with officials
@@ -16,14 +17,8 @@ class ListRepository extends BaseRepository {
       }
       final sportId = sportResult.first['id'] as int;
 
-      // Get current user ID (assuming we have access to it via some global state)
-      // For now, we'll use a default or get it from context
-      final userResult = await txn.query('users',
-          where: 'scheduler_type IS NOT NULL', limit: 1);
-      if (userResult.isEmpty) {
-        throw Exception('No user found');
-      }
-      final userId = userResult.first['id'] as int;
+      // Get current user ID from session
+      final userId = await _getCurrentUserId();
 
       // Create the list
       final listId = await txn.insert('official_lists', {
@@ -120,14 +115,19 @@ class ListRepository extends BaseRepository {
 
     final lists = await getUserLists(userIdToUse);
 
-    // Get officials for each list
+    // Create mutable copies and get officials for each list
+    final mutableLists = <Map<String, dynamic>>[];
     for (var list in lists) {
       final listId = list['id'] as int;
       final officials = await getListOfficials(listId);
-      list['officials'] = officials;
+      
+      // Create a new mutable map instead of modifying the read-only query result
+      final mutableList = Map<String, dynamic>.from(list);
+      mutableList['officials'] = officials;
+      mutableLists.add(mutableList);
     }
 
-    return lists;
+    return mutableLists;
   }
 
   // Update list with new officials (replaces existing officials)
@@ -162,13 +162,50 @@ class ListRepository extends BaseRepository {
     });
   }
 
+  // Create list from UI screens (saves list with officials from screens)
+  Future<int> saveListFromUI(
+      String listName, String sport, List<Map<String, dynamic>> officials) async {
+    final db = await database;
+    final userId = await _getCurrentUserId();
+
+    return await db.transaction((txn) async {
+      // Get sport_id
+      final sportResult =
+          await txn.query('sports', where: 'name = ?', whereArgs: [sport]);
+      if (sportResult.isEmpty) {
+        throw Exception('Sport not found: $sport');
+      }
+      final sportId = sportResult.first['id'] as int;
+
+      // Create the list
+      final listId = await txn.insert('official_lists', {
+        'name': listName,
+        'sport_id': sportId,
+        'user_id': userId,
+        'created_at': DateTime.now().toIso8601String(),
+      });
+
+      // Add officials to the list
+      for (final official in officials) {
+        final officialId = official['id'];
+        if (officialId != null) {
+          await txn.insert('official_list_members', {
+            'list_id': listId,
+            'official_id': officialId,
+          });
+        }
+      }
+
+      return listId;
+    });
+  }
+
   // Helper method to get current user ID
   Future<int> _getCurrentUserId() async {
-    final userResult =
-        await query('users', where: 'scheduler_type IS NOT NULL', limit: 1);
-    if (userResult.isEmpty) {
-      throw Exception('No user found');
+    final userId = await UserSessionService.instance.getCurrentUserId();
+    if (userId == null) {
+      throw Exception('No user logged in');
     }
-    return userResult.first['id'] as int;
+    return userId;
   }
 }

@@ -5,6 +5,7 @@ import '../../shared/theme.dart';
 import '../../shared/services/game_service.dart';
 import '../../shared/services/repositories/list_repository.dart';
 import '../../shared/services/repositories/official_repository.dart';
+import '../../shared/services/user_session_service.dart';
 
 class AdvancedOfficialsSelectionScreen extends StatefulWidget {
   const AdvancedOfficialsSelectionScreen({super.key});
@@ -82,17 +83,25 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
 
   Future<void> _fetchLists() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final String? listsJson = prefs.getString('saved_lists');
-      
-      List<Map<String, dynamic>> allLists = [];
-      if (listsJson != null && listsJson.isNotEmpty) {
-        allLists = List<Map<String, dynamic>>.from(jsonDecode(listsJson));
+      final userId = await UserSessionService.instance.getCurrentUserId();
+      if (userId == null) {
+        setState(() {
+          lists = [{'name': 'No saved lists', 'id': -1}];
+          isLoading = false;
+        });
+        return;
+      }
+
+      final userLists = await listRepo.getLists(userId);
+      debugPrint('DEBUG ADVANCED: Found ${userLists.length} lists from database');
+      for (var list in userLists) {
+        debugPrint('DEBUG ADVANCED: List - Name: ${list['name']}, Sport: ${list['sport_name']}, ID: ${list['id']}');
       }
       
       // Filter lists by current sport
       final currentSport = _routeArgs?['sport'] as String? ?? 'Baseball';
-      final filteredLists = allLists.where((list) => list['sport'] == currentSport).toList();
+      final filteredLists = userLists.where((list) => list['sport_name'] == currentSport).toList();
+      debugPrint('DEBUG ADVANCED: After sport filtering ($currentSport): ${filteredLists.length} lists');
       
       setState(() {
         lists = filteredLists.isNotEmpty ? filteredLists : [{'name': 'No saved lists', 'id': -1}];
@@ -149,26 +158,10 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
     });
   }
 
-  Future<void> _saveUpdatedListToSharedPreferences(String listName, List<Map<String, dynamic>> updatedOfficials) async {
+  Future<void> _saveUpdatedListToDatabase(String listName, List<Map<String, dynamic>> updatedOfficials) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final String? listsJson = prefs.getString('saved_lists');
-      
-      List<Map<String, dynamic>> allLists = [];
-      if (listsJson != null && listsJson.isNotEmpty) {
-        allLists = List<Map<String, dynamic>>.from(jsonDecode(listsJson));
-      }
-      
-      // Find and update the list
-      for (int i = 0; i < allLists.length; i++) {
-        if (allLists[i]['name'] == listName) {
-          allLists[i]['officials'] = updatedOfficials;
-          break;
-        }
-      }
-      
-      // Save back to SharedPreferences
-      await prefs.setString('saved_lists', jsonEncode(allLists));
+      // Update list in database using the ListRepository
+      await listRepo.updateList(listName, updatedOfficials);
       
       // Update the local lists data
       setState(() {
@@ -271,7 +264,7 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
                   );
                 } else {
                   // In new game creation mode, save changes to the original lists
-                  await _saveUpdatedListToSharedPreferences(list['name'], officials);
+                  await _saveUpdatedListToDatabase(list['name'], officials);
                   Navigator.pop(context);
                   
                   // Show confirmation

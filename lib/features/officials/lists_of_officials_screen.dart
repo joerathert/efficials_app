@@ -1,8 +1,7 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../shared/theme.dart';
 import '../../shared/services/user_session_service.dart';
+import '../../shared/services/repositories/list_repository.dart';
 import '../../shared/utils/utils.dart';
 import 'edit_list_screen.dart';
 
@@ -18,6 +17,7 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
   List<Map<String, dynamic>> lists = [];
   bool isLoading = true;
   bool isFromGameCreation = false;
+  final ListRepository _listRepository = ListRepository();
 
   @override
   void initState() {
@@ -50,41 +50,60 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
   }
 
   Future<void> _fetchLists() async {
-    final prefs = await SharedPreferences.getInstance();
-    final String? listsJson = prefs.getString('saved_lists');
-    setState(() {
-      lists.clear();
-      if (listsJson != null && listsJson.isNotEmpty) {
-        try {
-          final decodedLists = jsonDecode(listsJson) as List<dynamic>;
-          lists = decodedLists.map((list) {
-            final listMap = Map<String, dynamic>.from(list as Map);
-            if (listMap['officials'] != null) {
-              listMap['officials'] = (listMap['officials'] as List<dynamic>)
-                  .map((official) => Map<String, dynamic>.from(official as Map))
-                  .toList();
-            } else {
-              listMap['officials'] = [];
-            }
-            return listMap;
+    try {
+      final userId = await UserSessionService.instance.getCurrentUserId();
+      if (userId == null) {
+        setState(() {
+          lists = [
+            {'name': 'No saved lists', 'id': -1},
+            {'name': '+ Create new list', 'id': 0},
+          ];
+          isLoading = false;
+        });
+        return;
+      }
+
+      final userLists = await _listRepository.getLists(userId);
+      debugPrint('DEBUG: Found ${userLists.length} lists from database');
+      for (var list in userLists) {
+        debugPrint('DEBUG: List - Name: ${list['name']}, Sport: ${list['sport_name']}, ID: ${list['id']}');
+      }
+      
+      setState(() {
+        lists.clear();
+        
+        if (userLists.isNotEmpty) {
+          lists = userLists.map((list) {
+            return {
+              'name': list['name'],
+              'id': list['id'],
+              'sport': list['sport_name'],
+              'officials': list['officials'] ?? [],
+            };
           }).toList();
-        } catch (e) {
-          lists = [];
         }
-      }
-      if (lists.isEmpty) {
-        lists.add({'name': 'No saved lists', 'id': -1});
-      }
-      lists.add({'name': '+ Create new list', 'id': 0});
-      isLoading = false;
-    });
+        
+        if (lists.isEmpty) {
+          lists.add({'name': 'No saved lists', 'id': -1});
+        }
+        lists.add({'name': '+ Create new list', 'id': 0});
+        isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        lists = [
+          {'name': 'No saved lists', 'id': -1},
+          {'name': '+ Create new list', 'id': 0},
+        ];
+        isLoading = false;
+      });
+      debugPrint('Error fetching lists: $e');
+    }
   }
 
   Future<void> _saveLists() async {
-    final prefs = await SharedPreferences.getInstance();
-    final listsToSave =
-        lists.where((list) => list['id'] != 0 && list['id'] != -1).toList();
-    await prefs.setString('saved_lists', jsonEncode(listsToSave));
+    // No longer needed - data is saved directly to database
+    // This method is kept for compatibility but does nothing
   }
 
   void _showDeleteConfirmationDialog(String listName, int listId) {
@@ -100,17 +119,26 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                 const Text('Cancel', style: TextStyle(color: efficialsYellow)),
           ),
           TextButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(context);
-              setState(() {
-                lists.removeWhere((list) => list['id'] == listId);
-                if (lists.isEmpty ||
-                    (lists.length == 1 && lists[0]['id'] == 0)) {
-                  lists.insert(0, {'name': 'No saved lists', 'id': -1});
-                }
-                selectedList = null; // Reset to show hint after deletion
-                _saveLists();
-              });
+              try {
+                await _listRepository.deleteList(listId);
+                setState(() {
+                  lists.removeWhere((list) => list['id'] == listId);
+                  if (lists.isEmpty ||
+                      (lists.length == 1 && lists[0]['id'] == 0)) {
+                    lists.insert(0, {'name': 'No saved lists', 'id': -1});
+                  }
+                  selectedList = null; // Reset to show hint after deletion
+                });
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('List deleted successfully')),
+                );
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Error deleting list: $e')),
+                );
+              }
             },
             child:
                 const Text('Delete', style: TextStyle(color: efficialsYellow)),
@@ -170,13 +198,20 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
     List<Map<String, dynamic>> actualLists =
         lists.where((list) => list['id'] != 0 && list['id'] != -1).toList();
 
+    debugPrint('DEBUG: Before sport filtering: ${actualLists.length} lists');
+    debugPrint('DEBUG: fromTemplateCreation: $fromTemplateCreation, sport: $sport');
+
     // If coming from template creation, filter by sport
     if (fromTemplateCreation && sport != 'Unknown Sport') {
+      final beforeFilter = actualLists.length;
       actualLists = actualLists.where((list) {
         final listSport = list['sport'] as String?;
+        final shouldShow = listSport == null || listSport.isEmpty || listSport == sport;
+        debugPrint('DEBUG: List ${list['name']} (sport: $listSport) - showing: $shouldShow');
         // Show lists that match the sport or have no sport assigned (legacy lists)
-        return listSport == null || listSport.isEmpty || listSport == sport;
+        return shouldShow;
       }).toList();
+      debugPrint('DEBUG: After sport filtering: ${actualLists.length} lists (was $beforeFilter)');
     }
 
     return Scaffold(
@@ -614,62 +649,37 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
   }
 
   Future<void> _handleNewListResult(dynamic result, String sport) async {
-    setState(() {
-      if (lists.any((l) => l['name'] == 'No saved lists')) {
-        lists.removeWhere((l) => l['name'] == 'No saved lists');
-      }
-      final newList = result as Map<String, dynamic>;
-      if (!lists.any((list) => list['name'] == newList['listName'])) {
-        lists.insert(0, {
-          'name': newList['listName'],
-          'sport': newList['sport'] ?? sport,
-          'officials': newList['officials'],
-          'id': newList['actualDatabaseId'] ??
-              (lists.length + 1), // Use actual database ID if available
-        });
-        selectedList = newList['listName'] as String;
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('A list with this name already exists!')),
-        );
-        selectedList = null;
-      }
-    });
-    await _saveLists();
+    // Refresh lists from database
     await _fetchLists();
+    
+    final newList = result as Map<String, dynamic>;
+    setState(() {
+      selectedList = newList['listName'] as String;
+    });
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('List created successfully!')),
+    );
   }
 
   Future<void> _handleEditListResult(
       dynamic result, Map<String, dynamic> originalList) async {
-    setState(() {
-      final updatedList = result as Map<String, dynamic>;
-      final index = lists.indexWhere((l) => l['name'] == originalList['name']);
-      if (index != -1) {
-        if (!lists.any((list) =>
-            list['name'] == updatedList['name'] &&
-            list['id'] != originalList['id'])) {
-          lists[index] = updatedList;
-          selectedList = updatedList['name'] as String;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('List updated!')),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                content: Text('A list with this name already exists!')),
-          );
-          selectedList = null;
-        }
-      }
-    });
-    await _saveLists();
+    // Refresh lists from database
     await _fetchLists();
+    
+    final updatedList = result as Map<String, dynamic>;
+    setState(() {
+      selectedList = updatedList['name'] as String;
+    });
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('List updated successfully!')),
+    );
   }
 
   Future<void> _handleNewListFromReview(
       Map<String, dynamic> newListData) async {
-    await _fetchLists(); // Refresh the lists from SharedPreferences
+    await _fetchLists(); // Refresh the lists from database
 
     setState(() {
       selectedList = newListData['listName'] as String;

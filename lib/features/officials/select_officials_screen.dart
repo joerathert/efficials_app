@@ -5,6 +5,7 @@ import '../../shared/theme.dart';
 import '../games/game_template.dart';
 import '../../shared/services/repositories/official_repository.dart';
 import '../../shared/services/repositories/user_repository.dart';
+import '../../shared/services/repositories/list_repository.dart';
 import '../../shared/services/user_session_service.dart';
 
 class SelectOfficialsScreen extends StatefulWidget {
@@ -23,6 +24,7 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
 
   late final OfficialRepository _officialRepository;
   late final UserRepository _userRepository;
+  late final ListRepository _listRepository;
   int? _currentUserId;
 
   @override
@@ -30,6 +32,7 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
     super.initState();
     _officialRepository = OfficialRepository();
     _userRepository = UserRepository();
+    _listRepository = ListRepository();
     _initializeUser();
   }
 
@@ -179,17 +182,11 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
   }
 
   Future<int> _getListsCountBySport(String sport) async {
+    if (_currentUserId == null) return 0;
+
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final String? listsJson = prefs.getString('saved_lists');
-
-      if (listsJson == null || listsJson.isEmpty) return 0;
-
-      final List<Map<String, dynamic>> existingLists =
-          List<Map<String, dynamic>>.from(jsonDecode(listsJson));
-
-      // Count lists for the specific sport
-      return existingLists.where((list) => list['sport'] == sport).length;
+      final lists = await _listRepository.getUserLists(_currentUserId!);
+      return lists.where((list) => list['sport_name'] == sport).length;
     } catch (e) {
       // Handle database errors
       return 0;

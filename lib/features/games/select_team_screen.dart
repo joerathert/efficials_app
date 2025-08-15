@@ -194,7 +194,7 @@ class _SelectTeamScreenState extends State<SelectTeamScreen> {
                       ),
                       const SizedBox(height: 24),
                       const Text(
-                        'Grade Level',
+                        'Level of Competition',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
@@ -203,7 +203,7 @@ class _SelectTeamScreenState extends State<SelectTeamScreen> {
                       ),
                       const SizedBox(height: 8),
                       DropdownButtonFormField<String>(
-                        decoration: textFieldDecoration('Select Grade Level'),
+                        decoration: textFieldDecoration('Select Level of Competition'),
                         style: textFieldTextStyle,
                         dropdownColor: darkSurface,
                         iconEnabledColor: efficialsYellow,

@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../shared/theme.dart';
 import '../../shared/services/repositories/game_assignment_repository.dart';
 import '../../shared/services/repositories/notification_repository.dart';
+import '../../shared/services/repositories/list_repository.dart';
 import '../../shared/services/game_service.dart';
 import '../../shared/services/user_session_service.dart';
 
@@ -51,11 +52,17 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
   // Service for database game operations
   final GameService _gameService = GameService();
 
+  // Repository for list operations
+  final ListRepository _listRepository = ListRepository();
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     final newArgs =
         ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+
+    debugPrint('GAME INFO SCREEN: Received arguments: ${newArgs.keys.toList()}');
+    debugPrint('GAME INFO SCREEN: scheduleId=${newArgs['scheduleId']}, scheduleName=${newArgs['scheduleName']}');
 
     // Always try to reload database games to get fresh data
     final gameId = newArgs['id'];
@@ -125,7 +132,8 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
         final listsRaw = args['selectedLists'] as List<dynamic>? ?? [];
         selectedLists = listsRaw.map((list) {
           if (list is Map) {
-            return Map<String, dynamic>.from(list);
+            final processedList = Map<String, dynamic>.from(list);
+            return processedList;
           }
           return <String, dynamic>{
             'name': 'Unknown List',
@@ -167,8 +175,9 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
           ...gameData,
           // Preserve navigation-specific args
           'sourceScreen': newArgs['sourceScreen'],
-          'scheduleName': newArgs['scheduleName'] ?? gameData['scheduleName'],
-          'scheduleId': newArgs['scheduleId'] ?? gameData['scheduleId'],
+          // Use fresh database data for schedule name and ID (prioritize database over navigation args)
+          'scheduleName': gameData['scheduleName'] ?? newArgs['scheduleName'],
+          'scheduleId': gameData['scheduleId'] ?? newArgs['scheduleId'],
         };
         _initializeFromArguments(updatedArgs);
         // Check if this game is linked to others
@@ -177,7 +186,6 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
         _initializeFromArguments(newArgs);
       }
     } catch (e) {
-      debugPrint('Error reloading game data from database: $e');
       _initializeFromArguments(newArgs);
     }
   }
@@ -195,7 +203,6 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
         });
       }
     } catch (e) {
-      debugPrint('Error checking game link status: $e');
     }
   }
 
@@ -280,7 +287,6 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
         });
       }
     } catch (e) {
-      print('Error loading interested officials: $e');
       setState(() {
         interestedOfficials = [];
         interestedCrews = [];
@@ -339,7 +345,6 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
         await _deleteSharedPreferencesGame(gameId);
       }
     } catch (e) {
-      print('Error deleting game: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -585,8 +590,6 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                   assignmentId, 'accepted');
             } else {}
           } catch (e) {
-            print(
-                'ERROR updating assignment status for official $officialId: $e');
           }
         }
 
@@ -616,7 +619,6 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
         await _updateSharedPreferencesGame();
       }
     } catch (e) {
-      print('Error updating game: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -735,7 +737,6 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
         );
       }
     } catch (e) {
-      print('Error confirming crew hires: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Error confirming crew hires'),
@@ -779,6 +780,8 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                  o.experience_years as experienceYears,
                  o.phone,
                  o.email,
+                 o.city,
+                 o.state,
                  1 as showCareerStats
           FROM officials o 
           WHERE o.id = ?
@@ -788,12 +791,23 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
           final official = officialData.first;
 
           // Create profile data compatible with OfficialProfileScreen
+          final city = official['city'] as String?;
+          final state = official['state'] as String?;
+          String location = 'N/A';
+          if (city != null && state != null) {
+            location = '$city, $state';
+          } else if (city != null) {
+            location = city;
+          } else if (state != null) {
+            location = state;
+          }
+
           final profileData = {
             'id': official['id'],
             'name': official['name'],
             'email': official['email'] ?? 'N/A',
             'phone': official['phone'] ?? 'N/A',
-            'location': 'N/A', // Not available in officials table
+            'location': location,
             'experienceYears': official['experienceYears'] ?? 0,
             'primarySport': 'N/A', // Would need to query from official_sports
             'certificationLevel': official['certification_level'] ?? 'N/A',
@@ -830,7 +844,6 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
         }
       }
     } catch (e) {
-      print('Error navigating to official profile: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Error loading official profile')),
@@ -932,7 +945,6 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
         );
       }
     } catch (e) {
-      print('Error loading crew members: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Error loading crew members')),
@@ -943,21 +955,29 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
 
   void _showListOfficials(String listName) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final String? listsJson = prefs.getString('saved_lists');
-      final List<Map<String, dynamic>> savedListsRaw =
-          listsJson != null && listsJson.isNotEmpty
-              ? List<Map<String, dynamic>>.from(jsonDecode(listsJson))
-              : [];
+      final userId = await UserSessionService.instance.getCurrentUserId();
+      if (userId == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Error: User not found')),
+          );
+        }
+        return;
+      }
 
-      final savedLists = {
-        for (var list in savedListsRaw)
-          list['name'] as String:
-              List<Map<String, dynamic>>.from(list['officials'] ?? [])
-      };
+      // Get all lists from database
+      final userLists = await _listRepository.getLists(userId);
+      debugPrint('DEBUG GAME INFO: Found ${userLists.length} lists from database');
+      
+      // Find the specific list
+      final listData = userLists.firstWhere(
+        (list) => list['name'] == listName,
+        orElse: () => <String, dynamic>{},
+      );
 
-      // Get the full original list
-      final fullOfficialsList = savedLists[listName] ?? [];
+      // Get the full original list of officials
+      final fullOfficialsList = List<Map<String, dynamic>>.from(listData['officials'] ?? []);
+      debugPrint('DEBUG GAME INFO: List "$listName" has ${fullOfficialsList.length} officials');
 
       // Get the game-specific officials for this list (the ones actually selected for this game)
       List<Map<String, dynamic>> gameSpecificOfficials = [];
@@ -1088,7 +1108,6 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
         );
       }
     } catch (e) {
-      print('Error loading list officials: $e');
     }
   }
 
@@ -1374,9 +1393,6 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                 ? '${selectedTime!.hour.toString().padLeft(2, '0')}:${selectedTime!.minute.toString().padLeft(2, '0')}'
                 : 'TBD';
 
-            debugPrint('Creating notification for official ID: $officialId');
-            debugPrint('Scheduler name: $currentUserName');
-            debugPrint('Game sport: $sport, opponent: $opponent');
 
             final notificationId =
                 await _notificationRepo.createOfficialRemovalNotification(
@@ -1393,10 +1409,7 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
               },
             );
 
-            debugPrint(
-                'Notification created successfully with ID: $notificationId');
           } catch (e) {
-            debugPrint('Error sending removal notification: $e');
             // Show error to user for debugging
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
@@ -1443,7 +1456,6 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
         }
       }
     } catch (e) {
-      debugPrint('Error removing official from game: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -1625,95 +1637,103 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                               'scheduleName': args['scheduleName'],
                               'scheduleId': args['scheduleId'],
                             },
-                          ).then((result) {
+                          ).then((result) async {
                             if (result != null &&
                                 result is Map<String, dynamic>) {
-                              setState(() {
-                                args = result;
-                                sport = args['sport'] as String? ?? sport;
-                                scheduleName =
-                                    args['scheduleName'] as String? ??
-                                        scheduleName;
-                                location =
-                                    args['location'] as String? ?? location;
-                                selectedDate = args['date'] != null
-                                    ? (args['date'] is String
-                                        ? DateTime.parse(args['date'] as String)
-                                        : args['date'] as DateTime)
-                                    : selectedDate;
-                                selectedTime = args['time'] != null
-                                    ? (args['time'] is String
-                                        ? () {
-                                            final timeParts =
-                                                (args['time'] as String)
-                                                    .split(':');
-                                            return TimeOfDay(
-                                              hour: int.parse(timeParts[0]),
-                                              minute: int.parse(timeParts[1]),
-                                            );
-                                          }()
-                                        : args['time'] as TimeOfDay)
-                                    : selectedTime;
-                                levelOfCompetition =
-                                    args['levelOfCompetition'] as String? ??
-                                        levelOfCompetition;
-                                gender = args['gender'] as String? ?? gender;
-                                officialsRequired = args['officialsRequired'] !=
-                                        null
-                                    ? int.tryParse(
-                                        args['officialsRequired'].toString())
-                                    : officialsRequired;
-                                gameFee =
-                                    args['gameFee']?.toString() ?? gameFee;
-                                hireAutomatically =
-                                    args['hireAutomatically'] as bool? ??
-                                        hireAutomatically;
-                                isAwayGame =
-                                    args['isAwayGame'] as bool? ?? args['isAway'] as bool? ?? isAwayGame;
-                                opponent =
-                                    args['opponent'] as String? ?? opponent;
-                                officialsHired =
-                                    args['officialsHired'] as int? ??
-                                        officialsHired;
-                                try {
-                                  final officialsRaw = args['selectedOfficials']
-                                          as List<dynamic>? ??
-                                      [];
-                                  selectedOfficials =
-                                      officialsRaw.map((official) {
-                                    if (official is Map) {
-                                      return Map<String, dynamic>.from(
-                                          official);
-                                    }
-                                    return <String, dynamic>{
-                                      'name': 'Unknown Official',
-                                      'distance': 0.0
-                                    };
-                                  }).toList();
-                                } catch (e) {
-                                  selectedOfficials = [];
-                                }
-                                try {
-                                  final listsRaw =
-                                      args['selectedLists'] as List<dynamic>? ??
-                                          [];
-                                  selectedLists = listsRaw.map((list) {
-                                    if (list is Map) {
-                                      return Map<String, dynamic>.from(list);
-                                    }
-                                    return <String, dynamic>{
-                                      'name': 'Unknown List',
-                                      'minOfficials': 0,
-                                      'maxOfficials': 0,
-                                      'officials': <Map<String, dynamic>>[],
-                                    };
-                                  }).toList();
-                                } catch (e) {
-                                  selectedLists = [];
-                                }
-                                // Load real interested officials from database
-                                _loadInterestedOfficials();
-                              });
+                              // For database games, reload fresh data from database to ensure 
+                              // we have the latest min/max values after Advanced Method Setup changes
+                              final gameId = result['id'];
+                              if (gameId != null && _isDatabaseGame(gameId)) {
+                                await _reloadGameDataFromDatabase(result);
+                              } else {
+                                // For non-database games, use the returned data directly
+                                setState(() {
+                                  args = result;
+                                  sport = args['sport'] as String? ?? sport;
+                                  scheduleName =
+                                      args['scheduleName'] as String? ??
+                                          scheduleName;
+                                  location =
+                                      args['location'] as String? ?? location;
+                                  selectedDate = args['date'] != null
+                                      ? (args['date'] is String
+                                          ? DateTime.parse(args['date'] as String)
+                                          : args['date'] as DateTime)
+                                      : selectedDate;
+                                  selectedTime = args['time'] != null
+                                      ? (args['time'] is String
+                                          ? () {
+                                              final timeParts =
+                                                  (args['time'] as String)
+                                                      .split(':');
+                                              return TimeOfDay(
+                                                hour: int.parse(timeParts[0]),
+                                                minute: int.parse(timeParts[1]),
+                                              );
+                                            }()
+                                          : args['time'] as TimeOfDay)
+                                      : selectedTime;
+                                  levelOfCompetition =
+                                      args['levelOfCompetition'] as String? ??
+                                          levelOfCompetition;
+                                  gender = args['gender'] as String? ?? gender;
+                                  officialsRequired = args['officialsRequired'] !=
+                                          null
+                                      ? int.tryParse(
+                                          args['officialsRequired'].toString())
+                                      : officialsRequired;
+                                  gameFee =
+                                      args['gameFee']?.toString() ?? gameFee;
+                                  hireAutomatically =
+                                      args['hireAutomatically'] as bool? ??
+                                          hireAutomatically;
+                                  isAwayGame =
+                                      args['isAwayGame'] as bool? ?? args['isAway'] as bool? ?? isAwayGame;
+                                  opponent =
+                                      args['opponent'] as String? ?? opponent;
+                                  officialsHired =
+                                      args['officialsHired'] as int? ??
+                                          officialsHired;
+                                  try {
+                                    final officialsRaw = args['selectedOfficials']
+                                            as List<dynamic>? ??
+                                        [];
+                                    selectedOfficials =
+                                        officialsRaw.map((official) {
+                                      if (official is Map) {
+                                        return Map<String, dynamic>.from(
+                                            official);
+                                      }
+                                      return <String, dynamic>{
+                                        'name': 'Unknown Official',
+                                        'distance': 0.0
+                                      };
+                                    }).toList();
+                                  } catch (e) {
+                                    selectedOfficials = [];
+                                  }
+                                  try {
+                                    final listsRaw =
+                                        args['selectedLists'] as List<dynamic>? ??
+                                            [];
+                                    selectedLists = listsRaw.map((list) {
+                                      if (list is Map) {
+                                        return Map<String, dynamic>.from(list);
+                                      }
+                                      return <String, dynamic>{
+                                        'name': 'Unknown List',
+                                        'minOfficials': 0,
+                                        'maxOfficials': 0,
+                                        'officials': <Map<String, dynamic>>[],
+                                      };
+                                    }).toList();
+                                  } catch (e) {
+                                    selectedLists = [];
+                                  }
+                                  // Load real interested officials from database
+                                  _loadInterestedOfficials();
+                                });
+                              }
                               Navigator.pop(context, result);
                             }
                           }),
@@ -1781,6 +1801,7 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                                             route = '/schedule_details';
                                             arguments = {
                                               'scheduleName': scheduleName,
+                                              'scheduleId': args['scheduleId'],
                                               'focusDate': selectedDate,
                                             };
                                             break;

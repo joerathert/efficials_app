@@ -12,7 +12,6 @@ import '../../shared/services/repositories/notification_repository.dart';
 import '../../shared/services/repositories/user_repository.dart';
 import '../../shared/widgets/scheduler_bottom_navigation.dart';
 import '../../shared/models/database_models.dart';
-import 'dart:developer' as developer;
 
 class AthleticDirectorHomeScreen extends StatefulWidget {
   const AthleticDirectorHomeScreen({super.key});
@@ -159,14 +158,8 @@ class _AthleticDirectorHomeScreenState
         publishedGames = publishedGamesData; // No conversion needed - already Game objects
         isLoading = false;
         
-        // Debug logging to understand what's happening with games
-        developer.log('Published games loaded: ${publishedGames.length}');
-        for (var game in publishedGames) {
-          developer.log('Game: id=${game.id}, scheduleName=${game.scheduleName}, sportName=${game.sportName}, opponent=${game.opponent}, isAway=${game.isAway}, date=${game.date}');
-        }
       });
     } catch (e) {
-      developer.log('Error fetching games from database: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -209,7 +202,6 @@ class _AthleticDirectorHomeScreenState
                     (schedule, selected) => MapEntry(schedule, selected as bool)),
               ));
         } catch (e) {
-          developer.log('Error parsing schedule filters: $e');
         }
       }
       
@@ -221,7 +213,6 @@ class _AthleticDirectorHomeScreenState
         });
       }
     } catch (e) {
-      developer.log('Error loading filters from database: $e');
       // Keep default values
     }
   }
@@ -286,7 +277,6 @@ class _AthleticDirectorHomeScreenState
         await _saveFilters();
       }
     } catch (e) {
-      developer.log('Error initializing schedule filters: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -320,7 +310,6 @@ class _AthleticDirectorHomeScreenState
       await _userRepository.setSetting(userId, 'showFullyCoveredGames', showFullyCoveredGames.toString());
       await _userRepository.setSetting(userId, 'scheduleFilters', jsonEncode(scheduleFilters));
     } catch (e) {
-      developer.log('Error saving filters to database: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -338,7 +327,6 @@ class _AthleticDirectorHomeScreenState
       final game = await _gameService.getGameByIdWithOfficials(gameId);
       return game;
     } catch (e) {
-      developer.log('Error fetching game by ID: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -356,7 +344,6 @@ class _AthleticDirectorHomeScreenState
     // Create a DateTime at the start of today (midnight) for date comparison
     final today = DateTime(now.year, now.month, now.day);
     
-    developer.log('Filtering ${games.length} games, getPastGames: $getPastGames');
 
     var filteredGames = games.where((game) {
       if (!showAwayGames && game.isAway) return false;
@@ -424,7 +411,6 @@ class _AthleticDirectorHomeScreenState
       return true;
     }).toList();
     
-    developer.log('After filtering: ${filteredGames.length} games remaining');
 
     filteredGames.sort((a, b) {
       if (a.date == null && b.date == null) return 0;

@@ -5,6 +5,17 @@ import 'notification_repository.dart';
 import 'advanced_method_repository.dart';
 import 'package:flutter/foundation.dart'; // Added for debugPrint
 
+/// Exception thrown when there's a soft conflict that requires user confirmation
+class SoftConflictException implements Exception {
+  final String message;
+  final List<Map<String, dynamic>> conflictingGames;
+  
+  SoftConflictException(this.message, this.conflictingGames);
+  
+  @override
+  String toString() => message;
+}
+
 class GameAssignmentRepository extends BaseRepository {
   final AdvancedMethodRepository _advancedMethodRepo =
       AdvancedMethodRepository();
@@ -187,14 +198,19 @@ class GameAssignmentRepository extends BaseRepository {
     final result =
         await update('game_assignments', data, 'id = ?', [assignmentId]);
 
-    // If status is 'accepted', increment the official's accepted games count
+    // If status is 'accepted', handle conflict detection and removal
     if (status == 'accepted') {
       final assignment = await rawQuery('''
-        SELECT official_id FROM game_assignments WHERE id = ?
+        SELECT official_id, game_id FROM game_assignments WHERE id = ?
       ''', [assignmentId]);
 
       if (assignment.isNotEmpty) {
         final officialId = assignment.first['official_id'];
+        final gameId = assignment.first['game_id'];
+        
+        // Remove from conflicting games
+        await _removeFromConflictingGames(officialId, gameId);
+        
         await rawQuery('''
           UPDATE officials 
           SET total_accepted_games = total_accepted_games + 1
@@ -225,6 +241,10 @@ class GameAssignmentRepository extends BaseRepository {
   // Express interest in a game (create pending assignment)
   Future<int> expressInterest(
       int gameId, int officialId, double? feeAmount) async {
+    
+    // Note: This method now only checks for crew hiring and basic validation
+    // For conflict checking, use expressInterestWithConflictCheck instead
+    
     // Check if this is a crew hiring game and if the official is a crew chief
     final gameResult = await rawQuery('''
       SELECT method FROM games WHERE id = ?
@@ -337,6 +357,15 @@ class GameAssignmentRepository extends BaseRepository {
   // Claim a game (create accepted assignment and increment officials_hired)
   Future<int> claimGame(int gameId, int officialId, double? feeAmount) async {
     try {
+      // Check for hard conflicts with confirmed games before allowing claim
+      final hardConflicts = await checkForHardConflicts(officialId, gameId);
+      if (hardConflicts.isNotEmpty) {
+        final conflictGame = hardConflicts.first;
+        final opponent = conflictGame['opponent'] ?? conflictGame['home_team'] ?? 'TBD';
+        final timeDiff = conflictGame['time_difference_minutes'] as int;
+        throw Exception('Cannot claim game: You have a confirmed game too close in time (${timeDiff} minutes away) against $opponent at ${conflictGame['time']}. Games must be at least 1 hour apart.');
+      }
+      
       // Start a transaction to ensure consistency
       final assignment = GameAssignment(
         gameId: gameId,
@@ -350,6 +379,9 @@ class GameAssignmentRepository extends BaseRepository {
 
       // Create the assignment
       final assignmentId = await createAssignment(assignment);
+
+      // Remove from conflicting games
+      await _removeFromConflictingGames(officialId, gameId);
 
       // Increment the officials_hired count for the game
       await rawQuery('''
@@ -638,11 +670,20 @@ class GameAssignmentRepository extends BaseRepository {
       final gameMethod = assignment['method'] as String?;
       final backedOutAt = DateTime.now();
 
+      // Check if this is a backout due to game changes within 24 hours
+      final isGameChangeBackout = await _isGameChangeRelatedBackout(
+        gameId: gameId,
+        officialId: officialId,
+        reason: reason,
+        backedOutAt: backedOutAt,
+      );
+
       // Update the assignment status
       final data = {
         'status': 'backed_out',
         'backed_out_at': backedOutAt.toIso8601String(),
         'back_out_reason': reason,
+        'excused_backout': isGameChangeBackout ? 1 : 0, // Mark as excused if due to game changes within 24 hours
       };
 
       final result =
@@ -677,18 +718,22 @@ class GameAssignmentRepository extends BaseRepository {
           'official_id': officialId,
           'game_id': gameId,
           'backed_out_at': backedOutAt.toIso8601String(),
+          'is_game_change_backout': isGameChangeBackout,
         },
       );
 
-      // Update official's stats (increase backed out games count)
-      await rawQuery('''
-        UPDATE officials 
-        SET total_backed_out_games = total_backed_out_games + 1
-        WHERE id = ?
-      ''', [officialId]);
+      // Only impact follow-through rate if it's NOT a game change backout
+      if (!isGameChangeBackout) {
+        // Update official's stats (increase backed out games count)
+        await rawQuery('''
+          UPDATE officials 
+          SET total_backed_out_games = total_backed_out_games + 1
+          WHERE id = ?
+        ''', [officialId]);
 
-      // Recalculate follow-through rate
-      await _updateOfficialFollowThroughRate(officialId);
+        // Recalculate follow-through rate
+        await _updateOfficialFollowThroughRate(officialId);
+      }
 
       // Decrease the officials_hired count for the game to allow position to be refilled
       await rawQuery('''
@@ -705,6 +750,86 @@ class GameAssignmentRepository extends BaseRepository {
       print('Error backing out of game: $e');
       throw Exception('Failed to back out of game: ${e.toString()}');
     }
+  }
+  
+  // Helper method to determine if a backout is due to game changes within 24 hours
+  Future<bool> _isGameChangeRelatedBackout({
+    required int gameId,
+    required int officialId,
+    required String reason,
+    required DateTime backedOutAt,
+  }) async {
+    // Check if the reason text contains game change keywords
+    final hasChangeKeywords = _hasGameChangeKeywords(reason);
+    
+    // If no change keywords in reason, check for recent game change notifications
+    if (!hasChangeKeywords) {
+      // Look for game change notifications sent to this official within the last 24 hours
+      final recentGameChanges = await rawQuery('''
+        SELECT created_at, type, data
+        FROM notifications 
+        WHERE recipient_id = ? 
+          AND type IN ('game_date_change', 'game_time_change', 'game_location_change', 'game_change')
+          AND data LIKE ?
+          AND created_at >= ?
+        ORDER BY created_at DESC
+      ''', [
+        officialId,
+        '%"game_id":$gameId%', // Check if notification is about this specific game
+        backedOutAt.subtract(const Duration(hours: 24)).toIso8601String(),
+      ]);
+      
+      // If there are recent game change notifications for this game, it's excused
+      if (recentGameChanges.isNotEmpty) {
+        print('🔍 Found recent game change notification within 24 hours for official $officialId, game $gameId');
+        return true;
+      }
+    }
+    
+    // If reason contains change keywords, also check if it's within 24 hours of any game changes
+    if (hasChangeKeywords) {
+      // Look for any game change notifications for this game within 24 hours
+      final recentGameChanges = await rawQuery('''
+        SELECT created_at, type, data
+        FROM notifications 
+        WHERE type IN ('game_date_change', 'game_time_change', 'game_location_change', 'game_change')
+          AND data LIKE ?
+          AND created_at >= ?
+        ORDER BY created_at DESC
+      ''', [
+        '%"game_id":$gameId%',
+        backedOutAt.subtract(const Duration(hours: 24)).toIso8601String(),
+      ]);
+      
+      if (recentGameChanges.isNotEmpty) {
+        print('🔍 Found game change keywords AND recent notification within 24 hours for game $gameId');
+        return true;
+      }
+      
+      // Even without notifications, if keywords are present, we'll excuse it
+      // This handles cases where the system might have missed creating notifications
+      print('🔍 Found game change keywords in reason for game $gameId, excusing backout');
+      return true;
+    }
+    
+    return false;
+  }
+
+  // Helper method to check if reason contains game change keywords
+  bool _hasGameChangeKeywords(String reason) {
+    final lowerReason = reason.toLowerCase();
+    return lowerReason.contains('date changed') ||
+           lowerReason.contains('time changed') ||
+           lowerReason.contains('location changed') ||
+           lowerReason.contains('game date') ||
+           lowerReason.contains('game time') ||
+           lowerReason.contains('game location') ||
+           lowerReason.contains('schedule change') ||
+           lowerReason.contains('rescheduled') ||
+           lowerReason.contains('moved to') ||
+           lowerReason.contains('venue change') ||
+           lowerReason.contains('game changed') ||
+           lowerReason.contains('schedule modified');
   }
 
   // Helper method to update official's follow-through rate
@@ -795,11 +920,16 @@ class GameAssignmentRepository extends BaseRepository {
           'id = ?',
           [assignmentId]);
 
-      // Decrease the official's backed out games count
+      // Decrease both the backed out games count AND the total accepted games count
+      // When a backout is excused, the game should not count toward follow-through calculation at all
       await rawQuery('''
         UPDATE officials 
         SET total_backed_out_games = CASE 
           WHEN total_backed_out_games > 0 THEN total_backed_out_games - 1 
+          ELSE 0 
+        END,
+        total_accepted_games = CASE 
+          WHEN total_accepted_games > 0 THEN total_accepted_games - 1 
           ELSE 0 
         END 
         WHERE id = ?
@@ -1559,5 +1689,267 @@ class GameAssignmentRepository extends BaseRepository {
       'dismissals_with_reason': 0,
       'reasons': <String>[],
     };
+  }
+
+  // ===== CONFLICT DETECTION METHODS =====
+
+  /// Remove official from conflicting games when they confirm a game
+  Future<void> _removeFromConflictingGames(int officialId, int acceptedGameId) async {
+    try {
+      // Get the accepted game's date and time
+      final acceptedGameResult = await rawQuery('''
+        SELECT date, time FROM games WHERE id = ?
+      ''', [acceptedGameId]);
+
+      if (acceptedGameResult.isEmpty) {
+        print('Warning: Could not find accepted game $acceptedGameId');
+        return;
+      }
+
+      final acceptedGameData = acceptedGameResult.first;
+      final acceptedDate = acceptedGameData['date'] as String;
+      final acceptedTime = acceptedGameData['time'] as String?;
+
+      if (acceptedTime == null) {
+        print('Warning: Accepted game $acceptedGameId has no time set, skipping conflict detection');
+        return;
+      }
+
+      // Parse the accepted game's datetime
+      final acceptedDateTime = _parseGameDateTime(acceptedDate, acceptedTime);
+      if (acceptedDateTime == null) {
+        print('Warning: Could not parse datetime for accepted game $acceptedGameId');
+        return;
+      }
+
+      // Find conflicting games (games the official has pending interest in)
+      final conflictingAssignments = await rawQuery('''
+        SELECT ga.id as assignment_id, ga.game_id, g.date, g.time, g.opponent, g.home_team,
+               s.name as sport_name, l.name as location_name
+        FROM game_assignments ga
+        JOIN games g ON ga.game_id = g.id
+        LEFT JOIN sports s ON g.sport_id = s.id
+        LEFT JOIN locations l ON g.location_id = l.id
+        WHERE ga.official_id = ? 
+          AND ga.status = 'pending'
+          AND ga.game_id != ?
+          AND g.date = ?
+          AND g.time IS NOT NULL
+      ''', [officialId, acceptedGameId, acceptedDate]);
+
+      int removedCount = 0;
+      
+      for (final conflict in conflictingAssignments) {
+        final conflictGameId = conflict['game_id'] as int;
+        final conflictTime = conflict['time'] as String;
+        final conflictDateTime = _parseGameDateTime(acceptedDate, conflictTime);
+        
+        if (conflictDateTime != null && _hasTimeConflict(acceptedDateTime, conflictDateTime)) {
+          // Remove the conflicting assignment
+          final assignmentId = conflict['assignment_id'] as int;
+          await delete('game_assignments', 'id = ?', [assignmentId]);
+          
+          removedCount++;
+          print('🚫 Removed official $officialId from conflicting game $conflictGameId (${conflict['opponent'] ?? conflict['home_team']}) due to confirmation of game $acceptedGameId');
+        }
+      }
+
+      if (removedCount > 0) {
+        print('✅ Removed official $officialId from $removedCount conflicting games');
+      }
+    } catch (e) {
+      print('Error removing from conflicting games: $e');
+      // Don't throw - this is a best-effort operation that shouldn't break the confirmation
+    }
+  }
+
+  /// Check if two game times have a hard conflict (< 1 hour separation)
+  bool _hasHardConflict(DateTime game1, DateTime game2) {
+    final timeDifference = (game1.difference(game2)).abs();
+    return timeDifference.inMinutes < 60;
+  }
+
+  /// Check if two game times have a soft conflict (1-4 hours separation)
+  bool _hasSoftConflict(DateTime game1, DateTime game2) {
+    final timeDifference = (game1.difference(game2)).abs();
+    return timeDifference.inHours >= 1 && timeDifference.inHours <= 4;
+  }
+
+  /// Check if two game times conflict (with buffer) - legacy method for auto-removal
+  bool _hasTimeConflict(DateTime game1, DateTime game2) {
+    // 2-hour buffer around each game (1 hour before + 1 hour after)
+    const bufferHours = 2;
+    final buffer = Duration(hours: bufferHours);
+    
+    final game1Start = game1.subtract(buffer);
+    final game1End = game1.add(buffer);
+    final game2Start = game2.subtract(buffer);
+    final game2End = game2.add(buffer);
+    
+    // Check if the buffered time windows overlap
+    return game1Start.isBefore(game2End) && game2Start.isBefore(game1End);
+  }
+
+  /// Get conflict type between two games
+  String? _getConflictType(DateTime game1, DateTime game2) {
+    if (_hasHardConflict(game1, game2)) {
+      return 'hard';
+    } else if (_hasSoftConflict(game1, game2)) {
+      return 'soft';
+    }
+    return null;
+  }
+
+  /// Parse game date and time into DateTime object
+  DateTime? _parseGameDateTime(String date, String time) {
+    try {
+      // Parse date (format: YYYY-MM-DD)
+      final dateParts = date.split('-');
+      if (dateParts.length != 3) return null;
+      
+      final year = int.parse(dateParts[0]);
+      final month = int.parse(dateParts[1]);
+      final day = int.parse(dateParts[2]);
+      
+      // Parse time (format: HH:MM or HH:MM:SS)
+      final timeParts = time.split(':');
+      if (timeParts.length < 2) return null;
+      
+      final hour = int.parse(timeParts[0]);
+      final minute = int.parse(timeParts[1]);
+      
+      return DateTime(year, month, day, hour, minute);
+    } catch (e) {
+      print('Error parsing game datetime: $e');
+      return null;
+    }
+  }
+
+  /// Validate that accepting a game doesn't conflict with existing confirmed games
+  /// Returns conflicts with severity information
+  Future<List<Map<String, dynamic>>> checkForConflicts(int officialId, int gameId) async {
+    try {
+      // Get the game being considered
+      final gameResult = await rawQuery('''
+        SELECT date, time, opponent, home_team FROM games WHERE id = ?
+      ''', [gameId]);
+
+      if (gameResult.isEmpty) return [];
+
+      final gameData = gameResult.first;
+      final gameDate = gameData['date'] as String;
+      final gameTime = gameData['time'] as String?;
+
+      if (gameTime == null) return [];
+
+      final gameDateTime = _parseGameDateTime(gameDate, gameTime);
+      if (gameDateTime == null) return [];
+
+      // Find confirmed games on the same date
+      final confirmedGames = await rawQuery('''
+        SELECT g.id, g.date, g.time, g.opponent, g.home_team,
+               s.name as sport_name, l.name as location_name
+        FROM game_assignments ga
+        JOIN games g ON ga.game_id = g.id
+        LEFT JOIN sports s ON g.sport_id = s.id
+        LEFT JOIN locations l ON g.location_id = l.id
+        WHERE ga.official_id = ? 
+          AND ga.status = 'accepted'
+          AND g.date = ?
+          AND g.time IS NOT NULL
+      ''', [officialId, gameDate]);
+
+      final conflicts = <Map<String, dynamic>>[];
+      
+      for (final confirmedGame in confirmedGames) {
+        final confirmedTime = confirmedGame['time'] as String;
+        final confirmedDateTime = _parseGameDateTime(gameDate, confirmedTime);
+        
+        if (confirmedDateTime != null) {
+          final conflictType = _getConflictType(gameDateTime, confirmedDateTime);
+          if (conflictType != null) {
+            final conflictData = Map<String, dynamic>.from(confirmedGame);
+            conflictData['conflict_type'] = conflictType;
+            conflictData['time_difference_minutes'] = (gameDateTime.difference(confirmedDateTime)).abs().inMinutes;
+            conflicts.add(conflictData);
+          }
+        }
+      }
+
+      return conflicts;
+    } catch (e) {
+      print('Error checking for conflicts: $e');
+      return [];
+    }
+  }
+
+  /// Check specifically for hard conflicts (< 1 hour) - used for blocking actions
+  Future<List<Map<String, dynamic>>> checkForHardConflicts(int officialId, int gameId) async {
+    final allConflicts = await checkForConflicts(officialId, gameId);
+    return allConflicts.where((conflict) => conflict['conflict_type'] == 'hard').toList();
+  }
+
+  /// Check specifically for soft conflicts (1-4 hours) - used for warnings
+  Future<List<Map<String, dynamic>>> checkForSoftConflicts(int officialId, int gameId) async {
+    final allConflicts = await checkForConflicts(officialId, gameId);
+    return allConflicts.where((conflict) => conflict['conflict_type'] == 'soft').toList();
+  }
+
+  /// Express interest with soft conflict checking
+  /// Throws SoftConflictException if there are soft conflicts that need user confirmation
+  Future<int> expressInterestWithConflictCheck(
+      int gameId, int officialId, double? feeAmount, {bool ignoreSoftConflicts = false}) async {
+    
+    // Check for hard conflicts first (always block)
+    final hardConflicts = await checkForHardConflicts(officialId, gameId);
+    if (hardConflicts.isNotEmpty) {
+      final conflictGame = hardConflicts.first;
+      final opponent = conflictGame['opponent'] ?? conflictGame['home_team'] ?? 'TBD';
+      final timeDiff = conflictGame['time_difference_minutes'] as int;
+      throw Exception('Cannot express interest: You have a confirmed game too close in time (${timeDiff} minutes away) against $opponent at ${conflictGame['time']}. Games must be at least 1 hour apart.');
+    }
+    
+    // Check for soft conflicts (need user confirmation)
+    if (!ignoreSoftConflicts) {
+      final softConflicts = await checkForSoftConflicts(officialId, gameId);
+      if (softConflicts.isNotEmpty) {
+        throw SoftConflictException(
+          'You have confirmed games on this day that may conflict with this game time.',
+          softConflicts,
+        );
+      }
+    }
+    
+    // Proceed with normal express interest logic
+    return await expressInterest(gameId, officialId, feeAmount);
+  }
+
+  /// Claim game with soft conflict checking
+  /// Throws SoftConflictException if there are soft conflicts that need user confirmation
+  Future<int> claimGameWithConflictCheck(
+      int gameId, int officialId, double? feeAmount, {bool ignoreSoftConflicts = false}) async {
+    
+    // Check for hard conflicts first (always block)
+    final hardConflicts = await checkForHardConflicts(officialId, gameId);
+    if (hardConflicts.isNotEmpty) {
+      final conflictGame = hardConflicts.first;
+      final opponent = conflictGame['opponent'] ?? conflictGame['home_team'] ?? 'TBD';
+      final timeDiff = conflictGame['time_difference_minutes'] as int;
+      throw Exception('Cannot claim game: You have a confirmed game too close in time (${timeDiff} minutes away) against $opponent at ${conflictGame['time']}. Games must be at least 1 hour apart.');
+    }
+    
+    // Check for soft conflicts (need user confirmation)
+    if (!ignoreSoftConflicts) {
+      final softConflicts = await checkForSoftConflicts(officialId, gameId);
+      if (softConflicts.isNotEmpty) {
+        throw SoftConflictException(
+          'You have confirmed games on this day that may conflict with this game time.',
+          softConflicts,
+        );
+      }
+    }
+    
+    // Proceed with normal claim logic
+    return await claimGame(gameId, officialId, feeAmount);
   }
 }

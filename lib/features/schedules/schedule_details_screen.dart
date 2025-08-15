@@ -29,6 +29,7 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
   bool _showOnlyNeedsOfficials = false; // Toggle state for filtering
   String? associatedTemplateName; // Store the associated template name
   GameTemplate? template; // Store the associated template object
+  bool _hasInitialized = false; // Track if we've initialized from route args
   final ScheduleService _scheduleService = ScheduleService();
   final GameService _gameService = GameService();
   final TemplateRepository _templateRepository = TemplateRepository();
@@ -39,13 +40,50 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final args =
-        ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
-    scheduleName = args['scheduleName'] as String?;
-    scheduleId = args['scheduleId'] as int?;
+    
+    // Only initialize from route arguments if we haven't already
+    if (!_hasInitialized) {
+      final args =
+          ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+      scheduleName = args['scheduleName'] as String?;
+      scheduleId = args['scheduleId'] as int?;
+      debugPrint('SCHEDULE SCREEN: Initial load - scheduleName="$scheduleName", scheduleId=$scheduleId');
+      
+      // If scheduleId is null but we have a scheduleName, try to look it up
+      if (scheduleId == null && scheduleName != null) {
+        _lookupScheduleId();
+      }
+      
+      _hasInitialized = true;
+    } else {
+      debugPrint('SCHEDULE SCREEN: Returning from navigation - preserving scheduleName="$scheduleName", scheduleId=$scheduleId');
+    }
+    
     _fetchGames();
     _loadScheduleDetails(); // Load schedule details including sport after games are loaded
     _loadAssociatedTemplate(); // Load the associated template
+  }
+
+  Future<void> _lookupScheduleId() async {
+    if (scheduleName == null) return;
+    
+    try {
+      debugPrint('SCHEDULE SCREEN: Looking up scheduleId for "$scheduleName"');
+      final schedules = await _scheduleService.getSchedules();
+      final matchingSchedule = schedules.firstWhere(
+        (schedule) => schedule['name'] == scheduleName,
+        orElse: () => <String, dynamic>{},
+      );
+      
+      if (matchingSchedule.isNotEmpty) {
+        scheduleId = matchingSchedule['id'] as int?;
+        debugPrint('SCHEDULE SCREEN: Found scheduleId=$scheduleId for "$scheduleName"');
+      } else {
+        debugPrint('SCHEDULE SCREEN: No matching schedule found for "$scheduleName"');
+      }
+    } catch (e) {
+      debugPrint('SCHEDULE SCREEN: Error looking up scheduleId: $e');
+    }
   }
 
   Future<void> _loadScheduleDetails() async {
@@ -354,15 +392,20 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
           ElevatedButton(
             onPressed: () {
               final newName = controller.text.trim();
+              debugPrint('DIALOG: Save button pressed, newName="$newName", currentName="$scheduleName"');
+              
               if (newName.isNotEmpty && newName != scheduleName) {
+                debugPrint('DIALOG: Names are different, calling _updateScheduleName');
                 Navigator.pop(context);
                 _updateScheduleName(newName);
               } else if (newName.isEmpty) {
+                debugPrint('DIALOG: Name is empty, showing error');
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                       content: Text('Schedule name cannot be empty')),
                 );
               } else {
+                debugPrint('DIALOG: Names are the same, no update needed');
                 Navigator.pop(context);
               }
             },
@@ -378,19 +421,31 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
   }
 
   Future<void> _updateScheduleName(String newName) async {
-    if (scheduleName == null || scheduleId == null) return;
+    debugPrint('UPDATE SCHEDULE NAME: Function called with newName="$newName"');
+    debugPrint('UPDATE SCHEDULE NAME: Current scheduleName="$scheduleName", scheduleId=$scheduleId');
+    
+    if (scheduleName == null || scheduleId == null) {
+      debugPrint('UPDATE SCHEDULE NAME: Missing scheduleName or scheduleId, returning early');
+      return;
+    }
 
     try {
       final oldName = scheduleName!;
+      debugPrint('SCHEDULE UPDATE: Attempting to update schedule ID $scheduleId from "$oldName" to "$newName"');
 
       // Update schedule name using ScheduleService
       final updatedSchedule =
           await _scheduleService.updateScheduleName(scheduleId!, newName);
 
+      debugPrint('SCHEDULE UPDATE: Service returned: ${updatedSchedule != null ? "success" : "null"}');
+
       if (updatedSchedule != null) {
+        debugPrint('SCHEDULE UPDATE: Updated schedule data: ${updatedSchedule["name"]}');
+        
         // Update template association if it exists
         final user = await _userRepository.getCurrentUser();
         if (user?.id != null && associatedTemplateName != null) {
+          debugPrint('SCHEDULE UPDATE: Updating template association');
           await _templateRepository.updateScheduleName(
               user!.id!, oldName, newName);
         }
@@ -399,6 +454,8 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
         setState(() {
           scheduleName = newName;
         });
+
+        debugPrint('SCHEDULE UPDATE: State updated successfully');
 
         // Show success message
         if (mounted) {
@@ -411,6 +468,7 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
         await _fetchGames();
         await _loadScheduleDetails();
       } else {
+        debugPrint('SCHEDULE UPDATE: Update failed - service returned null');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Failed to update schedule name')),
@@ -418,10 +476,10 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
         }
       }
     } catch (e) {
-      debugPrint('Error updating schedule name: $e');
+      debugPrint('SCHEDULE UPDATE ERROR: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Error updating schedule name')),
+          SnackBar(content: Text('Error updating schedule name: $e')),
         );
       }
     }

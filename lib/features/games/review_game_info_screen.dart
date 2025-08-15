@@ -973,8 +973,9 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
       for (final listItem in selectedLists) {
         final list = Map<String, dynamic>.from(listItem as Map);
         final listName = list['name'] as String;
+        final sharedPrefsId = list['id']; // This is the SharedPreferences ID
 
-        // Query database to get actual list ID by name
+        // First try to query database to get actual list ID by name
         final dbResults = await listRepository.rawQuery(
             'SELECT id FROM official_lists WHERE name = ?', [listName]);
 
@@ -982,10 +983,21 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
           final actualId = dbResults.first['id'] as int;
           resolvedLists.add({...list, 'id': actualId});
           debugPrint(
-              '  🔄 Resolved "$listName" from SharedPrefs ID ${list['id']} to database ID $actualId');
+              '  🔄 Resolved "$listName" from SharedPrefs ID $sharedPrefsId to database ID $actualId');
         } else {
-          debugPrint(
-              '  ❌ List "$listName" not found in database. Skipping quota for this list.');
+          // If not found by name, check if the SharedPrefs ID is already a valid database ID
+          final idCheckResults = await listRepository.rawQuery(
+              'SELECT id FROM official_lists WHERE id = ?', [sharedPrefsId]);
+          
+          if (idCheckResults.isNotEmpty) {
+            // The SharedPrefs ID is actually a valid database ID
+            resolvedLists.add(list); // Use as-is
+            debugPrint(
+                '  ✅ List "$listName" found with existing database ID $sharedPrefsId');
+          } else {
+            debugPrint(
+                '  ❌ List "$listName" not found in database by name or ID. Skipping quota for this list.');
+          }
         }
       }
     } catch (e) {

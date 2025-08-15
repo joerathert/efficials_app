@@ -42,7 +42,8 @@
       "Bash(claude code config)",
       "Bash(claude code config edit)",
       "Bash(claude code --help)",
-      "Bash(/home/efficials/bin/flutter build apk --debug)"
+      "Bash(/home/efficials/bin/flutter build apk --debug)",
+      "Bash(/home/efficials/bin/flutter pub get)"
     ],
     "deny": []
   },

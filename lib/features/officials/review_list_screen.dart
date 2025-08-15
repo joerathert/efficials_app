@@ -1,6 +1,4 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../shared/theme.dart';
 import '../../shared/services/repositories/official_repository.dart';
 import '../../shared/services/repositories/list_repository.dart';
@@ -42,16 +40,13 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
 
   Future<int> _getListsCountBySport(String sport) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final String? listsJson = prefs.getString('saved_lists');
-
-      if (listsJson == null || listsJson.isEmpty) return 0;
-
-      final List<Map<String, dynamic>> existingLists =
-          List<Map<String, dynamic>>.from(jsonDecode(listsJson));
-
+      if (_currentUserId == null) return 0;
+      
+      final listRepository = ListRepository();
+      final userLists = await listRepository.getUserLists(_currentUserId!);
+      
       // Count lists for the specific sport
-      return existingLists.where((list) => list['sport'] == sport).length;
+      return userLists.where((list) => list['sport_name'] == sport).length;
     } catch (e) {
       return 0;
     }
@@ -163,15 +158,6 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
         .toList();
 
     try {
-      // Save the list to shared_preferences (for UI compatibility)
-      final prefs = await SharedPreferences.getInstance();
-      final String? listsJson = prefs.getString('saved_lists');
-      List<Map<String, dynamic>> existingLists = [];
-      if (listsJson != null && listsJson.isNotEmpty) {
-        existingLists = List<Map<String, dynamic>>.from(jsonDecode(listsJson));
-      }
-
-      // ALSO save to database (for actual functionality)
       final listRepository = ListRepository();
 
       // Get current user ID
@@ -182,17 +168,10 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
       }
 
       if (isEdit && listId != null) {
-        // Update existing list
-        final updatedList = {
-          'name': listName,
-          'sport': sport,
-          'officials': selectedOfficialsData,
-          'id': listId,
-        };
-
-        // Check for duplicate names (excluding the current list)
-        if (existingLists
-            .any((list) => list['name'] == listName && list['id'] != listId)) {
+        // Update existing list - check for duplicate names first
+        final nameExists = await listRepository.listNameExists(
+            listName!, userId, excludeListId: listId);
+        if (nameExists) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -204,18 +183,11 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
           return;
         }
 
-        // Update in SharedPreferences
-        final index = existingLists.indexWhere((list) => list['id'] == listId);
-        if (index != -1) {
-          existingLists[index] = updatedList;
-        } else {
-          existingLists.add(updatedList);
-        }
-
-        // Update in database
+        // Update list name if changed
+        await listRepository.updateListName(listId!, listName!);
+        
+        // Update officials in list
         await listRepository.updateList(listName!, selectedOfficialsData);
-
-        await prefs.setString('saved_lists', jsonEncode(existingLists));
 
         if (mounted) {
           // Navigate back to the lists screen after updating
@@ -233,9 +205,16 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
           );
         }
       } else {
-        // Create new list
-        // Check for duplicate names
-        if (existingLists.any((list) => list['name'] == listName)) {
+        // Create new list - check for duplicate names first
+        debugPrint('DEBUG: Checking if list name "$listName" exists for user $userId');
+        final nameExists = await listRepository.listNameExists(listName!, userId);
+        debugPrint('DEBUG: List name exists check result: $nameExists');
+        
+        if (nameExists) {
+          // Debug: Let's see what lists actually exist
+          final existingLists = await listRepository.getUserLists(userId);
+          debugPrint('DEBUG: Existing lists in database: ${existingLists.map((l) => '${l['name']} (id: ${l['id']})')}');
+          
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -247,33 +226,11 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
           return;
         }
 
-        // Save to database first to get actual ID
-        final selectedOfficialsObjects = selectedOfficialsData
-            .map((officialData) => Official(
-                  id: officialData['id'],
-                  name: officialData['name'],
-                  email: officialData['email'],
-                  phone: officialData['phone'],
-                  userId: userId,
-                ))
-            .toList();
-
-        final actualDatabaseId = await listRepository.createList(
-            listName!, sport!, selectedOfficialsObjects);
-
-        // Create new list with actual database ID
-        final newList = {
-          'name': listName,
-          'sport': sport,
-          'officials': selectedOfficialsData,
-          'id':
-              actualDatabaseId, // Use actual database ID instead of generated one
-        };
-
-        // Save to SharedPreferences with actual database ID
-        existingLists.add(newList);
-
-        await prefs.setString('saved_lists', jsonEncode(existingLists));
+        // Save to database using the new saveListFromUI method
+        debugPrint('DEBUG: Attempting to save list "$listName" with sport "$sport" and ${selectedOfficialsData.length} officials');
+        final actualDatabaseId = await listRepository.saveListFromUI(
+            listName!, sport!, selectedOfficialsData);
+        debugPrint('DEBUG: List saved successfully with database ID: $actualDatabaseId');
 
         if (mounted) {
           // Get the arguments to check if we're coming from game creation
@@ -322,8 +279,7 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
                     'listName': listName,
                     'sport': sport,
                     'officials': selectedOfficialsData,
-                    'actualDatabaseId':
-                        actualDatabaseId, // Include actual database ID
+                    'actualDatabaseId': actualDatabaseId,
                   },
                 },
               );
@@ -335,8 +291,7 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
               'listName': listName,
               'sport': sport,
               'officials': selectedOfficialsData,
-              'actualDatabaseId':
-                  actualDatabaseId, // Include actual database ID
+              'actualDatabaseId': actualDatabaseId,
             });
           } else {
             // Regular pop for non-game creation flows
@@ -344,15 +299,13 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
               'listName': listName,
               'sport': sport,
               'officials': selectedOfficialsData,
-              'actualDatabaseId':
-                  actualDatabaseId, // Include actual database ID
+              'actualDatabaseId': actualDatabaseId,
             });
           }
 
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content:
-                  const Text('Your list was created and saved to database!'),
+              content: const Text('Your list was created successfully!'),
               backgroundColor: darkSurface,
               duration: const Duration(seconds: 2),
             ),
@@ -360,7 +313,7 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
         }
       }
     } catch (e) {
-      print('Error saving list: $e');
+      debugPrint('Error saving list: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

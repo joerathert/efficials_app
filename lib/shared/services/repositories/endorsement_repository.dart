@@ -20,10 +20,11 @@ class EndorsementRepository {
       final db = await _db;
       
       // Prevent self-endorsement: check if the endorser is trying to endorse themselves
+      // Only check official_user_id as that's the proper link for official accounts
       final officialResult = await db.query(
         'officials',
-        where: 'id = ? AND (user_id = ? OR official_user_id = ?)',
-        whereArgs: [endorsedOfficialId, endorserUserId, endorserUserId],
+        where: 'id = ? AND official_user_id = ?',
+        whereArgs: [endorsedOfficialId, endorserUserId],
       );
       
       if (officialResult.isNotEmpty) {
@@ -40,7 +41,7 @@ class EndorsementRepository {
       await db.insert(
         'official_endorsements',
         endorsement.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace,
+        conflictAlgorithm: ConflictAlgorithm.abort,
       );
 
       // Send notification to the endorsed official
@@ -220,7 +221,6 @@ class EndorsementRepository {
       }
     } catch (e) {
       // Don't let notification failures break the endorsement process
-      print('Failed to send endorsement notification: ${e.toString()}');
     }
   }
 }

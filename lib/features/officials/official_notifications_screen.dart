@@ -4,6 +4,7 @@ import '../../shared/theme.dart';
 import '../../shared/services/user_session_service.dart';
 import '../../shared/services/repositories/notification_repository.dart';
 import '../../shared/services/repositories/official_repository.dart';
+import '../../shared/services/repositories/game_assignment_repository.dart';
 import '../../shared/models/database_models.dart' as models;
 
 class OfficialNotificationsScreen extends StatefulWidget {
@@ -415,27 +416,41 @@ class _OfficialNotificationsScreenState
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              if (!isRead)
-                TextButton.icon(
-                  onPressed: () => _markAsRead(notification),
-                  icon: const Icon(Icons.mark_email_read, size: 16),
-                  label: const Text('Mark as Read'),
+              // View Game button (for game-related notifications)
+              if (_hasGameData(notification))
+                TextButton(
+                  onPressed: () => _viewGame(notification),
                   style: TextButton.styleFrom(
                     foregroundColor: efficialsYellow,
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    minimumSize: const Size(0, 32),
                   ),
+                  child: const Text('View Game', style: TextStyle(fontSize: 12)),
                 ),
-              const SizedBox(width: 8),
-              TextButton.icon(
+              if (_hasGameData(notification)) const SizedBox(width: 4),
+              
+              // Mark as Read button
+              if (!isRead)
+                TextButton(
+                  onPressed: () => _markAsRead(notification),
+                  style: TextButton.styleFrom(
+                    foregroundColor: efficialsYellow,
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    minimumSize: const Size(0, 32),
+                  ),
+                  child: const Text('Mark as Read', style: TextStyle(fontSize: 12)),
+                ),
+              if (!isRead) const SizedBox(width: 4),
+              
+              // Delete button
+              TextButton(
                 onPressed: () => _deleteNotification(notification),
-                icon: const Icon(Icons.delete, size: 16),
-                label: const Text('Delete'),
                 style: TextButton.styleFrom(
                   foregroundColor: Colors.red,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  minimumSize: const Size(0, 32),
                 ),
+                child: const Text('Delete', style: TextStyle(fontSize: 12)),
               ),
             ],
           ),
@@ -456,6 +471,10 @@ class _OfficialNotificationsScreenState
       case 'game_assignment':
         iconData = Icons.assignment;
         iconColor = Colors.green;
+        break;
+      case 'game_change':
+        iconData = Icons.edit_calendar;
+        iconColor = Colors.orange;
         break;
       case 'schedule_change':
         iconData = Icons.schedule;
@@ -563,6 +582,77 @@ class _OfficialNotificationsScreenState
       return DateFormat('MMM d, yyyy').format(date);
     } catch (e) {
       return dateString;
+    }
+  }
+
+  /// Check if notification has game data for View Game button
+  bool _hasGameData(models.Notification notification) {
+    return notification.data != null && 
+           notification.data!['game_id'] != null &&
+           (notification.type == 'game_change' || 
+            notification.type == 'game_assignment' ||
+            notification.type == 'official_removal');
+  }
+
+  /// Navigate to game details when View Game is pressed
+  Future<void> _viewGame(models.Notification notification) async {
+    if (!_hasGameData(notification)) return;
+
+    final gameId = notification.data!['game_id'] as int;
+    
+    try {
+      // Get the official's assignment for this game to pass to the details screen
+      final assignment = await _getOfficialAssignmentForGame(gameId);
+      
+      if (assignment == null) {
+        throw Exception('Assignment not found for game');
+      }
+      
+      // Navigate to official game details screen
+      await Navigator.pushNamed(
+        context,
+        '/official_game_details',
+        arguments: assignment,
+      );
+      
+      // Mark notification as read if it wasn't already
+      if (!notification.isRead) {
+        await _markAsRead(notification);
+      }
+    } catch (e) {
+      debugPrint('Error navigating to game details: $e');
+      
+      // Show error message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Error opening game details'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  /// Get the official's assignment for a specific game
+  Future<models.GameAssignment?> _getOfficialAssignmentForGame(int gameId) async {
+    if (_currentOfficialId == null) return null;
+    
+    try {
+      final assignmentRepo = GameAssignmentRepository();
+      final assignments = await assignmentRepo.getAssignmentsForOfficial(_currentOfficialId!);
+      
+      // Find the assignment for this specific game
+      for (final assignment in assignments) {
+        if (assignment.gameId == gameId) {
+          return assignment;
+        }
+      }
+      
+      return null;
+    } catch (e) {
+      debugPrint('Error getting assignment for game $gameId: $e');
+      return null;
     }
   }
 }

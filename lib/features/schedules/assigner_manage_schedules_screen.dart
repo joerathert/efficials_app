@@ -531,10 +531,12 @@ class _AssignerManageSchedulesScreenState
                   ),
                 )
               : SingleChildScrollView(
-                  child: Column(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(16.0),
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 160), // Space for floating action buttons
+                    child: Column(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(16.0),
                         decoration: BoxDecoration(
                           color: darkSurface,
                           boxShadow: [
@@ -1208,6 +1210,7 @@ class _AssignerManageSchedulesScreenState
                     ],
                   ),
                 ),
+              ),
       floatingActionButton: selectedTeam != null
           ? Column(
               mainAxisAlignment: MainAxisAlignment.end,

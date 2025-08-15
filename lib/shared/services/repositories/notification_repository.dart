@@ -507,6 +507,118 @@ class NotificationRepository {
     }
   }
 
+  /// Create game change notification for confirmed officials
+  Future<void> createGameChangeNotifications({
+    required int gameId,
+    required String changeType, // 'date', 'time', 'location', 'home_team', 'away_team'
+    required String oldValue,
+    required String newValue,
+    required int schedulerId,
+    Map<String, dynamic>? additionalData,
+  }) async {
+    // Get all confirmed officials for this game
+    final database = await _db.database;
+    
+    final confirmedOfficials = await database.rawQuery('''
+      SELECT DISTINCT o.id, o.name, ga.id as assignment_id
+      FROM game_assignments ga
+      JOIN officials o ON ga.official_id = o.id
+      WHERE ga.game_id = ? AND ga.status = 'accepted'
+    ''', [gameId]);
+    
+    // Get game details for notification message
+    final gameDetails = await database.rawQuery('''
+      SELECT g.*, s.name as sport_name, l.name as location_name, sch.name as schedule_name
+      FROM games g
+      LEFT JOIN sports s ON g.sport_id = s.id
+      LEFT JOIN locations l ON g.location_id = l.id
+      LEFT JOIN schedules sch ON g.schedule_id = sch.id
+      WHERE g.id = ?
+    ''', [gameId]);
+    
+    if (gameDetails.isEmpty || confirmedOfficials.isEmpty) {
+      return; // No game found or no confirmed officials
+    }
+    
+    final game = gameDetails.first;
+    final sportName = game['sport_name'] as String? ?? 'Game';
+    final opponent = (game['opponent'] as String?) ?? (game['home_team'] as String?) ?? 'TBD';
+    final gameDate = DateTime.parse(game['date'] as String);
+    final gameTime = game['time'] as String? ?? 'TBD';
+    
+    // Format date and time for display
+    final formattedDate = _formatDateForDisplay(gameDate);
+    
+    // Create notification title and message based on change type
+    String title;
+    String message;
+    String changeDescription;
+    String referenceTime; // Time to use in the initial game reference
+    String referenceDate; // Date to use in the initial game reference
+    
+    switch (changeType.toLowerCase()) {
+      case 'date':
+        title = 'Game Date Changed';
+        try {
+          final oldFormattedDate = _formatDateForDisplay(DateTime.parse(oldValue));
+          final newFormattedDate = _formatDateForDisplay(DateTime.parse(newValue));
+          changeDescription = 'date has been changed from $oldFormattedDate to $newFormattedDate';
+          // For date changes, use the original date in the initial reference
+          referenceDate = oldFormattedDate;
+          referenceTime = _formatTimeForDisplay(gameTime);
+        } catch (e) {
+          changeDescription = 'date has been changed from $oldValue to $newValue';
+          referenceDate = formattedDate;
+          referenceTime = _formatTimeForDisplay(gameTime);
+        }
+        break;
+      case 'time':
+        title = 'Game Time Changed';
+        final oldFormattedTime = _formatTimeStringForDisplay(oldValue);
+        final newFormattedTime = _formatTimeStringForDisplay(newValue);
+        changeDescription = 'time has been changed from $oldFormattedTime to $newFormattedTime';
+        referenceTime = oldFormattedTime; // Use original time in the initial reference
+        referenceDate = formattedDate;
+        break;
+      case 'location':
+        title = 'Game Location Changed';
+        changeDescription = 'location has been changed from $oldValue to $newValue';
+        referenceTime = _formatTimeForDisplay(gameTime);
+        referenceDate = formattedDate;
+        break;
+      case 'home_team':
+        title = 'Home Team Changed';
+        changeDescription = 'home team has been changed from $oldValue to $newValue';
+        referenceTime = _formatTimeForDisplay(gameTime);
+        referenceDate = formattedDate;
+        break;
+      case 'away_team':
+        title = 'Away Team Changed';
+        changeDescription = 'away team has been changed from $oldValue to $newValue';
+        referenceTime = _formatTimeForDisplay(gameTime);
+        referenceDate = formattedDate;
+        break;
+      default:
+        title = 'Game Information Changed';
+        changeDescription = '$changeType has been changed from $oldValue to $newValue';
+        referenceTime = _formatTimeForDisplay(gameTime);
+        referenceDate = formattedDate;
+    }
+    
+    message = 'Your ${sportName.toLowerCase()} game on $referenceDate at $referenceTime has been updated by the Scheduler. The $changeDescription.';
+    
+    // Create notifications for each confirmed official
+    for (final official in confirmedOfficials) {
+      await createOfficialNotification(
+        officialId: official['id'] as int,
+        type: 'game_change',
+        title: title,
+        message: message,
+        relatedGameId: gameId,
+      );
+    }
+  }
+
   /// Get notifications that need to be processed for game filling reminders
   Future<List<Map<String, dynamic>>> getGameFillingCandidates(int daysBefore) async {
     final database = await _db.database;
@@ -535,6 +647,63 @@ class NotificationRepository {
     ''');
     
     return result;
+  }
+
+  /// Helper method to format date for display (August 29, 2025)
+  String _formatDateForDisplay(DateTime date) {
+    const months = [
+      '', 'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    return '${months[date.month]} ${date.day}, ${date.year}';
+  }
+
+  /// Helper method to format time for display (7:00 PM)
+  String _formatTimeForDisplay(String timeString) {
+    try {
+      // Handle various time formats
+      if (timeString == 'TBD' || timeString.isEmpty) return 'TBD';
+      
+      // Parse time string (could be "19:00" or "TimeOfDay(19:00)" format)
+      String cleanTime = timeString;
+      if (timeString.contains('TimeOfDay')) {
+        // Extract time from TimeOfDay(19:00) format
+        final match = RegExp(r'TimeOfDay\((\d{1,2}):(\d{2})\)').firstMatch(timeString);
+        if (match != null) {
+          cleanTime = '${match.group(1)}:${match.group(2)}';
+        }
+      }
+      
+      final parts = cleanTime.split(':');
+      if (parts.length != 2) return timeString;
+      
+      final hour = int.parse(parts[0]);
+      final minute = int.parse(parts[1]);
+      
+      return _formatTime12Hour(hour, minute);
+    } catch (e) {
+      return timeString; // Return original if parsing fails
+    }
+  }
+
+  /// Helper method to format time string for display (handles TimeOfDay format)
+  String _formatTimeStringForDisplay(String timeString) {
+    return _formatTimeForDisplay(timeString);
+  }
+
+  /// Helper method to convert 24-hour time to 12-hour format
+  String _formatTime12Hour(int hour, int minute) {
+    String period = hour >= 12 ? 'PM' : 'AM';
+    int displayHour = hour;
+    
+    if (hour == 0) {
+      displayHour = 12;
+    } else if (hour > 12) {
+      displayHour = hour - 12;
+    }
+    
+    String minuteStr = minute.toString().padLeft(2, '0');
+    return '$displayHour:$minuteStr $period';
   }
 }
 

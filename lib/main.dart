@@ -62,6 +62,7 @@ import 'features/games/bulk_import_preflight_screen.dart';
 import 'features/games/bulk_import_wizard_screen.dart';
 import 'features/games/bulk_import_generate_screen.dart';
 import 'features/games/bulk_import_upload_screen.dart';
+import 'features/games/advanced_method_setup_screen.dart';
 
 // Schedule screens
 import 'features/schedules/dynamic_name_schedule_screen.dart';
@@ -218,6 +219,7 @@ class EfficialsApp extends StatelessWidget {
         '/edit_location': (context) => const EditLocationScreen(),
         '/advanced_officials_selection': (context) =>
             const AdvancedOfficialsSelectionScreen(),
+        '/advanced_method_setup': (context) => const AdvancedMethodSetupScreen(),
         '/create_officials': (context) => const CreateOfficialsScreen(),
         '/unpublished_games': (context) => const UnpublishedGamesScreen(),
         '/game_information': (context) => const GameInformationScreen(),

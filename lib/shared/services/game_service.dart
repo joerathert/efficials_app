@@ -387,7 +387,10 @@ class GameService {
         updatedAt: DateTime.now(),
       );
 
-      await _gameRepository.updateGame(updatedGame);
+      // Get current user ID for notifications
+      final schedulerId = await _getCurrentUserId();
+      
+      await _gameRepository.updateGame(updatedGame, schedulerId: schedulerId);
       final updated = await _gameRepository.getGameById(gameId);
 
       // For advanced method, update Multiple Lists data in database tables

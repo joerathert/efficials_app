@@ -153,10 +153,11 @@ Certified,17,Wooten,Edward,801 Chancellor Dr,Edwardsville,62025,618-560-1502''';
         // Generate display name in "J. Smith" format
         final displayName = '${firstName[0]}. $lastName';
 
-        // Generate email: first letter + lastname @test.com
+        // Generate email: first 2 letters + lastname @test.com (to avoid duplicates)
         final email =
             '${firstName.toLowerCase().substring(0, 2)}${lastName.toLowerCase()}@test.com';
 
+        // print('DEBUG: Generated official - Name: $displayName, Email: $email');
         officials.add(OfficialData(displayName: displayName, email: email));
       }
     }

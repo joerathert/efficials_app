@@ -64,21 +64,39 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
 
     switch (method) {
       case 'advanced':
-        route = '/advanced_officials_selection';
-        // Safely convert selectedLists from List<dynamic> to List<Map<String, dynamic>>
-        List<Map<String, dynamic>> selectedLists = [];
-        if (args['selectedLists'] != null) {
-          final listsRaw = args['selectedLists'] as List<dynamic>;
-          selectedLists = listsRaw.map((list) {
-            if (list is Map<String, dynamic>) {
-              return list;
-            } else if (list is Map) {
-              return Map<String, dynamic>.from(list);
-            }
-            return <String, dynamic>{'name': 'Unknown List'};
-          }).toList();
+        // For edit mode, check if this is a database game and route to Advanced Method Setup
+        final gameId = args['id'];
+        final isEdit = args['isEdit'] as bool? ?? false;
+        final isDatabaseGame = gameId != null && 
+          ((gameId is int && gameId < 1000000000000) || 
+           (gameId is String && int.tryParse(gameId) != null && int.parse(gameId) < 1000000000000));
+        
+        if (isEdit && isDatabaseGame) {
+          // For existing database games, go directly to Advanced Method Setup screen
+          route = '/advanced_method_setup';
+          routeArgs = {
+            'gameId': gameId is String ? int.parse(gameId) : gameId,
+            'sportName': args['sport'] ?? 'Unknown Sport',
+            'isFromEdit': true,
+          };
+        } else {
+          // For new games, use the regular advanced officials selection flow
+          route = '/advanced_officials_selection';
+          // Safely convert selectedLists from List<dynamic> to List<Map<String, dynamic>>
+          List<Map<String, dynamic>> selectedLists = [];
+          if (args['selectedLists'] != null) {
+            final listsRaw = args['selectedLists'] as List<dynamic>;
+            selectedLists = listsRaw.map((list) {
+              if (list is Map<String, dynamic>) {
+                return list;
+              } else if (list is Map) {
+                return Map<String, dynamic>.from(list);
+              }
+              return <String, dynamic>{'name': 'Unknown List'};
+            }).toList();
+          }
+          routeArgs['selectedLists'] = selectedLists;
         }
-        routeArgs['selectedLists'] = selectedLists;
         break;
       case 'use_list':
         route = '/lists_of_officials';
@@ -102,13 +120,19 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
           'template': template, // Pass the GameTemplate object
         };
         
-        // Always navigate to review screen after updating officials
-        // This is consistent with other edit buttons (Location, Date/Time, etc.)
-        Navigator.pushReplacementNamed(
-          context,
-          '/review_game_info',
-          arguments: finalArgs,
-        );
+        // Check if this is from Game Information screen and we need to return fresh data
+        if (args['isFromGameInfo'] == true) {
+          // For edits from Game Information screen, return the updated args
+          // so that the Game Information screen can reload fresh data from database
+          Navigator.pop(context, finalArgs);
+        } else {
+          // For other cases, navigate to review screen
+          Navigator.pushReplacementNamed(
+            context,
+            '/review_game_info',
+            arguments: finalArgs,
+          );
+        }
       }
     });
   }

@@ -14,12 +14,18 @@ class ScheduleRepository extends BaseRepository {
   Future<int> updateSchedule(Schedule schedule) async {
     if (schedule.id == null) throw ArgumentError('Schedule ID cannot be null for update');
     
-    return await update(
+    final updateData = schedule.toMap(excludeId: true, excludeCreatedAt: true);
+    debugPrint('SCHEDULE REPOSITORY: Updating schedule ID ${schedule.id} with data: $updateData');
+    
+    final result = await update(
       tableName,
-      schedule.toMap(),
+      updateData,
       'id = ?',
       [schedule.id],
     );
+    
+    debugPrint('SCHEDULE REPOSITORY: Update affected $result rows');
+    return result;
   }
 
   // Delete a schedule

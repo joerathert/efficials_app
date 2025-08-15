@@ -155,15 +155,23 @@ class Schedule {
     this.sportName,
   }) : createdAt = createdAt ?? DateTime.now();
 
-  Map<String, dynamic> toMap() {
-    return {
-      'id': id,
+  Map<String, dynamic> toMap({bool excludeId = false, bool excludeCreatedAt = false}) {
+    final map = <String, dynamic>{
       'name': name,
       'sport_id': sportId,
       'user_id': userId,
       'home_team_name': homeTeamName,
-      'created_at': createdAt.toIso8601String(),
     };
+    
+    if (!excludeId) {
+      map['id'] = id;
+    }
+    
+    if (!excludeCreatedAt) {
+      map['created_at'] = createdAt.toIso8601String();
+    }
+    
+    return map;
   }
 
   factory Schedule.fromMap(Map<String, dynamic> map) {

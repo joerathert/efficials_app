@@ -88,7 +88,10 @@ class AuthService {
   }
 
   static Future<LoginResult> login(String email, String password) async {
+    // print('DEBUG: Login attempt for email: $email');
+    
     if (email.trim().isEmpty || password.trim().isEmpty) {
+      print('DEBUG: Empty email or password');
       return LoginResult(
         success: false,
         error: 'Please enter email and password',
@@ -97,6 +100,7 @@ class AuthService {
 
     try {
       final db = await DatabaseHelper().database;
+      // print('DEBUG: Database connection established');
       
       // Check scheduler users first
       final schedulerResults = await db.query(
@@ -104,10 +108,13 @@ class AuthService {
         where: 'email = ?',
         whereArgs: [email.trim()],
       );
+      // print('DEBUG: Found ${schedulerResults.length} scheduler users with email $email');
       
       if (schedulerResults.isNotEmpty) {
         final user = User.fromMap(schedulerResults.first);
+        // print('DEBUG: Found scheduler user: ${user.firstName} ${user.lastName}');
         if (user.passwordHash != null && verifyPassword(password, user.passwordHash!)) {
+          // print('DEBUG: Scheduler password verified successfully');
           await UserSessionService.instance.setCurrentUser(
             userId: user.id!,
             userType: 'scheduler',
@@ -119,6 +126,8 @@ class AuthService {
             userType: 'scheduler',
             schedulerType: user.schedulerType,
           );
+        } else {
+          print('DEBUG: Scheduler password verification failed');
         }
       }
       
@@ -128,10 +137,15 @@ class AuthService {
         where: 'email = ?',
         whereArgs: [email.trim()],
       );
+      print('DEBUG: Found ${officialResults.length} official users with email $email');
       
       if (officialResults.isNotEmpty) {
         final officialUser = OfficialUser.fromMap(officialResults.first);
+        print('DEBUG: Found official user with email: ${officialUser.email}');
+        print('DEBUG: Official has password hash: ${officialUser.passwordHash != null}');
+        
         if (verifyPassword(password, officialUser.passwordHash)) {
+          print('DEBUG: Official password verified successfully');
           await UserSessionService.instance.setCurrentUser(
             userId: officialUser.id!,
             userType: 'official',
@@ -142,15 +156,31 @@ class AuthService {
             success: true,
             userType: 'official',
           );
+        } else {
+          print('DEBUG: Official password verification failed');
+          print('DEBUG: Provided password: $password');
+          print('DEBUG: Stored hash: ${officialUser.passwordHash}');
         }
       }
       
+      // Debug: Let's see what emails actually exist in the database
+      final allOfficials = await db.query('official_users');
+      print('DEBUG: All official emails in database (${allOfficials.length} total):');
+      for (var official in allOfficials.take(10)) {
+        print('  - ${official['email']}');
+      }
+      if (allOfficials.length > 10) {
+        print('  ... and ${allOfficials.length - 10} more');
+      }
+      
+      print('DEBUG: Login failed - no matching user found');
       return LoginResult(
         success: false,
         error: 'Invalid email or password',
       );
       
     } catch (e) {
+      print('DEBUG: Login exception: $e');
       return LoginResult(
         success: false,
         error: 'Login error: $e',

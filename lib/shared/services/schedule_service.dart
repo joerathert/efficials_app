@@ -162,22 +162,28 @@ class ScheduleService {
   Future<Map<String, dynamic>?> updateScheduleName(
       int scheduleId, String newName) async {
     try {
+      debugPrint('SCHEDULE SERVICE: Getting existing schedule with ID $scheduleId');
       // Get the existing schedule
       final existingSchedule =
           await _scheduleRepository.getScheduleById(scheduleId);
       if (existingSchedule == null) {
-        debugPrint('Schedule with ID $scheduleId not found');
+        debugPrint('SCHEDULE SERVICE: Schedule with ID $scheduleId not found');
         return null;
       }
 
+      debugPrint('SCHEDULE SERVICE: Found existing schedule "${existingSchedule.name}" with sport "${existingSchedule.sportName}"');
+
       // Update with new name, keeping the same sport
-      return await updateSchedule(
+      final result = await updateSchedule(
         scheduleId: scheduleId,
         name: newName,
         sportName: existingSchedule.sportName ?? 'Unknown',
       );
+      
+      debugPrint('SCHEDULE SERVICE: Update result: ${result != null ? "success" : "failed"}');
+      return result;
     } catch (e) {
-      debugPrint('Error updating schedule name: $e');
+      debugPrint('SCHEDULE SERVICE ERROR: $e');
       return null;
     }
   }

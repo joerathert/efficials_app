@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../create_officials_from_csv.dart';
+// import '../../create_officials_from_csv.dart'; // File removed
 
 class CreateOfficialsScreen extends StatefulWidget {
   const CreateOfficialsScreen({super.key});
@@ -10,7 +10,7 @@ class CreateOfficialsScreen extends StatefulWidget {
 
 class _CreateOfficialsScreenState extends State<CreateOfficialsScreen> {
   final TextEditingController _csvController = TextEditingController();
-  final OfficialCreator _creator = OfficialCreator();
+  // final OfficialCreator _creator = OfficialCreator(); // Class removed
   bool _isProcessing = false;
   String _result = '';
   
@@ -33,13 +33,14 @@ Recognized,11,Baird,Robert,1217 W Woodfield Dr,Alton,62002,618-401-4016''';
     });
 
     try {
-      final ids = await _creator.createOfficialsFromCsv(_testData);
+      // final ids = await _creator.createOfficialsFromCsv(_testData); // OfficialCreator class removed
+      final ids = <int>[]; // Placeholder
       
       setState(() {
-        _result = '''✅ Test completed successfully!
-Created ${ids.length} officials with IDs: $ids
+        _result = '''❌ Test functionality disabled!
+OfficialCreator class was removed during cleanup.
 
-Expected emails generated:
+Would have created test officials:
 - baldridge@test.com (Brandon Aldridge)
 - dangleton@test.com (Darrell Angleton) 
 - rbaird@test.com (Robert Baird)
@@ -72,16 +73,16 @@ Ready to process all officials!''';
     });
 
     try {
-      final ids = await _creator.createOfficialsFromCsv(_csvController.text);
+      // final ids = await _creator.createOfficialsFromCsv(_csvController.text); // OfficialCreator class removed
+      final ids = <int>[]; // Placeholder
       
       setState(() {
-        _result = '''✅ SUCCESS!
-Created ${ids.length} officials in the database.
+        _result = '''❌ Functionality disabled!
+OfficialCreator class was removed during cleanup.
 
-All officials are:
-• Registered for Football sport
-• Located within 100 miles of Edwardsville, IL
-• Have email addresses in format: firstletter+lastname@test.com
+To re-enable this feature, you would need to:
+• Restore the create_officials_from_csv.dart file
+• Implement the OfficialCreator class
 • Have valid male names only
 
 Official IDs: ${ids.take(10).join(', ')}${ids.length > 10 ? '...' : ''}''';

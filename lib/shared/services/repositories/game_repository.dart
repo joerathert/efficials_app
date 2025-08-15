@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import '../../models/database_models.dart';
 import 'base_repository.dart';
+import 'notification_repository.dart';
 
 // Custom exception for game repository operations
 class GameRepositoryException implements Exception {
@@ -37,20 +38,129 @@ class GameRepository extends BaseRepository {
   }
 
   // Update an existing game
-  Future<int> updateGame(Game game) async {
+  Future<int> updateGame(Game game, {int? schedulerId}) async {
     if (game.id == null) throw ArgumentError('Game ID cannot be null for update');
     
     try {
+      // Get the original game data to compare changes
+      final originalGame = await getGameById(game.id!);
+      if (originalGame == null) {
+        throw GameRepositoryException('Original game not found for update');
+      }
+      
       final updatedGame = game.copyWith(updatedAt: DateTime.now());
-      return await update(
+      final result = await update(
         tableName,
         updatedGame.toMap(),
         'id = ?',
         [game.id],
       );
+      
+      // Check for changes that require notifications
+      if (schedulerId != null && result > 0) {
+        await _checkForGameChangesAndNotify(
+          originalGame, 
+          updatedGame, 
+          schedulerId
+        );
+      }
+      
+      return result;
     } catch (e) {
       debugPrint('Error updating game ${game.id}: $e');
       throw GameRepositoryException('Failed to update game: $e');
+    }
+  }
+  
+  // Helper method to check for changes and send notifications
+  Future<void> _checkForGameChangesAndNotify(
+    Game originalGame, 
+    Game updatedGame, 
+    int schedulerId
+  ) async {
+    final notificationRepo = NotificationRepository();
+    
+    // Check for date changes
+    if (originalGame.date != updatedGame.date) {
+      await notificationRepo.createGameChangeNotifications(
+        gameId: updatedGame.id!,
+        changeType: 'date',
+        oldValue: originalGame.date.toString().split(' ')[0],
+        newValue: updatedGame.date.toString().split(' ')[0],
+        schedulerId: schedulerId,
+      );
+    }
+    
+    // Check for time changes
+    if (originalGame.time != updatedGame.time) {
+      await notificationRepo.createGameChangeNotifications(
+        gameId: updatedGame.id!,
+        changeType: 'time',
+        oldValue: originalGame.time?.toString() ?? 'TBD',
+        newValue: updatedGame.time?.toString() ?? 'TBD',
+        schedulerId: schedulerId,
+      );
+    }
+    
+    // Check for location changes (by comparing location_id)
+    if (originalGame.locationId != updatedGame.locationId) {
+      // Get location names for readable notification
+      String oldLocationName = 'Unknown Location';
+      String newLocationName = 'Unknown Location';
+      
+      try {
+        if (originalGame.locationId != null) {
+          final oldLocationResult = await rawQuery(
+            'SELECT name FROM locations WHERE id = ?', 
+            [originalGame.locationId]
+          );
+          if (oldLocationResult.isNotEmpty) {
+            oldLocationName = oldLocationResult.first['name'] ?? 'Unknown Location';
+          }
+        }
+        
+        if (updatedGame.locationId != null) {
+          final newLocationResult = await rawQuery(
+            'SELECT name FROM locations WHERE id = ?', 
+            [updatedGame.locationId]
+          );
+          if (newLocationResult.isNotEmpty) {
+            newLocationName = newLocationResult.first['name'] ?? 'Unknown Location';
+          }
+        }
+      } catch (e) {
+        debugPrint('Error getting location names for notification: $e');
+      }
+      
+      await notificationRepo.createGameChangeNotifications(
+        gameId: updatedGame.id!,
+        changeType: 'location',
+        oldValue: oldLocationName,
+        newValue: newLocationName,
+        schedulerId: schedulerId,
+      );
+    }
+    
+    // Check for home team changes
+    if (originalGame.homeTeam != updatedGame.homeTeam) {
+      await notificationRepo.createGameChangeNotifications(
+        gameId: updatedGame.id!,
+        changeType: 'home_team',
+        oldValue: originalGame.homeTeam ?? 'TBD',
+        newValue: updatedGame.homeTeam ?? 'TBD',
+        schedulerId: schedulerId,
+      );
+    }
+    
+    // Check for opponent/away team changes
+    if (originalGame.opponent != updatedGame.opponent) {
+      await notificationRepo.createGameChangeNotifications(
+        gameId: updatedGame.id!,
+        changeType: 'away_team',
+        oldValue: originalGame.opponent ?? 'TBD',
+        newValue: updatedGame.opponent ?? 'TBD',
+        schedulerId: schedulerId,
+      );
     }
   }
 

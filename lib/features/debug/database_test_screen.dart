@@ -11,7 +11,7 @@ import '../../shared/services/database_helper.dart';
 import '../../shared/services/auth_service.dart';
 import '../../shared/models/database_models.dart';
 import '../../shared/utils/database_cleanup.dart';
-import '../../create_officials_from_csv.dart';
+// import '../../create_officials_from_csv.dart'; // File removed
 import '../../shared/services/repositories/crew_repository.dart';
 import '../../shared/services/repositories/official_repository.dart';
 import '../../shared/services/repositories/location_repository.dart';
@@ -1166,7 +1166,7 @@ FIRST 10 OFFICIALS:
 
   Future<String> _generateSchedulersAndFootballOfficials() async {
     final userRepo = UserRepository();
-    final officialCreator = OfficialCreator();
+    final officialRepo = OfficialRepository();
     int schedulerCount = 0;
     int officialCount = 0;
 
@@ -1345,13 +1345,14 @@ Certified,6,Womack,Paul,811 S Polk St.,Millstadt,62260,618-567-7609
 Recognized,7,Wood,William,2764 Staunton Road,Troy,62294,618-593-5617
 Certified,17,Wooten,Edward,801 Chancellor Dr,Edwardsville,62025,618-560-1502''';
 
-      final officialIds = await officialCreator.createOfficialsFromCsv(csvData);
+      // Create officials from CSV data
+      final officialIds = await _createOfficialsFromCsv(csvData, officialRepo);
       officialCount = officialIds.length;
       
-      // Also fix any existing officials that might not have competition levels
-      final fixedCount = await officialCreator.fixExistingOfficialsCompetitionLevels();
+      // Also fix any existing officials that might not have competition levels (skip for now)
+      final fixedCount = 0;
 
-      return '''✅ SUCCESS! Created all users!
+      return '''✅ SUCCESS! Created schedulers and officials.
 
 SCHEDULERS ($schedulerCount):
 • Athletic Director: ad@test.com / test123
@@ -1377,6 +1378,103 @@ All ready for testing!''';
     } catch (e) {
       return 'Error creating users: $e';
     }
+  }
+
+  Future<List<int>> _createOfficialsFromCsv(String csvData, OfficialRepository officialRepo) async {
+    final lines = csvData.trim().split('\n');
+    if (lines.isEmpty) return [];
+    
+    // Skip the header line
+    final dataLines = lines.skip(1);
+    final officials = <Official>[];
+    
+    for (int i = 0; i < dataLines.length; i++) {
+      final line = dataLines.elementAt(i);
+      final columns = line.split(',');
+      
+      if (columns.length < 8) continue; // Skip malformed lines
+      
+      final certLevel = columns[0].trim();
+      final yearsExp = int.tryParse(columns[1].trim()) ?? 1;
+      final lastName = columns[2].trim();
+      final firstName = columns[3].trim();
+      final address = columns[4].trim();
+      final city = columns[5].trim();
+      final zip = columns[6].trim();
+      final phone = columns[7].trim();
+      
+      // Create email in format: first2letters+lastname@test.com (to avoid duplicates)
+      final email = '${firstName.toLowerCase().substring(0, 2)}${lastName.toLowerCase()}@test.com';
+      
+      // Create Official object
+      final official = Official(
+        name: '$firstName $lastName',
+        email: email,
+        phone: phone.isNotEmpty ? phone : null,
+        city: city,
+        state: 'IL',
+        userId: 0, // Set to 0 for non-user account officials initially
+        availabilityStatus: 'available',
+        isUserAccount: false,
+        followThroughRate: 100.0,
+        totalAcceptedGames: 0,
+        totalBackedOutGames: 0,
+        createdAt: DateTime.now(),
+      );
+      
+      officials.add(official);
+    }
+    
+    // Batch create officials
+    final officialIds = await officialRepo.batchCreateOfficials(officials);
+    
+    // Create corresponding official_users for authentication
+    final db = await DatabaseHelper().database;
+    for (int i = 0; i < officialIds.length; i++) {
+      final officialId = officialIds[i];
+      final official = officials[i];
+      final line = dataLines.elementAt(i);
+      final columns = line.split(',');
+      final certLevel = columns[0].trim();
+      final yearsExp = int.tryParse(columns[1].trim()) ?? 1;
+      final firstName = columns[3].trim();
+      final lastName = columns[2].trim();
+      
+      // Create OfficialUser for authentication
+      final officialUser = OfficialUser(
+        email: official.email!,
+        passwordHash: _hashPassword('test123'),
+        firstName: firstName,
+        lastName: lastName,
+        phone: official.phone,
+        emailVerified: true,
+        phoneVerified: true,
+        status: 'active',
+      );
+      
+      final officialUserId = await db.insert('official_users', officialUser.toMap());
+      
+      // Update the official record to link to the official_user
+      await db.update(
+        'officials',
+        {'official_user_id': officialUserId, 'user_id': officialUserId, 'is_user_account': 1},
+        where: 'id = ?',
+        whereArgs: [officialId],
+      );
+      
+      // Create sport certifications for each official (Football sport_id = 1)
+      await db.insert('official_sports', {
+        'official_id': officialId,
+        'sport_id': 1, // Football
+        'certification_level': certLevel,
+        'years_experience': yearsExp,
+        'competition_levels': 'Underclass,JV,Varsity',
+        'is_primary': 1,
+        'created_at': DateTime.now().toIso8601String(),
+      });
+    }
+    
+    return officialIds;
   }
 
   Future<String> _generateTestUsers() async {

@@ -1,7 +1,7 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../shared/theme.dart';
+import '../../shared/services/repositories/list_repository.dart';
+import '../../shared/services/user_session_service.dart';
 
 class EditListScreen extends StatefulWidget {
   const EditListScreen({super.key});
@@ -50,30 +50,24 @@ class _EditListScreenState extends State<EditListScreen> {
   }
 
   Future<void> _saveList() async {
-    final updatedOfficials = selectedOfficialsList
-        .where((official) => selectedOfficials[official['id'] as int? ?? 0] ?? false)
-        .toList();
+    try {
+      final updatedOfficials = selectedOfficialsList
+          .where((official) => selectedOfficials[official['id'] as int? ?? 0] ?? false)
+          .toList();
 
-    // Update the list in shared_preferences
-    final prefs = await SharedPreferences.getInstance();
-    final String? listsJson = prefs.getString('saved_lists');
-    List<Map<String, dynamic>> existingLists = [];
-    if (listsJson != null && listsJson.isNotEmpty) {
-      existingLists = List<Map<String, dynamic>>.from(jsonDecode(listsJson));
-    }
+      final listRepository = ListRepository();
+      final userId = await UserSessionService.instance.getCurrentUserId();
+      
+      if (userId == null) {
+        throw Exception('No user logged in');
+      }
 
-    final updatedList = {
-      'name': _listNameController.text.trim(),
-      'sport': 'Football', // Replace with dynamic sport if available
-      'officials': updatedOfficials,
-      'id': listId,
-    };
-
-    // Update the existing list
-    final index = existingLists.indexWhere((list) => list['id'] == listId);
-    if (index != -1) {
+      final newListName = _listNameController.text.trim();
+      
       // Check for duplicate names (excluding the current list)
-      if (existingLists.any((list) => list['name'] == updatedList['name'] && list['id'] != listId)) {
+      final nameExists = await listRepository.listNameExists(
+          newListName, userId, excludeListId: listId);
+      if (nameExists) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('A list with this name already exists!')),
@@ -81,20 +75,35 @@ class _EditListScreenState extends State<EditListScreen> {
         }
         return;
       }
-      existingLists[index] = updatedList;
-    } else {
-      existingLists.add(updatedList);
-    }
 
-    await prefs.setString('saved_lists', jsonEncode(existingLists));
+      // Update list name if changed
+      if (listId != null) {
+        await listRepository.updateListName(listId!, newListName);
+      }
+      
+      // Update officials in list
+      await listRepository.updateList(newListName, updatedOfficials);
 
-    if (mounted) {
-      // Return the updated list data to the previous screen
-      Navigator.pop(context, updatedList);
+      final updatedList = {
+        'name': newListName,
+        'officials': updatedOfficials,
+        'id': listId,
+      };
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('List updated!'), duration: Duration(seconds: 2)),
-      );
+      if (mounted) {
+        // Return the updated list data to the previous screen
+        Navigator.pop(context, updatedList);
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('List updated!'), duration: Duration(seconds: 2)),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error updating list: $e')),
+        );
+      }
     }
   }
 

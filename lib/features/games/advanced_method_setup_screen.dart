@@ -21,25 +21,29 @@ class _AdvancedMethodSetupScreenState extends State<AdvancedMethodSetupScreen> {
   List<Map<String, dynamic>> selectedMultipleLists = [];
   bool _isLoading = true;
   bool _isSaving = false;
+  bool _hasLoadedData = false;
   
   int? gameId;
   String? sportName;
   int? currentUserId;
   int officialsRequired = 0;
+  bool isFromEdit = false;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
-    if (args != null) {
+    if (args != null && !_hasLoadedData) {
       gameId = args['gameId'] as int?;
       sportName = args['sportName'] as String?;
+      isFromEdit = args['isFromEdit'] as bool? ?? false;
       _loadData();
     }
   }
 
   Future<void> _loadData() async {
     if (gameId == null) return;
+    
     
     try {
       setState(() => _isLoading = true);
@@ -88,10 +92,14 @@ class _AdvancedMethodSetupScreenState extends State<AdvancedMethodSetupScreen> {
             orElse: () => {'name': 'Unknown List'},
           )['name'] as String;
           
+          final minOfficials = quota.minOfficials is int ? quota.minOfficials : int.tryParse(quota.minOfficials.toString()) ?? 0;
+          final maxOfficials = quota.maxOfficials is int ? quota.maxOfficials : int.tryParse(quota.maxOfficials.toString()) ?? 1;
+          
+          
           return {
             'list': listName,
-            'min': quota.minOfficials,
-            'max': quota.maxOfficials,
+            'min': minOfficials,
+            'max': maxOfficials,
           };
         }).toList();
       } else {
@@ -102,10 +110,16 @@ class _AdvancedMethodSetupScreenState extends State<AdvancedMethodSetupScreen> {
         ];
       }
 
-      setState(() => _isLoading = false);
+      setState(() {
+        _isLoading = false;
+        _hasLoadedData = true;
+      });
     } catch (e) {
       debugPrint('Error loading data: $e');
-      setState(() => _isLoading = false);
+      setState(() {
+        _isLoading = false;
+        _hasLoadedData = true;
+      });
       _showErrorDialog('Error loading data: $e');
     }
   }
@@ -155,7 +169,6 @@ class _AdvancedMethodSetupScreenState extends State<AdvancedMethodSetupScreen> {
         'games',
         {
           'method': 'advanced',
-          'updated_at': DateTime.now().toIso8601String(),
         },
         'id = ?',
         [gameId!],
@@ -168,10 +181,14 @@ class _AdvancedMethodSetupScreenState extends State<AdvancedMethodSetupScreen> {
         ),
       );
 
-      Navigator.pop(context, true); // Return success
+      if (isFromEdit) {
+        // Navigate back to Game Information screen
+        Navigator.popUntil(context, (route) => route.settings.name == '/game_information');
+      } else {
+        Navigator.pop(context, true); // Return success
+      }
       
     } catch (e) {
-      debugPrint('Error saving quotas: $e');
       _showErrorDialog('Error saving quotas: $e');
     } finally {
       setState(() => _isSaving = false);
@@ -300,9 +317,9 @@ class _AdvancedMethodSetupScreenState extends State<AdvancedMethodSetupScreen> {
                           ),
                         ],
                       )
-                    : const Text(
-                        'Save Advanced Method Setup',
-                        style: TextStyle(
+                    : Text(
+                        isFromEdit ? 'Update Advanced Method' : 'Save Advanced Method Setup',
+                        style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),
@@ -325,8 +342,6 @@ class _AdvancedMethodSetupScreenState extends State<AdvancedMethodSetupScreen> {
           _buildHeader(),
           const SizedBox(height: 20),
           _buildMultipleListsConfiguration(),
-          const SizedBox(height: 20),
-          _buildSummary(),
           const SizedBox(height: 100), // Bottom padding for navigation bar
         ],
       ),
@@ -557,7 +572,7 @@ class _AdvancedMethodSetupScreenState extends State<AdvancedMethodSetupScreen> {
               Expanded(
                 child: DropdownButtonFormField<int>(
                   decoration: _textFieldDecoration('Min'),
-                  value: listConfig['min'],
+                  value: listConfig['min'] is int ? listConfig['min'] : int.tryParse(listConfig['min'].toString()),
                   style: const TextStyle(color: Colors.white, fontSize: 14),
                   dropdownColor: darkSurface,
                   onChanged: (value) {
@@ -580,7 +595,7 @@ class _AdvancedMethodSetupScreenState extends State<AdvancedMethodSetupScreen> {
               Expanded(
                 child: DropdownButtonFormField<int>(
                   decoration: _textFieldDecoration('Max'),
-                  value: listConfig['max'],
+                  value: listConfig['max'] is int ? listConfig['max'] : int.tryParse(listConfig['max'].toString()),
                   style: const TextStyle(color: Colors.white, fontSize: 14),
                   dropdownColor: darkSurface,
                   onChanged: (value) {
