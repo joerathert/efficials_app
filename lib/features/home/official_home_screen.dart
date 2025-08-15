@@ -1302,9 +1302,11 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
             children: [
               Icon(Icons.link, color: efficialsYellow, size: 24),
               const SizedBox(width: 8),
-              const Text(
-                'Express Interest in Linked Games',
-                style: TextStyle(color: efficialsYellow, fontWeight: FontWeight.bold),
+              Expanded(
+                child: Text(
+                  'Express Interest in Linked Games',
+                  style: TextStyle(color: efficialsYellow, fontWeight: FontWeight.bold),
+                ),
               ),
             ],
           ),
@@ -1338,10 +1340,26 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                     ),
                     const SizedBox(height: 8),
                     ...linkedGames.map((game) => Padding(
-                      padding: const EdgeInsets.only(bottom: 4),
-                      child: Text(
-                        '• ${_formatGameTitle(game)}',
-                        style: const TextStyle(color: Colors.white),
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '• ${_formatGameTitle(game)}',
+                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
+                          ),
+                          const SizedBox(height: 2),
+                          Padding(
+                            padding: const EdgeInsets.only(left: 12),
+                            child: Text(
+                              '${_formatAvailableGameDate(game)} at ${_formatAvailableGameTime(game)}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey[400],
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     )).toList(),
                     const SizedBox(height: 8),

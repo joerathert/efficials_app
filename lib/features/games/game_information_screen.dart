@@ -769,6 +769,16 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
         }
       }
 
+      // If still not found, check interestedOfficials
+      if (officialId == null) {
+        for (var official in interestedOfficials) {
+          if (official['name'] == officialName) {
+            officialId = official['id'] as int?;
+            break;
+          }
+        }
+      }
+
       if (officialId != null) {
         // Get official data from repository including follow through rate
         final officialRepo = _gameAssignmentRepo;
@@ -1995,9 +2005,20 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                               children: interestedOfficials.map((official) {
                                 final officialId = official['id'] as int;
                                 return CheckboxListTile(
-                                  title: Text(official['name'] as String,
-                                      style:
-                                          const TextStyle(color: Colors.white)),
+                                  title: GestureDetector(
+                                    onTap: () {
+                                      _navigateToOfficialProfile(
+                                          official['name'] as String);
+                                    },
+                                    child: Text(
+                                      official['name'] as String,
+                                      style: const TextStyle(
+                                        color: efficialsYellow,
+                                        decoration: TextDecoration.underline,
+                                        decorationColor: efficialsYellow,
+                                      ),
+                                    ),
+                                  ),
                                   subtitle: Text(
                                       'Distance: ${(official['distance'] as num?)?.toStringAsFixed(1) ?? '0.0'} mi',
                                       style:
