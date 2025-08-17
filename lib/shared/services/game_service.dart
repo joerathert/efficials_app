@@ -1777,7 +1777,7 @@ class GameService {
   Future<bool> unlinkGame(int gameId) async {
     try {
       await _gameRepository.withTransaction((txn) async {
-        // Get the link ID first
+        // Get the link ID and linked games before unlinking
         final linkResult = await txn.query(
           'game_link_members',
           where: 'game_id = ?',
@@ -1786,6 +1786,26 @@ class GameService {
 
         if (linkResult.isNotEmpty) {
           final linkId = linkResult.first['link_id'] as int;
+
+          // Get all linked games for verification
+          final linkedGamesResult = await txn.query(
+            'game_link_members',
+            where: 'link_id = ?',
+            whereArgs: [linkId],
+          );
+          
+          debugPrint('🔗 Unlinking game $gameId from link group with ${linkedGamesResult.length} games');
+
+          // Verify officials assignments exist for the game being unlinked
+          final assignmentsResult = await txn.query(
+            'game_assignments',
+            where: 'game_id = ?',
+            whereArgs: [gameId],
+          );
+          
+          if (assignmentsResult.isNotEmpty) {
+            debugPrint('✅ Game $gameId has ${assignmentsResult.length} official assignments that will be preserved');
+          }
 
           // Remove this game from the link
           await txn.delete(
@@ -1813,14 +1833,19 @@ class GameService {
               where: 'id = ?',
               whereArgs: [linkId],
             );
+            debugPrint('🗑️ Removed empty link group $linkId');
+          } else {
+            debugPrint('🔗 ${remainingGames.length} games remain in link group $linkId');
           }
+        } else {
+          debugPrint('⚠️ Game $gameId was not part of any link group');
         }
       });
 
-      debugPrint('✅ Unlinked game $gameId');
+      debugPrint('✅ Successfully unlinked game $gameId');
       return true;
     } catch (e) {
-      debugPrint('Error unlinking game: $e');
+      debugPrint('❌ Error unlinking game $gameId: $e');
       return false;
     }
   }

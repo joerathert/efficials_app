@@ -266,13 +266,22 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
               List<Map<String, dynamic>>.from(confirmedOfficials);
           this.dismissedOfficials =
               List<Map<String, dynamic>>.from(dismissedOfficials);
+          
+          // CRITICAL FIX: Preserve existing selections during reload
+          final currentSelections = Map<int, bool>.from(selectedForHire);
+          final currentCrewSelections = Map<int, bool>.from(selectedCrewsForHire);
+          
           selectedForHire = {};
           selectedCrewsForHire = {};
           for (var official in this.interestedOfficials) {
-            selectedForHire[official['id'] as int] = false;
+            final officialId = official['id'] as int;
+            // Preserve existing selection if it exists, otherwise default to false
+            selectedForHire[officialId] = currentSelections[officialId] ?? false;
           }
           for (var crew in this.interestedCrews) {
-            selectedCrewsForHire[crew['crew_assignment_id'] as int] = false;
+            final crewAssignmentId = crew['crew_assignment_id'] as int;
+            // Preserve existing selection if it exists, otherwise default to false  
+            selectedCrewsForHire[crewAssignmentId] = currentCrewSelections[crewAssignmentId] ?? false;
           }
         });
       } else {
@@ -466,6 +475,14 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
       return;
     }
 
+    // Check if this game is linked and show warning dialog
+    if (isGameLinked && (selectedCount > 0 || selectedCrewCount > 0)) {
+      final shouldProceed = await _showLinkedGamesConfirmationDialog();
+      if (!shouldProceed) {
+        return;
+      }
+    }
+
     // Handle crew hires first
     if (selectedCrewCount > 0) {
       await _confirmCrewHires();
@@ -549,18 +566,7 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
         .map((e) => e.key)
         .toList();
     final hiredOfficials =
-        interestedOfficials.where((o) => hiredIds.contains(o['id'])).toList();
-
-    setState(() {
-      officialsHired += selectedCount;
-      args['officialsHired'] = officialsHired;
-      selectedOfficials.addAll(hiredOfficials);
-      // Create a new mutable list instead of modifying the read-only query result
-      interestedOfficials = interestedOfficials
-          .where((o) => !hiredIds.contains(o['id']))
-          .toList();
-      selectedForHire.clear();
-    });
+        interestedOfficials.where((o) => hiredIds.contains(o['id'] ?? o['official_id'])).toList();
 
     try {
       final gameId = args['id'];
@@ -576,24 +582,48 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
 
       // For database games, use the GameService
       if (databaseGameId != null && databaseGameId < 1000000000000) {
-        // Update the officials hired count in database
-        final updateResult = await _gameService.updateOfficialsHired(
-            databaseGameId, officialsHired);
+        // For linked games, we need to update ALL linked games
+        List<int> gamesToUpdate = [databaseGameId];
+        if (isGameLinked) {
+          // Get all linked game IDs
+          final linkedGameIds = linkedGames.map((game) => game['id'] as int).toList();
+          gamesToUpdate.addAll(linkedGameIds);
+        }
 
-        // Update GameAssignment status from 'pending' to 'accepted' for hired officials
+        // Calculate new officials hired count
+        final newOfficialsHired = officialsHired + selectedCount;
+        
+        // Update the officials hired count for all games (current + linked)
+        bool updateResult = true;
+        for (final gameId in gamesToUpdate) {
+          final result = await _gameService.updateOfficialsHired(gameId, newOfficialsHired);
+          if (!result) updateResult = false;
+        }
+
+        // Update GameAssignment status from 'pending' to 'accepted' for hired officials in ALL games
         for (final officialId in hiredIds) {
           try {
-            final assignmentId =
-                await _getAssignmentId(databaseGameId, officialId);
-            if (assignmentId > 0) {
-              await _gameAssignmentRepo.updateAssignmentStatus(
-                  assignmentId, 'accepted');
-            } else {}
+            for (final gameId in gamesToUpdate) {
+              final assignmentId = await _getAssignmentId(gameId, officialId);
+              if (assignmentId > 0) {
+                await _gameAssignmentRepo.updateAssignmentStatus(
+                    assignmentId, 'accepted');
+              }
+            }
           } catch (e) {
+            // Handle error silently or log if needed
           }
         }
 
         if (updateResult) {
+          // Update local state with new hired count and clear selections
+          setState(() {
+            officialsHired = newOfficialsHired;
+            args['officialsHired'] = officialsHired;
+            selectedForHire.clear();
+            selectedCrewsForHire.clear();
+          });
+          
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
@@ -602,7 +632,9 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
               ),
             );
             // Reload the officials data to show the updated state
-            _loadInterestedOfficials();
+            // Add a small delay to ensure database transactions are committed
+            await Future.delayed(const Duration(milliseconds: 100));
+            await _loadInterestedOfficials();
           }
         } else {
           if (mounted) {
@@ -1259,6 +1291,242 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
         style: TextStyle(fontSize: 16, color: Colors.grey));
   }
 
+  Future<bool> _showLinkedGamesConfirmationDialog() async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: darkSurface,
+        title: Row(
+          children: [
+            const Icon(Icons.link, color: efficialsYellow, size: 24),
+            const SizedBox(width: 8),
+            const Expanded(
+              child: Text(
+                'Linked Games Warning',
+                style: TextStyle(
+                    color: efficialsYellow,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'This game is linked with other games. By confirming this official, you are confirming them for ALL linked games:',
+              style: TextStyle(color: Colors.white, fontSize: 16),
+            ),
+            const SizedBox(height: 12),
+            Column(
+              children: [
+                // Header
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text(
+                    'Linked Games (${linkedGames.length + 1} total):',
+                    style: const TextStyle(
+                      color: efficialsYellow,
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                // Stacked cards showing linked games
+                Container(
+                  child: Stack(
+                    children: [
+                      // Two cards stacked with minimal gap and shared border
+                      Column(
+                        children: [
+                          // Top card (current game)
+                          Container(
+                            decoration: BoxDecoration(
+                              color: darkSurface,
+                              borderRadius: const BorderRadius.only(
+                                topLeft: Radius.circular(12),
+                                topRight: Radius.circular(12),
+                                bottomLeft: Radius.circular(2),
+                                bottomRight: Radius.circular(2),
+                              ),
+                              border: Border.all(color: Colors.orange.withOpacity(0.3), width: 1),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.3),
+                                  spreadRadius: 1,
+                                  blurRadius: 3,
+                                  offset: const Offset(0, 1),
+                                ),
+                              ],
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.sports,
+                                    color: efficialsYellow,
+                                    size: 16,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          opponent,
+                                          style: const TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                        Text(
+                                          _formatTimeConsistently(selectedTime) ?? 'TBD',
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            color: efficialsYellow,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          // Minimal gap
+                          Container(
+                            height: 2,
+                            margin: const EdgeInsets.symmetric(horizontal: 1),
+                            decoration: BoxDecoration(
+                              color: Colors.orange.withOpacity(0.2),
+                            ),
+                          ),
+                          // Bottom card (first linked game)
+                          if (linkedGames.isNotEmpty)
+                            Container(
+                              decoration: BoxDecoration(
+                                color: darkSurface,
+                                borderRadius: const BorderRadius.only(
+                                  topLeft: Radius.circular(2),
+                                  topRight: Radius.circular(2),
+                                  bottomLeft: Radius.circular(12),
+                                  bottomRight: Radius.circular(12),
+                                ),
+                                border: Border.all(color: Colors.orange.withOpacity(0.3), width: 1),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.3),
+                                    spreadRadius: 1,
+                                    blurRadius: 3,
+                                    offset: const Offset(0, 1),
+                                  ),
+                                ],
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.all(12),
+                                child: Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.sports,
+                                      color: efficialsYellow,
+                                      size: 16,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            linkedGames[0]['opponent'] ?? 'vs TBD',
+                                            style: const TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                          Text(
+                                            _formatTimeConsistently(_parseTimeFromLinkedGame(linkedGames[0]['time'])) ?? 'TBD',
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              color: efficialsYellow,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                // Show additional linked games if more than 1
+                if (linkedGames.length > 1)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      '+ ${linkedGames.length - 1} more linked game${linkedGames.length - 1 == 1 ? '' : 's'}',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.orange.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.orange.withOpacity(0.3)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.warning, color: Colors.orange, size: 20),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      'To confirm an official for just one game, you must unlink the games first.',
+                      style: TextStyle(color: Colors.orange, fontSize: 14),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child:
+                const Text('Cancel', style: TextStyle(color: efficialsYellow)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: efficialsYellow,
+              foregroundColor: efficialsBlack,
+            ),
+            child: const Text('Confirm for All Linked Games'),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
+  }
+
   void _showDeleteConfirmationDialog() {
     showDialog(
       context: context,
@@ -1289,7 +1557,24 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
     );
   }
 
-  void _showRemoveOfficialDialog(String officialName, int officialId) {
+  void _showRemoveOfficialDialog(String officialName, int officialId) async {
+    // Check if this is a linked game
+    if (isGameLinked) {
+      // Check if user has disabled the linked games warning
+      final prefs = await SharedPreferences.getInstance();
+      final dontShowLinkedRemovalWarning = prefs.getBool('dont_show_linked_removal_warning') ?? false;
+      
+      if (!dontShowLinkedRemovalWarning) {
+        // Show linked games removal dialog
+        final shouldProceed = await _showLinkedGamesRemovalDialog(officialName);
+        if (shouldProceed) {
+          _removeOfficialFromLinkedGames(officialId, officialName);
+        }
+        return;
+      }
+    }
+    
+    // Show regular removal dialog for non-linked games or when user has disabled warnings
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -1311,13 +1596,286 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              _removeOfficialFromGame(officialId, officialName);
+              if (isGameLinked) {
+                _removeOfficialFromLinkedGames(officialId, officialName);
+              } else {
+                _removeOfficialFromGame(officialId, officialName);
+              }
             },
             child: const Text('Remove', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
     );
+  }
+
+  Future<bool> _showLinkedGamesRemovalDialog(String officialName) async {
+    bool dontShowAgain = false;
+    
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          backgroundColor: darkSurface,
+          title: Row(
+            children: [
+              const Icon(Icons.link_off, color: Colors.red, size: 24),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'Remove from Linked Games',
+                  style: TextStyle(
+                      color: efficialsYellow,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'You are about to remove $officialName from a linked game. This will remove the official from ALL linked games:',
+                style: const TextStyle(color: Colors.white, fontSize: 16),
+              ),
+              const SizedBox(height: 12),
+              Column(
+                children: [
+                  // Header
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text(
+                      'Linked Games (${linkedGames.length + 1} total):',
+                      style: const TextStyle(
+                        color: efficialsYellow,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  // Stacked cards showing linked games
+                  Container(
+                    child: Stack(
+                      children: [
+                        // Two cards stacked with minimal gap and shared border
+                        Column(
+                          children: [
+                            // Top card (current game)
+                            Container(
+                              decoration: BoxDecoration(
+                                color: darkSurface,
+                                borderRadius: const BorderRadius.only(
+                                  topLeft: Radius.circular(12),
+                                  topRight: Radius.circular(12),
+                                  bottomLeft: Radius.circular(2),
+                                  bottomRight: Radius.circular(2),
+                                ),
+                                border: Border.all(color: Colors.red.withOpacity(0.3), width: 1),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.3),
+                                    spreadRadius: 1,
+                                    blurRadius: 3,
+                                    offset: const Offset(0, 1),
+                                  ),
+                                ],
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.all(12),
+                                child: Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.sports,
+                                      color: efficialsYellow,
+                                      size: 16,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            opponent,
+                                            style: const TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                          Text(
+                                            _formatTimeConsistently(selectedTime) ?? 'TBD',
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              color: efficialsYellow,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            // Minimal gap
+                            Container(
+                              height: 2,
+                              margin: const EdgeInsets.symmetric(horizontal: 1),
+                              decoration: BoxDecoration(
+                                color: Colors.red.withOpacity(0.2),
+                              ),
+                            ),
+                            // Bottom card (first linked game)
+                            if (linkedGames.isNotEmpty)
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: darkSurface,
+                                  borderRadius: const BorderRadius.only(
+                                    topLeft: Radius.circular(2),
+                                    topRight: Radius.circular(2),
+                                    bottomLeft: Radius.circular(12),
+                                    bottomRight: Radius.circular(12),
+                                  ),
+                                  border: Border.all(color: Colors.red.withOpacity(0.3), width: 1),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.3),
+                                      spreadRadius: 1,
+                                      blurRadius: 3,
+                                      offset: const Offset(0, 1),
+                                    ),
+                                  ],
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(12),
+                                  child: Row(
+                                    children: [
+                                      const Icon(
+                                        Icons.sports,
+                                        color: efficialsYellow,
+                                        size: 16,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              linkedGames[0]['opponent'] ?? 'vs TBD',
+                                              style: const TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.white,
+                                              ),
+                                            ),
+                                            Text(
+                                              _formatTimeConsistently(_parseTimeFromLinkedGame(linkedGames[0]['time'])) ?? 'TBD',
+                                              style: const TextStyle(
+                                                fontSize: 12,
+                                                color: efficialsYellow,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Show additional linked games if more than 1
+                  if (linkedGames.length > 1)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(
+                        '+ ${linkedGames.length - 1} more linked game${linkedGames.length - 1 == 1 ? '' : 's'}',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.red.withOpacity(0.3)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.warning, color: Colors.red, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '$officialName will be removed from all ${linkedGames.length + 1} linked games.',
+                        style: const TextStyle(color: Colors.red, fontSize: 14),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              // Don't show again checkbox
+              Row(
+                children: [
+                  Checkbox(
+                    value: dontShowAgain,
+                    onChanged: (value) {
+                      setState(() {
+                        dontShowAgain = value ?? false;
+                      });
+                    },
+                    activeColor: efficialsYellow,
+                    checkColor: efficialsBlack,
+                  ),
+                  const Expanded(
+                    child: Text(
+                      "Don't show me this warning again in the future",
+                      style: TextStyle(color: Colors.white, fontSize: 14),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child:
+                  const Text('Cancel', style: TextStyle(color: efficialsYellow)),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                // Save the "don't show again" preference
+                if (dontShowAgain) {
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.setBool('dont_show_linked_removal_warning', true);
+                }
+                Navigator.pop(context, true);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Remove from All Linked Games'),
+            ),
+          ],
+        ),
+      ),
+    );
+    return result ?? false;
   }
 
   Future<void> _showLinkGamesDialog() async {
@@ -1477,6 +2035,128 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
     }
   }
 
+  Future<void> _removeOfficialFromLinkedGames(
+      int officialId, String officialName) async {
+    final gameId = args['id'];
+    if (gameId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Error: Game ID not found')),
+      );
+      return;
+    }
+
+    try {
+      // Check if this is a database game
+      int? databaseGameId;
+      if (gameId is int) {
+        databaseGameId = gameId;
+      } else if (gameId is String) {
+        databaseGameId = int.tryParse(gameId);
+      }
+
+      if (databaseGameId != null && databaseGameId < 1000000000000) {
+        // Get all linked games
+        final linkedGames = await _gameService.getLinkedGames(databaseGameId);
+        final allGameIds = [databaseGameId, ...linkedGames.map((g) => g['id'] as int)];
+        
+        // Remove official from all linked games
+        bool allSucceeded = true;
+        for (final gameId in allGameIds) {
+          final success = await _gameService.removeOfficialFromGame(gameId, officialId);
+          if (!success) {
+            allSucceeded = false;
+          }
+        }
+        
+        if (allSucceeded) {
+          // Send notification to the official for each game removal
+          try {
+            final prefs = await SharedPreferences.getInstance();
+            final currentUserName = prefs.getString('user_name') ??
+                prefs.getString('first_name') ??
+                prefs.getString('schedulerName') ??
+                'Scheduler';
+
+            final gameTime = selectedTime != null
+                ? '${selectedTime!.hour.toString().padLeft(2, '0')}:${selectedTime!.minute.toString().padLeft(2, '0')}'
+                : 'TBD';
+
+            // Create a single notification for linked games removal
+            final notificationId =
+                await _notificationRepo.createOfficialRemovalNotification(
+              officialId: officialId,
+              schedulerName: currentUserName,
+              gameSport: sport,
+              gameOpponent: opponent,
+              gameDate: selectedDate ?? DateTime.now(),
+              gameTime: gameTime,
+              additionalData: {
+                'game_id': databaseGameId,
+                'schedule_name': scheduleName,
+                'location': location,
+                'linked_games_count': allGameIds.length,
+                'is_linked_removal': true,
+              },
+            );
+
+          } catch (e) {
+            // Show error to user for debugging
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                      'Warning: Failed to send notification to official. Error: $e'),
+                  backgroundColor: Colors.orange,
+                  duration: const Duration(seconds: 5),
+                ),
+              );
+            }
+          }
+
+          // Refresh the data to show updated state
+          await _loadInterestedOfficials();
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('$officialName has been removed from all ${allGameIds.length} linked games'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Failed to remove official from some linked games'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        }
+      } else {
+        // For SharedPreferences games, show info message
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Manual removal is not supported for legacy games'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error removing official from linked games: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   Map<String, int> _getSelectedCounts(
       Map<String, List<Map<String, dynamic>>> savedLists) {
     final listCounts = <String, int>{};
@@ -1499,6 +2179,36 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
       listCounts[listName] = (listCounts[listName] ?? 0) + 1;
     }
     return listCounts;
+  }
+
+  String? _formatTimeConsistently(TimeOfDay? time) {
+    if (time == null) return null;
+    final hour = time.hour == 0 ? 12 : (time.hour > 12 ? time.hour - 12 : time.hour);
+    final minute = time.minute.toString().padLeft(2, '0');
+    final period = time.hour >= 12 ? 'PM' : 'AM';
+    return '$hour:$minute $period';
+  }
+
+  TimeOfDay? _parseTimeFromLinkedGame(dynamic timeValue) {
+    if (timeValue == null) return null;
+    
+    if (timeValue is TimeOfDay) return timeValue;
+    
+    if (timeValue is String) {
+      try {
+        // Handle format like "09:00" or "9:00"
+        final timeParts = timeValue.split(':');
+        if (timeParts.length >= 2) {
+          final hour = int.parse(timeParts[0]);
+          final minute = int.parse(timeParts[1].split(' ')[0]); // Remove any AM/PM if present
+          return TimeOfDay(hour: hour, minute: minute);
+        }
+      } catch (e) {
+        // If parsing fails, return null
+      }
+    }
+    
+    return null;
   }
 
   @override
@@ -1921,7 +2631,7 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                           }).toList(),
                         ),
                       if (!hireAutomatically &&
-                          officialsHired < requiredOfficials) ...[
+                          (officialsHired < requiredOfficials || interestedOfficials.isNotEmpty || interestedCrews.isNotEmpty)) ...[
                         const SizedBox(height: 20),
                         // Show Interested Crews section for hire_crew games, Interested Officials for others
                         if (args['method'] == 'hire_crew') ...[
@@ -2386,11 +3096,92 @@ class _LinkGamesDialogState extends State<_LinkGamesDialog> {
   }
 
   Future<void> _unlinkGame() async {
+    // Show confirmation dialog first
+    final shouldProceed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: darkSurface,
+        title: const Text(
+          'Unlink Game',
+          style: TextStyle(color: efficialsYellow, fontWeight: FontWeight.bold),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Are you sure you want to unlink this game?',
+              style: TextStyle(color: Colors.white, fontSize: 16),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.blue.withOpacity(0.3)),
+              ),
+              child: const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.info_outline, color: Colors.blue, size: 16),
+                      SizedBox(width: 8),
+                      Text(
+                        'After unlinking:',
+                        style: TextStyle(
+                          color: Colors.blue,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    '• Each game will display as separate individual games',
+                    style: TextStyle(color: Colors.white, fontSize: 12),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    '• All confirmed officials will remain assigned to both games',
+                    style: TextStyle(color: Colors.white, fontSize: 12),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    '• You can manage officials for each game independently',
+                    style: TextStyle(color: Colors.white, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel', style: TextStyle(color: efficialsYellow)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Unlink', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldProceed != true) return;
+
     setState(() {
       isLoading = true;
     });
 
     try {
+      // Get linked games info before unlinking for better messaging
+      final linkedGames = await widget.gameService.getLinkedGames(widget.currentGameId);
+      final totalLinkedGames = linkedGames.length + 1; // +1 for current game
+      
       final success = await widget.gameService.unlinkGame(widget.currentGameId);
 
       if (success) {
@@ -2398,9 +3189,14 @@ class _LinkGamesDialogState extends State<_LinkGamesDialog> {
         if (mounted) {
           Navigator.pop(context);
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Game unlinked successfully'),
+            SnackBar(
+              content: Text(
+                totalLinkedGames > 2 
+                  ? 'Game unlinked successfully. ${totalLinkedGames - 1} games remain linked.'
+                  : 'Games unlinked successfully. Both games are now independent.'
+              ),
               backgroundColor: Colors.green,
+              duration: const Duration(seconds: 4),
             ),
           );
         }
