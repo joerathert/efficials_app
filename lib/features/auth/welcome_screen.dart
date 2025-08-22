@@ -21,7 +21,9 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
 
+    print('DEBUG: Welcome screen - Starting login with email: $email');
     final result = await AuthService.login(email, password);
+    print('DEBUG: Welcome screen - Login result: success=${result.success}, userType=${result.userType}');
 
     if (!mounted) return;
 

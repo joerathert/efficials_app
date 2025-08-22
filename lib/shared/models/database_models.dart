@@ -2258,6 +2258,34 @@ class Notification {
       },
     );
   }
+
+  static Notification createBackoutExcuseNotification({
+    required int officialId,
+    required String schedulerName,
+    required String gameSport,
+    required String gameOpponent,
+    required DateTime gameDate,
+    required String gameTime,
+    required String excuseReason,
+    Map<String, dynamic>? additionalData,
+  }) {
+    return Notification(
+      recipientId: officialId,
+      type: 'backout_excuse',
+      title: 'Backout Excused - Follow-Through Rate Restored',
+      message:
+          'Your backout for the $gameSport game ($gameOpponent) on ${gameDate.toString().split(' ')[0]} at $gameTime has been excused by $schedulerName. Your follow-through rate has been restored. Reason: $excuseReason',
+      data: {
+        'scheduler_name': schedulerName,
+        'game_sport': gameSport,
+        'game_opponent': gameOpponent,
+        'game_date': gameDate.toIso8601String(),
+        'game_time': gameTime,
+        'excuse_reason': excuseReason,
+        ...?additionalData,
+      },
+    );
+  }
 }
 
 // Notification Settings model for scheduler notification preferences

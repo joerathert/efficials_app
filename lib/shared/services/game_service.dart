@@ -998,24 +998,41 @@ class GameService {
   // Get officials list ID by name from SharedPreferences
   Future<int?> _getOfficialsListId(String listName) async {
     try {
+      // First try SharedPreferences (for backward compatibility)
       final prefs = await SharedPreferences.getInstance();
       final String? listsJson = prefs.getString('saved_lists');
 
-      if (listsJson == null || listsJson.isEmpty) {
-        return null;
+      if (listsJson != null && listsJson.isNotEmpty) {
+        try {
+          final List<dynamic> lists = jsonDecode(listsJson);
+          for (final list in lists) {
+            if (list['name'] == listName && list['id'] != null) {
+              return (list['id'] as int?) ?? 0;
+            }
+          }
+        } catch (e) {
+          debugPrint('Error parsing SharedPreferences for list lookup: $e');
+        }
       }
 
-      final List<dynamic> lists = jsonDecode(listsJson);
-
-      for (final list in lists) {
-        if (list['name'] == listName && list['id'] != null) {
-          return (list['id'] as int?) ?? 0;
+      // Query the database directly (preferred approach)
+      try {
+        final results = await _gameRepository.rawQuery(
+          'SELECT id FROM official_lists WHERE name = ?',
+          [listName],
+        );
+        
+        if (results.isNotEmpty) {
+          final id = results.first['id'] as int;
+          return id;
         }
+      } catch (e) {
+        debugPrint('Error querying database for officials list ID: $e');
       }
 
       return null;
     } catch (e) {
-      debugPrint('Error getting officials list ID: $e');
+      debugPrint('Error getting officials list ID for "$listName": $e');
       return null;
     }
   }
@@ -1153,21 +1170,47 @@ class GameService {
   Future<List<GameTemplate>> _fixTemplatesWithMissingListNames(
       List<GameTemplate> templates) async {
     try {
-      // Load officials lists from SharedPreferences
+      final Map<int, String> listIdToName = {};
+
+      // First, try to get list names from SharedPreferences (for backward compatibility)
       final prefs = await SharedPreferences.getInstance();
       final String? listsJson = prefs.getString('saved_lists');
 
-      if (listsJson == null || listsJson.isEmpty) {
-        return templates; // No lists to fix with
+      if (listsJson != null && listsJson.isNotEmpty) {
+        try {
+          final List<dynamic> lists = jsonDecode(listsJson);
+          // Create a mapping of list ID to list name from SharedPreferences
+          for (final list in lists) {
+            if (list['id'] != null && list['name'] != null) {
+              listIdToName[list['id'] as int] = list['name'] as String;
+            }
+          }
+        } catch (e) {
+          debugPrint('Error parsing lists from SharedPreferences: $e');
+        }
       }
 
-      final List<dynamic> lists = jsonDecode(listsJson);
-      final Map<int, String> listIdToName = {};
+      // For any missing list names, query the database directly (preferred approach)
+      final templatesNeedingFix = templates.where((template) =>
+          template.officialsListId != null &&
+          (template.officialsListName == null || 
+           template.officialsListName == 'null') &&
+          !listIdToName.containsKey(template.officialsListId!)).toList();
 
-      // Create a mapping of list ID to list name
-      for (final list in lists) {
-        if (list['id'] != null && list['name'] != null) {
-          listIdToName[list['id'] as int] = list['name'] as String;
+      if (templatesNeedingFix.isNotEmpty) {
+        final listIds = templatesNeedingFix.map((t) => t.officialsListId!).toSet();
+        for (final listId in listIds) {
+          try {
+            final results = await _gameRepository.rawQuery(
+              'SELECT name FROM official_lists WHERE id = ?',
+              [listId],
+            );
+            if (results.isNotEmpty) {
+              listIdToName[listId] = results.first['name'] as String;
+            }
+          } catch (e) {
+            debugPrint('Error getting list name for ID $listId: $e');
+          }
         }
       }
 
@@ -1298,7 +1341,6 @@ class GameService {
         }
       }
       
-      debugPrint('✅ Stored Multiple Lists template data for template $templateId');
     } catch (e) {
       debugPrint('❌ Error storing template Multiple Lists: $e');
     }
@@ -1385,7 +1427,6 @@ class GameService {
   // Store Multiple Lists data in database tables (replaces SharedPreferences approach)
   Future<void> _storeMultipleListsInDatabase(int gameId, List<dynamic> selectedLists) async {
     try {
-      debugPrint('💾 Storing Multiple Lists data in database for game $gameId');
       
       for (final listData in selectedLists) {
         if (listData is Map<String, dynamic>) {
@@ -1406,7 +1447,6 @@ class GameService {
             VALUES (?, ?, ?, ?, 0)
           ''', [gameId, listId, minOfficials, maxOfficials]);
           
-          debugPrint('✅ Stored quota for list $listId: min=$minOfficials, max=$maxOfficials');
           
           // 2. Ensure officials are in the official_list_members table
           for (final official in officials) {
@@ -1425,11 +1465,9 @@ class GameService {
             }
           }
           
-          debugPrint('✅ Ensured ${officials.length} officials are in list $listId');
         }
       }
       
-      debugPrint('🎉 Multiple Lists database storage completed for game $gameId');
       
     } catch (e) {
       debugPrint('❌ Error storing Multiple Lists in database: $e');

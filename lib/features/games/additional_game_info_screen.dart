@@ -147,8 +147,6 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
         final dbTemplate = args['template'] as db.GameTemplate;
         
         // Debug database template crew data
-        print('🚢 DB TEMPLATE DEBUG: selectedCrews from database: ${dbTemplate.selectedCrews}');
-        print('🚢 DB TEMPLATE DEBUG: selectedCrewListName from database: ${dbTemplate.selectedCrewListName}');
 
         // Get selectedLists data from SharedPreferences if method is advanced
         List<Map<String, dynamic>>? selectedLists;
@@ -419,7 +417,6 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
     final args =
         ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
 
-    debugPrint('Template in args: ${args['template']}');
 
     // Load officials from template if needed
     List<Map<String, dynamic>> templateOfficials = [];
@@ -464,14 +461,8 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
       'scheduleName': args['scheduleName'],
     };
 
-    debugPrint('Updated args method: ${updatedArgs['method']}');
-    debugPrint('Updated args selectedLists: ${updatedArgs['selectedLists']}');
     
     // Debug location handling
-    debugPrint('🔍 AdditionalGameInfo - Location debugging:');
-    debugPrint('  template?.includeLocation: ${template?.includeLocation}');
-    debugPrint('  template?.location: ${template?.location}');
-    debugPrint('  args[location]: ${args['location']}');
     debugPrint('  updatedArgs[location]: ${updatedArgs['location']}');
 
     if (_isFromEdit) {
@@ -722,7 +713,7 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
                         decoration: textFieldDecoration(_isAwayGame ? 'Opponent (Auto-filled)' : 'Opponent').copyWith(
                           hintText: _isAwayGame 
                               ? 'Will be auto-filled with your school name'
-                              : 'Enter the visiting team name (e.g., "Collinsville Kahoks")',
+                              : 'Enter the visiting team name',
                           hintStyle: const TextStyle(color: efficialsGray),
                         ),
                         style: TextStyle(

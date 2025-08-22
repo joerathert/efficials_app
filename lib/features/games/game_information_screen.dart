@@ -61,8 +61,6 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
     final newArgs =
         ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
 
-    debugPrint('GAME INFO SCREEN: Received arguments: ${newArgs.keys.toList()}');
-    debugPrint('GAME INFO SCREEN: scheduleId=${newArgs['scheduleId']}, scheduleName=${newArgs['scheduleName']}');
 
     // Always try to reload database games to get fresh data
     final gameId = newArgs['id'];
@@ -84,7 +82,8 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
   }
 
   void _initializeFromArguments(Map<String, dynamic> newArgs) {
-    setState(() {
+    if (mounted) {
+      setState(() {
       args = Map<String, dynamic>.from(newArgs);
 
       sport =
@@ -147,7 +146,8 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
       }
       // Load real interested officials from database
       _loadInterestedOfficials();
-    });
+      });
+    }
   }
 
   Future<void> _reloadGameDataFromDatabase(Map<String, dynamic> newArgs) async {
@@ -256,16 +256,17 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
         final dismissedOfficials =
             await _gameAssignmentRepo.getGameDismissals(databaseGameId);
 
-        setState(() {
-          // Create mutable copies of the query results
-          this.interestedOfficials =
-              List<Map<String, dynamic>>.from(interestedOfficials);
-          this.interestedCrews =
-              List<Map<String, dynamic>>.from(interestedCrews);
-          confirmedOfficialsFromDB =
-              List<Map<String, dynamic>>.from(confirmedOfficials);
-          this.dismissedOfficials =
-              List<Map<String, dynamic>>.from(dismissedOfficials);
+        if (mounted) {
+          setState(() {
+            // Create mutable copies of the query results
+            this.interestedOfficials =
+                List<Map<String, dynamic>>.from(interestedOfficials);
+            this.interestedCrews =
+                List<Map<String, dynamic>>.from(interestedCrews);
+            confirmedOfficialsFromDB =
+                List<Map<String, dynamic>>.from(confirmedOfficials);
+            this.dismissedOfficials =
+                List<Map<String, dynamic>>.from(dismissedOfficials);
           
           // CRITICAL FIX: Preserve existing selections during reload
           final currentSelections = Map<int, bool>.from(selectedForHire);
@@ -283,17 +284,20 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
             // Preserve existing selection if it exists, otherwise default to false  
             selectedCrewsForHire[crewAssignmentId] = currentCrewSelections[crewAssignmentId] ?? false;
           }
-        });
+          });
+        }
       } else {
         // For SharedPreferences games, interested officials feature is not supported
         // as they use a different storage system
-        setState(() {
-          interestedOfficials = [];
-          interestedCrews = [];
-          dismissedOfficials = [];
-          selectedForHire = {};
-          selectedCrewsForHire = {};
-        });
+        if (mounted) {
+          setState(() {
+            interestedOfficials = [];
+            interestedCrews = [];
+            dismissedOfficials = [];
+            selectedForHire = {};
+            selectedCrewsForHire = {};
+          });
+        }
       }
     } catch (e) {
       setState(() {
@@ -1009,7 +1013,6 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
 
       // Get all lists from database
       final userLists = await _listRepository.getLists(userId);
-      debugPrint('DEBUG GAME INFO: Found ${userLists.length} lists from database');
       
       // Find the specific list
       final listData = userLists.firstWhere(
@@ -1019,7 +1022,6 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
 
       // Get the full original list of officials
       final fullOfficialsList = List<Map<String, dynamic>>.from(listData['officials'] ?? []);
-      debugPrint('DEBUG GAME INFO: List "$listName" has ${fullOfficialsList.length} officials');
 
       // Get the game-specific officials for this list (the ones actually selected for this game)
       List<Map<String, dynamic>> gameSpecificOfficials = [];

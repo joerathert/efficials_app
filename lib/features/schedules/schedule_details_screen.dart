@@ -47,7 +47,6 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
           ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
       scheduleName = args['scheduleName'] as String?;
       scheduleId = args['scheduleId'] as int?;
-      debugPrint('SCHEDULE SCREEN: Initial load - scheduleName="$scheduleName", scheduleId=$scheduleId');
       
       // If scheduleId is null but we have a scheduleName, try to look it up
       if (scheduleId == null && scheduleName != null) {
@@ -56,19 +55,29 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
       
       _hasInitialized = true;
     } else {
-      debugPrint('SCHEDULE SCREEN: Returning from navigation - preserving scheduleName="$scheduleName", scheduleId=$scheduleId');
     }
     
-    _fetchGames();
-    _loadScheduleDetails(); // Load schedule details including sport after games are loaded
-    _loadAssociatedTemplate(); // Load the associated template
+    // Run async operations concurrently for better performance
+    _initializeScheduleData();
+  }
+
+  Future<void> _initializeScheduleData() async {
+    // Run independent operations concurrently for better performance
+    final futures = <Future<void>>[
+      _fetchGames(),
+      _loadAssociatedTemplate(),
+    ];
+    
+    await Future.wait(futures);
+    
+    // Load schedule details after games are loaded (depends on games data)
+    await _loadScheduleDetails();
   }
 
   Future<void> _lookupScheduleId() async {
     if (scheduleName == null) return;
     
     try {
-      debugPrint('SCHEDULE SCREEN: Looking up scheduleId for "$scheduleName"');
       final schedules = await _scheduleService.getSchedules();
       final matchingSchedule = schedules.firstWhere(
         (schedule) => schedule['name'] == scheduleName,
@@ -77,9 +86,7 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
       
       if (matchingSchedule.isNotEmpty) {
         scheduleId = matchingSchedule['id'] as int?;
-        debugPrint('SCHEDULE SCREEN: Found scheduleId=$scheduleId for "$scheduleName"');
       } else {
-        debugPrint('SCHEDULE SCREEN: No matching schedule found for "$scheduleName"');
       }
     } catch (e) {
       debugPrint('SCHEDULE SCREEN: Error looking up scheduleId: $e');
@@ -100,9 +107,11 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
               scheduleSport == 'null') {
             await _inferAndUpdateScheduleSport();
           } else {
-            setState(() {
-              sport = scheduleSport;
-            });
+            if (mounted) {
+              setState(() {
+                sport = scheduleSport;
+              });
+            }
           }
         }
       } catch (e) {
@@ -128,17 +137,20 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
       try {
         // Update the schedule in the database with the inferred sport
         // This is a simplified approach - you might want to implement updateScheduleSport in ScheduleService
-        setState(() {
-          sport = inferredSport;
-        });
-        debugPrint('Inferred sport for schedule: $inferredSport');
+        if (mounted) {
+          setState(() {
+            sport = inferredSport;
+          });
+        }
       } catch (e) {
         debugPrint('Failed to update schedule sport: $e');
       }
     } else {
-      setState(() {
-        sport = 'Unknown';
-      });
+      if (mounted) {
+        setState(() {
+          sport = 'Unknown';
+        });
+      }
     }
   }
 
@@ -165,11 +177,12 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
           ? await _gameService.getGamesByScheduleName(scheduleName!)
           : <Map<String, dynamic>>[];
 
-      setState(() {
-        games.clear();
-        games = scheduleGames;
+      if (mounted) {
+        setState(() {
+          games.clear();
+          games = scheduleGames;
 
-        // Ensure DateTime and TimeOfDay objects are properly parsed
+          // Ensure DateTime and TimeOfDay objects are properly parsed
         for (var game in games) {
           if (game['date'] != null && game['date'] is String) {
             game['date'] = DateTime.parse(game['date'] as String);
@@ -213,15 +226,18 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
           _focusedDay = DateTime.now();
         }
 
-        isLoading = false;
-      });
+          isLoading = false;
+        });
+      }
     } catch (e) {
       debugPrint('Error loading games from database: $e');
-      setState(() {
-        games.clear();
-        _focusedDay = DateTime.now();
-        isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          games.clear();
+          _focusedDay = DateTime.now();
+          isLoading = false;
+        });
+      }
     }
   }
 
@@ -293,21 +309,19 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                     locationName: templates.first.locationName,
                   );
                 } catch (e) {
-                  debugPrint('Error parsing selectedLists data: $e');
                 }
               }
             }
 
-            setState(() {
-              template = templates.first;
-              associatedTemplateName = templateName;
-            });
+            if (mounted) {
+              setState(() {
+                template = templates.first;
+                associatedTemplateName = templateName;
+              });
+            }
           } else {
-            debugPrint('No template data found for name: $templateName');
           }
         } else {
-          debugPrint(
-              'No template association found for schedule: $scheduleName');
         }
       }
     } catch (e) {
@@ -321,10 +335,12 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
       final user = await _userRepository.getCurrentUser();
       if (user?.id != null) {
         await _templateRepository.removeAssociation(user!.id!, scheduleName!);
-        setState(() {
-          associatedTemplateName = null;
-          template = null; // Clear the template object
-        });
+        if (mounted) {
+          setState(() {
+            associatedTemplateName = null;
+            template = null; // Clear the template object
+          });
+        }
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Template association removed')),
@@ -392,20 +408,16 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
           ElevatedButton(
             onPressed: () {
               final newName = controller.text.trim();
-              debugPrint('DIALOG: Save button pressed, newName="$newName", currentName="$scheduleName"');
               
               if (newName.isNotEmpty && newName != scheduleName) {
-                debugPrint('DIALOG: Names are different, calling _updateScheduleName');
                 Navigator.pop(context);
                 _updateScheduleName(newName);
               } else if (newName.isEmpty) {
-                debugPrint('DIALOG: Name is empty, showing error');
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                       content: Text('Schedule name cannot be empty')),
                 );
               } else {
-                debugPrint('DIALOG: Names are the same, no update needed');
                 Navigator.pop(context);
               }
             },
@@ -421,41 +433,35 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
   }
 
   Future<void> _updateScheduleName(String newName) async {
-    debugPrint('UPDATE SCHEDULE NAME: Function called with newName="$newName"');
-    debugPrint('UPDATE SCHEDULE NAME: Current scheduleName="$scheduleName", scheduleId=$scheduleId');
     
     if (scheduleName == null || scheduleId == null) {
-      debugPrint('UPDATE SCHEDULE NAME: Missing scheduleName or scheduleId, returning early');
       return;
     }
 
     try {
       final oldName = scheduleName!;
-      debugPrint('SCHEDULE UPDATE: Attempting to update schedule ID $scheduleId from "$oldName" to "$newName"');
 
       // Update schedule name using ScheduleService
       final updatedSchedule =
           await _scheduleService.updateScheduleName(scheduleId!, newName);
 
-      debugPrint('SCHEDULE UPDATE: Service returned: ${updatedSchedule != null ? "success" : "null"}');
 
       if (updatedSchedule != null) {
-        debugPrint('SCHEDULE UPDATE: Updated schedule data: ${updatedSchedule["name"]}');
         
         // Update template association if it exists
         final user = await _userRepository.getCurrentUser();
         if (user?.id != null && associatedTemplateName != null) {
-          debugPrint('SCHEDULE UPDATE: Updating template association');
           await _templateRepository.updateScheduleName(
               user!.id!, oldName, newName);
         }
 
         // Update the current state
-        setState(() {
-          scheduleName = newName;
-        });
+        if (mounted) {
+          setState(() {
+            scheduleName = newName;
+          });
+        }
 
-        debugPrint('SCHEDULE UPDATE: State updated successfully');
 
         // Show success message
         if (mounted) {
@@ -468,7 +474,6 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
         await _fetchGames();
         await _loadScheduleDetails();
       } else {
-        debugPrint('SCHEDULE UPDATE: Update failed - service returned null');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Failed to update schedule name')),
@@ -1604,19 +1609,9 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                                 template!.selectedLists!.isNotEmpty)) &&
                         _selectedDay != null;
 
-                    debugPrint('Template after reload: ${template != null}');
-                    debugPrint(
-                        'Template includeTime: ${template?.includeTime}');
-                    debugPrint('Template time: ${template?.time}');
-                    debugPrint('Selected day: $_selectedDay');
-                    debugPrint(
-                        'Can skip to additional info: $canSkipToAdditionalInfo');
-
                     String nextRoute = canSkipToAdditionalInfo
                         ? '/additional_game_info'
                         : '/date_time';
-
-                    debugPrint('Next route: $nextRoute');
 
                     Navigator.pushNamed(
                       context,

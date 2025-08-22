@@ -11,9 +11,7 @@ class FilterSettingsScreen extends StatefulWidget {
 }
 
 class _FilterSettingsScreenState extends State<FilterSettingsScreen> {
-  bool ihsaRegistered = false;
-  bool ihsaRecognized = false;
-  bool ihsaCertified = false;
+  String? ihsaLevel; // 'registered', 'recognized', or 'certified'
   final _yearsController = TextEditingController();
   final Map<String, bool> competitionLevels = {
     'Grade School (6U-11U)': false,
@@ -131,53 +129,50 @@ class _FilterSettingsScreenState extends State<FilterSettingsScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('IHSA Certifications',
+                      const Text('IHSA Certification Level',
                           style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
                               color: efficialsYellow)),
+                      const SizedBox(height: 8),
+                      const Text('Select minimum required level:',
+                          style: TextStyle(fontSize: 14, color: Colors.grey)),
                       const SizedBox(height: 12),
-                      CheckboxListTile(
+                      RadioListTile<String>(
                         title: const Text('IHSA - Registered',
-                            style:
-                                TextStyle(fontSize: 16, color: Colors.white)),
-                        value: ihsaRegistered,
-                        onChanged: (value) =>
-                            setState(() => ihsaRegistered = value ?? false),
-                        controlAffinity: ListTileControlAffinity.leading,
-                        contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 0, vertical: 0),
-                        dense: true,
+                            style: TextStyle(fontSize: 16, color: Colors.white)),
+                        subtitle: const Text('Includes Recognized and Certified officials',
+                            style: TextStyle(fontSize: 12, color: Colors.grey)),
+                        value: 'registered',
+                        groupValue: ihsaLevel,
+                        onChanged: (value) => setState(() => ihsaLevel = value),
                         activeColor: efficialsYellow,
-                        checkColor: efficialsBlack,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
+                        dense: true,
                       ),
-                      CheckboxListTile(
+                      RadioListTile<String>(
                         title: const Text('IHSA - Recognized',
-                            style:
-                                TextStyle(fontSize: 16, color: Colors.white)),
-                        value: ihsaRecognized,
-                        onChanged: (value) =>
-                            setState(() => ihsaRecognized = value ?? false),
-                        controlAffinity: ListTileControlAffinity.leading,
-                        contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 0, vertical: 0),
-                        dense: true,
+                            style: TextStyle(fontSize: 16, color: Colors.white)),
+                        subtitle: const Text('Includes Certified officials',
+                            style: TextStyle(fontSize: 12, color: Colors.grey)),
+                        value: 'recognized',
+                        groupValue: ihsaLevel,
+                        onChanged: (value) => setState(() => ihsaLevel = value),
                         activeColor: efficialsYellow,
-                        checkColor: efficialsBlack,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
+                        dense: true,
                       ),
-                      CheckboxListTile(
+                      RadioListTile<String>(
                         title: const Text('IHSA - Certified',
-                            style:
-                                TextStyle(fontSize: 16, color: Colors.white)),
-                        value: ihsaCertified,
-                        onChanged: (value) =>
-                            setState(() => ihsaCertified = value ?? false),
-                        controlAffinity: ListTileControlAffinity.leading,
-                        contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 0, vertical: 0),
-                        dense: true,
+                            style: TextStyle(fontSize: 16, color: Colors.white)),
+                        subtitle: const Text('Only Certified officials',
+                            style: TextStyle(fontSize: 12, color: Colors.grey)),
+                        value: 'certified',
+                        groupValue: ihsaLevel,
+                        onChanged: (value) => setState(() => ihsaLevel = value),
                         activeColor: efficialsYellow,
-                        checkColor: efficialsBlack,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
+                        dense: true,
                       ),
                       const SizedBox(height: 20),
                       const Text('Experience',
@@ -318,9 +313,7 @@ class _FilterSettingsScreenState extends State<FilterSettingsScreen> {
                     
                     final filterData = {
                       'sport': sport,
-                      'ihsaRegistered': ihsaRegistered,
-                      'ihsaRecognized': ihsaRecognized,
-                      'ihsaCertified': ihsaCertified,
+                      'ihsaLevel': ihsaLevel,
                       'minYears': _yearsController.text.isNotEmpty
                           ? int.parse(_yearsController.text)
                           : 0,
@@ -331,15 +324,6 @@ class _FilterSettingsScreenState extends State<FilterSettingsScreen> {
                           : int.parse(_radiusController.text),
                     };
                     
-                    // Debug logging
-                    print('🎯 FILTER SETTINGS DEBUG:');
-                    print('IHSA Registered: $ihsaRegistered');
-                    print('IHSA Recognized: $ihsaRecognized');
-                    print('IHSA Certified: $ihsaCertified');
-                    print('Min Years: ${_yearsController.text}');
-                    print('Selected Levels: $selectedLevels');
-                    print('Radius: ${_radiusController.text}');
-                    print('Filter Data: $filterData');
                     
                     Navigator.pop(context, filterData);
                   },

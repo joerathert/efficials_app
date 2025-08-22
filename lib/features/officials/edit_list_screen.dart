@@ -31,8 +31,11 @@ class _EditListScreenState extends State<EditListScreen> {
       filteredOfficials = List.from(selectedOfficialsList);
       _listNameController.text = listName ?? 'Unnamed List';
       for (var official in selectedOfficialsList) {
-        selectedOfficials[official['id'] as int? ?? 0] = true;
+        final officialId = official['id'] as int? ?? 0;
+        selectedOfficials[officialId] = true;
       }
+      
+      
       isInitialized = true;
     }
   }
@@ -82,7 +85,7 @@ class _EditListScreenState extends State<EditListScreen> {
       }
       
       // Update officials in list
-      await listRepository.updateList(newListName, updatedOfficials);
+      await listRepository.updateListById(listId!, updatedOfficials);
 
       final updatedList = {
         'name': newListName,
@@ -224,7 +227,8 @@ class _EditListScreenState extends State<EditListScreen> {
                                       ),
                                       onPressed: () {
                                         setState(() {
-                                          selectedOfficials[officialId] = !(selectedOfficials[officialId] ?? false);
+                                          final wasSelected = selectedOfficials[officialId] ?? false;
+                                          selectedOfficials[officialId] = !wasSelected;
                                           if (selectedOfficials[officialId] == false) {
                                             selectedOfficials.remove(officialId);
                                           }
@@ -277,6 +281,8 @@ class _EditListScreenState extends State<EditListScreen> {
                       width: double.infinity,
                       child: ElevatedButton(
                         onPressed: () {
+                          final currentlySelected = selectedOfficialsList.where((official) => selectedOfficials[official['id'] as int? ?? 0] ?? false).toList();
+                          
                           Navigator.pushNamed(
                             context,
                             '/populate_roster',
@@ -284,17 +290,20 @@ class _EditListScreenState extends State<EditListScreen> {
                               'sport': 'Football',
                               'listName': listName,
                               'listId': listId,
-                              'selectedOfficials': selectedOfficialsList.where((official) => selectedOfficials[official['id'] as int? ?? 0] ?? false).toList(),
+                              'selectedOfficials': currentlySelected,
                               'isEdit': true,
                             },
                           ).then((result) {
                             if (result != null) {
+                              final resultList = result as List<Map<String, dynamic>>;
+                              
                               setState(() {
-                                selectedOfficialsList = result as List<Map<String, dynamic>>;
+                                selectedOfficialsList = resultList;
                                 filteredOfficials = List.from(selectedOfficialsList);
                                 selectedOfficials.clear();
                                 for (var official in selectedOfficialsList) {
-                                  selectedOfficials[official['id'] as int? ?? 0] = true;
+                                  final officialId = official['id'] as int? ?? 0;
+                                  selectedOfficials[officialId] = true;
                                 }
                               });
                             }

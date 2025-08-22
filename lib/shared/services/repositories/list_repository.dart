@@ -1,6 +1,7 @@
 import 'base_repository.dart';
 import '../../models/database_models.dart';
 import '../user_session_service.dart';
+import '../database_monitor.dart';
 
 class ListRepository extends BaseRepository {
   // Create a new official list with officials
@@ -58,13 +59,26 @@ class ListRepository extends BaseRepository {
 
   // Get officials from a specific list
   Future<List<Map<String, dynamic>>> getListOfficials(int listId) async {
+    
     final results = await rawQuery('''
-      SELECT o.*, os.certification_level, os.years_experience, os.competition_levels
+      SELECT o.*, 
+             COALESCE(os.certification_level, '') as certification_level, 
+             COALESCE(os.years_experience, 0) as years_experience, 
+             COALESCE(os.competition_levels, '') as competition_levels
       FROM officials o
       INNER JOIN official_list_members olm ON o.id = olm.official_id
-      LEFT JOIN official_sports os ON o.id = os.official_id
+      LEFT JOIN (
+        SELECT official_id, 
+               MAX(certification_level) as certification_level,
+               MAX(years_experience) as years_experience,
+               GROUP_CONCAT(DISTINCT competition_levels) as competition_levels
+        FROM official_sports 
+        GROUP BY official_id
+      ) os ON o.id = os.official_id
       WHERE olm.list_id = ?
+      ORDER BY o.id
     ''', [listId]);
+
 
     return results;
   }
@@ -87,7 +101,7 @@ class ListRepository extends BaseRepository {
   Future<int> updateListName(int listId, String newName) async {
     return await update(
         'official_lists',
-        {'name': newName, 'updated_at': DateTime.now().toIso8601String()},
+        {'name': newName},
         'id = ?',
         [listId]);
   }
@@ -119,7 +133,11 @@ class ListRepository extends BaseRepository {
     final mutableLists = <Map<String, dynamic>>[];
     for (var list in lists) {
       final listId = list['id'] as int;
+      final listName = list['name'] as String;
+      
+      // Use the same count method as getUserLists for consistency
       final officials = await getListOfficials(listId);
+      
       
       // Create a new mutable map instead of modifying the read-only query result
       final mutableList = Map<String, dynamic>.from(list);
@@ -149,6 +167,29 @@ class ListRepository extends BaseRepository {
       await txn.delete('official_list_members',
           where: 'list_id = ?', whereArgs: [listId]);
 
+      // Add new officials to the list
+      for (final official in officials) {
+        final officialId = official['id'];
+        if (officialId != null) {
+          await txn.insert('official_list_members', {
+            'list_id': listId,
+            'official_id': officialId,
+          });
+        }
+      }
+    });
+  }
+
+  // Update list with new officials by list ID (replaces existing officials)
+  Future<void> updateListById(
+      int listId, List<Map<String, dynamic>> officials) async {
+    final db = await database;
+    
+    await db.transaction((txn) async {
+      // Remove existing officials from the list
+      await txn.delete('official_list_members',
+          where: 'list_id = ?', whereArgs: [listId]);
+      
       // Add new officials to the list
       for (final official in officials) {
         final officialId = official['id'];

@@ -439,7 +439,45 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
     }
   }
 
+  void _showSportRequiredDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: darkSurface,
+          title: const Text(
+            'Sport Required',
+            style: TextStyle(
+              color: efficialsYellow,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: const Text(
+            'Please select a sport before configuring advanced officials lists. The sport determines which saved lists are available.',
+            style: TextStyle(color: Colors.white),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text(
+                'OK',
+                style: TextStyle(color: efficialsYellow),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Future<void> _selectAdvancedLists() async {
+    // Check if sport is set before proceeding
+    if (sport == null || sport!.isEmpty) {
+      _showSportRequiredDialog();
+      return;
+    }
+
     final result = await Navigator.pushNamed(
       context,
       '/advanced_officials_selection',

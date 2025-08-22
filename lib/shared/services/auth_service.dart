@@ -2,9 +2,12 @@ import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/database_models.dart';
 import 'database_helper.dart';
 import 'user_session_service.dart';
+import 'firebase_auth_service.dart';
 
 class AuthService {
   static const int _saltLength = 32;
@@ -88,7 +91,7 @@ class AuthService {
   }
 
   static Future<LoginResult> login(String email, String password) async {
-    // print('DEBUG: Login attempt for email: $email');
+    print('DEBUG: Login attempt for email: $email on platform: ${kIsWeb ? "WEB" : "MOBILE"}');
     
     if (email.trim().isEmpty || password.trim().isEmpty) {
       print('DEBUG: Empty email or password');
@@ -98,8 +101,47 @@ class AuthService {
       );
     }
 
-    try {
-      final db = await DatabaseHelper().database;
+    // Use Firebase for web platform
+    if (kIsWeb) {
+      print('DEBUG: Attempting Firebase login for: $email');
+      try {
+        final firebaseAuth = FirebaseAuthService();
+        final authResult = await firebaseAuth.signInWithEmailAndPassword(email, password);
+        
+        if (authResult.success) {
+          // Set user session for Firebase auth
+          print('DEBUG: Setting user session - userType: ${authResult.userType}, schedulerType: ${authResult.schedulerType}');
+          await UserSessionService.instance.setCurrentUser(
+            userId: 1, // Use a test user ID for Firebase web testing
+            userType: authResult.userType ?? 'scheduler',
+            email: email,
+          );
+          print('DEBUG: User session set successfully');
+          
+          return LoginResult(
+            success: true,
+            userType: authResult.userType,
+            schedulerType: authResult.schedulerType,
+          );
+        } else {
+          return LoginResult(
+            success: false,
+            error: authResult.error ?? 'Login failed',
+          );
+        }
+      } catch (e) {
+        print('DEBUG: Firebase login failed: $e');
+        return LoginResult(
+          success: false,
+          error: 'Login error: $e',
+        );
+      }
+    }
+
+    // Database login (non-web platforms only)
+    if (!kIsWeb) {
+      try {
+        final db = await DatabaseHelper().database;
       // print('DEBUG: Database connection established');
       
       // Check scheduler users first
@@ -179,13 +221,98 @@ class AuthService {
         error: 'Invalid email or password',
       );
       
-    } catch (e) {
-      print('DEBUG: Login exception: $e');
-      return LoginResult(
-        success: false,
-        error: 'Login error: $e',
-      );
+      } catch (e) {
+        print('DEBUG: Login exception: $e');
+        return LoginResult(
+          success: false,
+          error: 'Login error: $e',
+        );
+      }
     }
+
+    // Fallback for platforms that don't support database or web
+    return LoginResult(
+      success: false,
+      error: 'Login not supported on this platform',
+    );
+  }
+
+  // Web-specific login method for test users
+  static Future<LoginResult> _loginWebTestUser(String email, String password) async {
+    print('DEBUG: _loginWebTestUser called with email: $email, password: $password');
+    final prefs = await SharedPreferences.getInstance();
+    
+    // Check if web test data exists
+    final testUsersJson = prefs.getString('web_test_users');
+    final testOfficialsJson = prefs.getString('web_test_officials');
+    
+    print('DEBUG: testUsersJson found: ${testUsersJson != null}');
+    print('DEBUG: testOfficialsJson found: ${testOfficialsJson != null}');
+    
+    if (testUsersJson == null && testOfficialsJson == null) {
+      print('DEBUG: No web test users found in SharedPreferences');
+      return LoginResult(success: false, error: 'No web test users found');
+    }
+    
+    // Check test users (AD, Assigner, Coach)
+    if (testUsersJson != null) {
+      final testUsers = jsonDecode(testUsersJson) as Map<String, dynamic>;
+      
+      for (final userEntry in testUsers.values) {
+        final user = userEntry as Map<String, dynamic>;
+        
+        // Check by email or username
+        if ((user['email'] == email || user['username'] == email) && 
+            user['password'] == password) {
+          
+          // Set user session
+          await UserSessionService.instance.setCurrentUser(
+            userId: user['id'] as int,
+            userType: 'scheduler',
+            email: user['email'] as String,
+          );
+          
+          // Store additional user data in SharedPreferences for web
+          await prefs.setString('current_web_user', jsonEncode(user));
+          
+          return LoginResult(
+            success: true,
+            userType: 'scheduler',
+            schedulerType: user['role'] as String,
+          );
+        }
+      }
+    }
+    
+    // Check test officials
+    if (testOfficialsJson != null) {
+      final testOfficials = jsonDecode(testOfficialsJson) as List<dynamic>;
+      
+      for (final officialData in testOfficials) {
+        final official = officialData as Map<String, dynamic>;
+        
+        if ((official['email'] == email || official['username'] == email) && 
+            official['password'] == password) {
+          
+          // Set user session
+          await UserSessionService.instance.setCurrentUser(
+            userId: official['id'] as int,
+            userType: 'official',
+            email: official['email'] as String,
+          );
+          
+          // Store additional user data in SharedPreferences for web
+          await prefs.setString('current_web_user', jsonEncode(official));
+          
+          return LoginResult(
+            success: true,
+            userType: 'official',
+          );
+        }
+      }
+    }
+    
+    return LoginResult(success: false, error: 'Invalid credentials');
   }
 }
 

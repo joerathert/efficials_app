@@ -303,9 +303,79 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
     });
   }
 
+  Future<void> _saveFormState() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final formStateJson = jsonEncode({
+        'selectedLists': selectedLists,
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+      });
+      await prefs.setString('advanced_officials_form_state', formStateJson);
+      debugPrint('Form state saved successfully');
+    } catch (e) {
+      debugPrint('Error saving form state: $e');
+    }
+  }
+
+  Future<void> _restoreFormState() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final formStateJson = prefs.getString('advanced_officials_form_state');
+      
+      if (formStateJson != null) {
+        final formState = jsonDecode(formStateJson);
+        final timestamp = formState['timestamp'] as int;
+        final now = DateTime.now().millisecondsSinceEpoch;
+        
+        // Only restore if the saved state is less than 1 hour old
+        if (now - timestamp < 3600000) {
+          final savedSelectedLists = (formState['selectedLists'] as List)
+              .map((item) => Map<String, dynamic>.from(item))
+              .toList();
+          
+          // Merge saved form data with current lists
+          setState(() {
+            for (int i = 0; i < savedSelectedLists.length && i < selectedLists.length; i++) {
+              final savedList = savedSelectedLists[i];
+              if (savedList['name'] != null) {
+                // Find the current list data to get fresh officials data
+                final currentList = lists.firstWhere(
+                  (l) => l['name'] == savedList['name'],
+                  orElse: () => savedList,
+                );
+                
+                selectedLists[i] = {
+                  'name': savedList['name'],
+                  'id': currentList['id'] ?? savedList['id'],
+                  'officials': currentList['officials'] ?? savedList['officials'] ?? [],
+                  'minOfficials': savedList['minOfficials'],
+                  'maxOfficials': savedList['maxOfficials'],
+                };
+              }
+            }
+          });
+          
+          debugPrint('Form state restored successfully');
+          
+          // Clear the saved state after restoring
+          await prefs.remove('advanced_officials_form_state');
+        } else {
+          // Clear expired state
+          await prefs.remove('advanced_officials_form_state');
+          debugPrint('Form state expired, cleared');
+        }
+      }
+    } catch (e) {
+      debugPrint('Error restoring form state: $e');
+    }
+  }
+
   Future<void> _navigateToCreateNewList() async {
     final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
     final sport = args['sport'] as String? ?? 'Baseball';
+    
+    // Save current form state before navigating
+    await _saveFormState();
     
     final result = await Navigator.pushNamed(
       context,
@@ -321,6 +391,8 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
     if (result != null) {
       // Refresh the lists after creating a new one
       await _fetchLists();
+      // Restore form state after refreshing lists
+      await _restoreFormState();
       setState(() {});
     }
   }

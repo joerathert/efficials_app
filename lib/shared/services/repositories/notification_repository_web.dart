@@ -1,7 +1,6 @@
 import 'dart:convert';
-// Temporarily commented out for web testing
-// import 'notification_repository_web_stub.dart'
-//     if (dart.library.io) 'package:firebase_messaging/firebase_messaging.dart';
+import 'notification_repository_web_stub.dart'
+    if (dart.library.io) 'package:firebase_messaging/firebase_messaging.dart';
 import '../database_helper.dart';
 import '../../models/database_models.dart' as models;
 
@@ -373,17 +372,16 @@ class NotificationRepository {
   /// Request push notification permission
   Future<bool> requestPushPermission() async {
     try {
-      // Temporarily disabled for web testing
-      // final messaging = FirebaseMessaging.instance;
-      // final settings = await messaging.requestPermission(
-      //   alert: true,
-      //   announcement: false,
-      //   badge: true,
-      //   carPlay: false,
-      //   criticalAlert: false,
-      //   provisional: false,
-      //   sound: true,
-      // );
+      final messaging = FirebaseMessaging.instance;
+      final settings = await messaging.requestPermission(
+        alert: true,
+        announcement: false,
+        badge: true,
+        carPlay: false,
+        criticalAlert: false,
+        provisional: false,
+        sound: true,
+      );
       
       // On web, always return false for now since Firebase messaging has issues
       return false;
@@ -396,20 +394,19 @@ class NotificationRepository {
   /// Subscribe to push notifications for a user
   Future<bool> subscribeToPush(int userId) async {
     try {
-      // Temporarily disabled for web testing
-      // final messaging = FirebaseMessaging.instance;
-      // 
-      // // Subscribe to user-specific topics
-      // await messaging.subscribeToTopic('user_${userId}_notifications');
-      // await messaging.subscribeToTopic('user_${userId}_backouts');
-      // await messaging.subscribeToTopic('user_${userId}_game_filling');
-      // 
-      // // Get and store FCM token for direct messaging if needed
-      // final token = await messaging.getToken();
-      // if (token != null) {
-      //   // Store token in database or send to server
-      //   print('FCM Token: $token');
-      // }
+      final messaging = FirebaseMessaging.instance;
+      
+      // Subscribe to user-specific topics
+      await messaging.subscribeToTopic('user_${userId}_notifications');
+      await messaging.subscribeToTopic('user_${userId}_backouts');
+      await messaging.subscribeToTopic('user_${userId}_game_filling');
+      
+      // Get and store FCM token for direct messaging if needed
+      final token = await messaging.getToken();
+      if (token != null) {
+        // Store token in database or send to server
+        print('FCM Token: $token');
+      }
       
       return true;
     } catch (e) {
@@ -421,13 +418,12 @@ class NotificationRepository {
   /// Unsubscribe from push notifications for a user
   Future<bool> unsubscribeFromPush(int userId) async {
     try {
-      // Temporarily disabled for web testing
-      // final messaging = FirebaseMessaging.instance;
-      // 
-      // // Unsubscribe from user-specific topics
-      // await messaging.unsubscribeFromTopic('user_${userId}_notifications');
-      // await messaging.unsubscribeFromTopic('user_${userId}_backouts');
-      // await messaging.unsubscribeFromTopic('user_${userId}_game_filling');
+      final messaging = FirebaseMessaging.instance;
+      
+      // Unsubscribe from user-specific topics
+      await messaging.unsubscribeFromTopic('user_${userId}_notifications');
+      await messaging.unsubscribeFromTopic('user_${userId}_backouts');
+      await messaging.unsubscribeFromTopic('user_${userId}_game_filling');
       
       return true;
     } catch (e) {
@@ -439,23 +435,22 @@ class NotificationRepository {
   /// Initialize push notification handlers
   Future<void> initializePushNotifications(int userId) async {
     try {
-      // Temporarily disabled for web testing
-      // final messaging = FirebaseMessaging.instance;
-      // 
-      // // Handle foreground messages
-      // messaging.onMessage.listen((RemoteMessage message) {
-      //   print('Received foreground message: ${message.notification?.title}');
-      //   // Handle the message and potentially create local notification
-      // });
-      // 
-      // // Handle when app is opened from notification
-      // messaging.onMessageOpenedApp.listen((RemoteMessage message) {
-      //   print('App opened from notification: ${message.notification?.title}');
-      //   // Navigate to appropriate screen based on message data
-      // });
-      // 
-      // // Handle background messages
-      // FirebaseMessaging.onBackgroundMessage = _firebaseMessagingBackgroundHandler;
+      final messaging = FirebaseMessaging.instance;
+      
+      // Handle foreground messages
+      messaging.onMessage.listen((RemoteMessage message) {
+        print('Received foreground message: ${message.notification?.title}');
+        // Handle the message and potentially create local notification
+      });
+      
+      // Handle when app is opened from notification
+      messaging.onMessageOpenedApp.listen((RemoteMessage message) {
+        print('App opened from notification: ${message.notification?.title}');
+        // Navigate to appropriate screen based on message data
+      });
+      
+      // Handle background messages
+      FirebaseMessaging.onBackgroundMessage = _firebaseMessagingBackgroundHandler;
       
     } catch (e) {
       print('Error initializing push notifications: $e');
@@ -735,9 +730,8 @@ class NotificationRepository {
 }
 
 /// Top-level function to handle background messages
-// Temporarily disabled for web testing
-// @pragma('vm:entry-point')
-// Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-//   print('Handling background message: ${message.notification?.title}');
-//   // Handle background notification logic here
-// }
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  print('Handling background message: ${message.notification?.title}');
+  // Handle background notification logic here
+}

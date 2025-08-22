@@ -187,7 +187,8 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
         await listRepository.updateListName(listId!, listName!);
         
         // Update officials in list
-        await listRepository.updateList(listName!, selectedOfficialsData);
+        await listRepository.updateListById(listId!, selectedOfficialsData);
+        
 
         if (mounted) {
           // Navigate back to the lists screen after updating

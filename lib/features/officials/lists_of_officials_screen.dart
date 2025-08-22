@@ -17,7 +17,7 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
   List<Map<String, dynamic>> lists = [];
   bool isLoading = true;
   bool isFromGameCreation = false;
-  final ListRepository _listRepository = ListRepository();
+  ListRepository _listRepository = ListRepository();
 
   @override
   void initState() {
@@ -28,6 +28,7 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
     ];
     _fetchLists();
   }
+  
 
   @override
   void didChangeDependencies() {
@@ -47,6 +48,14 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
         _fetchLists();
       }
     }
+    
+    // Always refresh the lists when this screen becomes active
+    // This ensures we see updated counts when returning from editing workflows
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _fetchLists();
+      }
+    });
   }
 
   Future<void> _fetchLists() async {
@@ -64,10 +73,6 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
       }
 
       final userLists = await _listRepository.getLists(userId);
-      debugPrint('DEBUG: Found ${userLists.length} lists from database');
-      for (var list in userLists) {
-        debugPrint('DEBUG: List - Name: ${list['name']}, Sport: ${list['sport_name']}, ID: ${list['id']}');
-      }
       
       setState(() {
         lists.clear();
@@ -198,20 +203,14 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
     List<Map<String, dynamic>> actualLists =
         lists.where((list) => list['id'] != 0 && list['id'] != -1).toList();
 
-    debugPrint('DEBUG: Before sport filtering: ${actualLists.length} lists');
-    debugPrint('DEBUG: fromTemplateCreation: $fromTemplateCreation, sport: $sport');
 
     // If coming from template creation, filter by sport
     if (fromTemplateCreation && sport != 'Unknown Sport') {
-      final beforeFilter = actualLists.length;
       actualLists = actualLists.where((list) {
         final listSport = list['sport'] as String?;
-        final shouldShow = listSport == null || listSport.isEmpty || listSport == sport;
-        debugPrint('DEBUG: List ${list['name']} (sport: $listSport) - showing: $shouldShow');
         // Show lists that match the sport or have no sport assigned (legacy lists)
-        return shouldShow;
+        return listSport == null || listSport.isEmpty || listSport == sport;
       }).toList();
-      debugPrint('DEBUG: After sport filtering: ${actualLists.length} lists (was $beforeFilter)');
     }
 
     return Scaffold(
@@ -664,10 +663,12 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
 
   Future<void> _handleEditListResult(
       dynamic result, Map<String, dynamic> originalList) async {
+    final updatedList = result as Map<String, dynamic>;
+    final listId = updatedList['id'] as int?;
+    
     // Refresh lists from database
     await _fetchLists();
     
-    final updatedList = result as Map<String, dynamic>;
     setState(() {
       selectedList = updatedList['name'] as String;
     });

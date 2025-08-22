@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:sqflite/sqflite.dart';
 import 'base_repository.dart';
 import '../../models/database_models.dart';
@@ -9,9 +10,9 @@ import 'package:flutter/foundation.dart'; // Added for debugPrint
 class SoftConflictException implements Exception {
   final String message;
   final List<Map<String, dynamic>> conflictingGames;
-  
+
   SoftConflictException(this.message, this.conflictingGames);
-  
+
   @override
   String toString() => message;
 }
@@ -207,10 +208,10 @@ class GameAssignmentRepository extends BaseRepository {
       if (assignment.isNotEmpty) {
         final officialId = assignment.first['official_id'];
         final gameId = assignment.first['game_id'];
-        
+
         // Remove from conflicting games
         await _removeFromConflictingGames(officialId, gameId);
-        
+
         await rawQuery('''
           UPDATE officials 
           SET total_accepted_games = total_accepted_games + 1
@@ -241,10 +242,9 @@ class GameAssignmentRepository extends BaseRepository {
   // Express interest in a game (create pending assignment)
   Future<int> expressInterest(
       int gameId, int officialId, double? feeAmount) async {
-    
     // Note: This method now only checks for crew hiring and basic validation
     // For conflict checking, use expressInterestWithConflictCheck instead
-    
+
     // Check if this is a crew hiring game and if the official is a crew chief
     final gameResult = await rawQuery('''
       SELECT method FROM games WHERE id = ?
@@ -301,12 +301,17 @@ class GameAssignmentRepository extends BaseRepository {
     if (existingAssignment.isNotEmpty) {
       // Update existing crew assignment to mark that crew chief has responded
       crewAssignmentId = existingAssignment.first['id'] as int;
-      await update('crew_assignments', {
-        'responded_at': DateTime.now().toIso8601String(),
-        'crew_chief_response_required': 1,
-      }, 'id = ?', [crewAssignmentId]);
-      
-      debugPrint('Updated existing crew assignment $crewAssignmentId with responded_at timestamp');
+      await update(
+          'crew_assignments',
+          {
+            'responded_at': DateTime.now().toIso8601String(),
+            'crew_chief_response_required': 1,
+          },
+          'id = ?',
+          [crewAssignmentId]);
+
+      debugPrint(
+          'Updated existing crew assignment $crewAssignmentId with responded_at timestamp');
     } else {
       // Create a new crew assignment record
       crewAssignmentId = await insert('crew_assignments', {
@@ -319,13 +324,14 @@ class GameAssignmentRepository extends BaseRepository {
         'responded_at': DateTime.now().toIso8601String(),
         'crew_chief_response_required': 1,
       });
-      
+
       debugPrint('Created new crew assignment $crewAssignmentId');
     }
 
     // Check if individual assignment for crew chief already exists
-    final existingIndividualAssignment = await getAssignmentByGameAndOfficial(gameId, crewChiefId);
-    
+    final existingIndividualAssignment =
+        await getAssignmentByGameAndOfficial(gameId, crewChiefId);
+
     if (existingIndividualAssignment == null) {
       // Create individual assignment for the crew chief for compatibility
       final assignment = GameAssignment(
@@ -343,12 +349,17 @@ class GameAssignmentRepository extends BaseRepository {
       debugPrint('Created individual assignment for crew chief $crewChiefId');
     } else {
       // Update existing individual assignment
-      await update('game_assignments', {
-        'responded_at': DateTime.now().toIso8601String(),
-        'response_notes': 'Crew "$crewName" expressed interest',
-      }, 'id = ?', [existingIndividualAssignment.id]);
-      
-      debugPrint('Updated existing individual assignment for crew chief $crewChiefId');
+      await update(
+          'game_assignments',
+          {
+            'responded_at': DateTime.now().toIso8601String(),
+            'response_notes': 'Crew "$crewName" expressed interest',
+          },
+          'id = ?',
+          [existingIndividualAssignment.id]);
+
+      debugPrint(
+          'Updated existing individual assignment for crew chief $crewChiefId');
     }
 
     return crewAssignmentId;
@@ -361,11 +372,13 @@ class GameAssignmentRepository extends BaseRepository {
       final hardConflicts = await checkForHardConflicts(officialId, gameId);
       if (hardConflicts.isNotEmpty) {
         final conflictGame = hardConflicts.first;
-        final opponent = conflictGame['opponent'] ?? conflictGame['home_team'] ?? 'TBD';
+        final opponent =
+            conflictGame['opponent'] ?? conflictGame['home_team'] ?? 'TBD';
         final timeDiff = conflictGame['time_difference_minutes'] as int;
-        throw Exception('Cannot claim game: You have a confirmed game too close in time (${timeDiff} minutes away) against $opponent at ${conflictGame['time']}. Games must be at least 1 hour apart.');
+        throw Exception(
+            'Cannot claim game: You have a confirmed game too close in time (${timeDiff} minutes away) against $opponent at ${conflictGame['time']}. Games must be at least 1 hour apart.');
       }
-      
+
       // Start a transaction to ensure consistency
       final assignment = GameAssignment(
         gameId: gameId,
@@ -466,8 +479,7 @@ class GameAssignmentRepository extends BaseRepository {
   }
 
   // Get all crews offered a game but haven't expressed interest yet
-  Future<List<Map<String, dynamic>>> getOfferedCrewsForGame(
-      int gameId) async {
+  Future<List<Map<String, dynamic>>> getOfferedCrewsForGame(int gameId) async {
     final results = await rawQuery('''
       SELECT ca.id as crew_assignment_id, ca.crew_id, ca.assigned_at,
              c.name as crew_name, c.crew_chief_id,
@@ -683,7 +695,9 @@ class GameAssignmentRepository extends BaseRepository {
         'status': 'backed_out',
         'backed_out_at': backedOutAt.toIso8601String(),
         'back_out_reason': reason,
-        'excused_backout': isGameChangeBackout ? 1 : 0, // Mark as excused if due to game changes within 24 hours
+        'excused_backout': isGameChangeBackout
+            ? 1
+            : 0, // Mark as excused if due to game changes within 24 hours
       };
 
       final result =
@@ -751,7 +765,7 @@ class GameAssignmentRepository extends BaseRepository {
       throw Exception('Failed to back out of game: ${e.toString()}');
     }
   }
-  
+
   // Helper method to determine if a backout is due to game changes within 24 hours
   Future<bool> _isGameChangeRelatedBackout({
     required int gameId,
@@ -761,7 +775,7 @@ class GameAssignmentRepository extends BaseRepository {
   }) async {
     // Check if the reason text contains game change keywords
     final hasChangeKeywords = _hasGameChangeKeywords(reason);
-    
+
     // If no change keywords in reason, check for recent game change notifications
     if (!hasChangeKeywords) {
       // Look for game change notifications sent to this official within the last 24 hours
@@ -778,14 +792,15 @@ class GameAssignmentRepository extends BaseRepository {
         '%"game_id":$gameId%', // Check if notification is about this specific game
         backedOutAt.subtract(const Duration(hours: 24)).toIso8601String(),
       ]);
-      
+
       // If there are recent game change notifications for this game, it's excused
       if (recentGameChanges.isNotEmpty) {
-        print('🔍 Found recent game change notification within 24 hours for official $officialId, game $gameId');
+        print(
+            '🔍 Found recent game change notification within 24 hours for official $officialId, game $gameId');
         return true;
       }
     }
-    
+
     // If reason contains change keywords, also check if it's within 24 hours of any game changes
     if (hasChangeKeywords) {
       // Look for any game change notifications for this game within 24 hours
@@ -800,18 +815,20 @@ class GameAssignmentRepository extends BaseRepository {
         '%"game_id":$gameId%',
         backedOutAt.subtract(const Duration(hours: 24)).toIso8601String(),
       ]);
-      
+
       if (recentGameChanges.isNotEmpty) {
-        print('🔍 Found game change keywords AND recent notification within 24 hours for game $gameId');
+        print(
+            '🔍 Found game change keywords AND recent notification within 24 hours for game $gameId');
         return true;
       }
-      
+
       // Even without notifications, if keywords are present, we'll excuse it
       // This handles cases where the system might have missed creating notifications
-      print('🔍 Found game change keywords in reason for game $gameId, excusing backout');
+      print(
+          '🔍 Found game change keywords in reason for game $gameId, excusing backout');
       return true;
     }
-    
+
     return false;
   }
 
@@ -819,17 +836,17 @@ class GameAssignmentRepository extends BaseRepository {
   bool _hasGameChangeKeywords(String reason) {
     final lowerReason = reason.toLowerCase();
     return lowerReason.contains('date changed') ||
-           lowerReason.contains('time changed') ||
-           lowerReason.contains('location changed') ||
-           lowerReason.contains('game date') ||
-           lowerReason.contains('game time') ||
-           lowerReason.contains('game location') ||
-           lowerReason.contains('schedule change') ||
-           lowerReason.contains('rescheduled') ||
-           lowerReason.contains('moved to') ||
-           lowerReason.contains('venue change') ||
-           lowerReason.contains('game changed') ||
-           lowerReason.contains('schedule modified');
+        lowerReason.contains('time changed') ||
+        lowerReason.contains('location changed') ||
+        lowerReason.contains('game date') ||
+        lowerReason.contains('game time') ||
+        lowerReason.contains('game location') ||
+        lowerReason.contains('schedule change') ||
+        lowerReason.contains('rescheduled') ||
+        lowerReason.contains('moved to') ||
+        lowerReason.contains('venue change') ||
+        lowerReason.contains('game changed') ||
+        lowerReason.contains('schedule modified');
   }
 
   // Helper method to update official's follow-through rate
@@ -885,25 +902,38 @@ class GameAssignmentRepository extends BaseRepository {
     try {
       final excusedAt = DateTime.now();
 
-      // Get the notification details
+      // Get the notification details from the modern notifications table
       final notification = await rawQuery('''
-        SELECT * FROM official_backout_notifications WHERE id = ?
+        SELECT * FROM notifications WHERE id = ?
       ''', [notificationId]);
 
       if (notification.isEmpty) {
         throw Exception('Notification not found');
       }
 
-      final officialId = notification.first['official_id'];
-      final assignmentId = notification.first['assignment_id'];
+      final notificationData = notification.first;
 
-      // Update the notification as excused
+      // Parse the JSON data field to get assignment details
+      final dataJson = notificationData['data'] as String?;
+      if (dataJson == null) {
+        throw Exception('Notification has no data field');
+      }
+
+      final data = Map<String, dynamic>.from(json.decode(dataJson));
+      final officialId = data['official_id'] as int?;
+      final assignmentId = data['assignment_id'] as int?;
+
+      if (officialId == null || assignmentId == null) {
+        throw Exception(
+            'Invalid notification data: missing official_id or assignment_id');
+      }
+
+      // Mark the notification as read since it's being actioned
       await update(
-          'official_backout_notifications',
+          'notifications',
           {
-            'excused_at': excusedAt.toIso8601String(),
-            'excused_by': excusedBy,
-            'excuse_reason': excuseReason,
+            'is_read': 1,
+            'read_at': excusedAt.toIso8601String(),
           },
           'id = ?',
           [notificationId]);
@@ -937,6 +967,59 @@ class GameAssignmentRepository extends BaseRepository {
 
       // Recalculate follow-through rate
       await _updateOfficialFollowThroughRate(officialId);
+
+      // Get game and scheduler details for the notification
+      final gameDetails = await rawQuery('''
+        SELECT g.*, s.name as sport_name, u.first_name, u.last_name, o.name as official_name
+        FROM game_assignments ga
+        JOIN games g ON ga.game_id = g.id
+        JOIN users u ON g.user_id = u.id
+        JOIN officials o ON ga.official_id = o.id
+        LEFT JOIN sports s ON g.sport_id = s.id
+        WHERE ga.id = ?
+      ''', [assignmentId]);
+
+      if (gameDetails.isNotEmpty) {
+        final gameInfo = gameDetails.first;
+        final schedulerFirstName = gameInfo['first_name'] as String? ?? '';
+        final schedulerLastName = gameInfo['last_name'] as String? ?? '';
+        final schedulerName = '$schedulerFirstName $schedulerLastName'.trim();
+        if (schedulerName.isEmpty) {
+          // Fallback to "Scheduler" if no name available
+        }
+
+        final sportName = gameInfo['sport_name'] as String? ?? 'Game';
+        final opponent = (gameInfo['opponent'] as String?) ??
+            (gameInfo['home_team'] as String?) ??
+            'TBD';
+        final gameDate = DateTime.parse(gameInfo['date'] as String);
+        final gameTime = gameInfo['time'] as String? ?? 'TBD';
+
+        // Create excuse notification for the official
+        final notificationRepo = NotificationRepository();
+        try {
+          await notificationRepo.createBackoutExcuseNotification(
+            officialId: officialId,
+            schedulerName:
+                schedulerName.isNotEmpty ? schedulerName : 'Scheduler',
+            gameSport: sportName,
+            gameOpponent: opponent,
+            gameDate: gameDate,
+            gameTime: gameTime,
+            excuseReason: excuseReason,
+            additionalData: {
+              'game_id': gameInfo['id'],
+              'assignment_id': assignmentId,
+              'excused_by': excusedBy,
+              'excused_at': excusedAt.toIso8601String(),
+            },
+          );
+          print('✅ Created excuse notification for official $officialId');
+        } catch (notificationError) {
+          print('⚠️ Failed to create excuse notification: $notificationError');
+          // Don't fail the entire operation if notification creation fails
+        }
+      }
 
       return 1;
     } catch (e) {
@@ -1029,7 +1112,8 @@ class GameAssignmentRepository extends BaseRepository {
       // If the official is NOT a crew chief, exclude hire_crew games
       if (!isCrewChief) {
         gameQuery += " AND g.method != 'hire_crew'";
-        print('🔍 DEBUG: Adding filter to exclude hire_crew games for non-crew-chief');
+        print(
+            '🔍 DEBUG: Adding filter to exclude hire_crew games for non-crew-chief');
       } else {
         // If the official IS a crew chief, show them ALL hire_crew games (they can express interest in any)
         // No additional filtering needed - crew chiefs should see all hire_crew games
@@ -1039,9 +1123,12 @@ class GameAssignmentRepository extends BaseRepository {
       gameQuery += " ORDER BY g.date ASC, g.time ASC";
 
       // Build parameter list
-      List<dynamic> params = [officialId, officialId]; // For game_assignments and game_dismissals exclusions
+      List<dynamic> params = [
+        officialId,
+        officialId
+      ]; // For game_assignments and game_dismissals exclusions
       // No extra parameter needed since crew chiefs now see all hire_crew games
-      
+
       final basicResults = await rawQuery(gameQuery, params);
 
       // DEBUG: Log what we got from the query
@@ -1049,7 +1136,7 @@ class GameAssignmentRepository extends BaseRepository {
       print('🔍 DEBUG Query: $gameQuery');
       print('🔍 DEBUG Params: $params');
       print('🔍 DEBUG Results count: ${basicResults.length}');
-      
+
       // DEBUG: Check what crew assignments exist for this official
       if (isCrewChief) {
         final crewAssignments = await rawQuery('''
@@ -1060,12 +1147,15 @@ class GameAssignmentRepository extends BaseRepository {
           LEFT JOIN games g ON ca.game_id = g.id
           WHERE c.crew_chief_id = ?
         ''', [officialId]);
-        print('🔍 DEBUG: Found ${crewAssignments.length} crew assignments for official $officialId:');
+        print(
+            '🔍 DEBUG: Found ${crewAssignments.length} crew assignments for official $officialId:');
         for (final ca in crewAssignments) {
-          print('  - Game ${ca['game_id']} (${ca['opponent']}): assignment_status=${ca['status']}, crew=${ca['crew_name']}');
-          print('    Game details: status=${ca['game_status']}, date=${ca['date']}, officials=${ca['officials_hired']}/${ca['officials_required']}, method=${ca['method']}');
+          print(
+              '  - Game ${ca['game_id']} (${ca['opponent']}): assignment_status=${ca['status']}, crew=${ca['crew_name']}');
+          print(
+              '    Game details: status=${ca['game_status']}, date=${ca['date']}, officials=${ca['officials_hired']}/${ca['officials_required']}, method=${ca['method']}');
         }
-        
+
         // Also test the subquery directly
         final subqueryTest = await rawQuery('''
           SELECT ca.game_id 
@@ -1073,14 +1163,16 @@ class GameAssignmentRepository extends BaseRepository {
           JOIN crews c ON ca.crew_id = c.id
           WHERE c.crew_chief_id = ? AND ca.status = 'pending'
         ''', [officialId]);
-        print('🔍 DEBUG: Subquery test - Found ${subqueryTest.length} game IDs from pending assignments:');
+        print(
+            '🔍 DEBUG: Subquery test - Found ${subqueryTest.length} game IDs from pending assignments:');
         for (final result in subqueryTest) {
           print('  - Game ID: ${result['game_id']}');
         }
       }
-      
+
       for (final game in basicResults) {
-        print('  Game ${game['id']}: opponent="${game['opponent']}", home_team="${game['home_team']}", method="${game['method']}"');
+        print(
+            '  Game ${game['id']}: opponent="${game['opponent']}", home_team="${game['home_team']}", method="${game['method']}"');
       }
 
       // Apply Advanced Method filtering for each game
@@ -1111,7 +1203,7 @@ class GameAssignmentRepository extends BaseRepository {
       // Fallback to basic filtering if Advanced Method fails
       // Check if this official is a crew chief for fallback filtering
       final isCrewChief = await _isOfficialCrewChief(officialId);
-      
+
       String fallbackQuery = '''
         SELECT DISTINCT 
                g.id, g.sport_id, g.location_id, g.user_id,
@@ -1153,15 +1245,15 @@ class GameAssignmentRepository extends BaseRepository {
         AND g.status = 'Published'
         AND g.date >= date('now')
         AND g.officials_required > g.officials_hired''';
-      
+
       // Apply hire_crew filtering consistent with main query
       if (!isCrewChief) {
         fallbackQuery += " AND g.method != 'hire_crew'";
       }
       // If is crew chief, show all games including hire_crew (no additional filter needed)
-      
+
       fallbackQuery += " ORDER BY g.date ASC, g.time ASC";
-      
+
       return await rawQuery(fallbackQuery, [officialId, officialId]);
     }
   }
@@ -1265,12 +1357,14 @@ class GameAssignmentRepository extends BaseRepository {
   // Handle crew chief claiming a game - assigns entire crew
   Future<bool> _handleCrewChiefClaim(int gameId, int officialId) async {
     try {
-      print('🚢 _handleCrewChiefClaim: Starting claim process for game $gameId, official $officialId');
-      
+      print(
+          '🚢 _handleCrewChiefClaim: Starting claim process for game $gameId, official $officialId');
+
       // First, verify this official is a crew chief for a crew that was selected for this game
       // Look in crew_assignments table to see if there's a pending crew assignment
-      print('🚢 _handleCrewChiefClaim: Looking for crew_assignments where game_id=$gameId AND crew_chief_id=$officialId AND status=pending');
-      
+      print(
+          '🚢 _handleCrewChiefClaim: Looking for crew_assignments where game_id=$gameId AND crew_chief_id=$officialId AND status=pending');
+
       final crewAssignmentResult = await rawQuery('''
         SELECT ca.crew_id, ca.status, c.name as crew_name, c.crew_chief_id
         FROM crew_assignments ca
@@ -1278,13 +1372,16 @@ class GameAssignmentRepository extends BaseRepository {
         WHERE ca.game_id = ? AND c.crew_chief_id = ? AND ca.status = 'pending'
       ''', [gameId, officialId]);
 
-      print('🚢 _handleCrewChiefClaim: Found ${crewAssignmentResult.length} crew assignments');
+      print(
+          '🚢 _handleCrewChiefClaim: Found ${crewAssignmentResult.length} crew assignments');
       for (var result in crewAssignmentResult) {
-        print('🚢   - Crew: ${result['crew_name']}, ID: ${result['crew_id']}, Status: ${result['status']}');
+        print(
+            '🚢   - Crew: ${result['crew_name']}, ID: ${result['crew_id']}, Status: ${result['status']}');
       }
 
       if (crewAssignmentResult.isEmpty) {
-        print('🚢 _handleCrewChiefClaim: Official $officialId is not a crew chief for any crew assigned to game $gameId');
+        print(
+            '🚢 _handleCrewChiefClaim: Official $officialId is not a crew chief for any crew assigned to game $gameId');
         return false;
       }
 
@@ -1694,7 +1791,8 @@ class GameAssignmentRepository extends BaseRepository {
   // ===== CONFLICT DETECTION METHODS =====
 
   /// Remove official from conflicting games when they confirm a game
-  Future<void> _removeFromConflictingGames(int officialId, int acceptedGameId) async {
+  Future<void> _removeFromConflictingGames(
+      int officialId, int acceptedGameId) async {
     try {
       // Get the accepted game's date and time
       final acceptedGameResult = await rawQuery('''
@@ -1711,14 +1809,16 @@ class GameAssignmentRepository extends BaseRepository {
       final acceptedTime = acceptedGameData['time'] as String?;
 
       if (acceptedTime == null) {
-        print('Warning: Accepted game $acceptedGameId has no time set, skipping conflict detection');
+        print(
+            'Warning: Accepted game $acceptedGameId has no time set, skipping conflict detection');
         return;
       }
 
       // Parse the accepted game's datetime
       final acceptedDateTime = _parseGameDateTime(acceptedDate, acceptedTime);
       if (acceptedDateTime == null) {
-        print('Warning: Could not parse datetime for accepted game $acceptedGameId');
+        print(
+            'Warning: Could not parse datetime for accepted game $acceptedGameId');
         return;
       }
 
@@ -1738,24 +1838,27 @@ class GameAssignmentRepository extends BaseRepository {
       ''', [officialId, acceptedGameId, acceptedDate]);
 
       int removedCount = 0;
-      
+
       for (final conflict in conflictingAssignments) {
         final conflictGameId = conflict['game_id'] as int;
         final conflictTime = conflict['time'] as String;
         final conflictDateTime = _parseGameDateTime(acceptedDate, conflictTime);
-        
-        if (conflictDateTime != null && _hasTimeConflict(acceptedDateTime, conflictDateTime)) {
+
+        if (conflictDateTime != null &&
+            _hasTimeConflict(acceptedDateTime, conflictDateTime)) {
           // Remove the conflicting assignment
           final assignmentId = conflict['assignment_id'] as int;
           await delete('game_assignments', 'id = ?', [assignmentId]);
-          
+
           removedCount++;
-          print('🚫 Removed official $officialId from conflicting game $conflictGameId (${conflict['opponent'] ?? conflict['home_team']}) due to confirmation of game $acceptedGameId');
+          print(
+              '🚫 Removed official $officialId from conflicting game $conflictGameId (${conflict['opponent'] ?? conflict['home_team']}) due to confirmation of game $acceptedGameId');
         }
       }
 
       if (removedCount > 0) {
-        print('✅ Removed official $officialId from $removedCount conflicting games');
+        print(
+            '✅ Removed official $officialId from $removedCount conflicting games');
       }
     } catch (e) {
       print('Error removing from conflicting games: $e');
@@ -1780,12 +1883,12 @@ class GameAssignmentRepository extends BaseRepository {
     // 2-hour buffer around each game (1 hour before + 1 hour after)
     const bufferHours = 2;
     final buffer = Duration(hours: bufferHours);
-    
+
     final game1Start = game1.subtract(buffer);
     final game1End = game1.add(buffer);
     final game2Start = game2.subtract(buffer);
     final game2End = game2.add(buffer);
-    
+
     // Check if the buffered time windows overlap
     return game1Start.isBefore(game2End) && game2Start.isBefore(game1End);
   }
@@ -1806,18 +1909,18 @@ class GameAssignmentRepository extends BaseRepository {
       // Parse date (format: YYYY-MM-DD)
       final dateParts = date.split('-');
       if (dateParts.length != 3) return null;
-      
+
       final year = int.parse(dateParts[0]);
       final month = int.parse(dateParts[1]);
       final day = int.parse(dateParts[2]);
-      
+
       // Parse time (format: HH:MM or HH:MM:SS)
       final timeParts = time.split(':');
       if (timeParts.length < 2) return null;
-      
+
       final hour = int.parse(timeParts[0]);
       final minute = int.parse(timeParts[1]);
-      
+
       return DateTime(year, month, day, hour, minute);
     } catch (e) {
       print('Error parsing game datetime: $e');
@@ -1827,7 +1930,8 @@ class GameAssignmentRepository extends BaseRepository {
 
   /// Validate that accepting a game doesn't conflict with existing confirmed games
   /// Returns conflicts with severity information
-  Future<List<Map<String, dynamic>>> checkForConflicts(int officialId, int gameId) async {
+  Future<List<Map<String, dynamic>>> checkForConflicts(
+      int officialId, int gameId) async {
     try {
       // Get the game being considered
       final gameResult = await rawQuery('''
@@ -1860,17 +1964,19 @@ class GameAssignmentRepository extends BaseRepository {
       ''', [officialId, gameDate]);
 
       final conflicts = <Map<String, dynamic>>[];
-      
+
       for (final confirmedGame in confirmedGames) {
         final confirmedTime = confirmedGame['time'] as String;
         final confirmedDateTime = _parseGameDateTime(gameDate, confirmedTime);
-        
+
         if (confirmedDateTime != null) {
-          final conflictType = _getConflictType(gameDateTime, confirmedDateTime);
+          final conflictType =
+              _getConflictType(gameDateTime, confirmedDateTime);
           if (conflictType != null) {
             final conflictData = Map<String, dynamic>.from(confirmedGame);
             conflictData['conflict_type'] = conflictType;
-            conflictData['time_difference_minutes'] = (gameDateTime.difference(confirmedDateTime)).abs().inMinutes;
+            conflictData['time_difference_minutes'] =
+                (gameDateTime.difference(confirmedDateTime)).abs().inMinutes;
             conflicts.add(conflictData);
           }
         }
@@ -1884,31 +1990,39 @@ class GameAssignmentRepository extends BaseRepository {
   }
 
   /// Check specifically for hard conflicts (< 1 hour) - used for blocking actions
-  Future<List<Map<String, dynamic>>> checkForHardConflicts(int officialId, int gameId) async {
+  Future<List<Map<String, dynamic>>> checkForHardConflicts(
+      int officialId, int gameId) async {
     final allConflicts = await checkForConflicts(officialId, gameId);
-    return allConflicts.where((conflict) => conflict['conflict_type'] == 'hard').toList();
+    return allConflicts
+        .where((conflict) => conflict['conflict_type'] == 'hard')
+        .toList();
   }
 
   /// Check specifically for soft conflicts (1-4 hours) - used for warnings
-  Future<List<Map<String, dynamic>>> checkForSoftConflicts(int officialId, int gameId) async {
+  Future<List<Map<String, dynamic>>> checkForSoftConflicts(
+      int officialId, int gameId) async {
     final allConflicts = await checkForConflicts(officialId, gameId);
-    return allConflicts.where((conflict) => conflict['conflict_type'] == 'soft').toList();
+    return allConflicts
+        .where((conflict) => conflict['conflict_type'] == 'soft')
+        .toList();
   }
 
   /// Express interest with soft conflict checking
   /// Throws SoftConflictException if there are soft conflicts that need user confirmation
   Future<int> expressInterestWithConflictCheck(
-      int gameId, int officialId, double? feeAmount, {bool ignoreSoftConflicts = false}) async {
-    
+      int gameId, int officialId, double? feeAmount,
+      {bool ignoreSoftConflicts = false}) async {
     // Check for hard conflicts first (always block)
     final hardConflicts = await checkForHardConflicts(officialId, gameId);
     if (hardConflicts.isNotEmpty) {
       final conflictGame = hardConflicts.first;
-      final opponent = conflictGame['opponent'] ?? conflictGame['home_team'] ?? 'TBD';
+      final opponent =
+          conflictGame['opponent'] ?? conflictGame['home_team'] ?? 'TBD';
       final timeDiff = conflictGame['time_difference_minutes'] as int;
-      throw Exception('Cannot express interest: You have a confirmed game too close in time (${timeDiff} minutes away) against $opponent at ${conflictGame['time']}. Games must be at least 1 hour apart.');
+      throw Exception(
+          'Cannot express interest: You have a confirmed game too close in time (${timeDiff} minutes away) against $opponent at ${conflictGame['time']}. Games must be at least 1 hour apart.');
     }
-    
+
     // Check for soft conflicts (need user confirmation)
     if (!ignoreSoftConflicts) {
       final softConflicts = await checkForSoftConflicts(officialId, gameId);
@@ -1919,7 +2033,7 @@ class GameAssignmentRepository extends BaseRepository {
         );
       }
     }
-    
+
     // Proceed with normal express interest logic
     return await expressInterest(gameId, officialId, feeAmount);
   }
@@ -1927,17 +2041,19 @@ class GameAssignmentRepository extends BaseRepository {
   /// Claim game with soft conflict checking
   /// Throws SoftConflictException if there are soft conflicts that need user confirmation
   Future<int> claimGameWithConflictCheck(
-      int gameId, int officialId, double? feeAmount, {bool ignoreSoftConflicts = false}) async {
-    
+      int gameId, int officialId, double? feeAmount,
+      {bool ignoreSoftConflicts = false}) async {
     // Check for hard conflicts first (always block)
     final hardConflicts = await checkForHardConflicts(officialId, gameId);
     if (hardConflicts.isNotEmpty) {
       final conflictGame = hardConflicts.first;
-      final opponent = conflictGame['opponent'] ?? conflictGame['home_team'] ?? 'TBD';
+      final opponent =
+          conflictGame['opponent'] ?? conflictGame['home_team'] ?? 'TBD';
       final timeDiff = conflictGame['time_difference_minutes'] as int;
-      throw Exception('Cannot claim game: You have a confirmed game too close in time (${timeDiff} minutes away) against $opponent at ${conflictGame['time']}. Games must be at least 1 hour apart.');
+      throw Exception(
+          'Cannot claim game: You have a confirmed game too close in time (${timeDiff} minutes away) against $opponent at ${conflictGame['time']}. Games must be at least 1 hour apart.');
     }
-    
+
     // Check for soft conflicts (need user confirmation)
     if (!ignoreSoftConflicts) {
       final softConflicts = await checkForSoftConflicts(officialId, gameId);
@@ -1948,8 +2064,277 @@ class GameAssignmentRepository extends BaseRepository {
         );
       }
     }
-    
+
     // Proceed with normal claim logic
     return await claimGame(gameId, officialId, feeAmount);
+  }
+
+  // Get linked game assignments for an official based on a specific assignment
+  Future<List<GameAssignment>> getLinkedAssignments(int assignmentId) async {
+    try {
+      debugPrint(
+          '🔍 Checking for linked assignments for assignment ID: $assignmentId');
+
+      // First get the assignment and its game details
+      final assignmentDetails = await rawQuery('''
+        SELECT ga.*, g.id as game_id
+        FROM game_assignments ga
+        JOIN games g ON ga.game_id = g.id
+        WHERE ga.id = ?
+      ''', [assignmentId]);
+
+      if (assignmentDetails.isEmpty) {
+        debugPrint('❌ Assignment not found for ID: $assignmentId');
+        return [];
+      }
+
+      final assignment = assignmentDetails.first;
+      final gameId = assignment['game_id'] as int;
+      final officialId = assignment['official_id'] as int;
+
+      debugPrint(
+          '📋 Found assignment: Game ID $gameId, Official ID $officialId');
+
+      // Get all linked games for this game
+      final linkedGamesResults = await rawQuery('''
+        SELECT g.id as linked_game_id
+        FROM games g
+        JOIN game_link_members glm ON g.id = glm.game_id
+        WHERE glm.link_id IN (
+          SELECT glm2.link_id 
+          FROM game_link_members glm2 
+          WHERE glm2.game_id = ?
+        )
+        AND g.id != ?
+      ''', [gameId, gameId]);
+
+      debugPrint(
+          '🔗 Found ${linkedGamesResults.length} linked games for game $gameId');
+
+      if (linkedGamesResults.isEmpty) {
+        debugPrint('ℹ️ No linked games found, showing regular back out dialog');
+        return [];
+      }
+
+      final linkedGameIds = linkedGamesResults
+          .map((row) => row['linked_game_id'] as int)
+          .toList();
+
+      debugPrint('🔗 Linked game IDs: $linkedGameIds');
+
+      // Get assignments for this official to any of the linked games
+      final placeholders = linkedGameIds.map((_) => '?').join(',');
+      final linkedAssignments = await rawQuery('''
+        SELECT ga.*, g.date, g.time, g.opponent, g.home_team, 
+               s.name as sport_name, l.name as location_name
+        FROM game_assignments ga
+        JOIN games g ON ga.game_id = g.id
+        LEFT JOIN sports s ON g.sport_id = s.id
+        LEFT JOIN locations l ON g.location_id = l.id
+        WHERE ga.official_id = ? 
+          AND ga.game_id IN ($placeholders)
+          AND ga.status = 'accepted'
+      ''', [officialId, ...linkedGameIds]);
+
+      debugPrint(
+          '✅ Found ${linkedAssignments.length} linked assignments for official $officialId');
+
+      if (linkedAssignments.isNotEmpty) {
+        debugPrint('🚨 Will show linked games back out dialog');
+      }
+
+      return linkedAssignments
+          .map((row) => GameAssignment.fromMap(row))
+          .toList();
+    } catch (e) {
+      debugPrint('Error getting linked assignments: $e');
+      return [];
+    }
+  }
+
+  // Back out of multiple linked game assignments
+  Future<void> backOutOfLinkedGames(
+      List<int> assignmentIds, String reason) async {
+    if (assignmentIds.isEmpty) return;
+
+    debugPrint(
+        '🔄 Starting backOutOfLinkedGames for ${assignmentIds.length} assignments');
+
+    try {
+      // First, get all assignment details outside the transaction
+      final List<Map<String, dynamic>> assignmentDetailsList = [];
+
+      for (final assignmentId in assignmentIds) {
+        final assignmentDetails = await rawQuery('''
+          SELECT ga.*, g.user_id as scheduler_id, g.sport_id, g.date, g.time, g.opponent, g.home_team, g.method,
+                 o.id as official_id, o.name as official_name, s.name as sport_name
+          FROM game_assignments ga
+          JOIN games g ON ga.game_id = g.id
+          JOIN officials o ON ga.official_id = o.id
+          LEFT JOIN sports s ON g.sport_id = s.id
+          WHERE ga.id = ?
+        ''', [assignmentId]);
+
+        if (assignmentDetails.isEmpty) {
+          throw Exception('Assignment $assignmentId not found');
+        }
+
+        assignmentDetailsList.add(assignmentDetails.first);
+      }
+
+      debugPrint(
+          '📋 Retrieved ${assignmentDetailsList.length} assignment details');
+
+      // Process each assignment and check for game changes outside transaction
+      final List<Map<String, dynamic>> processedAssignments = [];
+
+      for (int i = 0; i < assignmentDetailsList.length; i++) {
+        final assignment = assignmentDetailsList[i];
+        final assignmentId = assignmentIds[i];
+        final gameId = assignment['game_id'] as int;
+        final officialId = assignment['official_id'] as int;
+        final backedOutAt = DateTime.now();
+
+        debugPrint(
+            '🔍 Processing assignment $assignmentId for game $gameId, official $officialId');
+
+        // Check if this is a backout due to game changes within 24 hours (outside transaction)
+        final isGameChangeBackout = await _isGameChangeRelatedBackout(
+          gameId: gameId,
+          officialId: officialId,
+          reason: reason,
+          backedOutAt: backedOutAt,
+        );
+
+        processedAssignments.add({
+          ...assignment,
+          'assignment_id': assignmentId,
+          'backed_out_at': backedOutAt,
+          'is_game_change_backout': isGameChangeBackout,
+        });
+      }
+
+      debugPrint('✅ Processed all assignments, starting transaction');
+
+      // Now perform all database updates in a single transaction
+      await withTransaction((txn) async {
+        for (final processed in processedAssignments) {
+          final assignmentId = processed['assignment_id'] as int;
+          final gameId = processed['game_id'] as int;
+          final officialId = processed['official_id'] as int;
+          final backedOutAt = processed['backed_out_at'] as DateTime;
+          final isGameChangeBackout =
+              processed['is_game_change_backout'] as bool;
+
+          // Update the assignment status
+          await txn.update(
+            'game_assignments',
+            {
+              'status': 'backed_out',
+              'backed_out_at': backedOutAt.toIso8601String(),
+              'back_out_reason': reason,
+              'excused_backout': isGameChangeBackout ? 1 : 0,
+            },
+            where: 'id = ?',
+            whereArgs: [assignmentId],
+          );
+
+          // Only impact follow-through rate if it's NOT a game change backout
+          if (!isGameChangeBackout) {
+            // Update official's stats (increase backed out games count)
+            await txn.rawUpdate('''
+              UPDATE officials 
+              SET total_backed_out_games = total_backed_out_games + 1
+              WHERE id = ?
+            ''', [officialId]);
+          }
+
+          // Decrease the officials_hired count for the game to allow position to be refilled
+          await txn.rawUpdate('''
+            UPDATE games 
+            SET officials_hired = CASE 
+              WHEN officials_hired > 0 THEN officials_hired - 1 
+              ELSE 0 
+            END 
+            WHERE id = ?
+          ''', [gameId]);
+        }
+      });
+
+      debugPrint('💾 Transaction completed successfully');
+
+      // Handle post-transaction operations (notifications, advanced method cleanup)
+      for (final processed in processedAssignments) {
+        final assignmentId = processed['assignment_id'] as int;
+        final gameId = processed['game_id'] as int;
+        final officialId = processed['official_id'] as int;
+        final schedulerId = processed['scheduler_id'] as int;
+        final gameMethod = processed['method'] as String?;
+        final backedOutAt = processed['backed_out_at'] as DateTime;
+        final isGameChangeBackout = processed['is_game_change_backout'] as bool;
+
+        // If this is an Advanced Method game, update the quotas (outside transaction)
+        if (gameMethod == 'advanced') {
+          try {
+            await _advancedMethodRepo.removeOfficialFromGame(
+                gameId, officialId);
+            debugPrint(
+                'Updated Advanced Method quotas for game $gameId after official $officialId backed out');
+          } catch (e) {
+            debugPrint(
+                'Warning: Failed to update Advanced Method quotas after back out: $e');
+            // Don't fail the entire back out if quota update fails
+          }
+        }
+
+        // Create backout notification (outside transaction)
+        try {
+          final notificationRepo = NotificationRepository();
+          await notificationRepo.createBackoutNotification(
+            schedulerId: schedulerId,
+            officialName:
+                processed['official_name'] as String? ?? 'Unknown Official',
+            gameSport: processed['sport_name'] as String? ?? 'Game',
+            gameOpponent: (processed['opponent'] as String?) ??
+                (processed['home_team'] as String?) ??
+                'TBD',
+            gameDate: DateTime.parse(processed['date'] as String),
+            gameTime: processed['time'] as String? ?? 'TBD',
+            reason: reason,
+            additionalData: {
+              'assignment_id': assignmentId,
+              'official_id': officialId,
+              'game_id': gameId,
+              'backed_out_at': backedOutAt.toIso8601String(),
+              'is_game_change_backout': isGameChangeBackout,
+              'is_linked_game_backout': true,
+              'total_linked_games_backed_out': assignmentIds.length,
+            },
+          );
+          debugPrint('📨 Created notification for assignment $assignmentId');
+        } catch (e) {
+          debugPrint(
+              'Warning: Failed to create notification for assignment $assignmentId: $e');
+          // Don't fail the entire back out if notification fails
+        }
+      }
+
+      // Recalculate follow-through rate for the official (outside transaction)
+      if (processedAssignments.isNotEmpty) {
+        try {
+          final officialId = processedAssignments.first['official_id'] as int;
+          await _updateOfficialFollowThroughRate(officialId);
+          debugPrint('📊 Updated follow-through rate for official $officialId');
+        } catch (e) {
+          debugPrint('Warning: Failed to update follow-through rate: $e');
+        }
+      }
+
+      debugPrint(
+          '🎉 Successfully backed out of all ${assignmentIds.length} linked games');
+    } catch (e) {
+      debugPrint('❌ Error backing out of linked games: $e');
+      throw Exception('Failed to back out of linked games: ${e.toString()}');
+    }
   }
 }

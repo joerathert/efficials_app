@@ -64,21 +64,22 @@ class _ADNameScheduleScreenState extends State<ADNameScheduleScreen> {
       final homeTeamName = currentUser?.teamName ?? '';
       
       // Try to create schedule using database service first
+      print('DEBUG: Creating schedule with name: $name, sport: $sport');
       final schedule = await _scheduleService.createSchedule(
         name: name,
         sportName: sport,
         homeTeamName: homeTeamName,
       );
 
+      print('DEBUG: Schedule creation result: $schedule');
       if (schedule != null) {
         // Schedule created successfully
+        print('DEBUG: Schedule created successfully, returning to previous screen');
         Navigator.pop(context, schedule);
       } else {
-        // Schedule already exists
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('A schedule with this name already exists!')),
-        );
+        // On web, database service fails, so use SharedPreferences fallback
+        print('DEBUG: Schedule creation failed, falling back to SharedPreferences');
+        await _handleContinueWithPrefs(name, sport);
       }
     } catch (e) {
       // Fallback to SharedPreferences if database fails
@@ -96,8 +97,11 @@ class _ADNameScheduleScreenState extends State<ADNameScheduleScreen> {
           List<Map<String, dynamic>>.from(jsonDecode(unpublishedGamesJson));
     }
 
+    // Generate a single ID to use for both storage and return
+    final scheduleId = DateTime.now().millisecondsSinceEpoch;
+    
     final scheduleEntry = {
-      'id': DateTime.now().millisecondsSinceEpoch,
+      'id': scheduleId,
       'scheduleName': name,
       'sport': sport,
       'createdAt': DateTime.now().toIso8601String(),
@@ -110,16 +114,19 @@ class _ADNameScheduleScreenState extends State<ADNameScheduleScreen> {
         const SnackBar(content: Text('Schedule created!')),
       );
 
-      // Return the new schedule name to SelectScheduleScreen
-      Navigator.pop(context, name);
+      // Return the new schedule object to SelectScheduleScreen
+      Navigator.pop(context, {
+        'name': name,
+        'id': scheduleId,
+        'sport': sport,
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final args =
-        ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
-    final sport = args['sport'] as String? ?? 'Unknown';
+    final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    final sport = args?['sport'] as String? ?? 'Unknown';
 
     return Scaffold(
       backgroundColor: darkBackground,

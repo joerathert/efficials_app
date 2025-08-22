@@ -4,6 +4,7 @@ import 'repositories/schedule_repository.dart';
 import 'repositories/user_repository.dart';
 import 'repositories/sport_repository.dart';
 import 'user_session_service.dart';
+import 'firebase_database_service.dart';
 
 class ScheduleService {
   static final ScheduleService _instance = ScheduleService._internal();
@@ -14,19 +15,17 @@ class ScheduleService {
   final UserRepository _userRepository = UserRepository();
   final SportRepository _sportRepository = SportRepository();
   final UserSessionService _userSessionService = UserSessionService.instance;
+  final FirebaseDatabaseService _firebaseDb = FirebaseDatabaseService();
 
   // Get current user ID (for database operations)
   Future<int> _getCurrentUserId() async {
     final userId = await _userSessionService.getCurrentUserId();
-    debugPrint('DEBUG: ScheduleService._getCurrentUserId - session userId: $userId');
     if (userId != null) {
-      debugPrint('DEBUG: ScheduleService._getCurrentUserId - using session userId: $userId');
       return userId;
     }
     // Fallback to UserRepository method
     final user = await _userRepository.getCurrentUser();
     final fallbackId = user?.id ?? 1;
-    debugPrint('DEBUG: ScheduleService._getCurrentUserId - fallback to userId: $fallbackId');
     return fallbackId; // Default to 1 if no user found
   }
 
@@ -35,6 +34,19 @@ class ScheduleService {
   // Get all schedules for the current user
   Future<List<Map<String, dynamic>>> getSchedules() async {
     try {
+      if (kIsWeb) {
+        // Use Firebase for web
+        final userId = await _userSessionService.getCurrentUserId();
+        print('DEBUG: Schedule service - userId: $userId');
+        if (userId != null) {
+          final schedules = await _firebaseDb.getSchedules(userId.toString());
+          print('DEBUG: Schedule service - Firebase returned ${schedules.length} schedules');
+          return schedules;
+        }
+        print('DEBUG: Schedule service - No userId found');
+        return [];
+      }
+      
       final userId = await _getCurrentUserId();
       final schedules = await _scheduleRepository.getSchedulesByUser(userId);
 
@@ -82,8 +94,40 @@ class ScheduleService {
     String? homeTeamName,
   }) async {
     try {
+      if (kIsWeb) {
+        // Use Firebase for web
+        final userId = await _userSessionService.getCurrentUserId();
+        debugPrint('DEBUG: Schedule service createSchedule - userId: $userId');
+        if (userId != null) {
+          // Check if schedule already exists
+          debugPrint('DEBUG: Checking if schedule exists: $name, $sportName');
+          final exists = await _firebaseDb.scheduleExists(
+            userId.toString(), 
+            name, 
+            sportName
+          );
+          debugPrint('DEBUG: Schedule exists check result: $exists');
+          
+          if (exists) {
+            debugPrint('Schedule with name "$name" already exists for sport "$sportName"');
+            return null;
+          }
+          
+          debugPrint('DEBUG: Creating new schedule via Firebase');
+          final result = await _firebaseDb.createSchedule(
+            name: name,
+            sport: sportName,
+            userId: userId.toString(),
+            homeTeamName: homeTeamName,
+          );
+          debugPrint('DEBUG: Firebase createSchedule result: $result');
+          return result;
+        }
+        debugPrint('DEBUG: No userId found, cannot create schedule');
+        return null;
+      }
+      
       final userId = await _getCurrentUserId();
-      debugPrint('DEBUG: ScheduleService.createSchedule - creating schedule "$name" for userId: $userId');
 
       // Get or create sport
       final sport = await _sportRepository.getOrCreateSport(sportName);
@@ -106,7 +150,6 @@ class ScheduleService {
       );
 
       final scheduleId = await _scheduleRepository.createSchedule(schedule);
-      debugPrint('DEBUG: ScheduleService.createSchedule - created schedule with ID: $scheduleId');
       final createdSchedule =
           await _scheduleRepository.getScheduleById(scheduleId);
 

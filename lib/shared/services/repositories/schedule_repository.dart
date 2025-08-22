@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import '../../models/database_models.dart';
 import 'base_repository.dart';
 
@@ -89,6 +90,12 @@ class ScheduleRepository extends BaseRepository {
 
   // Check if schedule exists for user
   Future<bool> doesScheduleExist(int userId, String name, int sportId, {int? excludeId}) async {
+    // On web platform, always return false to allow schedule creation
+    // (since we can't check the database, assume no conflicts)
+    if (kIsWeb) {
+      return false;
+    }
+
     String whereClause = 'user_id = ? AND name = ? AND sport_id = ?';
     List<dynamic> whereArgs = [userId, name, sportId];
 

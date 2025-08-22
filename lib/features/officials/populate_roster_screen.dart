@@ -79,6 +79,11 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
         isFromGameCreation = args['method'] == 'standard' || args['fromGameCreation'] == true;
         isEdit = args['isEdit'] == true;
         
+        print('🔍 POPULATE ROSTER DEBUG:');
+        print('  isEdit: $isEdit');
+        print('  initialOfficials.length: ${initialOfficials.length}');
+        print('  args passed: ${args.keys.toList()}');
+        
         // Hide Save List button when creating a new list during game creation
         // (coming from Use List -> Create New List flow where list name is already provided)
         if (args['fromGameCreation'] == true && args['listName'] != null) {
@@ -96,7 +101,9 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
           }
         }
 
-        if (initialOfficials.isNotEmpty) {
+        if (initialOfficials.isNotEmpty && !isEdit) {
+          // Only pre-populate if NOT in edit mode
+          // In edit mode, we want to load fresh data and let user re-select
           officials = List.from(initialOfficials);
           filteredOfficials = List.from(initialOfficials);
           filteredOfficialsWithoutSearch = List.from(initialOfficials);
@@ -104,14 +111,20 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
         }
       }
       isInitialized = true;
-      if (initialOfficials.isEmpty) {
+      if (initialOfficials.isEmpty || isEdit) {
+        // Load fresh data if no initial officials OR in edit mode
+        print('🔍 POPULATE ROSTER: Loading fresh officials (isEmpty: ${initialOfficials.isEmpty}, isEdit: $isEdit)');
         _loadOfficials();
+      } else {
+        print('🔍 POPULATE ROSTER: Using pre-populated officials (${initialOfficials.length} officials)');
       }
     }
   }
 
   Future<void> _loadOfficials() async {
     setState(() => isLoading = true);
+    
+    print('🔍 _loadOfficials called with filterSettings: $filterSettings');
     
     try {
       final officialRepository = OfficialRepository();
@@ -143,6 +156,7 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
       
       // Use the repository method with filters
       List<Map<String, dynamic>> newOfficials = await officialRepository.getOfficialsBySport(sportId, filters: filterSettings);
+      print('🔍 _loadOfficials: Got ${newOfficials.length} officials from repository');
       
       // Apply additional distance filtering for away games if needed
       if (filterSettings != null) {
@@ -165,6 +179,19 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
         filteredOfficials.sort((a, b) => _getLastName(a['name'].toString()).toLowerCase().compareTo(_getLastName(b['name'].toString()).toLowerCase()));
         filteredOfficialsWithoutSearch.sort((a, b) => _getLastName(a['name'].toString()).toLowerCase().compareTo(_getLastName(b['name'].toString()).toLowerCase()));
         
+        // If in edit mode, restore previous selections based on initial officials
+        if (isEdit && initialOfficials.isNotEmpty) {
+          final initialOfficialIds = initialOfficials.map((o) => o['id']).toSet();
+          selectedOfficials.clear();
+          for (final official in officials) {
+            final officialId = official['id'];
+            if (officialId != null && initialOfficialIds.contains(officialId)) {
+              selectedOfficials[officialId] = true;
+            }
+          }
+        }
+        
+        filtersApplied = true;
         isLoading = false;
       });
       

@@ -109,20 +109,23 @@ class OfficialRepository extends BaseRepository {
     List<dynamic> queryArgs = [sportId];
 
     if (filters != null) {
-      // Apply certification level filters (inclusive OR logic)
-      final wantsRegistered = filters['ihsaRegistered'] ?? false;
-      final wantsRecognized = filters['ihsaRecognized'] ?? false;
-      final wantsCertified = filters['ihsaCertified'] ?? false;
-
-      if (wantsRegistered || wantsRecognized || wantsCertified) {
+      // Apply certification level filters (hierarchical)
+      final ihsaLevel = filters['ihsaLevel'] as String?;
+      
+      if (ihsaLevel != null) {
         List<String> certLevels = [];
         // Database stores certifications without "IHSA" prefix
-        if (wantsRegistered) certLevels.addAll(['Registered', 'Recognized', 'Certified']);
-        if (wantsRecognized) certLevels.addAll(['Recognized', 'Certified']);
-        if (wantsCertified) certLevels.add('Certified');
-        
-        // Remove duplicates
-        certLevels = certLevels.toSet().toList();
+        switch (ihsaLevel) {
+          case 'registered':
+            certLevels = ['Registered', 'Recognized', 'Certified'];
+            break;
+          case 'recognized':
+            certLevels = ['Recognized', 'Certified'];
+            break;
+          case 'certified':
+            certLevels = ['Certified'];
+            break;
+        }
         
         if (certLevels.isNotEmpty) {
           final placeholders = certLevels.map((_) => '?').join(',');
@@ -216,7 +219,7 @@ class OfficialRepository extends BaseRepository {
         'name': row['name'],
         'cityState': cityState,
         'distance':
-            10.0 + (row['id'] as int) * 2.5, // TODO: Calculate actual distance
+            10.0 + ((row['id'] as int) % 30) * 2.5, // TODO: Calculate actual distance - TEMP FIX to keep all under 100 miles
         'yearsExperience': row['years_experience'] ?? 0,
         // Hierarchical IHSA certification flags - higher levels include lower levels
         'ihsaRegistered': certLevel == 'IHSA Registered' ||

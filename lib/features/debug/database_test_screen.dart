@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:convert';
 import 'dart:math';
 import 'package:crypto/crypto.dart';
@@ -3268,6 +3269,44 @@ These locations are now available in the Test Assigner workspace for creating ga
             child: const Text('🏈 Create Bulk Schedules & Teams'),
           ),
         ),
+        // Web-specific test data buttons
+        if (kIsWeb) ...[
+          const SizedBox(height: 20),
+          const Divider(color: Colors.grey),
+          const SizedBox(height: 10),
+          const Text(
+            '🌐 WEB TESTING ONLY (Uses SharedPreferences)',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.orange,
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _createWebTestUsers,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.teal,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('🌐 Create Web Test Users (AD, Assigner, Coach, Officials)'),
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _clearWebTestData,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('🗑️ Clear Web Test Data'),
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -3691,5 +3730,142 @@ You can go back to the assigner home screen to see the changes!''';
         ],
       ),
     );
+  }
+
+  // Web-specific test data methods
+  Future<void> _createWebTestUsers() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      
+      // Create test users as JSON data
+      final testUsers = {
+        'athletic_director': {
+          'id': 1,
+          'username': 'ad_test',
+          'email': 'ad@test.com',
+          'password': 'test123',
+          'role': 'athletic_director',
+          'name': 'Test Athletic Director',
+          'school': 'Test High School',
+        },
+        'assigner': {
+          'id': 2,
+          'username': 'assigner_test',
+          'email': 'assigner@test.com',
+          'password': 'test123',
+          'role': 'assigner',
+          'name': 'Test Assigner',
+          'organization': 'Test Officials Association',
+        },
+        'coach': {
+          'id': 3,
+          'username': 'coach_test',
+          'email': 'coach@test.com',
+          'password': 'test123',
+          'role': 'coach',
+          'name': 'Test Coach',
+          'school': 'Test High School',
+        },
+      };
+      
+      // Create sample officials
+      final officials = <Map<String, dynamic>>[];
+      final officialNames = [
+        'John Smith', 'Mike Johnson', 'David Wilson', 'Robert Brown', 'James Davis',
+        'William Miller', 'Richard Moore', 'Charles Taylor', 'Joseph Anderson', 'Thomas Jackson'
+      ];
+      
+      for (int i = 0; i < officialNames.length; i++) {
+        officials.add({
+          'id': 100 + i,
+          'username': 'official_${i + 1}',
+          'email': 'official${i + 1}@test.com',
+          'password': 'test123',
+          'role': 'official',
+          'name': officialNames[i],
+          'certification': 'Certified',
+          'experience': '${(i % 10) + 1} years',
+          'city': 'Edwardsville, IL',
+        });
+      }
+      
+      // Store in SharedPreferences
+      await prefs.setString('web_test_users', jsonEncode(testUsers));
+      await prefs.setString('web_test_officials', jsonEncode(officials));
+      await prefs.setBool('web_test_data_created', true);
+      
+      setState(() {
+        testResult = '''✅ Web Test Users Created Successfully!
+
+📋 Test Users Available:
+• Athletic Director: ad_test / test123
+• Assigner: assigner_test / test123  
+• Coach: coach_test / test123
+• ${officials.length} Officials: official_1 to official_${officials.length} / test123
+
+🌐 Data stored in SharedPreferences for web testing.
+You can now test user flows and navigation!''';
+      });
+      
+    } catch (e) {
+      setState(() {
+        testResult = '❌ Error creating web test users: $e';
+      });
+    }
+  }
+
+  Future<void> _clearWebTestData() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      
+      // Get all keys to see what's stored
+      final allKeys = prefs.getKeys();
+      print('DEBUG: All SharedPreferences keys: $allKeys');
+      
+      // Clear test user data
+      await prefs.remove('web_test_users');
+      await prefs.remove('web_test_officials');
+      await prefs.remove('web_test_data_created');
+      await prefs.remove('current_user_id');
+      await prefs.remove('current_user_role');
+      await prefs.remove('user_session');
+      await prefs.remove('current_web_user');
+      
+      // Clear app data that might conflict
+      await prefs.remove('schedules');
+      await prefs.remove('schedule_names');
+      await prefs.remove('saved_schedules');
+      await prefs.remove('user_schedules');
+      await prefs.remove('created_schedules');
+      
+      // Clear any keys that contain 'schedule' or 'game'
+      final keysToRemove = allKeys.where((key) => 
+        key.toLowerCase().contains('schedule') || 
+        key.toLowerCase().contains('game') ||
+        key.toLowerCase().contains('team') ||
+        key.toLowerCase().contains('location')
+      ).toList();
+      
+      for (final key in keysToRemove) {
+        await prefs.remove(key);
+      }
+      
+      setState(() {
+        testResult = '''🗑️ Web data cleared successfully!
+
+Removed:
+• Test users and officials
+• User session data  
+• Schedule data: ${keysToRemove.length} keys
+• All cached app data
+
+You can now start fresh with creating schedules.''';
+      });
+      
+    } catch (e) {
+      setState(() {
+        testResult = '❌ Error clearing web test data: $e';
+      });
+    }
   }
 }
