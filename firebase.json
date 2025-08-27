@@ -16,5 +16,27 @@
         "destination": "/index.html"
       }
     ]
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "efficials-app",
+          "appId": "1:907190154709:android:d06353dd57ea575ff7f95c",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "efficials-app",
+          "configurations": {
+            "android": "1:907190154709:android:d06353dd57ea575ff7f95c",
+            "ios": "1:907190154709:ios:22d9971cdef82981f7f95c",
+            "web": "1:907190154709:web:a18d04881c49063ff7f95c",
+            "windows": "1:907190154709:web:d5bf1769d81eb731f7f95c"
+          }
+        }
+      }
+    }
   }
 }

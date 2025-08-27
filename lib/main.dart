@@ -6,6 +6,7 @@ import 'firebase_options.dart';
 import 'dart:io' show Platform;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'shared/services/migration_service.dart';
+import 'shared/services/repositories/official_repository.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 
 // Auth screens
@@ -123,13 +124,21 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  
+  // Initialize unified data service and repositories
+  print('DEBUG: Initializing unified data service...');
+  final officialRepository = OfficialRepository();
+  await officialRepository.initialize();
+  print('DEBUG: Unified data service initialized successfully');
 
   // Initialize sqflite for desktop platforms (skip on web)
   if (!kIsWeb) {
     try {
       if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
+        print('DEBUG: Initializing sqflite for desktop platform...');
         sqfliteFfiInit();
         databaseFactory = databaseFactoryFfi;
+        print('DEBUG: Database factory set successfully');
       }
     } catch (e) {
       print('Platform check failed: $e');
@@ -139,7 +148,9 @@ void main() async {
   // Initialize database and run migration (skip on web)
   if (!kIsWeb) {
     try {
+      print('DEBUG: Starting database initialization...');
       await MigrationService().initializeDatabase();
+      print('DEBUG: Database initialization completed successfully');
     } catch (e) {
       print('Database initialization failed: $e');
       // Continue without database - app should still work with SharedPreferences

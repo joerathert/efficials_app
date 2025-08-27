@@ -6,6 +6,7 @@ import '../../shared/services/repositories/sport_repository.dart';
 import '../../shared/services/repositories/user_repository.dart';
 import '../../shared/services/game_service.dart';
 import '../../shared/services/location_service.dart';
+import '../../shared/widgets/responsive_layout.dart';
 
 class CreateGameTemplateScreen extends StatefulWidget {
   const CreateGameTemplateScreen({super.key});
@@ -794,13 +795,14 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: SingleChildScrollView(
-        padding: EdgeInsets.only(
-          left: 16.0,
-          right: 16.0,
-          top: 16.0,
-          bottom: MediaQuery.of(context).padding.bottom + 90, // Add bottom padding for system nav bar + button bar
-        ),
+      body: ResponsiveLayout(
+        child: SingleChildScrollView(
+          padding: EdgeInsets.only(
+            left: 16.0,
+            right: 16.0,
+            top: 16.0,
+            bottom: MediaQuery.of(context).padding.bottom + 90, // Add bottom padding for system nav bar + button bar
+          ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -814,10 +816,12 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                 'Checkboxes indicate which fields will be included in the template',
                 style: TextStyle(fontSize: 14, color: Colors.grey)),
             const SizedBox(height: 16),
-            TextField(
-              controller: _nameController,
-              decoration: textFieldDecoration('Template Name'),
-              style: const TextStyle(fontSize: 18, color: Colors.white),
+            ResponsiveFormField(
+              child: TextField(
+                controller: _nameController,
+                decoration: textFieldDecoration('Template Name'),
+                style: const TextStyle(fontSize: 18, color: Colors.white),
+              ),
             ),
             const SizedBox(height: 20),
             // Basic Information Section
@@ -855,8 +859,9 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                             Expanded(
                               child: isLoadingSports
                                   ? const CircularProgressIndicator()
-                                  : DropdownButtonFormField<String>(
-                                      decoration: textFieldDecoration('Sport'),
+                                  : ResponsiveFormField(
+                                      child: DropdownButtonFormField<String>(
+                                        decoration: textFieldDecoration('Sport'),
                                       value: sport != null &&
                                               availableSports.contains(sport)
                                           ? sport
@@ -879,6 +884,7 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                                                   color: Colors.white)),
                                         );
                                       }).toList(),
+                                      ),
                                     ),
                             ),
                           ],
@@ -1098,9 +1104,10 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                         checkColor: efficialsBlack,
                       ),
                       Expanded(
-                        child: DropdownButtonFormField<String>(
-                          decoration:
-                              textFieldDecoration('Level of Competition'),
+                        child: ResponsiveFormField(
+                          child: DropdownButtonFormField<String>(
+                            decoration:
+                                textFieldDecoration('Level of Competition'),
                           value: levelOfCompetition != null && 
                                   competitionLevels.contains(levelOfCompetition) 
                               ? levelOfCompetition 
@@ -1125,6 +1132,7 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                                       fontSize: 16, color: Colors.white)),
                             );
                           }).toList(),
+                          ),
                         ),
                       ),
                     ],
@@ -1484,6 +1492,7 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
           ],
         ),
       ),
+      ),
       bottomNavigationBar: Container(
         color: efficialsBlack,
         padding: EdgeInsets.only(
@@ -1492,10 +1501,12 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
           top: 16,
           bottom: MediaQuery.of(context).padding.bottom + 16,
         ),
-        child: ElevatedButton(
-          onPressed: _saveTemplate,
-          style: elevatedButtonStyle(),
-          child: const Text('Save Template', style: signInButtonTextStyle),
+        child: ResponsiveButton(
+          child: ElevatedButton(
+            onPressed: _saveTemplate,
+            style: elevatedButtonStyle(),
+            child: const Text('Save Template', style: signInButtonTextStyle),
+          ),
         ),
       ),
     );

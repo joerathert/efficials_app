@@ -28,7 +28,6 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
     ];
     _fetchLists();
   }
-  
 
   @override
   void didChangeDependencies() {
@@ -48,7 +47,7 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
         _fetchLists();
       }
     }
-    
+
     // Always refresh the lists when this screen becomes active
     // This ensures we see updated counts when returning from editing workflows
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -61,6 +60,7 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
   Future<void> _fetchLists() async {
     try {
       final userId = await UserSessionService.instance.getCurrentUserId();
+
       if (userId == null) {
         setState(() {
           lists = [
@@ -73,21 +73,22 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
       }
 
       final userLists = await _listRepository.getLists(userId);
-      
+
       setState(() {
         lists.clear();
-        
+
         if (userLists.isNotEmpty) {
           lists = userLists.map((list) {
             return {
               'name': list['name'],
               'id': list['id'],
-              'sport': list['sport_name'],
+              'sport': list['sport_name'] ?? list['sport'],
               'officials': list['officials'] ?? [],
+              'official_count': list['official_count'] ?? 0,
             };
           }).toList();
-        }
-        
+        } else {}
+
         if (lists.isEmpty) {
           lists.add({'name': 'No saved lists', 'id': -1});
         }
@@ -95,6 +96,8 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
         isLoading = false;
       });
     } catch (e) {
+      print('ERROR: Exception in _fetchLists: $e');
+      print('ERROR: Stack trace: ${StackTrace.current}');
       setState(() {
         lists = [
           {'name': 'No saved lists', 'id': -1},
@@ -203,7 +206,6 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
     List<Map<String, dynamic>> actualLists =
         lists.where((list) => list['id'] != 0 && list['id'] != -1).toList();
 
-
     // If coming from template creation, filter by sport
     if (fromTemplateCreation && sport != 'Unknown Sport') {
       actualLists = actualLists.where((list) {
@@ -284,77 +286,50 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                                   ),
                                 ),
                                 const SizedBox(height: 24),
-                                Container(
-                                  width: 250,
-                                  child: ElevatedButton.icon(
-                                    onPressed: () async {
-                                      final existingListNames = actualLists
-                                          .map((list) => list['name'] as String)
-                                          .toList();
+                                ElevatedButton.icon(
+                                  onPressed: () {
+                                    // Extract existing list names for duplicate checking
+                                    final existingListNames = lists
+                                        .where((list) =>
+                                            list['id'] != 0 && list['id'] != -1)
+                                        .map((list) => list['name'] as String)
+                                        .toList();
 
-                                      // Get current user info
-                                      final userInfo = await UserSessionService
-                                          .instance
-                                          .getCurrentUserInfo();
-                                      final isAssigner = userInfo != null &&
-                                          userInfo['schedulerType'] ==
-                                              'assigner';
-                                      final assignerSport = isAssigner
-                                          ? userInfo['sport'] as String?
-                                          : null;
-
-                                      final Map<String, dynamic>
-                                          navigationArgs = {
-                                        'existingLists': existingListNames,
+                                    Navigator.pushNamed(
+                                      context,
+                                      '/create_new_list', // Go to sport selection first
+                                      arguments: {
                                         'fromGameCreation': isFromGameCreation,
-                                        'sport':
-                                            isAssigner && assignerSport != null
-                                                ? assignerSport
-                                                : sport,
-                                      };
-
-                                      if (args != null) {
-                                        navigationArgs.addAll(
-                                            Map<String, dynamic>.from(args));
+                                        'existingLists': existingListNames,
+                                        if (args != null) ...args,
+                                      },
+                                    ).then((result) async {
+                                      if (result != null) {
+                                        final resultMap =
+                                            result as Map<String, dynamic>;
+                                        await _handleNewListResult(
+                                            resultMap,
+                                            resultMap['sport'] ??
+                                                'Unknown Sport');
                                       }
-
-                                      final route =
-                                          isAssigner && assignerSport != null
-                                              ? '/name_list'
-                                              : '/create_new_list';
-                                      final effectiveSport =
-                                          isAssigner && assignerSport != null
-                                              ? assignerSport
-                                              : sport;
-
-                                      Navigator.pushNamed(
-                                        context,
-                                        route,
-                                        arguments: navigationArgs,
-                                      ).then((result) async {
-                                        if (result != null) {
-                                          await _handleNewListResult(
-                                              result, effectiveSport);
-                                        }
-                                      });
-                                    },
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: efficialsYellow,
-                                      foregroundColor: efficialsBlack,
-                                      padding: const EdgeInsets.symmetric(
-                                          vertical: 15, horizontal: 32),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
+                                    });
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: efficialsYellow,
+                                    foregroundColor: efficialsBlack,
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 15, horizontal: 32),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
                                     ),
-                                    icon: const Icon(Icons.add,
-                                        color: efficialsBlack),
-                                    label: const Text(
-                                      'Create New List',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                      ),
+                                  ),
+                                  icon: const Icon(Icons.add,
+                                      color: efficialsBlack),
+                                  label: const Text(
+                                    'Create New List',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
                                     ),
                                   ),
                                 ),
@@ -390,10 +365,12 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                                       itemBuilder: (context, index) {
                                         final list = actualLists[index];
                                         final listName = list['name'] as String;
-                                        final officials = list['officials']
-                                                as List<dynamic>? ??
-                                            [];
-                                        final officialCount = officials.length;
+                                        final officialCount =
+                                            list['official_count'] as int? ??
+                                                (list['officials']
+                                                            as List<dynamic>? ??
+                                                        [])
+                                                    .length;
 
                                         return Padding(
                                           padding: const EdgeInsets.only(
@@ -479,7 +456,32 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                                                         MainAxisSize.min,
                                                     children: [
                                                       IconButton(
-                                                        onPressed: () {
+                                                        onPressed: () async {
+                                                          // Load officials for this list if not already loaded
+                                                          final officials = list[
+                                                                      'officials']
+                                                                  as List<
+                                                                      dynamic>? ??
+                                                              [];
+                                                          if (officials
+                                                                  .isEmpty &&
+                                                              list['original_id'] !=
+                                                                  null) {
+                                                            // Need to load officials from Firebase for editing
+                                                            try {
+                                                              final loadedOfficials =
+                                                                  await _listRepository
+                                                                      .getListOfficials(
+                                                                          list[
+                                                                              'original_id']);
+                                                              officials.addAll(
+                                                                  loadedOfficials);
+                                                            } catch (e) {
+                                                              print(
+                                                                  'Error loading officials for edit: $e');
+                                                            }
+                                                          }
+
                                                           Navigator.pushNamed(
                                                             context,
                                                             '/edit_list',
@@ -558,79 +560,54 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                                   ),
                                   const SizedBox(height: 20),
                                   Center(
-                                    child: Container(
-                                      width: 250,
-                                      child: ElevatedButton.icon(
-                                        onPressed: () async {
-                                          final existingListNames = actualLists
-                                              .map((list) =>
-                                                  list['name'] as String)
-                                              .toList();
+                                    child: ElevatedButton.icon(
+                                      onPressed: () {
+                                        // Extract existing list names for duplicate checking
+                                        final existingListNames = lists
+                                            .where((list) =>
+                                                list['id'] != 0 &&
+                                                list['id'] != -1)
+                                            .map((list) =>
+                                                list['name'] as String)
+                                            .toList();
 
-                                          // Get current user info
-                                          final userInfo = await UserSessionService
-                                              .instance
-                                              .getCurrentUserInfo();
-                                          final isAssigner = userInfo != null &&
-                                              userInfo['schedulerType'] ==
-                                                  'assigner';
-                                          final assignerSport = isAssigner
-                                              ? userInfo['sport'] as String?
-                                              : null;
-
-                                          final Map<String, dynamic>
-                                              navigationArgs = {
+                                        Navigator.pushNamed(
+                                          context,
+                                          '/create_new_list', // Go to sport selection first
+                                          arguments: {
+                                            'fromGameCreation':
+                                                isFromGameCreation,
                                             'existingLists': existingListNames,
-                                            'fromGameCreation': isFromGameCreation,
-                                            'sport':
-                                                isAssigner && assignerSport != null
-                                                    ? assignerSport
-                                                    : sport,
-                                          };
-
-                                          if (args != null) {
-                                            navigationArgs.addAll(
-                                                Map<String, dynamic>.from(args));
+                                            if (args != null) ...args,
+                                          },
+                                        ).then((result) async {
+                                          if (result != null) {
+                                            final resultMap =
+                                                result as Map<String, dynamic>;
+                                            await _handleNewListResult(
+                                                resultMap,
+                                                resultMap['sport'] ??
+                                                    'Unknown Sport');
                                           }
-
-                                          final route =
-                                              isAssigner && assignerSport != null
-                                                  ? '/name_list'
-                                                  : '/create_new_list';
-                                          final effectiveSport =
-                                              isAssigner && assignerSport != null
-                                                  ? assignerSport
-                                                  : sport;
-
-                                          Navigator.pushNamed(
-                                            context,
-                                            route,
-                                            arguments: navigationArgs,
-                                          ).then((result) async {
-                                            if (result != null) {
-                                              await _handleNewListResult(
-                                                  result, effectiveSport);
-                                            }
-                                          });
-                                        },
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: efficialsYellow,
-                                          foregroundColor: efficialsBlack,
-                                          padding: const EdgeInsets.symmetric(
-                                              vertical: 15, horizontal: 32),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius:
-                                                BorderRadius.circular(8),
-                                          ),
+                                        });
+                                      },
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: efficialsYellow,
+                                        foregroundColor: efficialsBlack,
+                                        padding: const EdgeInsets.symmetric(
+                                            vertical: 15, horizontal: 32),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(8),
                                         ),
-                                        icon: const Icon(Icons.add,
-                                            color: efficialsBlack),
-                                        label: const Text(
-                                          'Create New List',
-                                          style: TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold,
-                                          ),
+                                      ),
+                                      icon: const Icon(Icons.add,
+                                          color: efficialsBlack),
+                                      label: const Text(
+                                        'Create New List',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
                                         ),
                                       ),
                                     ),
@@ -650,12 +627,12 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
   Future<void> _handleNewListResult(dynamic result, String sport) async {
     // Refresh lists from database
     await _fetchLists();
-    
+
     final newList = result as Map<String, dynamic>;
     setState(() {
       selectedList = newList['listName'] as String;
     });
-    
+
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('List created successfully!')),
     );
@@ -665,14 +642,14 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
       dynamic result, Map<String, dynamic> originalList) async {
     final updatedList = result as Map<String, dynamic>;
     final listId = updatedList['id'] as int?;
-    
+
     // Refresh lists from database
     await _fetchLists();
-    
+
     setState(() {
       selectedList = updatedList['name'] as String;
     });
-    
+
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('List updated successfully!')),
     );

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../shared/theme.dart';
+import '../../shared/widgets/responsive_layout.dart';
 
 class NameListScreen extends StatefulWidget {
   const NameListScreen({super.key});
@@ -78,10 +79,11 @@ class _NameListScreenState extends State<NameListScreen> {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20.0),
-          child: ConstrainedBox(
+      body: ResponsiveLayout(
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20.0),
+            child: ConstrainedBox(
             constraints: BoxConstraints(
               minHeight: MediaQuery.of(context).size.height -
                   MediaQuery.of(context).padding.top -
@@ -129,20 +131,23 @@ class _NameListScreenState extends State<NameListScreen> {
                           textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 24),
-                        TextField(
-                          controller: _nameController,
-                          decoration: textFieldDecoration(
-                              'Ex. Varsity $sport Officials'),
-                          textAlign: TextAlign.left,
-                          style: const TextStyle(
-                              fontSize: 18, color: Colors.white),
+                        ResponsiveFormField(
+                          child: TextField(
+                            controller: _nameController,
+                            decoration: textFieldDecoration(
+                                'Ex. Varsity $sport Officials'),
+                            textAlign: TextAlign.left,
+                            style: const TextStyle(
+                                fontSize: 18, color: Colors.white),
+                          ),
                         ),
                       ],
                     ),
                   ),
                   const Spacer(),
                   const SizedBox(height: 20),
-                  ElevatedButton(
+                  ResponsiveButton(
+                    child: ElevatedButton(
                     onPressed: () {
                       final name = _nameController.text.trim();
                       if (name.isEmpty) {
@@ -193,10 +198,12 @@ class _NameListScreenState extends State<NameListScreen> {
                     },
                     style: elevatedButtonStyle(),
                     child: const Text('Continue', style: signInButtonTextStyle),
+                    ),
                   ),
                   const SizedBox(height: 20),
                 ],
               ),
+            ),
             ),
           ),
         ),

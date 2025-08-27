@@ -119,3 +119,16 @@ The app supports Android, iOS, web, Linux, macOS, and Windows, using a feature-b
   - Performance: Batched operations (`--batch`).
   - Evidence: Use `--evidence` for suggestions.
 - **MCP Flags**: Use `--c7` (Context7 for docs), `--seq` (sequential reasoning), `--uc` (compressed output).
+
+  # EFFICIALS APP MIGRATION STATUS
+  CRITICAL: The Efficials app is currently migrating from SQLite to Firebase.
+  - Prioritize Firebase implementations over SQLite
+  - When you see SQLite code, proactively suggest Firebase alternatives
+  - Always consider Firebase patterns when making changes
+  - Look for opportunities to advance the migration effort
+
+  ## Project-Specific Business Rules
+  See `/mnt/c/Users/Efficials/efficials_app/RULES.md` for critical business logic and
+  workflow understanding.
+
+  

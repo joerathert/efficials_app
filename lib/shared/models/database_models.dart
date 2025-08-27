@@ -155,22 +155,23 @@ class Schedule {
     this.sportName,
   }) : createdAt = createdAt ?? DateTime.now();
 
-  Map<String, dynamic> toMap({bool excludeId = false, bool excludeCreatedAt = false}) {
+  Map<String, dynamic> toMap(
+      {bool excludeId = false, bool excludeCreatedAt = false}) {
     final map = <String, dynamic>{
       'name': name,
       'sport_id': sportId,
       'user_id': userId,
       'home_team_name': homeTeamName,
     };
-    
+
     if (!excludeId) {
       map['id'] = id;
     }
-    
+
     if (!excludeCreatedAt) {
       map['created_at'] = createdAt.toIso8601String();
     }
-    
+
     return map;
   }
 
@@ -328,27 +329,27 @@ class Official {
   factory Official.fromMap(Map<String, dynamic> map) {
     return Official(
       id: map['id']?.toInt(),
-      name: map['name'] ?? '',
+      name: map['name']?.toString() ?? '',
       sportId: map['sport_id']?.toInt(),
-      rating: map['rating'],
+      rating: map['rating']?.toString(),
       userId: map['user_id']?.toInt() ?? 0,
       officialUserId: map['official_user_id']?.toInt(),
-      email: map['email'],
-      phone: map['phone'],
-      city: map['city'],
-      state: map['state'],
-      availabilityStatus: map['availability_status'] ?? 'available',
-      profileImageUrl: map['profile_image_url'],
-      bio: map['bio'],
+      email: map['email']?.toString(),
+      phone: map['phone']?.toString(),
+      city: map['city']?.toString(),
+      state: map['state']?.toString(),
+      availabilityStatus: map['availability_status']?.toString() ?? 'available',
+      profileImageUrl: map['profile_image_url']?.toString(),
+      bio: map['bio']?.toString(),
       experienceYears: map['experience_years']?.toInt(),
-      certificationLevel: map['certification_level'],
+      certificationLevel: map['certification_level']?.toString(),
       isUserAccount: (map['is_user_account'] ?? 0) == 1,
       followThroughRate: (map['follow_through_rate'] ?? 100.0).toDouble(),
       totalAcceptedGames: map['total_accepted_games']?.toInt() ?? 0,
       totalBackedOutGames: map['total_backed_out_games']?.toInt() ?? 0,
-      createdAt:
-          DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
-      sportName: map['sport_name'],
+      createdAt: DateTime.parse(
+          map['created_at']?.toString() ?? DateTime.now().toIso8601String()),
+      sportName: map['sport_name']?.toString(),
     );
   }
 }
@@ -871,19 +872,19 @@ class OfficialUser {
   factory OfficialUser.fromMap(Map<String, dynamic> map) {
     return OfficialUser(
       id: map['id']?.toInt(),
-      email: map['email'] ?? '',
-      passwordHash: map['password_hash'] ?? '',
-      phone: map['phone'],
-      firstName: map['first_name'] ?? '',
-      lastName: map['last_name'] ?? '',
+      email: map['email']?.toString() ?? '',
+      passwordHash: map['password_hash']?.toString() ?? '',
+      phone: map['phone']?.toString(),
+      firstName: map['first_name']?.toString() ?? '',
+      lastName: map['last_name']?.toString() ?? '',
       profileVerified: (map['profile_verified'] ?? 0) == 1,
       emailVerified: (map['email_verified'] ?? 0) == 1,
       phoneVerified: (map['phone_verified'] ?? 0) == 1,
-      status: map['status'] ?? 'active',
-      createdAt:
-          DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
-      updatedAt:
-          DateTime.parse(map['updated_at'] ?? DateTime.now().toIso8601String()),
+      status: map['status']?.toString() ?? 'active',
+      createdAt: DateTime.parse(
+          map['created_at']?.toString() ?? DateTime.now().toIso8601String()),
+      updatedAt: DateTime.parse(
+          map['updated_at']?.toString() ?? DateTime.now().toIso8601String()),
     );
   }
 }
@@ -972,56 +973,57 @@ class GameAssignment {
       id: map['id']?.toInt(),
       gameId: map['game_id']?.toInt() ?? 0,
       officialId: map['official_id']?.toInt() ?? 0,
-      position: map['position'],
-      status: map['status'] ?? 'pending',
+      position: map['position']?.toString(),
+      status: map['status']?.toString() ?? 'pending',
       assignedBy: map['assigned_by']?.toInt() ?? 0,
       assignedAt: DateTime.parse(
-          map['assigned_at'] ?? DateTime.now().toIso8601String()),
+          map['assigned_at']?.toString() ?? DateTime.now().toIso8601String()),
       respondedAt: map['responded_at'] != null
-          ? DateTime.parse(map['responded_at'])
+          ? DateTime.parse(map['responded_at'].toString())
           : null,
-      responseNotes: map['response_notes'],
+      responseNotes: map['response_notes']?.toString(),
       feeAmount: map['fee_amount'] != null
           ? double.tryParse(map['fee_amount'].toString()) ?? 0.0
           : 0.0,
       backedOutAt: map['backed_out_at'] != null
-          ? DateTime.parse(map['backed_out_at'])
+          ? DateTime.parse(map['backed_out_at'].toString())
           : null,
-      backOutReason: map['back_out_reason'],
+      backOutReason: map['back_out_reason']?.toString(),
       excusedBackout: (map['excused_backout'] ?? 0) == 1,
-      excusedAt:
-          map['excused_at'] != null ? DateTime.parse(map['excused_at']) : null,
+      excusedAt: map['excused_at'] != null
+          ? DateTime.parse(map['excused_at'].toString())
+          : null,
       excusedBy: map['excused_by']?.toInt(),
-      excuseReason: map['excuse_reason'],
+      excuseReason: map['excuse_reason']?.toString(),
     );
 
     // Add additional fields from JOIN queries if they exist
     if (map.containsKey('date')) {
       assignment._gameDate =
-          map['date'] != null ? DateTime.parse(map['date']) : null;
+          map['date'] != null ? DateTime.parse(map['date'].toString()) : null;
     }
     if (map.containsKey('time')) {
       assignment._gameTime = map['time'] != null
-          ? DateTime.parse('1970-01-01 ${map['time']}')
+          ? DateTime.parse('1970-01-01 ${map['time'].toString()}')
           : null;
     }
     if (map.containsKey('sport_name')) {
-      assignment._sportName = map['sport_name'];
+      assignment._sportName = map['sport_name']?.toString();
     }
     if (map.containsKey('opponent')) {
-      assignment._opponent = map['opponent'];
+      assignment._opponent = map['opponent']?.toString();
     }
     if (map.containsKey('home_team')) {
-      assignment._homeTeam = map['home_team'];
+      assignment._homeTeam = map['home_team']?.toString();
     }
     if (map.containsKey('location_name')) {
-      assignment._locationName = map['location_name'];
+      assignment._locationName = map['location_name']?.toString();
     }
     if (map.containsKey('location_address')) {
-      assignment._locationAddress = map['location_address'];
+      assignment._locationAddress = map['location_address']?.toString();
     }
     if (map.containsKey('schedule_name')) {
-      assignment._scheduleName = map['schedule_name'];
+      assignment._scheduleName = map['schedule_name']?.toString();
     }
 
     return assignment;
@@ -1134,13 +1136,13 @@ class OfficialSport {
       id: map['id']?.toInt(),
       officialId: map['official_id']?.toInt() ?? 0,
       sportId: map['sport_id']?.toInt() ?? 0,
-      certificationLevel: map['certification_level'],
+      certificationLevel: map['certification_level']?.toString(),
       yearsExperience: map['years_experience']?.toInt(),
-      competitionLevels: map['competition_levels'],
+      competitionLevels: map['competition_levels']?.toString(),
       isPrimary: (map['is_primary'] ?? 0) == 1,
-      createdAt:
-          DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
-      sportName: map['sport_name'],
+      createdAt: DateTime.parse(
+          map['created_at']?.toString() ?? DateTime.now().toIso8601String()),
+      sportName: map['sport_name']?.toString(),
     );
   }
 }
@@ -1184,13 +1186,15 @@ class OfficialNotification {
     return OfficialNotification(
       id: map['id']?.toInt(),
       officialId: map['official_id']?.toInt() ?? 0,
-      type: map['type'] ?? '',
-      title: map['title'] ?? '',
-      message: map['message'] ?? '',
+      type: map['type']?.toString() ?? '',
+      title: map['title']?.toString() ?? '',
+      message: map['message']?.toString() ?? '',
       relatedGameId: map['related_game_id']?.toInt(),
-      readAt: map['read_at'] != null ? DateTime.parse(map['read_at']) : null,
-      createdAt:
-          DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
+      readAt: map['read_at'] != null
+          ? DateTime.parse(map['read_at'].toString())
+          : null,
+      createdAt: DateTime.parse(
+          map['created_at']?.toString() ?? DateTime.now().toIso8601String()),
     );
   }
 }

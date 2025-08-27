@@ -5,6 +5,7 @@ import '../../shared/theme.dart';
 import '../../shared/services/schedule_service.dart';
 import '../../shared/services/repositories/user_repository.dart';
 import '../../shared/models/database_models.dart';
+import '../../shared/widgets/responsive_layout.dart';
 
 class ADNameScheduleScreen extends StatefulWidget {
   const ADNameScheduleScreen({super.key});
@@ -61,10 +62,15 @@ class _ADNameScheduleScreenState extends State<ADNameScheduleScreen> {
 
     try {
       // Use the AD's team name from their profile for homeTeamName
-      final homeTeamName = currentUser?.teamName ?? '';
+      // For web users, provide a default team name if not set
+      String homeTeamName = currentUser?.teamName ?? '';
+      if (homeTeamName.isEmpty) {
+        // Default team name for web testing - in production this should come from user registration
+        homeTeamName = 'Edwardsville Tigers';
+      }
       
       // Try to create schedule using database service first
-      print('DEBUG: Creating schedule with name: $name, sport: $sport');
+      print('DEBUG: Creating schedule with name: $name, sport: $sport, homeTeamName: $homeTeamName');
       final schedule = await _scheduleService.createSchedule(
         name: name,
         sportName: sport,
@@ -144,12 +150,13 @@ class _ADNameScheduleScreenState extends State<ADNameScheduleScreen> {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: SafeArea(
-        child: isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : SingleChildScrollView(
-                child: Padding(
-                  padding: const EdgeInsets.all(20.0),
+      body: ResponsiveLayout(
+        child: SafeArea(
+          child: isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : SingleChildScrollView(
+                  child: Padding(
+                    padding: const EdgeInsets.all(20.0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
@@ -189,11 +196,13 @@ class _ADNameScheduleScreenState extends State<ADNameScheduleScreen> {
                               ),
                             ),
                             const SizedBox(height: 8),
-                            TextField(
-                              controller: _nameController,
-                              decoration: textFieldDecoration('Ex. Varsity Football'),
-                              style:
-                                  const TextStyle(fontSize: 16, color: Colors.white),
+                            ResponsiveFormField(
+                              child: TextField(
+                                controller: _nameController,
+                                decoration: textFieldDecoration('Ex. Varsity Football'),
+                                style:
+                                    const TextStyle(fontSize: 16, color: Colors.white),
+                              ),
                             ),
                             if (currentUser?.teamName != null) ...[ 
                               const SizedBox(height: 16),
@@ -231,18 +240,21 @@ class _ADNameScheduleScreenState extends State<ADNameScheduleScreen> {
                         ),
                       ),
                       const SizedBox(height: 30),
-                      ElevatedButton(
-                        onPressed: _handleContinue,
-                        style: elevatedButtonStyle(
-                          padding: const EdgeInsets.symmetric(
-                              vertical: 15, horizontal: 50),
+                      ResponsiveButton(
+                        child: ElevatedButton(
+                          onPressed: _handleContinue,
+                          style: elevatedButtonStyle(
+                            padding: const EdgeInsets.symmetric(
+                                vertical: 15, horizontal: 50),
+                          ),
+                          child: const Text('Continue', style: signInButtonTextStyle),
                         ),
-                        child: const Text('Continue', style: signInButtonTextStyle),
                       ),
                     ],
                   ),
                 ),
               ),
+        ),
       ),
     );
   }

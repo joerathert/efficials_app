@@ -105,8 +105,16 @@ class UserSessionService {
 
   /// Clear the current user session (logout)
   Future<void> clearSession() async {
-    final db = await DatabaseHelper().database;
-    await db.delete(_sessionTableName);
+    if (kIsWeb) {
+      // Web platform: clear SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('user_session');
+      print('DEBUG: User session cleared from SharedPreferences');
+    } else {
+      // Mobile platform: clear database
+      final db = await DatabaseHelper().database;
+      await db.delete(_sessionTableName);
+    }
   }
   
   /// Get the current session data from database

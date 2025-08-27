@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../shared/theme.dart';
+import '../../shared/widgets/responsive_layout.dart';
 import '../games/game_template.dart';
 import '../../shared/services/repositories/official_repository.dart';
 import '../../shared/services/repositories/user_repository.dart';
@@ -382,10 +383,11 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: SingleChildScrollView(
+      body: ResponsiveLayout(
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
@@ -424,126 +426,132 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 30),
-                      SizedBox(
-                        width: 200,
-                        child: ElevatedButton(
-                          onPressed: () async {
-                            final currentSportListsCount =
-                                await _getListsCountBySport(sport);
-                            if (currentSportListsCount < 2) {
-                              _showInsufficientListsDialog();
-                            } else {
-                              _saveDefaultChoice('advanced');
-                              if (mounted) {
-                                // ignore: use_build_context_synchronously
-                                Navigator.pushNamed(
-                                  context,
-                                  '/advanced_officials_selection',
-                                  arguments: <String, dynamic>{
-                                    ...args,
-                                    'sport': sport,
-                                    'listName': listName,
-                                    'listId': listId,
-                                    'locationData': args['locationData'],
-                                    'isAwayGame': args['isAwayGame'] ?? false,
-                                    'template': template,
-                                    'fromScheduleDetails':
-                                        args['fromScheduleDetails'] ??
-                                            false, // Add flag
-                                    'scheduleId':
-                                        args['scheduleId'], // Add scheduleId
-                                  },
-                                );
+                      ResponsiveButton(
+                        child: SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: () async {
+                              final currentSportListsCount =
+                                  await _getListsCountBySport(sport);
+                              if (currentSportListsCount < 2) {
+                                _showInsufficientListsDialog();
+                              } else {
+                                _saveDefaultChoice('advanced');
+                                if (mounted) {
+                                  // ignore: use_build_context_synchronously
+                                  Navigator.pushNamed(
+                                    context,
+                                    '/advanced_officials_selection',
+                                    arguments: <String, dynamic>{
+                                      ...args,
+                                      'sport': sport,
+                                      'listName': listName,
+                                      'listId': listId,
+                                      'locationData': args['locationData'],
+                                      'isAwayGame': args['isAwayGame'] ?? false,
+                                      'template': template,
+                                      'fromScheduleDetails':
+                                          args['fromScheduleDetails'] ??
+                                              false, // Add flag
+                                      'scheduleId':
+                                          args['scheduleId'], // Add scheduleId
+                                    },
+                                  );
+                                }
                               }
-                            }
-                          },
-                          style: elevatedButtonStyle(
-                            padding: const EdgeInsets.symmetric(
-                                vertical: 15, horizontal: 32),
+                            },
+                            style: elevatedButtonStyle(
+                              padding: const EdgeInsets.symmetric(
+                                  vertical: 15, horizontal: 32),
+                            ),
+                            child: const Text('Multiple Lists',
+                                style: signInButtonTextStyle),
                           ),
-                          child: const Text('Multiple Lists',
-                              style: signInButtonTextStyle),
                         ),
                       ),
                       const SizedBox(height: 16),
-                      SizedBox(
-                        width: 200,
-                        child: ElevatedButton(
-                          onPressed: () {
-                            _saveDefaultChoice('use_list');
-                            Navigator.pushNamed(
-                              context,
-                              '/lists_of_officials',
-                              arguments: <String, dynamic>{
-                                ...args,
-                                'fromGameCreation': true,
-                                'locationData': args['locationData'],
-                                'isAwayGame': args['isAwayGame'] ?? false,
-                                'template': template,
-                                'fromScheduleDetails':
-                                    args['fromScheduleDetails'] ??
-                                        false, // Add flag
-                                'scheduleId':
-                                    args['scheduleId'], // Add scheduleId
-                                'fromTemplateCreation': template !=
-                                    null, // Add template creation flag
-                              },
-                            ).then((result) {
-                              if (result != null) {
-                                Navigator.pushNamed(
-                                  context,
-                                  '/review_game_info',
-                                  arguments: <String, dynamic>{
-                                    ...result as Map<String, dynamic>,
-                                    'template': template,
-                                    'fromScheduleDetails':
-                                        args['fromScheduleDetails'] ??
-                                            false, // Add flag
-                                    'scheduleId':
-                                        args['scheduleId'], // Add scheduleId
-                                  },
-                                );
-                              }
-                            });
-                          },
-                          style: elevatedButtonStyle(
-                            padding: const EdgeInsets.symmetric(
-                                vertical: 15, horizontal: 32),
+                      ResponsiveButton(
+                        child: SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: () {
+                              _saveDefaultChoice('use_list');
+                              Navigator.pushNamed(
+                                context,
+                                '/lists_of_officials',
+                                arguments: <String, dynamic>{
+                                  ...args,
+                                  'fromGameCreation': true,
+                                  'locationData': args['locationData'],
+                                  'isAwayGame': args['isAwayGame'] ?? false,
+                                  'template': template,
+                                  'fromScheduleDetails':
+                                      args['fromScheduleDetails'] ??
+                                          false, // Add flag
+                                  'scheduleId':
+                                      args['scheduleId'], // Add scheduleId
+                                  'fromTemplateCreation': template !=
+                                      null, // Add template creation flag
+                                },
+                              ).then((result) {
+                                if (result != null) {
+                                  Navigator.pushNamed(
+                                    context,
+                                    '/review_game_info',
+                                    arguments: <String, dynamic>{
+                                      ...result as Map<String, dynamic>,
+                                      'template': template,
+                                      'fromScheduleDetails':
+                                          args['fromScheduleDetails'] ??
+                                              false, // Add flag
+                                      'scheduleId':
+                                          args['scheduleId'], // Add scheduleId
+                                    },
+                                  );
+                                }
+                              });
+                            },
+                            style: elevatedButtonStyle(
+                              padding: const EdgeInsets.symmetric(
+                                  vertical: 15, horizontal: 32),
+                            ),
+                            child: const Text('Single List',
+                                style: signInButtonTextStyle),
                           ),
-                          child: const Text('Single List',
-                              style: signInButtonTextStyle),
                         ),
                       ),
                       const SizedBox(height: 16),
-                      SizedBox(
-                        width: 200,
-                        child: ElevatedButton(
-                          onPressed: () {
-                            _saveDefaultChoice('hire_crew');
-                            Navigator.pushNamed(
-                              context,
-                              '/select_crew',
-                              arguments: <String, dynamic>{
-                                ...args,
-                                'sport': sport,
-                                'listName': listName,
-                                'listId': listId,
-                                'method': 'hire_crew',
-                                'locationData': args['locationData'],
-                                'isAwayGame': args['isAwayGame'] ?? false,
-                                'template': template,
-                                'fromScheduleDetails':
-                                    args['fromScheduleDetails'] ?? false,
-                                'scheduleId': args['scheduleId'],
-                              },
-                            );
-                          },
-                          style: elevatedButtonStyle(
-                            padding: const EdgeInsets.symmetric(
-                                vertical: 15, horizontal: 32),
+                      ResponsiveButton(
+                        child: SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: () {
+                              _saveDefaultChoice('hire_crew');
+                              Navigator.pushNamed(
+                                context,
+                                '/select_crew',
+                                arguments: <String, dynamic>{
+                                  ...args,
+                                  'sport': sport,
+                                  'listName': listName,
+                                  'listId': listId,
+                                  'method': 'hire_crew',
+                                  'locationData': args['locationData'],
+                                  'isAwayGame': args['isAwayGame'] ?? false,
+                                  'template': template,
+                                  'fromScheduleDetails':
+                                      args['fromScheduleDetails'] ?? false,
+                                  'scheduleId': args['scheduleId'],
+                                },
+                              );
+                            },
+                            style: elevatedButtonStyle(
+                              padding: const EdgeInsets.symmetric(
+                                  vertical: 15, horizontal: 32),
+                            ),
+                            child: const Text('Hire a Crew',
+                                style: signInButtonTextStyle),
                           ),
-                          child: const Text('Hire a Crew',
-                              style: signInButtonTextStyle),
                         ),
                       ),
                       const SizedBox(height: 20),
@@ -575,6 +583,7 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
                   ),
                 ),
               ],
+            ),
             ),
           ),
         ),

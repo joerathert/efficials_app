@@ -24,14 +24,14 @@ class OfficialHomeScreen extends StatefulWidget {
 
 class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
   int _currentIndex = 0;
-  
+
   // Repositories
   final GameAssignmentRepository _assignmentRepo = GameAssignmentRepository();
   final OfficialRepository _officialRepo = OfficialRepository();
   final CrewRepository _crewRepo = CrewRepository();
   final NotificationRepository _notificationRepo = NotificationRepository();
   final GameService _gameService = GameService();
-  
+
   // State variables
   String officialName = "";
   List<GameAssignment> acceptedGames = [];
@@ -42,49 +42,66 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
   int _pendingInvitationsCount = 0;
   int _unreadNotificationCount = 0;
   double _ytdEarnings = 0.0;
-  
+
   @override
   void initState() {
     super.initState();
     _loadData();
   }
-  
+
   Future<void> _loadData() async {
     try {
       setState(() {
         _isLoading = true;
       });
-      
+
       // Get current user session
       final userSession = UserSessionService.instance;
       final userId = await userSession.getCurrentUserId();
       final userType = await userSession.getCurrentUserType();
-      
-      if (userId == null || userType != 'official') {
+      final userEmail = await userSession.getCurrentUserEmail();
+
+      if (userId == null || userType != 'official' || userEmail == null) {
         // Handle error - redirect to login
         return;
       }
-      
-      // Get the official record
-      _currentOfficial = await _officialRepo.getOfficialByOfficialUserId(userId);
-      
+
+      // Get the official record by email (Firebase stores officials by email)
+      print('DEBUG: Looking up official by email: $userEmail');
+      _currentOfficial = await _officialRepo.getOfficialByEmail(userEmail);
+      print(
+          'DEBUG: Official lookup result: ${_currentOfficial != null ? "FOUND" : "NOT FOUND"}');
+
       if (_currentOfficial == null) {
+        print('DEBUG: No official record found for email: $userEmail');
         // Handle error - no official record found
         return;
       }
-      
+
       // Set official name
-      officialName = _currentOfficial!.name ?? "Official";
-      
+      print(
+          'DEBUG: _currentOfficial.name raw value: "${_currentOfficial!.name}"');
+      print(
+          'DEBUG: _currentOfficial.name is null: ${_currentOfficial!.name == null}');
+      print(
+          'DEBUG: _currentOfficial.name is empty: ${_currentOfficial!.name?.isEmpty}');
+      print(
+          'DEBUG: _currentOfficial.name length: ${_currentOfficial!.name?.length}');
+
+      final foundName = _currentOfficial!.name ?? "Official";
+      print('DEBUG: Official name after null check: "$foundName"');
+      print('DEBUG: Setting officialName state variable to: "$foundName"');
+      officialName = foundName;
+      print('DEBUG: officialName state variable is now: "$officialName"');
+
       // Load assignments
       await _loadAssignments();
-      
+
       // Load pending invitations count
       await _loadInvitationsCount();
-      
+
       // Load unread notification count
       await _loadUnreadNotificationCount();
-      
     } catch (e) {
       print('Error loading data: $e');
     } finally {
@@ -95,48 +112,50 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
       }
     }
   }
-  
+
   Future<void> _loadAssignments() async {
     if (_currentOfficial == null) return;
-    
+
     try {
       // Use optimized batch method to load all data in one call
-      final homeData = await _assignmentRepo.getOfficialHomeData(_currentOfficial!.id!);
-      
+      final homeData =
+          await _assignmentRepo.getOfficialHomeData(_currentOfficial!.id!);
+
       final accepted = homeData['accepted'] as List<GameAssignment>;
       final pending = homeData['pending'] as List<GameAssignment>;
-      final transformedAvailable = homeData['available'] as List<Map<String, dynamic>>;
-      
+      final transformedAvailable =
+          homeData['available'] as List<Map<String, dynamic>>;
+
       if (mounted) {
         setState(() {
           // Sort accepted games by date and time (earliest first)
           accepted.sort((a, b) {
             final aDate = a.gameDate;
             final bDate = b.gameDate;
-            
+
             if (aDate == null && bDate == null) return 0;
             if (aDate == null) return 1;
             if (bDate == null) return -1;
-            
+
             final dateComparison = aDate.compareTo(bDate);
             if (dateComparison != 0) return dateComparison;
-            
+
             // If dates are the same, compare times
             final aTime = a.gameTime;
             final bTime = b.gameTime;
-            
+
             if (aTime == null && bTime == null) return 0;
             if (aTime == null) return 1;
             if (bTime == null) return -1;
-            
+
             return aTime.compareTo(bTime);
           });
-          
+
           acceptedGames = accepted;
           pendingGames = pending;
           // Convert to mutable list to allow removeWhere operations
           availableGames = transformedAvailable;
-          
+
           // Calculate YTD earnings from accepted games
           _calculateYtdEarnings();
         });
@@ -149,7 +168,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
   Future<void> _loadInvitationsCount() async {
     try {
       if (_currentOfficial?.id != null) {
-        final invitations = await _crewRepo.getPendingInvitations(_currentOfficial!.id!);
+        final invitations =
+            await _crewRepo.getPendingInvitations(_currentOfficial!.id!);
         if (mounted) {
           setState(() {
             _pendingInvitationsCount = invitations.length;
@@ -164,7 +184,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
   Future<void> _loadUnreadNotificationCount() async {
     try {
       if (_currentOfficial?.id != null) {
-        final count = await _notificationRepo.getUnreadOfficialNotificationCount(_currentOfficial!.id!);
+        final count = await _notificationRepo
+            .getUnreadOfficialNotificationCount(_currentOfficial!.id!);
         if (mounted) {
           setState(() {
             _unreadNotificationCount = count;
@@ -179,16 +200,16 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
   void _calculateYtdEarnings() {
     final currentYear = DateTime.now().year;
     double totalEarnings = 0.0;
-    
+
     for (final assignment in acceptedGames) {
       // Only count games from current year
-      if (assignment.gameDate != null && 
+      if (assignment.gameDate != null &&
           assignment.gameDate!.year == currentYear &&
           assignment.feeAmount != null) {
         totalEarnings += assignment.feeAmount!;
       }
     }
-    
+
     _ytdEarnings = totalEarnings;
   }
 
@@ -220,14 +241,16 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
               child: Stack(
                 children: [
                   Center(
-                    child: Icon(Icons.notifications, color: efficialsWhite, size: 24),
+                    child: Icon(Icons.notifications,
+                        color: efficialsWhite, size: 24),
                   ),
                   if (_unreadNotificationCount > 0)
                     Positioned(
                       right: 8,
                       top: 8,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
                           color: Colors.red,
                           borderRadius: BorderRadius.circular(10),
@@ -237,7 +260,9 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                           minHeight: 16,
                         ),
                         child: Text(
-                          _unreadNotificationCount > 99 ? '99+' : _unreadNotificationCount.toString(),
+                          _unreadNotificationCount > 99
+                              ? '99+'
+                              : _unreadNotificationCount.toString(),
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 10,
@@ -268,7 +293,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                   children: [
                     Icon(Icons.remove_circle_outline, color: Colors.orange),
                     SizedBox(width: 8),
-                    Text('Dismissed Games', style: TextStyle(color: Colors.white)),
+                    Text('Dismissed Games',
+                        style: TextStyle(color: Colors.white)),
                   ],
                 ),
               ),
@@ -324,7 +350,7 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
         ),
       );
     }
-    
+
     return SafeArea(
       child: RefreshIndicator(
         onRefresh: _loadData,
@@ -369,7 +395,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                     ),
                     if (acceptedGames.isNotEmpty)
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
                           color: efficialsYellow.withOpacity(0.2),
                           borderRadius: BorderRadius.circular(20),
@@ -397,15 +424,19 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                       child: FutureBuilder<List<dynamic>>(
                         future: _processConfirmedGamesWithLinking(),
                         builder: (context, snapshot) {
-                          if (snapshot.connectionState == ConnectionState.waiting) {
-                            return const Center(child: CircularProgressIndicator(color: efficialsYellow));
+                          if (snapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return const Center(
+                                child: CircularProgressIndicator(
+                                    color: efficialsYellow));
                           }
-                          
+
                           final processedGames = snapshot.data ?? [];
                           if (processedGames.isEmpty) {
-                            return _buildEmptyState('No confirmed games', Icons.assignment_turned_in);
+                            return _buildEmptyState('No confirmed games',
+                                Icons.assignment_turned_in);
                           }
-                          
+
                           return ListView.builder(
                             itemCount: processedGames.length,
                             itemBuilder: (context, index) {
@@ -415,7 +446,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                                 return _buildLinkedConfirmedGamesCard(item);
                               } else {
                                 // This is a single game
-                                return _buildConfirmedGameCard(item as Map<String, dynamic>);
+                                return _buildConfirmedGameCard(
+                                    item as Map<String, dynamic>);
                               }
                             },
                           );
@@ -470,9 +502,11 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                     future: _processAvailableGamesWithLinking(),
                     builder: (context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(child: CircularProgressIndicator(color: efficialsYellow));
+                        return const Center(
+                            child: CircularProgressIndicator(
+                                color: efficialsYellow));
                       }
-                      
+
                       final processedGames = snapshot.data ?? [];
                       return ListView.builder(
                         padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -484,7 +518,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                             return _buildLinkedAvailableGamesCard(item);
                           } else {
                             // This is a single game
-                            return _buildAvailableGameCard(item as Map<String, dynamic>);
+                            return _buildAvailableGameCard(
+                                item as Map<String, dynamic>);
                           }
                         },
                       );
@@ -528,7 +563,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
           // Pending Games List
           Expanded(
             child: pendingGames.isEmpty
-                ? _buildEmptyState('No pending applications', Icons.hourglass_empty)
+                ? _buildEmptyState(
+                    'No pending applications', Icons.hourglass_empty)
                 : ListView.builder(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     itemCount: pendingGames.length,
@@ -553,23 +589,23 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
 
   Widget _buildAcceptedGameCard(GameAssignment assignment, bool isNext) {
     // Format the date and time
-    final gameDate = assignment.gameDate != null 
-        ? _formatDate(assignment.gameDate!) 
-        : 'TBD';
-    final gameTime = assignment.gameTime != null 
-        ? _formatTime(assignment.gameTime!) 
-        : 'TBD';
+    final gameDate =
+        assignment.gameDate != null ? _formatDate(assignment.gameDate!) : 'TBD';
+    final gameTime =
+        assignment.gameTime != null ? _formatTime(assignment.gameTime!) : 'TBD';
     final sportName = assignment.sportName ?? 'Sport';
     final locationName = assignment.locationName ?? 'TBD';
     final fee = assignment.feeAmount ?? 0.0;
-    
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: darkSurface,
         borderRadius: BorderRadius.circular(12),
-        border: isNext ? Border.all(color: efficialsYellow.withOpacity(0.5), width: 2) : null,
+        border: isNext
+            ? Border.all(color: efficialsYellow.withOpacity(0.5), width: 2)
+            : null,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -589,7 +625,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                 children: [
                   if (isNext)
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: efficialsYellow.withOpacity(0.2),
                         borderRadius: BorderRadius.circular(4),
@@ -605,7 +642,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                     ),
                   const SizedBox(width: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: Colors.green.withOpacity(0.2),
                       borderRadius: BorderRadius.circular(4),
@@ -678,11 +716,13 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                     // TODO: Navigate to game details
                   },
                   icon: const Icon(Icons.directions, size: 16),
-                  label: const Text('Directions', style: TextStyle(fontSize: 12)),
+                  label:
+                      const Text('Directions', style: TextStyle(fontSize: 12)),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: efficialsYellow,
                     foregroundColor: efficialsBlack,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     minimumSize: Size.zero,
                   ),
                 ),
@@ -696,49 +736,54 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
   Future<List<dynamic>> _processAvailableGamesWithLinking() async {
     final processedItems = <dynamic>[];
     final processedGameIds = <int>{};
-    
-    debugPrint('🔗 Processing ${availableGames.length} available games for linking...');
-    
+
+    debugPrint(
+        '🔗 Processing ${availableGames.length} available games for linking...');
+
     for (final game in availableGames) {
       final gameId = game['id'] as int?;
       if (gameId == null || processedGameIds.contains(gameId)) continue;
-      
+
       try {
         debugPrint('🔗 Checking if game $gameId is linked...');
         final isLinked = await _gameService.isGameLinked(gameId);
         debugPrint('🔗 Game $gameId linked status: $isLinked');
         if (isLinked) {
           final linkedGames = await _gameService.getLinkedGames(gameId);
-          debugPrint('🔗 Found ${linkedGames.length} linked games for game $gameId');
-          
+          debugPrint(
+              '🔗 Found ${linkedGames.length} linked games for game $gameId');
+
           // Find linked games that are also in our available games list
-          final linkedGamesInList = <Map<String, dynamic>>[]; 
+          final linkedGamesInList = <Map<String, dynamic>>[];
           linkedGamesInList.add(game); // Add the primary game
-          
+
           for (final linkedGame in linkedGames) {
             final linkedGameId = linkedGame['id'] as int?;
             if (linkedGameId == null) continue;
-            
-            debugPrint('🔗 Looking for linked game $linkedGameId in available games list...');
+
+            debugPrint(
+                '🔗 Looking for linked game $linkedGameId in available games list...');
             final matchingAvailableGame = availableGames.where(
               (g) => (g['id'] as int?) == linkedGameId,
             );
-            
+
             if (matchingAvailableGame.isNotEmpty) {
               debugPrint('🔗 Found matching available game $linkedGameId');
               linkedGamesInList.add(matchingAvailableGame.first);
               processedGameIds.add(linkedGameId);
             } else {
-              debugPrint('🔗 Linked game $linkedGameId not found in available games list');
+              debugPrint(
+                  '🔗 Linked game $linkedGameId not found in available games list');
             }
           }
-          
-          debugPrint('🔗 Total games in linked group: ${linkedGamesInList.length}');
+
+          debugPrint(
+              '🔗 Total games in linked group: ${linkedGamesInList.length}');
           if (linkedGamesInList.length > 1) {
             // Sort by time if available (safely handle different time formats)
             linkedGamesInList.sort((a, b) {
               TimeOfDay? timeA, timeB;
-              
+
               try {
                 final timeValueA = a['time'];
                 if (timeValueA is TimeOfDay) {
@@ -749,7 +794,7 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
               } catch (e) {
                 debugPrint('Error parsing time for game ${a['id']}: $e');
               }
-              
+
               try {
                 final timeValueB = b['time'];
                 if (timeValueB is TimeOfDay) {
@@ -760,7 +805,7 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
               } catch (e) {
                 debugPrint('Error parsing time for game ${b['id']}: $e');
               }
-              
+
               if (timeA == null && timeB == null) return 0;
               if (timeA == null) return 1;
               if (timeB == null) return -1;
@@ -768,7 +813,7 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
               final minutesB = timeB.hour * 60 + timeB.minute;
               return minutesA.compareTo(minutesB);
             });
-            
+
             processedItems.add(linkedGamesInList);
             processedGameIds.add(gameId);
           } else {
@@ -785,28 +830,31 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
         processedGameIds.add(gameId);
       }
     }
-    
+
     debugPrint('🔗 Final processed items count: ${processedItems.length}');
     return processedItems;
   }
 
-  Widget _buildLinkedAvailableGamesCard(List<Map<String, dynamic>> linkedGames) {
+  Widget _buildLinkedAvailableGamesCard(
+      List<Map<String, dynamic>> linkedGames) {
     if (linkedGames.length < 2) {
       return _buildAvailableGameCard(linkedGames.first);
     }
-    
+
     // Calculate total fee for linked games
     double totalFee = 0.0;
     for (final game in linkedGames) {
       final fee = double.tryParse(game['game_fee']?.toString() ?? '0') ?? 0.0;
       totalFee += fee;
     }
-    
+
     // Get shared information (location, scheduler)
     final primaryGame = linkedGames.first;
     final location = primaryGame['location_name'] ?? 'TBD';
-    final scheduler = '${primaryGame['first_name'] ?? ''} ${primaryGame['last_name'] ?? ''}'.trim();
-    
+    final scheduler =
+        '${primaryGame['first_name'] ?? ''} ${primaryGame['last_name'] ?? ''}'
+            .trim();
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       child: Stack(
@@ -823,7 +871,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                     bottomLeft: Radius.circular(2),
                     bottomRight: Radius.circular(2),
                   ),
-                  border: Border.all(color: Colors.blue.withOpacity(0.3), width: 1),
+                  border:
+                      Border.all(color: Colors.blue.withOpacity(0.3), width: 1),
                 ),
                 child: _buildTopLinkedGameContent(linkedGames[0]),
               ),
@@ -838,9 +887,11 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                     bottomLeft: Radius.circular(12),
                     bottomRight: Radius.circular(12),
                   ),
-                  border: Border.all(color: Colors.blue.withOpacity(0.3), width: 1),
+                  border:
+                      Border.all(color: Colors.blue.withOpacity(0.3), width: 1),
                 ),
-                child: _buildBottomLinkedGameContent(linkedGames[1], location, scheduler, totalFee, linkedGames),
+                child: _buildBottomLinkedGameContent(
+                    linkedGames[1], location, scheduler, totalFee, linkedGames),
               ),
             ],
           ),
@@ -931,12 +982,11 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
   }
 
   Widget _buildBottomLinkedGameContent(
-    Map<String, dynamic> game, 
-    String location, 
-    String scheduler, 
-    double totalFee, 
-    List<Map<String, dynamic>> linkedGames
-  ) {
+      Map<String, dynamic> game,
+      String location,
+      String scheduler,
+      double totalFee,
+      List<Map<String, dynamic>> linkedGames) {
     return GestureDetector(
       onTap: () => _handleAvailableGameTap(game),
       child: Padding(
@@ -1023,7 +1073,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.red,
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
                         minimumSize: Size.zero,
                       ),
                       child: const Text(
@@ -1035,9 +1086,12 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                     ElevatedButton(
                       onPressed: () => _handleLinkedGamesAction(linkedGames),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: _getLinkedGamesActionColor(linkedGames),
-                        foregroundColor: _getLinkedGamesActionTextColor(linkedGames),
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        backgroundColor:
+                            _getLinkedGamesActionColor(linkedGames),
+                        foregroundColor:
+                            _getLinkedGamesActionTextColor(linkedGames),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
                         minimumSize: Size.zero,
                       ),
                       child: Text(
@@ -1055,7 +1109,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
     );
   }
 
-  Widget _buildLinkedGameContent(Map<String, dynamic> game, {bool showButtons = true}) {
+  Widget _buildLinkedGameContent(Map<String, dynamic> game,
+      {bool showButtons = true}) {
     return GestureDetector(
       onTap: () => _handleAvailableGameTap(game),
       child: Padding(
@@ -1075,7 +1130,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: Colors.blue.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(4),
@@ -1131,7 +1187,7 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
     // Check if all games have the same action type
     final firstGame = linkedGames.first;
     final isClaimAction = firstGame['hire_automatically'] == 1;
-    
+
     // For simplicity, use the action type of the first game
     if (isClaimAction) {
       _showClaimLinkedGamesDialog(linkedGames);
@@ -1142,7 +1198,9 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
 
   Color _getLinkedGamesActionColor(List<Map<String, dynamic>> linkedGames) {
     final firstGame = linkedGames.first;
-    return firstGame['hire_automatically'] == 1 ? Colors.green : efficialsYellow;
+    return firstGame['hire_automatically'] == 1
+        ? Colors.green
+        : efficialsYellow;
   }
 
   Color _getLinkedGamesActionTextColor(List<Map<String, dynamic>> linkedGames) {
@@ -1162,7 +1220,7 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
       final fee = double.tryParse(game['game_fee']?.toString() ?? '0') ?? 0.0;
       totalFee += fee;
     }
-    
+
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -1177,7 +1235,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
               const SizedBox(width: 8),
               const Text(
                 'Claim Linked Games',
-                style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold),
+                style:
+                    TextStyle(color: Colors.green, fontWeight: FontWeight.bold),
               ),
             ],
           ),
@@ -1205,34 +1264,40 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                         const SizedBox(width: 4),
                         const Text(
                           'Linked Games',
-                          style: TextStyle(color: efficialsYellow, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                              color: efficialsYellow,
+                              fontWeight: FontWeight.bold),
                         ),
                       ],
                     ),
                     const SizedBox(height: 8),
-                    ...linkedGames.map((game) => Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '• ${_formatGameTitle(game)}',
-                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
-                          ),
-                          const SizedBox(height: 2),
-                          Padding(
-                            padding: const EdgeInsets.only(left: 12),
-                            child: Text(
-                              '${_formatAvailableGameDate(game)} at ${_formatAvailableGameTime(game)}',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey[400],
+                    ...linkedGames
+                        .map((game) => Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '• ${_formatGameTitle(game)}',
+                                    style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w500),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Padding(
+                                    padding: const EdgeInsets.only(left: 12),
+                                    child: Text(
+                                      '${_formatAvailableGameDate(game)} at ${_formatAvailableGameTime(game)}',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey[400],
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    )).toList(),
+                            ))
+                        .toList(),
                     const SizedBox(height: 8),
                     Text(
                       'Total Fee: \$${totalFee.toStringAsFixed(2)}',
@@ -1277,19 +1342,20 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
     );
   }
 
-  void _showExpressInterestLinkedGamesDialog(List<Map<String, dynamic>> linkedGames) {
+  void _showExpressInterestLinkedGamesDialog(
+      List<Map<String, dynamic>> linkedGames) {
     // Calculate total fee for both games
     double totalFee = 0.0;
     for (final game in linkedGames) {
       final fee = double.tryParse(game['game_fee']?.toString() ?? '0') ?? 0.0;
       totalFee += fee;
     }
-    
+
     // Get response timeframe from first game (assuming both have same timeframe)
     final responseTime = linkedGames.first['response_timeframe'] ?? 24;
     final responseUnit = linkedGames.first['response_unit'] ?? 'hours';
     String timeframeText = _formatResponseTimeframe(responseTime, responseUnit);
-    
+
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -1305,7 +1371,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
               Expanded(
                 child: Text(
                   'Express Interest in Linked Games',
-                  style: TextStyle(color: efficialsYellow, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                      color: efficialsYellow, fontWeight: FontWeight.bold),
                 ),
               ),
             ],
@@ -1334,34 +1401,40 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                         const SizedBox(width: 4),
                         const Text(
                           'Linked Games',
-                          style: TextStyle(color: efficialsYellow, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                              color: efficialsYellow,
+                              fontWeight: FontWeight.bold),
                         ),
                       ],
                     ),
                     const SizedBox(height: 8),
-                    ...linkedGames.map((game) => Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '• ${_formatGameTitle(game)}',
-                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
-                          ),
-                          const SizedBox(height: 2),
-                          Padding(
-                            padding: const EdgeInsets.only(left: 12),
-                            child: Text(
-                              '${_formatAvailableGameDate(game)} at ${_formatAvailableGameTime(game)}',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey[400],
+                    ...linkedGames
+                        .map((game) => Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '• ${_formatGameTitle(game)}',
+                                    style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w500),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Padding(
+                                    padding: const EdgeInsets.only(left: 12),
+                                    child: Text(
+                                      '${_formatAvailableGameDate(game)} at ${_formatAvailableGameTime(game)}',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey[400],
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    )).toList(),
+                            ))
+                        .toList(),
                     const SizedBox(height: 8),
                     Text(
                       'Total Fee: \$${totalFee.toStringAsFixed(2)}',
@@ -1424,7 +1497,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
       // Show success message
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Successfully claimed ${linkedGames.length} linked games'),
+          content:
+              Text('Successfully claimed ${linkedGames.length} linked games'),
           backgroundColor: Colors.green,
         ),
       );
@@ -1441,7 +1515,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
     }
   }
 
-  void _expressInterestInLinkedGames(List<Map<String, dynamic>> linkedGames) async {
+  void _expressInterestInLinkedGames(
+      List<Map<String, dynamic>> linkedGames) async {
     try {
       // Show loading indicator
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1459,7 +1534,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
       // Show success message
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Successfully expressed interest in ${linkedGames.length} linked games'),
+          content: Text(
+              'Successfully expressed interest in ${linkedGames.length} linked games'),
           backgroundColor: Colors.green,
         ),
       );
@@ -1469,7 +1545,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to express interest in linked games: ${e.toString()}'),
+          content: Text(
+              'Failed to express interest in linked games: ${e.toString()}'),
           backgroundColor: Colors.red,
         ),
       );
@@ -1478,56 +1555,58 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
 
   Future<void> _claimSingleGame(Map<String, dynamic> game) async {
     final gameId = game['id'] as int?;
-    final feeAmount = double.tryParse(game['game_fee']?.toString() ?? '0') ?? 0.0;
-    
+    final feeAmount =
+        double.tryParse(game['game_fee']?.toString() ?? '0') ?? 0.0;
+
     if (gameId == null) {
       throw Exception('Invalid game ID');
     }
-    
+
     // Get current user and official info
     final userSession = UserSessionService.instance;
     final userId = await userSession.getCurrentUserId();
-    
+
     if (userId == null) {
       throw Exception('No user logged in');
     }
-    
+
     final official = await _officialRepo.getOfficialByOfficialUserId(userId);
-    
+
     if (official?.id == null) {
       throw Exception('Official record not found');
     }
-    
+
     final officialId = official!.id!;
-    
+
     // Claim the game
     await _assignmentRepo.claimGame(gameId, officialId, feeAmount);
   }
 
   Future<void> _expressInterestInSingleGame(Map<String, dynamic> game) async {
     final gameId = game['id'] as int?;
-    final feeAmount = double.tryParse(game['game_fee']?.toString() ?? '0') ?? 0.0;
-    
+    final feeAmount =
+        double.tryParse(game['game_fee']?.toString() ?? '0') ?? 0.0;
+
     if (gameId == null) {
       throw Exception('Invalid game ID');
     }
-    
+
     // Get current user and official info
     final userSession = UserSessionService.instance;
     final userId = await userSession.getCurrentUserId();
-    
+
     if (userId == null) {
       throw Exception('No user logged in');
     }
-    
+
     final official = await _officialRepo.getOfficialByOfficialUserId(userId);
-    
+
     if (official?.id == null) {
       throw Exception('Official record not found');
     }
-    
+
     final officialId = official!.id!;
-    
+
     // Express interest in the game
     await _assignmentRepo.expressInterest(gameId, officialId, feeAmount);
   }
@@ -1535,47 +1614,50 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
   Future<List<dynamic>> _processConfirmedGamesWithLinking() async {
     final List<dynamic> processedGames = [];
     final Set<int> processedGameIds = {};
-    
+
     final confirmedGameMaps = _convertGameAssignmentsToMaps(acceptedGames);
-    
-    debugPrint('Processing ${confirmedGameMaps.length} confirmed games for linking');
-    
+
+    debugPrint(
+        'Processing ${confirmedGameMaps.length} confirmed games for linking');
+
     for (final game in confirmedGameMaps) {
       final gameId = game['id'] as int?;
       if (gameId == null || processedGameIds.contains(gameId)) continue;
-      
+
       debugPrint('Processing game ID: $gameId');
-      
+
       try {
         // Check if this game is linked to others
         final isLinked = await _gameService.isGameLinked(gameId);
         debugPrint('Game $gameId is linked: $isLinked');
-        
+
         if (isLinked) {
           final linkedGames = await _gameService.getLinkedGames(gameId);
-          debugPrint('Found ${linkedGames.length} linked games for game $gameId');
-          
+          debugPrint(
+              'Found ${linkedGames.length} linked games for game $gameId');
+
           // Filter linked games to only include those that are also in our confirmed list
           final linkedGamesInConfirmed = <Map<String, dynamic>>[];
           linkedGamesInConfirmed.add(game); // Add current game first
-          
+
           for (final linkedGame in linkedGames) {
             final linkedGameId = linkedGame['id'] as int?;
             if (linkedGameId == null || linkedGameId == gameId) continue;
-            
+
             // Find the corresponding game in our confirmed list
             final originalLinkedGame = confirmedGameMaps.where(
               (g) => (g['id'] as int?) == linkedGameId,
             );
-            
+
             if (originalLinkedGame.isNotEmpty) {
               linkedGamesInConfirmed.add(originalLinkedGame.first);
               processedGameIds.add(linkedGameId);
             }
           }
-          
+
           if (linkedGamesInConfirmed.length > 1) {
-            debugPrint('Adding ${linkedGamesInConfirmed.length} linked games as group');
+            debugPrint(
+                'Adding ${linkedGamesInConfirmed.length} linked games as group');
             processedGames.add(linkedGamesInConfirmed);
             processedGameIds.add(gameId);
             continue;
@@ -1584,35 +1666,37 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
       } catch (e) {
         debugPrint('Error checking if game $gameId is linked: $e');
       }
-      
+
       // Single game (not linked or linking failed)
       debugPrint('Adding single game: $gameId');
       processedGames.add(game);
       processedGameIds.add(gameId);
     }
-    
+
     debugPrint('Final processed games count: ${processedGames.length}');
     return processedGames;
   }
 
-  Widget _buildLinkedConfirmedGamesCard(List<Map<String, dynamic>> linkedGames) {
+  Widget _buildLinkedConfirmedGamesCard(
+      List<Map<String, dynamic>> linkedGames) {
     if (linkedGames.length < 2) {
       return _buildConfirmedGameCard(linkedGames.first);
     }
-    
+
     // Calculate total fee for linked games
     double totalFee = 0.0;
     for (final game in linkedGames) {
       final fee = double.tryParse(game['game_fee']?.toString() ?? '0') ?? 0.0;
       totalFee += fee;
     }
-    
+
     // Get shared information (location, scheduler)
     final primaryGame = linkedGames.first;
     final location = primaryGame['location_name'] ?? 'TBD';
     final assignment = primaryGame['_assignment'] as GameAssignment?;
-    final scheduler = 'Confirmed Game'; // For confirmed games, we don't need "Posted by"
-    
+    final scheduler =
+        'Confirmed Game'; // For confirmed games, we don't need "Posted by"
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       child: Stack(
@@ -1631,7 +1715,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                       bottomLeft: Radius.circular(2),
                       bottomRight: Radius.circular(2),
                     ),
-                    border: Border.all(color: Colors.blue.withOpacity(0.3), width: 1),
+                    border: Border.all(
+                        color: Colors.blue.withOpacity(0.3), width: 1),
                   ),
                   child: _buildTopConfirmedGameContent(linkedGames[0]),
                 ),
@@ -1649,9 +1734,11 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                       bottomLeft: Radius.circular(12),
                       bottomRight: Radius.circular(12),
                     ),
-                    border: Border.all(color: Colors.blue.withOpacity(0.3), width: 1),
+                    border: Border.all(
+                        color: Colors.blue.withOpacity(0.3), width: 1),
                   ),
-                  child: _buildBottomConfirmedGameContent(linkedGames[1], location, scheduler, totalFee),
+                  child: _buildBottomConfirmedGameContent(
+                      linkedGames[1], location, scheduler, totalFee),
                 ),
               ),
             ],
@@ -1707,7 +1794,7 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
 
   Widget _buildTopConfirmedGameContent(Map<String, dynamic> game) {
     final assignment = game['_assignment'] as GameAssignment?;
-    
+
     String dateTimeText = 'TBD';
     if (assignment?.gameDate != null) {
       dateTimeText = _formatDate(assignment!.gameDate!);
@@ -1715,65 +1802,61 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
         dateTimeText += ' at ${_formatTime(assignment.gameTime!)}';
       }
     }
-    
+
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-            Text(
-              game['sport_name'] ?? 'Sport',
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: efficialsYellow,
-              ),
+          Text(
+            game['sport_name'] ?? 'Sport',
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: efficialsYellow,
             ),
-            const SizedBox(height: 8),
-            Text(
-              _formatGameTitle(game),
-              style: const TextStyle(
-                fontSize: 14,
-                color: Colors.white,
-                fontWeight: FontWeight.w500,
-              ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _formatGameTitle(game),
+            style: const TextStyle(
+              fontSize: 14,
+              color: Colors.white,
+              fontWeight: FontWeight.w500,
             ),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                Icon(Icons.schedule, size: 14, color: Colors.grey[400]),
-                const SizedBox(width: 4),
-                Text(
-                  dateTimeText,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[400],
-                  ),
+          ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Icon(Icons.schedule, size: 14, color: Colors.grey[400]),
+              const SizedBox(width: 4),
+              Text(
+                dateTimeText,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[400],
                 ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              game['schedule_name'] ?? game['scheduleName'] ?? 'Schedule',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey[400],
-                fontStyle: FontStyle.italic,
               ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            game['schedule_name'] ?? game['scheduleName'] ?? 'Schedule',
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey[400],
+              fontStyle: FontStyle.italic,
             ),
-          ],
-        ),
-      );
+          ),
+        ],
+      ),
+    );
   }
 
-  Widget _buildBottomConfirmedGameContent(
-    Map<String, dynamic> game, 
-    String location, 
-    String scheduler, 
-    double totalFee
-  ) {
+  Widget _buildBottomConfirmedGameContent(Map<String, dynamic> game,
+      String location, String scheduler, double totalFee) {
     final assignment = game['_assignment'] as GameAssignment?;
-    
+
     String dateTimeText = 'TBD';
     if (assignment?.gameDate != null) {
       dateTimeText = _formatDate(assignment!.gameDate!);
@@ -1781,103 +1864,104 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
         dateTimeText += ' at ${_formatTime(assignment.gameTime!)}';
       }
     }
-    
+
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-            Text(
-              _formatGameTitle(game),
-              style: const TextStyle(
-                fontSize: 14,
-                color: Colors.white,
-                fontWeight: FontWeight.w500,
-              ),
+          Text(
+            _formatGameTitle(game),
+            style: const TextStyle(
+              fontSize: 14,
+              color: Colors.white,
+              fontWeight: FontWeight.w500,
             ),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                Icon(Icons.schedule, size: 14, color: Colors.grey[400]),
-                const SizedBox(width: 4),
-                Text(
-                  dateTimeText,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[400],
-                  ),
+          ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Icon(Icons.schedule, size: 14, color: Colors.grey[400]),
+              const SizedBox(width: 4),
+              Text(
+                dateTimeText,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[400],
                 ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              game['schedule_name'] ?? game['scheduleName'] ?? 'Schedule',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey[400],
-                fontStyle: FontStyle.italic,
               ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            game['schedule_name'] ?? game['scheduleName'] ?? 'Schedule',
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey[400],
+              fontStyle: FontStyle.italic,
             ),
-            const SizedBox(height: 12),
-            // Shared information section
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(Icons.location_on, size: 14, color: Colors.grey[400]),
-                    const SizedBox(width: 4),
-                    Text(
-                      location,
+          ),
+          const SizedBox(height: 12),
+          // Shared information section
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.location_on, size: 14, color: Colors.grey[400]),
+                  const SizedBox(width: 4),
+                  Text(
+                    location,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[400],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              // Fee and CONFIRMED badge in same row (like Available Games)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Text(
+                    'Total Fee: \$${totalFee.toStringAsFixed(2)}',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      color: Colors.green,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.green,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Text(
+                      'CONFIRMED',
                       style: TextStyle(
                         fontSize: 12,
-                        color: Colors.grey[400],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                // Fee and CONFIRMED badge in same row (like Available Games)
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Text(
-                      'Total Fee: \$${totalFee.toStringAsFixed(2)}',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        color: Colors.green,
                         fontWeight: FontWeight.bold,
+                        color: Colors.white,
                       ),
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: Colors.green,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Text(
-                        'CONFIRMED',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ],
-        ),
-      );
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildConfirmedGameContent(Map<String, dynamic> game) {
     // For single games, show full content including fee and confirmed badge
     final assignment = game['_assignment'] as GameAssignment?;
-    
+
     String dateTimeText = 'TBD';
     if (assignment?.gameDate != null) {
       dateTimeText = _formatDate(assignment!.gameDate!);
@@ -1885,9 +1969,9 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
         dateTimeText += ' at ${_formatTime(assignment.gameTime!)}';
       }
     }
-    
+
     final fee = double.tryParse(game['game_fee']?.toString() ?? '0') ?? 0.0;
-    
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1963,7 +2047,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
                     color: Colors.green,
                     borderRadius: BorderRadius.circular(8),
@@ -2004,19 +2089,21 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
       'time': game['time'], // This comes from g.time in the SQL query
       'sport_name': game['sport_name'],
       'opponent': game['opponent'],
-      'home_team': game['schedule_home_team_name'] ?? game['home_team'] ?? 'Home Team',
+      'home_team':
+          game['schedule_home_team_name'] ?? game['home_team'] ?? 'Home Team',
       'location_name': game['location_name'],
     };
-    
+
     final gameAssignment = GameAssignment.fromMap(assignmentMap);
-    
+
     Navigator.pushNamed(
       context,
       '/available_game_details',
       arguments: {
         'assignment': gameAssignment,
         'schedulerInfo': {
-          'name': '${game['first_name'] ?? ''} ${game['last_name'] ?? ''}'.trim(),
+          'name':
+              '${game['first_name'] ?? ''} ${game['last_name'] ?? ''}'.trim(),
           'first_name': game['first_name'],
           'last_name': game['last_name'],
           'user_id': game['user_id'],
@@ -2037,7 +2124,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
           'status': 'available',
           'assigned_by': 0, // Not relevant for available games
           'assigned_at': DateTime.now().toIso8601String(),
-          'fee_amount': double.tryParse(game['game_fee']?.toString() ?? '0') ?? 0.0,
+          'fee_amount':
+              double.tryParse(game['game_fee']?.toString() ?? '0') ?? 0.0,
           // Scheduler information
           'scheduler_first_name': game['first_name'],
           'scheduler_last_name': game['last_name'],
@@ -2047,12 +2135,14 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
           'time': game['time'], // This comes from g.time in the SQL query
           'sport_name': game['sport_name'],
           'opponent': game['opponent'],
-          'home_team': game['schedule_home_team_name'] ?? game['home_team'] ?? 'Home Team',
+          'home_team': game['schedule_home_team_name'] ??
+              game['home_team'] ??
+              'Home Team',
           'location_name': game['location_name'],
         };
-        
+
         final gameAssignment = GameAssignment.fromMap(assignmentMap);
-        
+
         Navigator.pushNamed(
           context,
           '/official_game_details',
@@ -2068,136 +2158,145 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
           border: Border.all(color: Colors.blue.withOpacity(0.3)),
         ),
         child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                game['sport_name'] ?? 'Sport',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: efficialsYellow,
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.blue.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  'AVAILABLE',
-                  style: TextStyle(
-                    fontSize: 10,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  game['sport_name'] ?? 'Sport',
+                  style: const TextStyle(
+                    fontSize: 16,
                     fontWeight: FontWeight.bold,
-                    color: Colors.blue[300],
+                    color: efficialsYellow,
                   ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            _formatGameTitle(game),
-            style: const TextStyle(
-              fontSize: 14,
-              color: Colors.white,
-              fontWeight: FontWeight.w500,
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    'AVAILABLE',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blue[300],
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ),
-          const SizedBox(height: 4),
-          Row(
-            children: [
-              Icon(Icons.schedule, size: 14, color: Colors.grey[400]),
-              const SizedBox(width: 4),
-              Text(
-                '${_formatAvailableGameDate(game)} at ${_formatAvailableGameTime(game)}',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[400],
-                ),
+            const SizedBox(height: 8),
+            Text(
+              _formatGameTitle(game),
+              style: const TextStyle(
+                fontSize: 14,
+                color: Colors.white,
+                fontWeight: FontWeight.w500,
               ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Row(
-            children: [
-              Icon(Icons.location_on, size: 14, color: Colors.grey[400]),
-              const SizedBox(width: 4),
-              Text(
-                game['location_name'] ?? 'TBD',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[400],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Row(
-            children: [
-              Icon(Icons.person, size: 14, color: Colors.grey[400]),
-              const SizedBox(width: 4),
-              Text(
-                'Posted by: ${game['scheduler']}',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[400],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Fee: \$${game['game_fee'] ?? '0'}',
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.green,
-                ),
-              ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  ElevatedButton(
-                    onPressed: () => _dismissGame(game),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      minimumSize: Size.zero,
-                    ),
-                    child: const Text(
-                      'Dismiss',
-                      style: TextStyle(fontSize: 12),
-                    ),
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Icon(Icons.schedule, size: 14, color: Colors.grey[400]),
+                const SizedBox(width: 4),
+                Text(
+                  '${_formatAvailableGameDate(game)} at ${_formatAvailableGameTime(game)}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[400],
                   ),
-                  const SizedBox(width: 8),
-                  ElevatedButton(
-                    onPressed: () => game['hire_automatically'] == 1 
-                        ? _showClaimGameDialog(game)
-                        : _showExpressInterestDialog(game),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: game['hire_automatically'] == 1 ? Colors.green : efficialsYellow,
-                      foregroundColor: game['hire_automatically'] == 1 ? Colors.white : Colors.black,
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      minimumSize: Size.zero,
-                    ),
-                    child: Text(
-                      game['hire_automatically'] == 1 ? 'Claim' : 'Express Interest',
-                      style: TextStyle(fontSize: 12),
-                    ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Icon(Icons.location_on, size: 14, color: Colors.grey[400]),
+                const SizedBox(width: 4),
+                Text(
+                  game['location_name'] ?? 'TBD',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[400],
                   ),
-                ],
-              ),
-            ],
-          ),
-        ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Icon(Icons.person, size: 14, color: Colors.grey[400]),
+                const SizedBox(width: 4),
+                Text(
+                  'Posted by: ${game['scheduler']}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[400],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Fee: \$${game['game_fee'] ?? '0'}',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.green,
+                  ),
+                ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ElevatedButton(
+                      onPressed: () => _dismissGame(game),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
+                        minimumSize: Size.zero,
+                      ),
+                      child: const Text(
+                        'Dismiss',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      onPressed: () => game['hire_automatically'] == 1
+                          ? _showClaimGameDialog(game)
+                          : _showExpressInterestDialog(game),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: game['hire_automatically'] == 1
+                            ? Colors.green
+                            : efficialsYellow,
+                        foregroundColor: game['hire_automatically'] == 1
+                            ? Colors.white
+                            : Colors.black,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
+                        minimumSize: Size.zero,
+                      ),
+                      child: Text(
+                        game['hire_automatically'] == 1
+                            ? 'Claim'
+                            : 'Express Interest',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
@@ -2209,10 +2308,10 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
     final sportName = assignment.sportName ?? 'Sport';
     final locationName = assignment.locationName ?? 'TBD';
     final fee = assignment.feeAmount ?? 0.0;
-    
+
     final dateString = gameDate != null ? _formatDate(gameDate) : 'TBD';
     final timeString = gameTime != null ? _formatTime(gameTime) : 'TBD';
-    
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -2320,7 +2419,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.red.withOpacity(0.2),
                   foregroundColor: Colors.red,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   minimumSize: Size.zero,
                 ),
                 child: const Text('Withdraw', style: TextStyle(fontSize: 12)),
@@ -2408,15 +2508,16 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel', style: TextStyle(color: secondaryTextColor)),
+              child: const Text('Cancel',
+                  style: TextStyle(color: secondaryTextColor)),
             ),
             TextButton(
               onPressed: () async {
                 Navigator.pop(context); // Close dialog
-                
+
                 // Clear user session
                 await UserSessionService.instance.clearSession();
-                
+
                 Navigator.pushNamedAndRemoveUntil(
                   context,
                   '/welcome',
@@ -2430,13 +2531,16 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
       },
     );
   }
-  
+
   // Enhanced UI Components
   Widget _buildWelcomeHeader() {
     final now = DateTime.now();
-    final greeting = now.hour < 12 ? 'Good morning' : 
-                    now.hour < 17 ? 'Good afternoon' : 'Good evening';
-    
+    final greeting = now.hour < 12
+        ? 'Good morning'
+        : now.hour < 17
+            ? 'Good afternoon'
+            : 'Good evening';
+
     return Container(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -2679,17 +2783,18 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
   void _showEarningsDetails() {
     final currentYear = DateTime.now().year;
     final monthlyEarnings = <int, double>{};
-    
+
     // Calculate monthly breakdown
     for (final assignment in acceptedGames) {
-      if (assignment.gameDate != null && 
+      if (assignment.gameDate != null &&
           assignment.gameDate!.year == currentYear &&
           assignment.feeAmount != null) {
         final month = assignment.gameDate!.month;
-        monthlyEarnings[month] = (monthlyEarnings[month] ?? 0) + assignment.feeAmount!;
+        monthlyEarnings[month] =
+            (monthlyEarnings[month] ?? 0) + assignment.feeAmount!;
       }
     }
-    
+
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -2704,7 +2809,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
               const SizedBox(width: 8),
               Text(
                 '$currentYear Earnings',
-                style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold),
+                style:
+                    TextStyle(color: Colors.green, fontWeight: FontWeight.bold),
               ),
             ],
           ),
@@ -2717,7 +2823,10 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
-                      colors: [Colors.green.withOpacity(0.2), Colors.green.withOpacity(0.1)],
+                      colors: [
+                        Colors.green.withOpacity(0.2),
+                        Colors.green.withOpacity(0.1)
+                      ],
                     ),
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -2750,7 +2859,9 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                     fontSize: 16,
                   ),
                 ),
-                if (acceptedGames.where((a) => a.gameDate?.year == currentYear).isNotEmpty)
+                if (acceptedGames
+                    .where((a) => a.gameDate?.year == currentYear)
+                    .isNotEmpty)
                   Text(
                     'Average per Game: \$${(_ytdEarnings / acceptedGames.where((a) => a.gameDate?.year == currentYear).length).toStringAsFixed(2)}',
                     style: TextStyle(
@@ -2831,251 +2942,265 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
   }
 
   Widget _buildEnhancedGameCard(GameAssignment assignment, bool isNext) {
-    final gameDate = assignment.gameDate != null 
-        ? _formatDate(assignment.gameDate!) 
-        : 'TBD';
-    final gameTime = assignment.gameTime != null 
-        ? _formatTime(assignment.gameTime!) 
-        : 'TBD';
+    final gameDate =
+        assignment.gameDate != null ? _formatDate(assignment.gameDate!) : 'TBD';
+    final gameTime =
+        assignment.gameTime != null ? _formatTime(assignment.gameTime!) : 'TBD';
     final sportName = assignment.sportName ?? 'Sport';
     final locationName = assignment.locationName ?? 'TBD';
     final fee = assignment.feeAmount ?? 0.0;
-    
+
     return GestureDetector(
-      onTap: () => _navigateToGameDetails(assignment),
-      child: Container(
-      decoration: BoxDecoration(
-        gradient: isNext
-            ? LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  efficialsYellow.withOpacity(0.1),
-                  darkSurface,
-                ],
-              )
-            : null,
-        color: isNext ? null : darkSurface,
-        borderRadius: BorderRadius.circular(16),
-        border: isNext 
-            ? Border.all(color: efficialsYellow.withOpacity(0.5), width: 2)
-            : Border.all(color: Colors.grey.withOpacity(0.2)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+        onTap: () => _navigateToGameDetails(assignment),
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: isNext
+                ? LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      efficialsYellow.withOpacity(0.1),
+                      darkSurface,
+                    ],
+                  )
+                : null,
+            color: isNext ? null : darkSurface,
+            borderRadius: BorderRadius.circular(16),
+            border: isNext
+                ? Border.all(color: efficialsYellow.withOpacity(0.5), width: 2)
+                : Border.all(color: Colors.grey.withOpacity(0.2)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Column(
-        children: [
-          // Header with sport and status
-          Container(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          child: Column(
+            children: [
+              // Header with sport and status
+              Container(
+                padding: const EdgeInsets.all(20),
+                child: Column(
                   children: [
-                    Expanded(
-                      child: Row(
-                        children: [
-                        Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            color: _getSportColor(sportName).withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Icon(
-                            _getSportIcon(sportName),
-                            color: _getSportColor(sportName),
-                            size: 20,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
                         Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
+                          child: Row(
                             children: [
-                              Text(
-                                sportName,
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: efficialsYellow,
+                              Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  color: _getSportColor(sportName)
+                                      .withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(20),
                                 ),
-                                overflow: TextOverflow.ellipsis,
+                                child: Icon(
+                                  _getSportIcon(sportName),
+                                  color: _getSportColor(sportName),
+                                  size: 20,
+                                ),
                               ),
-                              Text(
-                                _formatAssignmentTitle(assignment),
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.grey[400],
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      sportName,
+                                      style: const TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color: efficialsYellow,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    Text(
+                                      _formatAssignmentTitle(assignment),
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        color: Colors.grey[400],
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                      maxLines: 2,
+                                    ),
+                                  ],
                                 ),
-                                overflow: TextOverflow.ellipsis,
-                                maxLines: 2,
                               ),
                             ],
                           ),
                         ),
-                        ],
-                      ),
-                    ),
-                    Column(
-                      children: [
-                        if (isNext)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [efficialsYellow, Colors.orange],
+                        Column(
+                          children: [
+                            if (isNext)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [efficialsYellow, Colors.orange],
+                                  ),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: const Text(
+                                  'NEXT UP',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black,
+                                  ),
+                                ),
                               ),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: const Text(
-                              'NEXT UP',
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black,
+                            const SizedBox(height: 4),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: Colors.green.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                'CONFIRMED',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.green[300],
+                                ),
                               ),
                             ),
-                          ),
-                        const SizedBox(height: 4),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: Colors.green.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            'CONFIRMED',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.green[300],
-                            ),
-                          ),
+                          ],
                         ),
                       ],
                     ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                // Game details in a more structured layout
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Column(
-                    children: [
-                      Row(
-                        children: [
-                          Icon(Icons.schedule, size: 16, color: Colors.grey[400]),
-                          const SizedBox(width: 8),
-                          Text(
-                            '$gameDate at $gameTime',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey[300],
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
+                    const SizedBox(height: 16),
+                    // Game details in a more structured layout
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Icon(Icons.location_on, size: 16, color: Colors.grey[400]),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              locationName,
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey[300],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      child: Column(
                         children: [
                           Row(
                             children: [
-                              Icon(Icons.attach_money, size: 16, color: Colors.green[400]),
-                              const SizedBox(width: 4),
+                              Icon(Icons.schedule,
+                                  size: 16, color: Colors.grey[400]),
+                              const SizedBox(width: 8),
                               Text(
-                                '${fee.toStringAsFixed(2)}',
+                                '$gameDate at $gameTime',
                                 style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.green[400],
+                                  fontSize: 14,
+                                  color: Colors.grey[300],
+                                  fontWeight: FontWeight.w500,
                                 ),
                               ),
                             ],
                           ),
-                          if (isNext)
-                            TextButton.icon(
-                              onPressed: () {
-                                // TODO: Navigate to game details
-                              },
-                              icon: const Icon(Icons.directions, size: 16),
-                              label: const Text('Get Directions'),
-                              style: TextButton.styleFrom(
-                                foregroundColor: efficialsYellow,
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Icon(Icons.location_on,
+                                  size: 16, color: Colors.grey[400]),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  locationName,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey[300],
+                                  ),
+                                ),
                               ),
-                            ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(Icons.attach_money,
+                                      size: 16, color: Colors.green[400]),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '${fee.toStringAsFixed(2)}',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.green[400],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              if (isNext)
+                                TextButton.icon(
+                                  onPressed: () {
+                                    // TODO: Navigate to game details
+                                  },
+                                  icon: const Icon(Icons.directions, size: 16),
+                                  label: const Text('Get Directions'),
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: efficialsYellow,
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 6),
+                                  ),
+                                ),
+                            ],
+                          ),
                         ],
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
-      ),
-    ));
+        ));
   }
 
-  List<Map<String, dynamic>> _convertGameAssignmentsToMaps(List<GameAssignment> assignments) {
+  List<Map<String, dynamic>> _convertGameAssignmentsToMaps(
+      List<GameAssignment> assignments) {
     debugPrint('Converting ${assignments.length} GameAssignments to maps');
     return assignments.map((assignment) {
-      debugPrint('Assignment - GameID: ${assignment.gameId}, HomeTeam: ${assignment.homeTeam}, Opponent: ${assignment.opponent}');
+      debugPrint(
+          'Assignment - GameID: ${assignment.gameId}, HomeTeam: ${assignment.homeTeam}, Opponent: ${assignment.opponent}');
       return {
-      'id': assignment.gameId,
-      'game_id': assignment.gameId,
-      'date': assignment.gameDate?.toIso8601String(),
-      'time': assignment.gameTime?.toIso8601String(),
-      'opponent': assignment.opponent,
-      'home_team': assignment.homeTeam,
-      'schedule_home_team_name': assignment.homeTeam,
-      'homeTeam': assignment.homeTeam,
-      'schedule_name': assignment.scheduleName ?? assignment.homeTeam ?? assignment.opponent ?? 'Game',
-      'scheduleName': assignment.scheduleName ?? assignment.homeTeam ?? assignment.opponent ?? 'Game',
-      'sport_name': assignment.sportName,
-      'sport': assignment.sportName,
-      'location_name': assignment.locationName,
-      'location': assignment.locationName,
-      'is_away': false, // GameAssignment doesn't have isAway field, default to false
-      'isAway': false,
-      'officialsRequired': 1, // Individual official assignment
-      'officials_required': 1,
-      'officialsHired': 1, // This official is confirmed
-      'officials_hired': 1,
-      'game_fee': assignment.feeAmount?.toString() ?? '0',
-      // Store the original assignment for navigation
-      '_assignment': assignment,
-    };
+        'id': assignment.gameId,
+        'game_id': assignment.gameId,
+        'date': assignment.gameDate?.toIso8601String(),
+        'time': assignment.gameTime?.toIso8601String(),
+        'opponent': assignment.opponent,
+        'home_team': assignment.homeTeam,
+        'schedule_home_team_name': assignment.homeTeam,
+        'homeTeam': assignment.homeTeam,
+        'schedule_name': assignment.scheduleName ??
+            assignment.homeTeam ??
+            assignment.opponent ??
+            'Game',
+        'scheduleName': assignment.scheduleName ??
+            assignment.homeTeam ??
+            assignment.opponent ??
+            'Game',
+        'sport_name': assignment.sportName,
+        'sport': assignment.sportName,
+        'location_name': assignment.locationName,
+        'location': assignment.locationName,
+        'is_away':
+            false, // GameAssignment doesn't have isAway field, default to false
+        'isAway': false,
+        'officialsRequired': 1, // Individual official assignment
+        'officials_required': 1,
+        'officialsHired': 1, // This official is confirmed
+        'officials_hired': 1,
+        'game_fee': assignment.feeAmount?.toString() ?? '0',
+        // Store the original assignment for navigation
+        '_assignment': assignment,
+      };
     }).toList();
   }
 
@@ -3086,18 +3211,19 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
       try {
         final gameId = assignment.gameId;
         final isLinked = await _gameService.isGameLinked(gameId);
-        
+
         if (isLinked) {
           // Get all linked games for context
           final linkedGames = await _gameService.getLinkedGames(gameId);
-          
+
           // Find linked games that are also in confirmed list
-          final confirmedGameMaps = _convertGameAssignmentsToMaps(acceptedGames);
+          final confirmedGameMaps =
+              _convertGameAssignmentsToMaps(acceptedGames);
           final linkedConfirmedGames = <GameAssignment>[];
-          
+
           // Add the current game
           linkedConfirmedGames.add(assignment);
-          
+
           // Add other linked games that are confirmed
           for (final linkedGame in linkedGames) {
             final linkedGameId = linkedGame['id'] as int?;
@@ -3106,14 +3232,15 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                 (g) => (g['id'] as int?) == linkedGameId,
               );
               if (matchingConfirmed.isNotEmpty) {
-                final matchingAssignment = matchingConfirmed.first['_assignment'] as GameAssignment?;
+                final matchingAssignment =
+                    matchingConfirmed.first['_assignment'] as GameAssignment?;
                 if (matchingAssignment != null) {
                   linkedConfirmedGames.add(matchingAssignment);
                 }
               }
             }
           }
-          
+
           _navigateToLinkedGameDetails(assignment, linkedConfirmedGames);
         } else {
           _navigateToGameDetails(assignment);
@@ -3129,10 +3256,10 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
   void _navigateToGameDetails(GameAssignment assignment) async {
     final result = await Navigator.pushNamed(
       context,
-      '/official_game_details', 
+      '/official_game_details',
       arguments: assignment,
     );
-    
+
     // If the user backed out of the game, refresh the data
     if (result == true) {
       // Show a subtle loading indicator while refreshing
@@ -3140,20 +3267,21 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
     }
   }
 
-  void _navigateToLinkedGameDetails(GameAssignment primaryAssignment, List<GameAssignment> linkedGames) async {
+  void _navigateToLinkedGameDetails(GameAssignment primaryAssignment,
+      List<GameAssignment> linkedGames) async {
     // Pass both the primary game and the linked games list
     final arguments = {
       'assignment': primaryAssignment,
       'linkedGames': linkedGames,
       'isLinkedView': true,
     };
-    
+
     final result = await Navigator.pushNamed(
       context,
-      '/official_game_details', 
+      '/official_game_details',
       arguments: arguments,
     );
-    
+
     // If the user backed out of any games, refresh the data
     if (result == true) {
       await _loadData();
@@ -3169,8 +3297,9 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
         return;
       }
 
-      final dismissedGames = await _assignmentRepo.getDismissedGamesForOfficial(_currentOfficial!.id!);
-      
+      final dismissedGames = await _assignmentRepo
+          .getDismissedGamesForOfficial(_currentOfficial!.id!);
+
       showDialog(
         context: context,
         builder: (BuildContext context) {
@@ -3178,7 +3307,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
             backgroundColor: darkSurface,
             title: const Text(
               'Dismissed Games',
-              style: TextStyle(color: efficialsYellow, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                  color: efficialsYellow, fontWeight: FontWeight.bold),
             ),
             content: SizedBox(
               width: double.maxFinite,
@@ -3197,19 +3327,20 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                         final sportName = dismissal.sportName ?? 'Sport';
                         final opponent = dismissal.opponent ?? 'TBD';
                         final homeTeam = dismissal.homeTeam ?? 'TBD';
-                        final gameTitle = opponent != 'TBD' && homeTeam != 'TBD' 
-                            ? '$opponent @ $homeTeam' 
+                        final gameTitle = opponent != 'TBD' && homeTeam != 'TBD'
+                            ? '$opponent @ $homeTeam'
                             : (opponent != 'TBD' ? opponent : homeTeam);
-                        
+
                         return Card(
                           color: darkBackground,
                           child: ListTile(
-                            leading: const Icon(Icons.remove_circle_outline, color: Colors.red),
+                            leading: const Icon(Icons.remove_circle_outline,
+                                color: Colors.red),
                             title: Text(
                               '$sportName: $gameTitle',
                               style: const TextStyle(color: Colors.white),
                             ),
-                            subtitle: dismissal.reason != null 
+                            subtitle: dismissal.reason != null
                                 ? Text(
                                     'Reason: ${dismissal.reason}',
                                     style: TextStyle(color: Colors.grey[400]),
@@ -3230,7 +3361,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Close', style: TextStyle(color: Colors.grey)),
+                child:
+                    const Text('Close', style: TextStyle(color: Colors.grey)),
               ),
             ],
           );
@@ -3248,20 +3380,20 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
 
   void _undismissFromDialog(GameDismissal dismissal) async {
     try {
-      await _assignmentRepo.undismissGame(dismissal.gameId, dismissal.officialId);
-      
+      await _assignmentRepo.undismissGame(
+          dismissal.gameId, dismissal.officialId);
+
       Navigator.of(context).pop(); // Close dialog
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Game restored to available list'),
           backgroundColor: Colors.green,
         ),
       );
-      
+
       // Reload data to refresh available games
       await _loadData();
-      
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -3278,14 +3410,14 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
       if (gameId == null || _currentOfficial?.id == null) {
         throw Exception('Missing required information');
       }
-      
+
       await _assignmentRepo.dismissGame(gameId, _currentOfficial!.id!, null);
-      
+
       // Remove from UI immediately
       setState(() {
         availableGames.removeWhere((g) => g['id'] == gameId);
       });
-      
+
       // Show undo option briefly
       ScaffoldMessenger.of(context).clearSnackBars();
       ScaffoldMessenger.of(context).showSnackBar(
@@ -3300,7 +3432,6 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
           ),
         ),
       );
-      
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -3316,14 +3447,14 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
       if (_currentOfficial?.id == null) {
         throw Exception('Missing official information');
       }
-      
+
       await _assignmentRepo.undismissGame(gameId, _currentOfficial!.id!);
-      
+
       // Add back to UI
       setState(() {
         availableGames.add(game);
       });
-      
+
       ScaffoldMessenger.of(context).clearSnackBars();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -3332,7 +3463,6 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
           duration: Duration(seconds: 2),
         ),
       );
-      
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -3347,10 +3477,10 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
     // Get response timeframe from game data (fallback to 24 hours if not set)
     final responseTime = game['response_timeframe'] ?? 24;
     final responseUnit = game['response_unit'] ?? 'hours';
-    
+
     // Format the timeframe text
     String timeframeText = _formatResponseTimeframe(responseTime, responseUnit);
-    
+
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -3365,7 +3495,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
               const SizedBox(width: 8),
               const Text(
                 'Express Interest',
-                style: TextStyle(color: efficialsYellow, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                    color: efficialsYellow, fontWeight: FontWeight.bold),
               ),
             ],
           ),
@@ -3409,7 +3540,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               ),
               child: const Text('Cancel'),
             ),
@@ -3424,7 +3556,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               ),
               child: const Text('Express Interest'),
             ),
@@ -3449,7 +3582,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
               const SizedBox(width: 8),
               const Text(
                 'Claim Game',
-                style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold),
+                style:
+                    TextStyle(color: Colors.green, fontWeight: FontWeight.bold),
               ),
             ],
           ),
@@ -3471,12 +3605,14 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.check_circle, color: Colors.green[300], size: 20),
+                    Icon(Icons.check_circle,
+                        color: Colors.green[300], size: 20),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         'You will be assigned to this game and the Scheduler will be notified.',
-                        style: TextStyle(color: Colors.green[300], fontSize: 14),
+                        style:
+                            TextStyle(color: Colors.green[300], fontSize: 14),
                       ),
                     ),
                   ],
@@ -3493,7 +3629,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               ),
               child: const Text('Cancel'),
             ),
@@ -3508,7 +3645,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               ),
               child: const Text('Claim Game'),
             ),
@@ -3535,29 +3673,27 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
     }
   }
 
-  void _expressInterest(Map<String, dynamic> game, {bool ignoreSoftConflicts = false}) async {
+  void _expressInterest(Map<String, dynamic> game,
+      {bool ignoreSoftConflicts = false}) async {
     final gameId = game['game_id'] ?? game['id'];
     final officialId = _currentOfficial!.id!;
     final feeAmount = _parseDoubleFromString(game['game_fee']);
-    
+
     // Check for conflicts first
     try {
-      final assignmentId = await _assignmentRepo.expressInterestWithConflictCheck(
-        gameId, 
-        officialId, 
-        feeAmount, 
-        ignoreSoftConflicts: ignoreSoftConflicts
-      );
-      
+      final assignmentId = await _assignmentRepo
+          .expressInterestWithConflictCheck(gameId, officialId, feeAmount,
+              ignoreSoftConflicts: ignoreSoftConflicts);
+
       // Success - update UI and show feedback
       if (mounted) {
         setState(() {
           // Remove from available games
-          availableGames.removeWhere((availableGame) => 
-            availableGame['id'] == game['id'] || 
-            (availableGame['game_id'] == game['game_id'] && game['game_id'] != null)
-          );
-          
+          availableGames.removeWhere((availableGame) =>
+              availableGame['id'] == game['id'] ||
+              (availableGame['game_id'] == game['game_id'] &&
+                  game['game_id'] != null));
+
           // Create a GameAssignment object for pending list using fromMap
           final pendingAssignmentMap = {
             'id': assignmentId,
@@ -3573,11 +3709,12 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
             'opponent': game['opponent'],
             'location_name': game['location_name'],
           };
-          
-          final pendingAssignment = GameAssignment.fromMap(pendingAssignmentMap);
+
+          final pendingAssignment =
+              GameAssignment.fromMap(pendingAssignmentMap);
           pendingGames.add(pendingAssignment);
         });
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Interest expressed in ${game['sport_name']} game'),
@@ -3605,14 +3742,16 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
     }
   }
 
-  Future<void> _showSoftConflictDialog(Map<String, dynamic> game, String conflictMessage) async {
+  Future<void> _showSoftConflictDialog(
+      Map<String, dynamic> game, String conflictMessage) async {
     // Get the specific conflict details
     final gameId = game['game_id'] ?? game['id'];
     final officialId = _currentOfficial!.id!;
-    final softConflicts = await _assignmentRepo.checkForSoftConflicts(officialId, gameId);
-    
+    final softConflicts =
+        await _assignmentRepo.checkForSoftConflicts(officialId, gameId);
+
     if (!mounted) return;
-    
+
     final result = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) {
@@ -3631,7 +3770,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
               ),
               const SizedBox(height: 8),
               ...softConflicts.map((conflict) {
-                final opponent = conflict['opponent'] ?? conflict['home_team'] ?? 'TBD';
+                final opponent =
+                    conflict['opponent'] ?? conflict['home_team'] ?? 'TBD';
                 final timeDiff = conflict['time_difference_minutes'] as int;
                 final hours = (timeDiff / 60).floor();
                 final minutes = timeDiff % 60;
@@ -3667,7 +3807,7 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
         );
       },
     );
-    
+
     if (result == true) {
       // User confirmed - proceed with ignoring soft conflicts
       _expressInterest(game, ignoreSoftConflicts: true);
@@ -3678,19 +3818,22 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
     final gameId = game['game_id'] ?? game['id'];
     final officialId = _currentOfficial!.id!;
     final feeAmount = _parseDoubleFromString(game['game_fee']);
-    
+
     // Persist to database
     try {
-      final assignmentId = await _assignmentRepo.expressInterest(gameId, officialId, feeAmount);
-      print('Successfully persisted interest expression to database with ID: $assignmentId');
-      
+      final assignmentId =
+          await _assignmentRepo.expressInterest(gameId, officialId, feeAmount);
+      print(
+          'Successfully persisted interest expression to database with ID: $assignmentId');
+
       // Update the assignment in the UI with the actual database ID
       if (mounted) {
         setState(() {
-          final index = pendingGames.indexWhere((assignment) => 
-            assignment.gameId == gameId && assignment.officialId == officialId && assignment.id == null
-          );
-          
+          final index = pendingGames.indexWhere((assignment) =>
+              assignment.gameId == gameId &&
+              assignment.officialId == officialId &&
+              assignment.id == null);
+
           if (index != -1) {
             // Create an updated assignment with the actual ID
             final updatedAssignmentMap = {
@@ -3708,35 +3851,36 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
               'opponent': game['opponent'],
               'location_name': game['location_name'],
             };
-            
-            final updatedAssignment = GameAssignment.fromMap(updatedAssignmentMap);
+
+            final updatedAssignment =
+                GameAssignment.fromMap(updatedAssignmentMap);
             pendingGames[index] = updatedAssignment;
           }
         });
       }
     } catch (e) {
       print('Error persisting interest expression: $e');
-      
+
       // Revert UI changes if database operation failed
       setState(() {
         // Add the game back to available games
         availableGames.add(game);
-        
+
         // Remove from pending games
-        pendingGames.removeWhere((assignment) => 
-          assignment.gameId == gameId && assignment.officialId == officialId
-        );
+        pendingGames.removeWhere((assignment) =>
+            assignment.gameId == gameId && assignment.officialId == officialId);
       });
-      
+
       // Show error message
       if (mounted) {
         String errorMessage = 'Failed to express interest. Please try again.';
-        
+
         // Provide specific error messages for common issues
         if (e.toString().contains('No active crew found for this crew chief')) {
-          errorMessage = 'You must be part of an active crew to express interest in crew-hire games. Please contact your administrator to set up your crew.';
+          errorMessage =
+              'You must be part of an active crew to express interest in crew-hire games. Please contact your administrator to set up your crew.';
         }
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(errorMessage),
@@ -3748,26 +3892,24 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
     }
   }
 
-  void _claimGame(Map<String, dynamic> game, {bool ignoreSoftConflicts = false}) async {
+  void _claimGame(Map<String, dynamic> game,
+      {bool ignoreSoftConflicts = false}) async {
     final gameId = game['game_id'] ?? game['id'];
     final officialId = _currentOfficial!.id!;
     final feeAmount = _parseDoubleFromString(game['game_fee']);
-    
+
     // Check for conflicts first
     try {
       final assignmentId = await _assignmentRepo.claimGameWithConflictCheck(
-        gameId, 
-        officialId, 
-        feeAmount, 
-        ignoreSoftConflicts: ignoreSoftConflicts
-      );
-      
+          gameId, officialId, feeAmount,
+          ignoreSoftConflicts: ignoreSoftConflicts);
+
       print('Successfully claimed game $gameId for official $officialId');
-      
+
       // Reload the data to reflect the changes
       if (mounted) {
         await _loadData();
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Successfully claimed ${game['sport_name']} game!'),
@@ -3799,10 +3941,11 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
     // Get the specific conflict details
     final gameId = game['game_id'] ?? game['id'];
     final officialId = _currentOfficial!.id!;
-    final softConflicts = await _assignmentRepo.checkForSoftConflicts(officialId, gameId);
-    
+    final softConflicts =
+        await _assignmentRepo.checkForSoftConflicts(officialId, gameId);
+
     if (!mounted) return;
-    
+
     final result = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) {
@@ -3821,7 +3964,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
               ),
               const SizedBox(height: 8),
               ...softConflicts.map((conflict) {
-                final opponent = conflict['opponent'] ?? conflict['home_team'] ?? 'TBD';
+                final opponent =
+                    conflict['opponent'] ?? conflict['home_team'] ?? 'TBD';
                 final timeDiff = conflict['time_difference_minutes'] as int;
                 final hours = (timeDiff / 60).floor();
                 final minutes = timeDiff % 60;
@@ -3857,7 +4001,7 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
         );
       },
     );
-    
+
     if (result == true) {
       // User confirmed - proceed with ignoring soft conflicts
       _claimGame(game, ignoreSoftConflicts: true);
@@ -3867,7 +4011,7 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
   void _legacyClaimGame(Map<String, dynamic> game) async {
     final gameId = game['game_id'] ?? game['id'];
     final officialId = _currentOfficial!.id!;
-    
+
     // Show loading indicator
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -3878,28 +4022,30 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
         ),
       );
     }
-    
+
     // Attempt to claim the game in the database
     try {
-      final success = await _assignmentRepo.claimGameForOfficial(gameId, officialId);
+      final success =
+          await _assignmentRepo.claimGameForOfficial(gameId, officialId);
       if (!success) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Game is no longer available or you are not eligible to claim it'),
+              content: Text(
+                  'Game is no longer available or you are not eligible to claim it'),
               backgroundColor: Colors.red,
             ),
           );
         }
         return;
       }
-      
+
       print('Successfully claimed game $gameId for official $officialId');
-      
+
       // Reload the data to reflect the changes
       if (mounted) {
         await _loadData();
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Successfully claimed ${game['sport_name']} game!'),
@@ -3910,11 +4056,11 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
       }
     } catch (e) {
       print('Error persisting game claim: $e');
-      
+
       // Reload data to revert any UI changes
       if (mounted) {
         await _loadData();
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Failed to claim game. Please try again.'),
@@ -3970,25 +4116,37 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
 
   // Helper methods for formatting
   String _formatDate(DateTime date) {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
+    ];
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    
+
     final dayName = days[date.weekday - 1];
     final monthName = months[date.month - 1];
-    
+
     return '$dayName, $monthName ${date.day}';
   }
-  
+
   String _formatTime(DateTime time) {
     final hour = time.hour;
     final minute = time.minute;
     final period = hour >= 12 ? 'PM' : 'AM';
     final displayHour = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
-    
+
     return '$displayHour:${minute.toString().padLeft(2, '0')} $period';
   }
-  
+
   String _formatAvailableGameDate(Map<String, dynamic> game) {
     if (game['date'] == null) return 'TBD';
     try {
@@ -3998,7 +4156,7 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
       return 'TBD';
     }
   }
-  
+
   String _formatAvailableGameTime(Map<String, dynamic> game) {
     if (game['time'] == null) return 'TBD';
     try {
@@ -4008,26 +4166,31 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
       return 'TBD';
     }
   }
-  
+
   String _formatGameTitle(Map<String, dynamic> game) {
     final opponent = game['opponent'] as String?;
     final scheduleHomeTeam = game['schedule_home_team_name'] as String?;
     final queryHomeTeam = game['home_team'] as String?;
-    
-    final homeTeam = (scheduleHomeTeam != null && scheduleHomeTeam.trim().isNotEmpty) 
-        ? scheduleHomeTeam 
-        : (queryHomeTeam != null && queryHomeTeam.trim().isNotEmpty) 
-            ? queryHomeTeam 
-            : 'Home Team';
-    
+
+    final homeTeam =
+        (scheduleHomeTeam != null && scheduleHomeTeam.trim().isNotEmpty)
+            ? scheduleHomeTeam
+            : (queryHomeTeam != null && queryHomeTeam.trim().isNotEmpty)
+                ? queryHomeTeam
+                : 'Home Team';
+
     // Debug logging to track home team issues
     debugPrint('🏠 Game ${game['id']} title formatting:');
     debugPrint('  opponent: "$opponent"');
-    debugPrint('  schedule_home_team_name: "${game['schedule_home_team_name']}"');
+    debugPrint(
+        '  schedule_home_team_name: "${game['schedule_home_team_name']}"');
     debugPrint('  home_team: "${game['home_team']}"');
     debugPrint('  final homeTeam: "$homeTeam"');
-    
-    if (opponent != null && homeTeam != null && homeTeam.trim().isNotEmpty && homeTeam != 'Home Team') {
+
+    if (opponent != null &&
+        homeTeam != null &&
+        homeTeam.trim().isNotEmpty &&
+        homeTeam != 'Home Team') {
       final result = '$opponent @ $homeTeam';
       debugPrint('  result: "$result"');
       return result;
@@ -4039,11 +4202,11 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
       return 'TBD';
     }
   }
-  
+
   String _formatAssignmentTitle(GameAssignment assignment) {
     final opponent = assignment.opponent;
     final homeTeam = assignment.homeTeam;
-    
+
     if (opponent != null && homeTeam != null) {
       return '$opponent @ $homeTeam';
     } else if (opponent != null) {
@@ -4069,7 +4232,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
               MaterialPageRoute(
                 builder: (context) => const CrewDashboardScreen(),
               ),
-            ).then((_) => _loadInvitationsCount()); // Refresh count when returning
+            ).then(
+                (_) => _loadInvitationsCount()); // Refresh count when returning
           },
           borderRadius: BorderRadius.circular(12),
           child: Container(
@@ -4127,9 +4291,11 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => const CrewInvitationsScreen(),
+                                builder: (context) =>
+                                    const CrewInvitationsScreen(),
                               ),
-                            ).then((_) => _loadInvitationsCount()); // Refresh count when returning
+                            ).then((_) =>
+                                _loadInvitationsCount()); // Refresh count when returning
                           },
                           child: Container(
                             padding: const EdgeInsets.symmetric(
@@ -4166,5 +4332,4 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
       ),
     );
   }
-
 }

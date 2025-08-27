@@ -8,6 +8,7 @@ import '../../shared/services/repositories/notification_repository.dart';
 import '../../shared/services/repositories/list_repository.dart';
 import '../../shared/services/game_service.dart';
 import '../../shared/services/user_session_service.dart';
+import '../../shared/widgets/responsive_layout.dart';
 
 class GameInformationScreen extends StatefulWidget {
   const GameInformationScreen({super.key});
@@ -2284,8 +2285,9 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
           },
         ),
       ),
-      body: CustomScrollView(
-        slivers: [
+      body: ResponsiveLayout(
+        child: CustomScrollView(
+          slivers: [
           SliverPersistentHeader(
             pinned: true,
             delegate: _SliverHeaderDelegate(
@@ -2796,6 +2798,7 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
             ),
           ),
         ],
+        ),
       ),
     );
   }

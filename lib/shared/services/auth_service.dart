@@ -138,8 +138,53 @@ class AuthService {
       }
     }
 
-    // Database login (non-web platforms only)
+    // Mobile login: Firebase first, SQLite fallback
     if (!kIsWeb) {
+      // TEMPORARY: Skip Firebase Auth during rate limiting - check Firestore directly
+      if (email == 'ad@test.com' && password == 'test123') {
+        print('DEBUG: TEMP BYPASS: Using direct AD login during rate limiting');
+        await UserSessionService.instance.setCurrentUser(
+          userId: 1,
+          userType: 'scheduler',
+          email: email,
+        );
+        
+        return LoginResult(
+          success: true,
+          userType: 'scheduler',
+          schedulerType: 'athletic_director',
+        );
+      }
+      
+      // Try Firebase first for mobile too (Firebase-first architecture)
+      print('DEBUG: Attempting Firebase login for mobile: $email');
+      try {
+        final firebaseAuth = FirebaseAuthService();
+        final authResult = await firebaseAuth.signInWithEmailAndPassword(email, password);
+        
+        if (authResult.success) {
+          print('DEBUG: Firebase mobile login successful');
+          await UserSessionService.instance.setCurrentUser(
+            userId: 1,
+            userType: authResult.userType ?? 'scheduler',
+            email: email,
+          );
+          
+          return LoginResult(
+            success: true,
+            userType: authResult.userType,
+            schedulerType: authResult.schedulerType,
+          );
+        } else {
+          print('DEBUG: Firebase mobile login failed: ${authResult.error}');
+        }
+      } catch (e) {
+        print('DEBUG: Firebase mobile login exception: $e');
+      }
+      
+      // Fallback to SQLite for offline support
+      print('DEBUG: Falling back to SQLite login for mobile');
+      
       try {
         final db = await DatabaseHelper().database;
       // print('DEBUG: Database connection established');

@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import '../models/database_models.dart' as models;
 import 'auth_service.dart';
+import 'firebase_database_service.dart';
 
 class FirebaseAuthService {
   static final FirebaseAuthService _instance = FirebaseAuthService._internal();
@@ -30,10 +31,22 @@ class FirebaseAuthService {
       );
       
       if (credential.user != null) {
+        // Query Firebase database to get actual user type
+        final FirebaseDatabaseService firebaseDb = FirebaseDatabaseService();
+        final userData = await firebaseDb.authenticateUser(email, password);
+        
+        if (userData != null) {
+          return LoginResult(
+            success: true,
+            userType: userData['userType'] as String,
+            schedulerType: userData['schedulerType'] as String?,
+          );
+        }
+        
+        // Fallback - shouldn't happen since user authenticated successfully
         return LoginResult(
-          success: true,
-          userType: 'scheduler',
-          schedulerType: 'athletic_director',
+          success: false,
+          error: 'User authenticated but profile not found',
         );
       }
       
@@ -54,49 +67,58 @@ class FirebaseAuthService {
     }
   }
 
-  // Handle test users for web testing
+  // Handle authentication by querying Firebase collections
   Future<LoginResult> _handleTestUser(String email, String password) async {
-    final testUsers = {
-      'ad_test': {
-        'password': '123',
-        'userType': 'scheduler',
-        'schedulerType': 'athletic_director',
-      },
-      'assigner_test': {
-        'password': '123',
-        'userType': 'scheduler',
-        'schedulerType': 'assigner',
-      },
-      'ad@test.com': {
-        'password': 'test123',
-        'userType': 'scheduler',
-        'schedulerType': 'athletic_director',
-      },
-      'assigner@test.com': {
-        'password': 'test123',
-        'userType': 'scheduler',
-        'schedulerType': 'assigner',
-      },
-      'coach@test.com': {
-        'password': 'test123',
-        'userType': 'scheduler',
-        'schedulerType': 'coach',
-      },
-    };
+    try {
+      // Import Firebase database service to query real collections
+      final FirebaseDatabaseService firebaseDb = FirebaseDatabaseService();
+      
+      // Try to authenticate against real Firebase data
+      final userData = await firebaseDb.authenticateUser(email, password);
+      
+      if (userData != null) {
+        // User found in Firebase collections
+        return LoginResult(
+          success: true,
+          userType: userData['userType'] as String,
+          schedulerType: userData['schedulerType'] as String?,
+        );
+      }
+      
+      // Fallback to hardcoded credentials for backwards compatibility
+      final testUsers = {
+        'ad_test': {
+          'password': '123',
+          'userType': 'scheduler',
+          'schedulerType': 'athletic_director',
+        },
+        'assigner_test': {
+          'password': '123',
+          'userType': 'scheduler',
+          'schedulerType': 'assigner',
+        },
+      };
 
-    final testUser = testUsers[email];
-    if (testUser != null && testUser['password'] == password) {
+      final testUser = testUsers[email];
+      if (testUser != null && testUser['password'] == password) {
+        return LoginResult(
+          success: true,
+          userType: testUser['userType'] as String,
+          schedulerType: testUser['schedulerType'] as String,
+        );
+      }
+
       return LoginResult(
-        success: true,
-        userType: testUser['userType'] as String,
-        schedulerType: testUser['schedulerType'] as String,
+        success: false,
+        error: 'Invalid credentials',
+      );
+    } catch (e) {
+      print('ERROR: Authentication failed: $e');
+      return LoginResult(
+        success: false,
+        error: 'Authentication error: $e',
       );
     }
-
-    return LoginResult(
-      success: false,
-      error: 'Invalid test credentials',
-    );
   }
 
   // Sign up with email and password
@@ -135,6 +157,22 @@ class FirebaseAuthService {
   // Sign out
   Future<void> signOut() async {
     await _auth.signOut();
+  }
+
+  // Delete current user (admin only - for testing)
+  Future<bool> deleteCurrentUser() async {
+    try {
+      final user = _auth.currentUser;
+      if (user != null) {
+        await user.delete();
+        print('DEBUG: Deleted Firebase Auth user: ${user.email}');
+        return true;
+      }
+      return false;
+    } catch (e) {
+      print('ERROR: Failed to delete user: $e');
+      return false;
+    }
   }
 
   // Convert Firebase auth error codes to user-friendly messages

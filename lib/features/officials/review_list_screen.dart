@@ -41,10 +41,10 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
   Future<int> _getListsCountBySport(String sport) async {
     try {
       if (_currentUserId == null) return 0;
-      
+
       final listRepository = ListRepository();
       final userLists = await listRepository.getUserLists(_currentUserId!);
-      
+
       // Count lists for the specific sport
       return userLists.where((list) => list['sport_name'] == sport).length;
     } catch (e) {
@@ -169,8 +169,8 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
 
       if (isEdit && listId != null) {
         // Update existing list - check for duplicate names first
-        final nameExists = await listRepository.listNameExists(
-            listName!, userId, excludeListId: listId);
+        final nameExists = await listRepository
+            .listNameExists(listName!, userId, excludeListId: listId);
         if (nameExists) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -185,10 +185,9 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
 
         // Update list name if changed
         await listRepository.updateListName(listId!, listName!);
-        
+
         // Update officials in list
         await listRepository.updateListById(listId!, selectedOfficialsData);
-        
 
         if (mounted) {
           // Navigate back to the lists screen after updating
@@ -207,15 +206,10 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
         }
       } else {
         // Create new list - check for duplicate names first
-        debugPrint('DEBUG: Checking if list name "$listName" exists for user $userId');
-        final nameExists = await listRepository.listNameExists(listName!, userId);
-        debugPrint('DEBUG: List name exists check result: $nameExists');
-        
+        final nameExists =
+            await listRepository.listNameExists(listName!, userId);
+
         if (nameExists) {
-          // Debug: Let's see what lists actually exist
-          final existingLists = await listRepository.getUserLists(userId);
-          debugPrint('DEBUG: Existing lists in database: ${existingLists.map((l) => '${l['name']} (id: ${l['id']})')}');
-          
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -228,10 +222,8 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
         }
 
         // Save to database using the new saveListFromUI method
-        debugPrint('DEBUG: Attempting to save list "$listName" with sport "$sport" and ${selectedOfficialsData.length} officials');
         final actualDatabaseId = await listRepository.saveListFromUI(
             listName!, sport!, selectedOfficialsData);
-        debugPrint('DEBUG: List saved successfully with database ID: $actualDatabaseId');
 
         if (mounted) {
           // Get the arguments to check if we're coming from game creation

@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../shared/theme.dart';
 import '../games/game_template.dart'; // Import the GameTemplate model
 import '../../shared/services/schedule_service.dart';
+import '../../shared/widgets/responsive_layout.dart';
 
 class SelectScheduleScreen extends StatefulWidget {
   const SelectScheduleScreen({super.key});
@@ -360,9 +361,10 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20.0),
+      body: ResponsiveLayout(
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20.0),
           child: ConstrainedBox(
             constraints: BoxConstraints(
               minHeight: MediaQuery.of(context).size.height -
@@ -413,9 +415,10 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
                       children: [
                         isLoading
                             ? const Center(child: CircularProgressIndicator())
-                            : DropdownButtonFormField<String>(
-                                decoration:
-                                    textFieldDecoration('Select a schedule'),
+                            : ResponsiveFormField(
+                                child: DropdownButtonFormField<String>(
+                                  decoration:
+                                      textFieldDecoration('Select a schedule'),
                                 value: selectedSchedule,
                                 hint: const Text(
                                     'Choose from existing schedules',
@@ -488,6 +491,7 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
                                     ),
                                   );
                                 }).toList(),
+                                ),
                               ),
                       ],
                     ),
@@ -495,8 +499,7 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
                   const Spacer(),
                   const SizedBox(height: 20),
                   Center(
-                    child: SizedBox(
-                      width: 200,
+                    child: ResponsiveButton(
                       child: ElevatedButton(
                         onPressed: (selectedSchedule == null ||
                                 selectedSchedule == 'No schedules available' ||
@@ -545,8 +548,7 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
                       selectedSchedule != 'No schedules available' &&
                       selectedSchedule != '+ Create new schedule')
                     Center(
-                      child: SizedBox(
-                        width: 200,
+                      child: ResponsiveButton(
                         child: ElevatedButton(
                           onPressed: () {
                             final selected = schedules.firstWhere(
@@ -580,6 +582,7 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
             ),
           ),
         ),
+      ),
       ),
     );
   }

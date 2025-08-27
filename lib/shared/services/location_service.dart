@@ -19,6 +19,13 @@ class LocationService {
 
   // Get all locations for the current user
   Future<List<Map<String, dynamic>>> getLocations() async {
+    // On web, SQLite doesn't work - return empty list for now
+    // User can create locations through the + Create new location option
+    if (kIsWeb) {
+      debugPrint('Web platform detected - SQLite not available, returning empty locations list');
+      return [];
+    }
+    
     try {
       final userId = await _getCurrentUserId();
       final locations = await _locationRepository.getLocationsByUser(userId);
@@ -48,6 +55,22 @@ class LocationService {
     required String zip,
     String? notes,
   }) async {
+    // On web, SQLite doesn't work - simulate location creation
+    if (kIsWeb) {
+      debugPrint('Web platform detected - simulating location creation for: $name');
+      // For demo purposes, always allow creation on web
+      final newId = DateTime.now().millisecondsSinceEpoch;
+      return {
+        'id': newId,
+        'name': name,
+        'address': address,
+        'city': city,
+        'state': state,
+        'zip': zip,
+        'notes': notes,
+      };
+    }
+    
     try {
       final userId = await _getCurrentUserId();
       

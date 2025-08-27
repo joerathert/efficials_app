@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../shared/theme.dart';
 import '../../shared/models/database_models.dart' as db;
 import '../../shared/services/user_session_service.dart';
+import '../../shared/widgets/responsive_layout.dart';
 import 'game_template.dart' as ui;
 
 class AdditionalGameInfoScreen extends StatefulWidget {
@@ -580,10 +581,11 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: SingleChildScrollView(
+      body: ResponsiveLayout(
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
@@ -615,7 +617,8 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       if (!_isAwayGame) ...[
-                        DropdownButtonFormField<String>(
+                        ResponsiveFormField(
+                          child: DropdownButtonFormField<String>(
                           decoration:
                               textFieldDecoration('Level of competition'),
                           value: _levelOfCompetition,
@@ -641,9 +644,11 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
                                       style: const TextStyle(
                                           color: Colors.white))))
                               .toList(),
+                          ),
                         ),
                         const SizedBox(height: 20),
-                        DropdownButtonFormField<String>(
+                        ResponsiveFormField(
+                          child: DropdownButtonFormField<String>(
                           decoration: textFieldDecoration('Gender'),
                           value: _gender,
                           hint: const Text('Select gender',
@@ -659,9 +664,11 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
                                       style: const TextStyle(
                                           color: Colors.white))))
                               .toList(),
+                          ),
                         ),
                         const SizedBox(height: 20),
-                        DropdownButtonFormField<int>(
+                        ResponsiveFormField(
+                          child: DropdownButtonFormField<int>(
                           decoration: textFieldDecoration(
                               'Required number of officials'),
                           value: _officialsRequired,
@@ -679,9 +686,11 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
                                       style: const TextStyle(
                                           color: Colors.white))))
                               .toList(),
+                          ),
                         ),
                         const SizedBox(height: 20),
-                        TextField(
+                        ResponsiveFormField(
+                          child: TextField(
                           controller: _gameFeeController,
                           enabled: true,
                           autofocus: false,
@@ -703,10 +712,12 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
                             LengthLimitingTextInputFormatter(
                                 7), // Allow for "99999.99"
                           ],
+                          ),
                         ),
                         const SizedBox(height: 20),
                       ],
-                      TextField(
+                      ResponsiveFormField(
+                        child: TextField(
                         controller: _opponentController,
                         enabled: !_isAwayGame,  // Disable for away games
                         autofocus: false,
@@ -720,6 +731,7 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
                             color: _isAwayGame ? Colors.grey : Colors.white, 
                             fontSize: 16),
                         keyboardType: TextInputType.text,
+                        ),
                       ),
                       const SizedBox(height: 8),
                       Text(
@@ -757,15 +769,18 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
                   ),
                 ),
                 const SizedBox(height: 30),
-                ElevatedButton(
+                ResponsiveButton(
+                  child: ElevatedButton(
                   onPressed: _handleContinue,
                   style: elevatedButtonStyle(
                     padding: const EdgeInsets.symmetric(
                         vertical: 15, horizontal: 50),
                   ),
                   child: const Text('Continue', style: signInButtonTextStyle),
+                  ),
                 ),
               ],
+            ),
             ),
           ),
         ),

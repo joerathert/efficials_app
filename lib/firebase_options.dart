@@ -41,28 +41,28 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyASDeuhvmZXxiJbN7I0ngLJs1yi0oN_1eU',
-    appId: '1:1029308374901:web:7c1223fef4e13df293bd3c',
-    messagingSenderId: '1029308374901',
-    projectId: 'efficials-app-test',
-    authDomain: 'efficials-app-test.firebaseapp.com',
-    storageBucket: 'efficials-app-test.firebasestorage.app',
+    apiKey: 'AIzaSyDQpfHNCkfQWfhKoWsaC9SVNS8awKVq1OE',
+    appId: '1:907190154709:web:a18d04881c49063ff7f95c',
+    messagingSenderId: '907190154709',
+    projectId: 'efficials-app',
+    authDomain: 'efficials-app.firebaseapp.com',
+    storageBucket: 'efficials-app.firebasestorage.app',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyDummyKey_Replace_With_Real_Key',
-    appId: '1:123456789:android:abcdef123456',
-    messagingSenderId: '123456789',
-    projectId: 'efficials-app-test',
-    storageBucket: 'efficials-app-test.appspot.com',
+    apiKey: 'AIzaSyAwLWks45QutyGtJx2DqXuTLa4_8w-4G-A',
+    appId: '1:907190154709:android:d06353dd57ea575ff7f95c',
+    messagingSenderId: '907190154709',
+    projectId: 'efficials-app',
+    storageBucket: 'efficials-app.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyDummyKey_Replace_With_Real_Key',
-    appId: '1:123456789:ios:abcdef123456',
-    messagingSenderId: '123456789',
-    projectId: 'efficials-app-test',
-    storageBucket: 'efficials-app-test.appspot.com',
+    apiKey: 'AIzaSyA6H6UmumwdTR-dHftfeymsapl4UDN-vkA',
+    appId: '1:907190154709:ios:22d9971cdef82981f7f95c',
+    messagingSenderId: '907190154709',
+    projectId: 'efficials-app',
+    storageBucket: 'efficials-app.firebasestorage.app',
     iosBundleId: 'com.example.efficialsApp',
   );
 
@@ -76,10 +76,12 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyDummyKey_Replace_With_Real_Key',
-    appId: '1:123456789:windows:abcdef123456',
-    messagingSenderId: '123456789',
-    projectId: 'efficials-app-test',
-    storageBucket: 'efficials-app-test.appspot.com',
+    apiKey: 'AIzaSyDQpfHNCkfQWfhKoWsaC9SVNS8awKVq1OE',
+    appId: '1:907190154709:web:d5bf1769d81eb731f7f95c',
+    messagingSenderId: '907190154709',
+    projectId: 'efficials-app',
+    authDomain: 'efficials-app.firebaseapp.com',
+    storageBucket: 'efficials-app.firebasestorage.app',
   );
+
 }
