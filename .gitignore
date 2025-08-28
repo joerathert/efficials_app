@@ -56,5 +56,12 @@ service-account.json
 service-account-old.json
 *.json
 
+# Development/test scripts with hardcoded credentials
+emulator_reset.js
+reset_auth_firestore.js
+enhanced_reset_script.js
+fix_auth_emails.js
+update_auth_emails.js
+
 # Node modules
 node_modules/
