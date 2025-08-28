@@ -33,7 +33,7 @@ class GameService {
 
     // If no user exists, create a default Athletic Director user
     try {
-      final defaultUser = User(
+      final defaultUser = AppUser(
         schedulerType: 'Athletic Director',
         setupCompleted: true,
         schoolName: 'Edwardsville',

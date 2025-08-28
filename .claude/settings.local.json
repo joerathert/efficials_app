@@ -97,7 +97,16 @@
       "Bash(nslookup:*)",
       "Bash(dig:*)",
       "Bash(whois:*)",
-      "WebFetch(domain:lookup.icann.org)"
+      "WebFetch(domain:lookup.icann.org)",
+      "Bash(/home/efficials/bin/dart analyze lib/shared/services/unified_data_service.dart --no-fatal-warnings)",
+      "Bash(git log:*)",
+      "Bash(/home/efficials/bin/flutter run -d web-server --web-port 8080 --dry-run)",
+      "Bash(git filter-branch:*)",
+      "Bash(git rm:*)",
+      "Bash(firebase deploy:*)",
+      "Bash(node:*)",
+      "WebFetch(domain:efficials-app.web.app)",
+      "WebFetch(domain:efficials.com)"
     ],
     "deny": []
   },

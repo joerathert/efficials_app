@@ -18,6 +18,16 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   final TextEditingController _passwordController = TextEditingController();
   bool _showPassword = false;
 
+  /// Detects if running against Firebase Emulator Suite
+  /// Returns true when accessing via localhost or 127.0.0.1
+  bool _isFirebaseEmulator() {
+    final host = Uri.base.host;
+    return host.contains('localhost') || 
+           host.contains('127.0.0.1') ||
+           host == 'localhost' ||
+           host == '127.0.0.1';
+  }
+
   void _handleSignIn() async {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
@@ -226,7 +236,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                 const SizedBox(height: 30),
 
                 // Quick Access for Testing
-                if (kDebugMode)
+                if (kDebugMode || _isFirebaseEmulator())
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(

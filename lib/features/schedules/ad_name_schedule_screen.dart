@@ -19,7 +19,7 @@ class _ADNameScheduleScreenState extends State<ADNameScheduleScreen> {
   final ScheduleService _scheduleService = ScheduleService();
   final UserRepository _userRepository = UserRepository();
   
-  User? currentUser;
+  AppUser? currentUser;
   bool isLoading = true;
 
   @override

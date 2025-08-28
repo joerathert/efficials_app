@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
 
-// User model
-class User {
+// App User model (renamed to avoid conflict with Firebase Auth User)
+class AppUser {
   final int? id;
   final String schedulerType;
   final bool setupCompleted;
@@ -22,7 +22,7 @@ class User {
   final String? phone;
   final DateTime createdAt;
 
-  User({
+  AppUser({
     this.id,
     required this.schedulerType,
     this.setupCompleted = false,
@@ -66,8 +66,8 @@ class User {
     };
   }
 
-  factory User.fromMap(Map<String, dynamic> map) {
-    return User(
+  factory AppUser.fromMap(Map<String, dynamic> map) {
+    return AppUser(
       id: map['id']?.toInt(),
       schedulerType: map['scheduler_type'] ?? '',
       setupCompleted: (map['setup_completed'] ?? 0) == 1,

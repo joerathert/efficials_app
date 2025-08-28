@@ -46,8 +46,15 @@ app.*.map.json
 
 # Security - API keys and secrets
 firebase_options.dart
+lib/config/firebase_config.dart
 android/app/google-services.json
 update_emails.js
 lib/scripts/update_emails.dart
 .env
 *.env
+service-account.json
+service-account-old.json
+*.json
+
+# Node modules
+node_modules/

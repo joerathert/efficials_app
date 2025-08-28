@@ -8,7 +8,7 @@ class UserRepository extends BaseRepository {
   static const String settingsTableName = 'user_settings';
 
   // User cache for performance
-  final Map<int, User> _userCache = {};
+  final Map<int, AppUser> _userCache = {};
 
   // Clear cache method
   void _clearCache() {
@@ -21,7 +21,7 @@ class UserRepository extends BaseRepository {
   }
 
   // Create a new user
-  Future<int> createUser(User user) async {
+  Future<int> createUser(AppUser user) async {
     // Validate required fields
     if (user.schedulerType.isEmpty) {
       throw ArgumentError('schedulerType cannot be empty');
@@ -39,7 +39,7 @@ class UserRepository extends BaseRepository {
     
     // Cache the new user with the generated ID
     if (userId > 0) {
-      final userWithId = User(
+      final userWithId = AppUser(
         id: userId,
         schedulerType: user.schedulerType,
         setupCompleted: user.setupCompleted,
@@ -66,7 +66,7 @@ class UserRepository extends BaseRepository {
   }
 
   // Helper method to get user by email
-  Future<User?> _getUserByEmail(String email) async {
+  Future<AppUser?> _getUserByEmail(String email) async {
     final results = await query(
       tableName,
       where: 'email = ?',
@@ -75,11 +75,11 @@ class UserRepository extends BaseRepository {
     );
 
     if (results.isEmpty) return null;
-    return User.fromMap(results.first);
+    return AppUser.fromMap(results.first);
   }
 
   // Update an existing user
-  Future<int> updateUser(User user) async {
+  Future<int> updateUser(AppUser user) async {
     if (user.id == null) throw ArgumentError('User ID cannot be null for update');
     
     // Validate required fields
@@ -111,7 +111,7 @@ class UserRepository extends BaseRepository {
   }
 
   // Get user by ID with caching
-  Future<User?> getUserById(int userId) async {
+  Future<AppUser?> getUserById(int userId) async {
     // Check cache first
     if (_userCache.containsKey(userId)) {
       return _userCache[userId];
@@ -125,7 +125,7 @@ class UserRepository extends BaseRepository {
 
     if (results.isEmpty) return null;
     
-    final user = User.fromMap(results.first);
+    final user = AppUser.fromMap(results.first);
     // Cache the user
     _userCache[userId] = user;
     
@@ -133,7 +133,7 @@ class UserRepository extends BaseRepository {
   }
 
   // Get current user (from session)
-  Future<User?> getCurrentUser() async {
+  Future<AppUser?> getCurrentUser() async {
     final currentUserId = await UserSessionService.instance.getCurrentUserId();
     final userType = await UserSessionService.instance.getCurrentUserType();
     
@@ -144,7 +144,7 @@ class UserRepository extends BaseRepository {
   }
 
   // Get user by scheduler type
-  Future<User?> getUserBySchedulerType(String schedulerType) async {
+  Future<AppUser?> getUserBySchedulerType(String schedulerType) async {
     final results = await query(
       tableName,
       where: 'scheduler_type = ?',
@@ -154,7 +154,7 @@ class UserRepository extends BaseRepository {
     );
 
     if (results.isEmpty) return null;
-    return User.fromMap(results.first);
+    return AppUser.fromMap(results.first);
   }
 
   // Check if any user exists

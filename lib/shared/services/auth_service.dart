@@ -198,7 +198,7 @@ class AuthService {
       // print('DEBUG: Found ${schedulerResults.length} scheduler users with email $email');
       
       if (schedulerResults.isNotEmpty) {
-        final user = User.fromMap(schedulerResults.first);
+        final user = AppUser.fromMap(schedulerResults.first);
         // print('DEBUG: Found scheduler user: ${user.firstName} ${user.lastName}');
         if (user.passwordHash != null && verifyPassword(password, user.passwordHash!)) {
           // print('DEBUG: Scheduler password verified successfully');

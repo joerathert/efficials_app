@@ -1,17 +1,18 @@
 import 'package:flutter/foundation.dart';
-import 'package:sqflite/sqflite.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:sqflite/sqflite.dart' show ConflictAlgorithm;
 import 'firebase_database_service.dart';
 import 'database_helper.dart';
 
 /// Unified Data Service - The single source of truth for all data operations
 ///
 /// Architecture:
-/// - Web: Firebase only
+/// - Web: Firebase/Firestore only
 /// - Mobile: Firebase primary + SQLite cache for offline
 /// - Desktop: Firebase primary (with SQLite fallback if needed)
 ///
 /// This service automatically handles:
-/// - Platform detection
+/// - Platform detection using kIsWeb
 /// - Online/offline state management
 /// - Data synchronization between Firebase and SQLite
 /// - Consistent data format across platforms
@@ -21,6 +22,7 @@ class UnifiedDataService {
   factory UnifiedDataService() => _instance;
 
   final FirebaseDatabaseService _firebase = FirebaseDatabaseService();
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   DatabaseHelper? _sqlite;
 
   bool get isWeb => kIsWeb;
@@ -118,7 +120,229 @@ class UnifiedDataService {
   }
 
   // ============================================================================
-  // FIREBASE OPERATIONS
+  // LOCATIONS DATA METHODS
+  // ============================================================================
+
+  /// Get all locations with smart platform handling
+  Future<List<Map<String, dynamic>>> getLocations({
+    String? userId,
+  }) async {
+    debugPrint(
+        '🔍 UnifiedDataService.getLocations() - Platform: ${isWeb ? 'Web' : isMobile ? 'Mobile' : 'Desktop'}');
+
+    // Web: Always use Firestore
+    if (isWeb) {
+      return await _getLocationsFromFirestore(userId);
+    }
+
+    // Mobile/Desktop: Firestore first, SQLite fallback
+    if (await isOnline) {
+      try {
+        final firestoreLocations = await _getLocationsFromFirestore(userId);
+        debugPrint(
+            '🔥 Firestore returned ${firestoreLocations.length} locations');
+
+        // Cache to SQLite for offline use (mobile only)
+        if (shouldUseCache && firestoreLocations.isNotEmpty) {
+          await _cacheLocationsToSQLite(firestoreLocations);
+        }
+
+        return firestoreLocations;
+      } catch (e) {
+        debugPrint('❌ Firestore failed: $e');
+        // Fall through to SQLite fallback
+      }
+    }
+
+    // Offline or Firestore failed: Use SQLite cache (mobile only)
+    if (shouldUseCache && _sqlite != null) {
+      debugPrint('📱 Using SQLite cache (offline mode)');
+      return await _getLocationsFromSQLite(userId);
+    }
+
+    debugPrint('❌ No data source available for locations');
+    return [];
+  }
+
+  /// Create a new location
+  Future<Map<String, dynamic>?> createLocation({
+    required String name,
+    required String address,
+    required String city,
+    required String state,
+    required String zip,
+    required String userId,
+    String? notes,
+  }) async {
+    // Web: Always use Firestore
+    if (isWeb) {
+      return await _createLocationInFirestore(
+        name: name,
+        address: address,
+        city: city,
+        state: state,
+        zip: zip,
+        userId: userId,
+        notes: notes,
+      );
+    }
+
+    // Mobile/Desktop: Firestore first, SQLite fallback
+    if (await isOnline) {
+      try {
+        final location = await _createLocationInFirestore(
+          name: name,
+          address: address,
+          city: city,
+          state: state,
+          zip: zip,
+          userId: userId,
+          notes: notes,
+        );
+
+        // Cache to SQLite for offline use (mobile only)
+        if (shouldUseCache && location != null) {
+          await _cacheLocationToSQLite(location);
+        }
+
+        return location;
+      } catch (e) {
+        debugPrint('❌ Firestore location creation failed: $e');
+        // Fall through to SQLite fallback
+      }
+    }
+
+    // Offline: Use SQLite (mobile only)
+    if (shouldUseCache && _sqlite != null) {
+      debugPrint('📱 Creating location in SQLite cache (offline mode)');
+      return await _createLocationInSQLite(
+        name: name,
+        address: address,
+        city: city,
+        state: state,
+        zip: zip,
+        userId: userId,
+        notes: notes,
+      );
+    }
+
+    return null;
+  }
+
+  // ============================================================================
+  // GAMES DATA METHODS
+  // ============================================================================
+
+  /// Get games for a schedule with smart platform handling
+  Future<List<Map<String, dynamic>>> getGames(String scheduleId) async {
+    debugPrint(
+        '🔍 UnifiedDataService.getGames() - Platform: ${isWeb ? 'Web' : isMobile ? 'Mobile' : 'Desktop'}');
+
+    // Web: Always use Firebase
+    if (isWeb) {
+      return await _firebase.getGames(scheduleId);
+    }
+
+    // Mobile/Desktop: Firebase first, SQLite fallback
+    if (await isOnline) {
+      try {
+        final firebaseGames = await _firebase.getGames(scheduleId);
+        debugPrint('🔥 Firebase returned ${firebaseGames.length} games');
+
+        // Cache to SQLite for offline use (mobile only)
+        if (shouldUseCache && firebaseGames.isNotEmpty) {
+          await _cacheGamesToSQLite(firebaseGames, scheduleId);
+        }
+
+        return firebaseGames;
+      } catch (e) {
+        debugPrint('❌ Firebase failed: $e');
+        // Fall through to SQLite fallback
+      }
+    }
+
+    // Offline or Firebase failed: Use SQLite cache (mobile only)
+    if (shouldUseCache && _sqlite != null) {
+      debugPrint('📱 Using SQLite cache (offline mode)');
+      return await _getGamesFromSQLite(scheduleId);
+    }
+
+    debugPrint('❌ No data source available for games');
+    return [];
+  }
+
+  /// Create a new game
+  Future<Map<String, dynamic>?> createGame({
+    required String scheduleId,
+    required String scheduleName,
+    required String sport,
+    required String userId,
+    required String opponent,
+    required String date,
+    required String time,
+    required String location,
+    String? notes,
+  }) async {
+    final gameData = {
+      'opponent': opponent,
+      'date': date,
+      'time': time,
+      'location': location,
+      'notes': notes ?? '',
+    };
+
+    // Web: Always use Firebase
+    if (isWeb) {
+      return await _firebase.createGame(
+        scheduleId: scheduleId,
+        scheduleName: scheduleName,
+        sport: sport,
+        userId: userId,
+        gameData: gameData,
+      );
+    }
+
+    // Mobile/Desktop: Firebase first, SQLite fallback
+    if (await isOnline) {
+      try {
+        final game = await _firebase.createGame(
+          scheduleId: scheduleId,
+          scheduleName: scheduleName,
+          sport: sport,
+          userId: userId,
+          gameData: gameData,
+        );
+
+        // Cache to SQLite for offline use (mobile only)
+        if (shouldUseCache && game != null) {
+          await _cacheGameToSQLite(game, scheduleId);
+        }
+
+        return game;
+      } catch (e) {
+        debugPrint('❌ Firebase game creation failed: $e');
+        // Fall through to SQLite fallback
+      }
+    }
+
+    // Offline: Use SQLite (mobile only)
+    if (shouldUseCache && _sqlite != null) {
+      debugPrint('📱 Creating game in SQLite cache (offline mode)');
+      return await _createGameInSQLite(
+        scheduleId: scheduleId,
+        opponent: opponent,
+        date: date,
+        time: time,
+        location: location,
+        notes: notes,
+      );
+    }
+
+    return null;
+  }
+
+  // ============================================================================
+  // FIREBASE/FIRESTORE OPERATIONS
   // ============================================================================
 
   Future<List<Map<String, dynamic>>> _getOfficialsFromFirebase(
@@ -184,6 +408,68 @@ class UnifiedDataService {
     }
   }
 
+  Future<List<Map<String, dynamic>>> _getLocationsFromFirestore(
+      String? userId) async {
+    try {
+      final query = userId != null
+          ? _firestore
+              .collection('locations')
+              .where('userId', isEqualTo: userId)
+          : _firestore.collection('locations');
+
+      final querySnapshot = await query.get();
+      debugPrint('🔥 Firestore returned ${querySnapshot.docs.length} locations');
+
+      return querySnapshot.docs.map((doc) {
+        final data = doc.data();
+        data['id'] = doc.id;
+        return data;
+      }).toList();
+    } catch (e) {
+      debugPrint('❌ Firestore locations query error: $e');
+      rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>?> _createLocationInFirestore({
+    required String name,
+    required String address,
+    required String city,
+    required String state,
+    required String zip,
+    required String userId,
+    String? notes,
+  }) async {
+    try {
+      final locationData = {
+        'name': name,
+        'address': address,
+        'city': city,
+        'state': state,
+        'zip': zip,
+        'userId': userId,
+        'notes': notes ?? '',
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+
+      final docRef = await _firestore.collection('locations').add(locationData);
+      final doc = await docRef.get();
+
+      if (doc.exists) {
+        final data = doc.data()!;
+        data['id'] = doc.id;
+        debugPrint('✅ Location created in Firestore: ${data['id']}');
+        return data;
+      }
+
+      return null;
+    } catch (e) {
+      debugPrint('❌ Firestore location creation error: $e');
+      rethrow;
+    }
+  }
+
   // ============================================================================
   // SQLITE OPERATIONS
   // ============================================================================
@@ -230,6 +516,134 @@ class UnifiedDataService {
     }
   }
 
+  Future<List<Map<String, dynamic>>> _getLocationsFromSQLite(
+      String? userId) async {
+    if (_sqlite == null) return [];
+
+    try {
+      final db = await _sqlite!.database;
+
+      String query = 'SELECT * FROM locations';
+      List<dynamic> args = [];
+
+      if (userId != null) {
+        query += ' WHERE user_id = ?';
+        args.add(int.tryParse(userId) ?? userId);
+      }
+
+      final results = await db.rawQuery(query, args);
+      debugPrint('📱 SQLite returned ${results.length} locations');
+
+      return results.map((row) => Map<String, dynamic>.from(row)).toList();
+    } catch (e) {
+      debugPrint('❌ SQLite locations query error: $e');
+      return [];
+    }
+  }
+
+  Future<Map<String, dynamic>?> _createLocationInSQLite({
+    required String name,
+    required String address,
+    required String city,
+    required String state,
+    required String zip,
+    required String userId,
+    String? notes,
+  }) async {
+    if (_sqlite == null) return null;
+
+    try {
+      final db = await _sqlite!.database;
+
+      final locationData = {
+        'name': name,
+        'address': '$address, $city, $state $zip',
+        'notes': notes ?? '',
+        'user_id': int.tryParse(userId) ?? 1,
+      };
+
+      final id = await db.insert('locations', locationData);
+
+      return {
+        'id': id,
+        'name': name,
+        'address': address,
+        'city': city,
+        'state': state,
+        'zip': zip,
+        'notes': notes,
+      };
+    } catch (e) {
+      debugPrint('❌ SQLite location creation error: $e');
+      return null;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> _getGamesFromSQLite(
+      String scheduleId) async {
+    if (_sqlite == null) return [];
+
+    try {
+      final db = await _sqlite!.database;
+
+      final results = await db.rawQuery('''
+        SELECT * FROM games 
+        WHERE schedule_id = ?
+        ORDER BY created_at DESC
+      ''', [int.tryParse(scheduleId) ?? scheduleId]);
+
+      debugPrint('📱 SQLite returned ${results.length} games');
+      return results.map((row) => Map<String, dynamic>.from(row)).toList();
+    } catch (e) {
+      debugPrint('❌ SQLite games query error: $e');
+      return [];
+    }
+  }
+
+  Future<Map<String, dynamic>?> _createGameInSQLite({
+    required String scheduleId,
+    required String opponent,
+    required String date,
+    required String time,
+    required String location,
+    String? notes,
+  }) async {
+    if (_sqlite == null) return null;
+
+    try {
+      final db = await _sqlite!.database;
+
+      final gameData = {
+        'schedule_id': int.tryParse(scheduleId) ?? scheduleId,
+        'opponent': opponent,
+        'date': date,
+        'time': time,
+        'location': location,
+        'notes': notes ?? '',
+        'created_at': DateTime.now().millisecondsSinceEpoch,
+      };
+
+      final id = await db.insert('games', gameData);
+
+      return {
+        'id': id.toString(),
+        'scheduleId': scheduleId,
+        'opponent': opponent,
+        'date': date,
+        'time': time,
+        'location': location,
+        'notes': notes,
+      };
+    } catch (e) {
+      debugPrint('❌ SQLite game creation error: $e');
+      return null;
+    }
+  }
+
+  // ============================================================================
+  // CACHING OPERATIONS (Mobile Only)
+  // ============================================================================
+
   Future<void> _cacheOfficialsToSQLite(
       List<Map<String, dynamic>> officials) async {
     if (_sqlite == null || officials.isEmpty) return;
@@ -255,6 +669,108 @@ class UnifiedDataService {
       debugPrint('💾 Cached ${officials.length} officials to SQLite');
     } catch (e) {
       debugPrint('❌ Cache error: $e');
+    }
+  }
+
+  Future<void> _cacheLocationsToSQLite(
+      List<Map<String, dynamic>> locations) async {
+    if (_sqlite == null || locations.isEmpty) return;
+
+    try {
+      final db = await _sqlite!.database;
+
+      // Clear existing cache
+      await db.delete('locations_cache');
+
+      // Insert fresh data
+      for (var location in locations) {
+        await db.insert(
+            'locations_cache',
+            {
+              'firestore_id': location['id'],
+              'data': location.toString(), // JSON serialize in production
+              'cached_at': DateTime.now().millisecondsSinceEpoch,
+            },
+            conflictAlgorithm: ConflictAlgorithm.replace);
+      }
+
+      debugPrint('💾 Cached ${locations.length} locations to SQLite');
+    } catch (e) {
+      debugPrint('❌ Locations cache error: $e');
+    }
+  }
+
+  Future<void> _cacheLocationToSQLite(Map<String, dynamic> location) async {
+    if (_sqlite == null) return;
+
+    try {
+      final db = await _sqlite!.database;
+
+      await db.insert(
+          'locations_cache',
+          {
+            'firestore_id': location['id'],
+            'data': location.toString(), // JSON serialize in production
+            'cached_at': DateTime.now().millisecondsSinceEpoch,
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace);
+
+      debugPrint('💾 Cached location to SQLite');
+    } catch (e) {
+      debugPrint('❌ Location cache error: $e');
+    }
+  }
+
+  Future<void> _cacheGamesToSQLite(
+      List<Map<String, dynamic>> games, String scheduleId) async {
+    if (_sqlite == null || games.isEmpty) return;
+
+    try {
+      final db = await _sqlite!.database;
+
+      // Clear existing cache for this schedule
+      await db.delete('games_cache',
+          where: 'schedule_id = ?', whereArgs: [scheduleId]);
+
+      // Insert fresh data
+      for (var game in games) {
+        await db.insert(
+            'games_cache',
+            {
+              'firebase_id': game['id'],
+              'schedule_id': scheduleId,
+              'data': game.toString(), // JSON serialize in production
+              'cached_at': DateTime.now().millisecondsSinceEpoch,
+            },
+            conflictAlgorithm: ConflictAlgorithm.replace);
+      }
+
+      debugPrint('💾 Cached ${games.length} games to SQLite');
+    } catch (e) {
+      debugPrint('❌ Games cache error: $e');
+    }
+  }
+
+  Future<void> _cacheGameToSQLite(
+      Map<String, dynamic> game, String scheduleId) async {
+    if (_sqlite == null) return;
+
+    try {
+      final db = await _sqlite!.database;
+
+      await db.insert(
+          'games_cache',
+          {
+            'firebase_id': game['id'],
+            'schedule_id': scheduleId,
+            'data': game.toString(), // JSON serialize in production
+            'cached_at': DateTime.now().millisecondsSinceEpoch,
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace);
+
+      debugPrint('💾 Cached game to SQLite');
+    } catch (e) {
+      debugPrint('❌ Game cache error: $e');
     }
   }
 
@@ -307,15 +823,6 @@ class UnifiedDataService {
     };
   }
 
-  String _formatCompetitionLevels(dynamic levels) {
-    if (levels is List) {
-      return levels.join(',');
-    } else if (levels is String) {
-      return levels;
-    } else {
-      return 'Varsity'; // Default to Varsity
-    }
-  }
 
   // ============================================================================
   // FILTERING
@@ -476,7 +983,7 @@ class UnifiedDataService {
       }
 
       return [];
-    } catch (e, stackTrace) {
+    } catch (e) {
       print('ERROR: UnifiedDataService.getOfficialLists failed: $e');
       return [];
     }

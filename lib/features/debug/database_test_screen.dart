@@ -1424,7 +1424,7 @@ FIRST 10 OFFICIALS:
     try {
       // Create 3 Scheduler users (same as existing method)
       final schedulerUsers = [
-        User(
+        AppUser(
           schedulerType: 'athletic_director',
           email: 'ad@test.com',
           passwordHash: _hashPassword('test123'),
@@ -1436,7 +1436,7 @@ FIRST 10 OFFICIALS:
           mascot: 'Tigers',
           schoolAddress: '6161 Center Grove Road, Edwardsville, IL 62025',
         ),
-        User(
+        AppUser(
           schedulerType: 'assigner',
           email: 'assigner@test.com',
           passwordHash: _hashPassword('test123'),
@@ -1447,7 +1447,7 @@ FIRST 10 OFFICIALS:
           leagueName: 'SAOA Football',
           sport: 'Football',
         ),
-        User(
+        AppUser(
           schedulerType: 'coach',
           email: 'coach@test.com',
           passwordHash: _hashPassword('test123'),
@@ -1744,7 +1744,7 @@ All ready for testing!''';
     try {
       // Create 3 Scheduler users
       final schedulerUsers = [
-        User(
+        AppUser(
           schedulerType: 'athletic_director',
           email: 'ad@test.com',
           passwordHash: _hashPassword('test123'),
@@ -1756,7 +1756,7 @@ All ready for testing!''';
           mascot: 'Tigers',
           schoolAddress: '6161 Center Grove Road, Edwardsville, IL 62025',
         ),
-        User(
+        AppUser(
           schedulerType: 'assigner',
           email: 'assigner@test.com',
           passwordHash: _hashPassword('test123'),
@@ -1767,7 +1767,7 @@ All ready for testing!''';
           leagueName: 'SAOA Football',
           sport: 'Football',
         ),
-        User(
+        AppUser(
           schedulerType: 'coach',
           email: 'coach@test.com',
           passwordHash: _hashPassword('test123'),

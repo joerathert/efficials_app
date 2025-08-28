@@ -75,7 +75,7 @@ class UserSessionService {
   }
 
   /// Get the full current user object (scheduler)
-  Future<User?> getCurrentSchedulerUser() async {
+  Future<AppUser?> getCurrentSchedulerUser() async {
     final userId = await getCurrentUserId();
     final userType = await getCurrentUserType();
     

@@ -20,6 +20,13 @@ The app supports Android, iOS, web, Linux, macOS, and Windows, using a feature-b
 - **Code Style**: Follow `flutter_lints` and `analysis_options.yaml`. Run `dart format .` before commits.
 - **SuperClaude**: Use evidence-based suggestions (`--evidence`) and minimal explanations (`--uc` for UltraCompressed mode).
 
+## Development Environment
+
+**IMPORTANT**: User primarily works in Windows Terminal (PowerShell/CMD), not WSL. When providing commands:
+- Use Windows paths and Flutter commands (e.g., `flutter run` not `/home/efficials/bin/flutter run`)
+- Only use WSL paths when absolutely necessary for file operations
+- Remember user accesses Claude Code from Windows Terminal environment
+
 ## Development Commands
 
 ### Flutter Basics
