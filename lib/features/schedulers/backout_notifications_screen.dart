@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../shared/theme.dart';
 import '../../shared/services/user_session_service.dart';
 import '../../shared/services/repositories/notification_repository.dart';
+import '../../shared/services/repositories/game_assignment_repository.dart';
 import '../../shared/models/database_models.dart' as models;
 
 class BackoutNotificationsScreen extends StatefulWidget {
@@ -13,6 +14,7 @@ class BackoutNotificationsScreen extends StatefulWidget {
 
 class _BackoutNotificationsScreenState extends State<BackoutNotificationsScreen> with SingleTickerProviderStateMixin {
   final NotificationRepository _notificationRepo = NotificationRepository();
+  final GameAssignmentRepository _gameAssignmentRepo = GameAssignmentRepository();
   List<models.Notification> _notifications = [];
   bool _isLoading = true;
   int? _currentUserId;
@@ -823,7 +825,16 @@ class _BackoutNotificationsScreenState extends State<BackoutNotificationsScreen>
       final data = notification.data ?? {};
       final officialName = data['official_name'] ?? 'Unknown Official';
       
-      // Mark notification as read and handle excuse logic
+      // Actually excuse the official's backout using the game assignment repository
+      if (_currentUserId != null) {
+        await _gameAssignmentRepo.excuseOfficialBackout(
+          notification.id!, 
+          _currentUserId!, 
+          reason
+        );
+      }
+      
+      // Mark notification as read
       await _notificationRepo.markAsRead(notification.id!);
 
       // Reload notifications to reflect the change
@@ -832,7 +843,7 @@ class _BackoutNotificationsScreenState extends State<BackoutNotificationsScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('$officialName has been excused'),
+            content: Text('$officialName has been excused - follow-through rate restored'),
             backgroundColor: Colors.green,
             duration: const Duration(seconds: 3),
           ),

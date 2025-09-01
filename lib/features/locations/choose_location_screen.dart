@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../shared/theme.dart';
 import '../games/game_template.dart' as game_template;
 import '../../shared/services/location_service.dart';
+import '../../shared/widgets/responsive_layout.dart';
 
 class ChooseLocationScreen extends StatefulWidget {
   const ChooseLocationScreen({super.key});
@@ -86,7 +87,9 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
 
   Future<void> _fetchLocations() async {
     try {
+      print('DEBUG: Fetching locations...');
       final dbLocations = await _locationService.getLocations();
+      print('DEBUG: Retrieved ${dbLocations.length} locations: $dbLocations');
       
       setState(() {
         locations = [];
@@ -100,7 +103,18 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
         locations.add({'name': '+ Create new location', 'id': 0});
         isLoading = false;
       });
+      print('DEBUG: Final locations list: $locations');
     } catch (e) {
+      print('DEBUG: Error fetching locations: $e');
+      // Show error message to user instead of silently failing
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading locations: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
       setState(() {
         locations = [
           {'name': 'Away Game', 'id': -2},
@@ -186,10 +200,11 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: SingleChildScrollView(
+      body: ResponsiveLayout(
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
@@ -231,7 +246,8 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                     const SizedBox(height: 24),
                     isLoading
                         ? const Center(child: CircularProgressIndicator())
-                        : DropdownButtonFormField<String>(
+                        : ResponsiveFormField(
+                            child: DropdownButtonFormField<String>(
                             decoration: textFieldDecoration('Choose location'),
                             value: selectedLocation != null 
                                 ? () {
@@ -296,6 +312,7 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                                   );
                                 })
                                 .toList(),
+                            ),
                           ),
                   ],
                 ),
@@ -304,8 +321,7 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
               if (selectedLocation != null &&
                   selectedLocation != 'Away Game' &&
                   selectedLocation != '+ Create new location') ...[
-                SizedBox(
-                  width: 200,
+                ResponsiveButton(
                   child: ElevatedButton(
                     onPressed: () {
                       final selected = locations
@@ -334,8 +350,7 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                SizedBox(
-                  width: 200,
+                ResponsiveButton(
                   child: ElevatedButton(
                     onPressed: () {
                       final selected = locations
@@ -361,8 +376,7 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                 ),
                 const SizedBox(height: 16),
               ],
-              SizedBox(
-                width: 200,
+              ResponsiveButton(
                 child: ElevatedButton(
                   onPressed: (selectedLocation != null &&
                           selectedLocation != '+ Create new location')
@@ -433,6 +447,7 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
             ],
             ),
           ),
+        ),
         ),
       ),
     );

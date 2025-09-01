@@ -1,3 +1,6 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 import '../models/database_models.dart';
 import 'repositories/user_repository.dart';
 import 'database_helper.dart';
@@ -16,24 +19,41 @@ class UserSessionService {
     required String userType, 
     required String email
   }) async {
-    final db = await DatabaseHelper().database;
-    
-    // Clear any existing session
-    await db.delete(_sessionTableName);
-    
-    // Insert new session
-    await db.insert(_sessionTableName, {
-      'user_id': userId,
-      'user_type': userType,
-      'email': email,
-      'created_at': DateTime.now().toIso8601String(),
-    });
+    print('DEBUG: Setting user session - userId: $userId, userType: $userType, email: $email');
+    if (kIsWeb) {
+      // Web platform: use SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      final sessionData = {
+        'user_id': userId,
+        'user_type': userType,
+        'email': email,
+        'created_at': DateTime.now().toIso8601String(),
+      };
+      await prefs.setString('user_session', jsonEncode(sessionData));
+      print('DEBUG: User session saved to SharedPreferences: $sessionData');
+    } else {
+      // Mobile platform: use database
+      final db = await DatabaseHelper().database;
+      
+      // Clear any existing session
+      await db.delete(_sessionTableName);
+      
+      // Insert new session
+      await db.insert(_sessionTableName, {
+        'user_id': userId,
+        'user_type': userType,
+        'email': email,
+        'created_at': DateTime.now().toIso8601String(),
+      });
+    }
   }
 
   /// Get the current user ID (null if not logged in)
   Future<int?> getCurrentUserId() async {
     final session = await _getCurrentSession();
-    return session?['user_id'] as int?;
+    final userId = session?['user_id'] as int?;
+    print('DEBUG: Getting current user ID: $userId');
+    return userId;
   }
 
   /// Get the current user type ('scheduler' or 'official')
@@ -55,7 +75,7 @@ class UserSessionService {
   }
 
   /// Get the full current user object (scheduler)
-  Future<User?> getCurrentSchedulerUser() async {
+  Future<AppUser?> getCurrentSchedulerUser() async {
     final userId = await getCurrentUserId();
     final userType = await getCurrentUserType();
     
@@ -85,21 +105,40 @@ class UserSessionService {
 
   /// Clear the current user session (logout)
   Future<void> clearSession() async {
-    final db = await DatabaseHelper().database;
-    await db.delete(_sessionTableName);
+    if (kIsWeb) {
+      // Web platform: clear SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('user_session');
+      print('DEBUG: User session cleared from SharedPreferences');
+    } else {
+      // Mobile platform: clear database
+      final db = await DatabaseHelper().database;
+      await db.delete(_sessionTableName);
+    }
   }
   
   /// Get the current session data from database
   Future<Map<String, dynamic>?> _getCurrentSession() async {
     try {
-      final db = await DatabaseHelper().database;
-      final results = await db.query(
-        _sessionTableName,
-        limit: 1,
-        orderBy: 'created_at DESC',
-      );
-      
-      return results.isNotEmpty ? results.first : null;
+      if (kIsWeb) {
+        // Web platform: use SharedPreferences
+        final prefs = await SharedPreferences.getInstance();
+        final sessionJson = prefs.getString('user_session');
+        if (sessionJson != null) {
+          return jsonDecode(sessionJson) as Map<String, dynamic>;
+        }
+        return null;
+      } else {
+        // Mobile platform: use database
+        final db = await DatabaseHelper().database;
+        final results = await db.query(
+          _sessionTableName,
+          limit: 1,
+          orderBy: 'created_at DESC',
+        );
+        
+        return results.isNotEmpty ? results.first : null;
+      }
     } catch (e) {
       // Table might not exist yet, return null
       return null;

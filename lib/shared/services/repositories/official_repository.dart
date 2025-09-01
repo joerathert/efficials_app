@@ -1,7 +1,17 @@
 import 'base_repository.dart';
 import '../../models/database_models.dart';
+import '../firebase_database_service.dart';
+import '../unified_data_service.dart';
+import 'package:flutter/foundation.dart';
 
 class OfficialRepository extends BaseRepository {
+  final UnifiedDataService _dataService = UnifiedDataService();
+
+  /// Initialize the repository - call this once at app startup
+  Future<void> initialize() async {
+    await _dataService.initialize();
+  }
+
   // Get official by user ID (for officials who have app accounts)
   Future<Official?> getOfficialByUserId(int userId) async {
     final results = await query(
@@ -28,14 +38,90 @@ class OfficialRepository extends BaseRepository {
 
   // Get official by email
   Future<Official?> getOfficialByEmail(String email) async {
-    final results = await query(
-      'officials',
-      where: 'email = ?',
-      whereArgs: [email],
-    );
+    print('DEBUG: OfficialRepository.getOfficialByEmail($email)');
 
-    if (results.isEmpty) return null;
-    return Official.fromMap(results.first);
+    // Use unified data service for Firebase-first approach
+    final officials = await _dataService.getAllOfficials();
+    print(
+        'DEBUG: Found ${officials.length} total officials in unified data service');
+
+    // Find official by email
+    final matchingOfficials = officials.where((official) {
+      final officialEmail = official['email'] as String?;
+      final match = officialEmail?.toLowerCase() == email.toLowerCase();
+      if (match) {
+        print('DEBUG: Found matching official: $officialEmail');
+      }
+      return match;
+    }).toList();
+
+    print(
+        'DEBUG: Found ${matchingOfficials.length} officials with email $email');
+
+    if (matchingOfficials.isEmpty) return null;
+
+    final officialData = matchingOfficials.first;
+
+    // DEBUG: Let's see what fields are actually available
+    print('DEBUG: Available fields in officialData:');
+    officialData.forEach((key, value) {
+      print('  $key: $value (${value.runtimeType})');
+    });
+
+    // Try multiple name sources in order
+    String officialName = 'Official'; // fallback
+
+    // First try the 'name' field (which unified service should provide)
+    if (officialData['name'] != null &&
+        (officialData['name'] as String).trim().isNotEmpty) {
+      officialName = (officialData['name'] as String).trim();
+      print('DEBUG: Using name field: "$officialName"');
+    }
+    // Then try firstName + lastName
+    else if (officialData['firstName'] != null ||
+        officialData['lastName'] != null) {
+      final firstName = (officialData['firstName'] as String? ?? '').trim();
+      final lastName = (officialData['lastName'] as String? ?? '').trim();
+      officialName = '$firstName $lastName'.trim();
+      print(
+          'DEBUG: Using firstName + lastName: "$firstName" + "$lastName" = "$officialName"');
+    }
+    // Fallback to other fields if available
+    else {
+      print('DEBUG: No name, firstName, or lastName found. Using fallback.');
+    }
+
+    print('DEBUG: Final official name: "$officialName"');
+
+    // Convert Firebase format to Official model format with proper type handling
+    final convertedData = {
+      'id': officialData['id'] is String
+          ? email.hashCode.abs()
+          : officialData['id'],
+      'name': officialName.isNotEmpty ? officialName : 'Official',
+      'email': officialData['email'],
+      'phone': officialData['phone']?.toString(),
+      'certification_level': officialData['certificationLevel']?.toString(),
+      'experience_years': _safeToInt(officialData['experienceYears']),
+      'city': officialData['city']?.toString(),
+      'state': 'IL', // Default for our area
+      'rating': (officialData['rating'] ?? 0.0).toString(),
+      'games_worked': _safeToInt(officialData['gamesWorked']),
+      'availability': officialData['availability']?.toString() ?? 'available',
+      'is_active': officialData['isActive'] ?? true,
+    };
+
+    print('DEBUG: Converted official data: ${convertedData['name']}');
+    return Official.fromMap(convertedData);
+  }
+
+  /// Helper method to safely convert values to int
+  int _safeToInt(dynamic value) {
+    if (value == null) return 0;
+    if (value is int) return value;
+    if (value is String) return int.tryParse(value) ?? 0;
+    if (value is double) return value.toInt();
+    return 0;
   }
 
   // Get all officials
@@ -47,19 +133,19 @@ class OfficialRepository extends BaseRepository {
   // Get all officials with formatted location data (for crew selection)
   Future<List<Map<String, dynamic>>> getAllOfficialsWithLocation() async {
     final results = await rawQuery('''
-      SELECT 
-        id,
-        name,
-        email,
-        phone,
-        city,
-        state
-      FROM officials
-      ORDER BY name
+      SELECT DISTINCT
+        o.id,
+        o.name,
+        o.email,
+        o.phone,
+        o.city,
+        o.state
+      FROM officials o
+      ORDER BY o.name
     ''');
 
     return results.map((row) {
-      // Format city and state properly
+      // Format city and state
       String cityState = '';
       final city = row['city'] as String?;
       final state = row['state'] as String?;
@@ -84,155 +170,70 @@ class OfficialRepository extends BaseRepository {
   }
 
   // Get officials by sport with comprehensive filtering support
+  // Now uses the unified data service for consistent cross-platform behavior
   Future<List<Map<String, dynamic>>> getOfficialsBySport(int sportId,
       {Map<String, dynamic>? filters}) async {
-    // Base query that joins officials with their sport certifications
-    String query = '''
-      SELECT DISTINCT 
-        o.id,
-        o.name,
-        o.email,
-        o.phone,
-        o.city,
-        o.state,
-        os.certification_level,
-        os.years_experience,
-        os.competition_levels,
-        os.is_primary,
-        s.name as sport_name
-      FROM officials o
-      JOIN official_sports os ON o.id = os.official_id
-      JOIN sports s ON os.sport_id = s.id
-      WHERE os.sport_id = ?
-    ''';
+    debugPrint(
+        '🔍 OfficialRepository.getOfficialsBySport() - sportId: $sportId, filters: $filters');
 
-    List<dynamic> queryArgs = [sportId];
+    // Use unified data service - it handles platform detection automatically
+    try {
+      final officials =
+          await _dataService.getOfficialsBySport('Football', filters: filters);
+      debugPrint('✅ UnifiedDataService returned ${officials.length} officials');
 
-    if (filters != null) {
-      // Apply certification level filters (inclusive OR logic)
-      final wantsRegistered = filters['ihsaRegistered'] ?? false;
-      final wantsRecognized = filters['ihsaRecognized'] ?? false;
-      final wantsCertified = filters['ihsaCertified'] ?? false;
+      // Transform data to match the expected format for UI
+      return officials.map((official) => _transformForUI(official)).toList();
+    } catch (e) {
+      debugPrint('❌ UnifiedDataService error: $e');
+      return [];
+    }
+  }
 
-      if (wantsRegistered || wantsRecognized || wantsCertified) {
-        List<String> certLevels = [];
-        // Database stores certifications without "IHSA" prefix
-        if (wantsRegistered) certLevels.addAll(['Registered', 'Recognized', 'Certified']);
-        if (wantsRecognized) certLevels.addAll(['Recognized', 'Certified']);
-        if (wantsCertified) certLevels.add('Certified');
-        
-        // Remove duplicates
-        certLevels = certLevels.toSet().toList();
-        
-        if (certLevels.isNotEmpty) {
-          final placeholders = certLevels.map((_) => '?').join(',');
-          query += ' AND os.certification_level IN ($placeholders)';
-          queryArgs.addAll(certLevels);
-        }
+  /// Transform standardized official data to the format expected by the UI
+  Map<String, dynamic> _transformForUI(Map<String, dynamic> official) {
+    // Extract certification level and format for UI
+    final certLevel =
+        official['certification_level'] as String? ?? 'Registered';
+    final competitionLevels =
+        (official['competition_levels'] as String? ?? 'Varsity').split(',');
+
+    // Format city and state
+    String cityState = '';
+    final city = official['city'] as String?;
+    final state = official['state'] as String?;
+
+    if (city != null && city.isNotEmpty && city != 'null') {
+      cityState = city;
+      if (state != null && state.isNotEmpty && state != 'null') {
+        cityState += ', $state';
       }
-
-      // Apply minimum years experience filter
-      if (filters['minYears'] != null && filters['minYears'] > 0) {
-        query += ' AND os.years_experience >= ?';
-        queryArgs.add(filters['minYears']);
-      }
-
-      // Apply competition levels filter
-      final selectedLevels = filters['levels'] as List<String>?;
-      if (selectedLevels != null && selectedLevels.isNotEmpty) {
-        final levelConditions = selectedLevels
-            .map((_) => 'os.competition_levels LIKE ?')
-            .join(' OR ');
-        query += ' AND ($levelConditions)';
-        for (final level in selectedLevels) {
-          queryArgs.add('%$level%');
-        }
-      }
-
-      // Note: Distance filtering will be handled at the UI level since we don't have
-      // geolocation data in the database yet
+    } else {
+      cityState = 'Location not available';
     }
 
+    // Generate a consistent integer ID from the string ID (email)
+    final stringId = official['id'].toString();
+    final intId =
+        stringId.hashCode.abs(); // Convert string ID to positive integer
 
-    // Let's specifically check Charles Rathert's data first
-    final charlesCheck = await rawQuery('''
-      SELECT 
-        o.id,
-        o.name,
-        o.city,
-        o.state,
-        os.certification_level,
-        os.competition_levels,
-        os.years_experience,
-        s.name as sport_name
-      FROM officials o
-      JOIN official_sports os ON o.id = os.official_id
-      JOIN sports s ON os.sport_id = s.id
-      WHERE o.name LIKE '%Charles%Rathert%'
-        AND s.id = ?
-    ''', [sportId]);
-    
-    if (charlesCheck.isEmpty) {
-      // Check if Charles exists at all
-      final charlesAny = await rawQuery('''
-        SELECT o.name, o.city, o.state, s.name as sport_name
-        FROM officials o
-        LEFT JOIN official_sports os ON o.id = os.official_id
-        LEFT JOIN sports s ON os.sport_id = s.id
-        WHERE o.name LIKE '%Charles%Rathert%'
-      ''');
-      
-      if (charlesAny.isNotEmpty) {
-        // Charles Rathert exists in database for other sports
-      }
-    }
-
-    final results = await rawQuery(query, queryArgs);
-    
-    
-
-    // Transform results to match the expected format from populate_roster_screen.dart
-    return results.map((row) {
-      final certLevel = row['certification_level'] as String? ?? '';
-      final competitionLevels =
-          (row['competition_levels'] as String? ?? '').split(',');
-
-      // Format city and state properly
-      String cityState = '';
-      final city = row['city'] as String?;
-      final state = row['state'] as String?;
-
-      if (city != null && city.isNotEmpty && city != 'null') {
-        cityState = city;
-        if (state != null && state.isNotEmpty && state != 'null') {
-          cityState += ', $state';
-        }
-      } else {
-        cityState = 'Location not available';
-      }
-
-      return {
-        'id': row['id'],
-        'name': row['name'],
-        'cityState': cityState,
-        'distance':
-            10.0 + (row['id'] as int) * 2.5, // TODO: Calculate actual distance
-        'yearsExperience': row['years_experience'] ?? 0,
-        // Hierarchical IHSA certification flags - higher levels include lower levels
-        'ihsaRegistered': certLevel == 'IHSA Registered' ||
-            certLevel == 'IHSA Recognized' ||
-            certLevel == 'IHSA Certified',
-        'ihsaRecognized':
-            certLevel == 'IHSA Recognized' || certLevel == 'IHSA Certified',
-        'ihsaCertified': certLevel == 'IHSA Certified',
-        'level':
-            competitionLevels.isNotEmpty ? competitionLevels.first : 'Varsity',
-        'competitionLevels': competitionLevels,
-        'sports': [
-          row['sport_name'] ?? 'Unknown'
-        ], // Single sport for this query
-      };
-    }).toList();
+    return {
+      'id': intId,
+      'name': official['name'],
+      'email': official['id'], // Keep the original email/string ID for Firebase operations
+      'cityState': cityState,
+      'distance': 10.0 + (intId % 30) * 2.5, // Temp distance calculation
+      'yearsExperience': official['years_experience'] ?? 0,
+      // IHSA certification flags - hierarchical
+      'ihsaRegistered':
+          ['Registered', 'Recognized', 'Certified'].contains(certLevel),
+      'ihsaRecognized': ['Recognized', 'Certified'].contains(certLevel),
+      'ihsaCertified': certLevel == 'Certified',
+      'level':
+          competitionLevels.isNotEmpty ? competitionLevels.first : 'Varsity',
+      'competitionLevels': competitionLevels,
+      'sports': ['Football'], // All officials are football officials
+    };
   }
 
   // Legacy method maintained for compatibility
@@ -252,41 +253,101 @@ class OfficialRepository extends BaseRepository {
     }
 
     final results = await query(
-      'officials',
+      'official_sports',
       where: whereClause,
       whereArgs: whereArgs,
     );
-    return results.map((data) => Official.fromMap(data)).toList();
+
+    List<Official> officials = [];
+    for (var result in results) {
+      int officialId = result['official_id'];
+      final officialResults = await query(
+        'officials',
+        where: 'id = ?',
+        whereArgs: [officialId],
+      );
+      if (officialResults.isNotEmpty) {
+        officials.add(Official.fromMap(officialResults.first));
+      }
+    }
+
+    return officials;
   }
 
   // Create a new official
   Future<int> createOfficial(Official official) async {
-    return await insert('officials', official.toMap());
+    final id = await insert('officials', official.toMap());
+    return id;
   }
 
-  // Update official
+  // Update an official
   Future<int> updateOfficial(Official official) async {
-    return await update('officials', official.toMap(), 'id = ?', [official.id]);
-  }
-
-  // Delete official
-  Future<int> deleteOfficial(int officialId) async {
-    return await delete('officials', 'id = ?', [officialId]);
-  }
-
-  // Get official user by email (for authentication)
-  Future<OfficialUser?> getOfficialUserByEmail(String email) async {
-    final results = await query(
-      'official_users',
-      where: 'email = ?',
-      whereArgs: [email],
+    return await update(
+      'officials',
+      official.toMap(),
+      'id = ?',
+      [official.id],
     );
-
-    if (results.isEmpty) return null;
-    return OfficialUser.fromMap(results.first);
   }
 
-  // Get official user by ID
+  // Delete an official
+  Future<int> deleteOfficial(int id) async {
+    return await delete(
+      'officials',
+      'id = ?',
+      [id],
+    );
+  }
+
+  // Add sport to official
+  Future<int> addSportToOfficial({
+    required int officialId,
+    required int sportId,
+    required String certificationLevel,
+    int yearsExperience = 0,
+    String competitionLevels = '',
+    bool isPrimary = false,
+  }) async {
+    return await insert('official_sports', {
+      'official_id': officialId,
+      'sport_id': sportId,
+      'certification_level': certificationLevel,
+      'years_experience': yearsExperience,
+      'competition_levels': competitionLevels,
+      'is_primary': isPrimary ? 1 : 0,
+    });
+  }
+
+  // Remove sport from official
+  Future<int> removeSportFromOfficial(int officialId, int sportId) async {
+    return await delete(
+      'official_sports',
+      'official_id = ? AND sport_id = ?',
+      [officialId, sportId],
+    );
+  }
+
+  // Get officials by list name and user
+  Future<List<Map<String, dynamic>>> getOfficialsByListName(
+      String listName, int userId) async {
+    final results = await rawQuery('''
+      SELECT DISTINCT
+        o.id,
+        o.name,
+        o.email,
+        o.phone,
+        o.city,
+        o.state
+      FROM officials o
+      JOIN official_lists ol ON o.id = ol.official_id
+      WHERE ol.name = ? AND ol.user_id = ?
+      ORDER BY o.name
+    ''', [listName, userId]);
+
+    return results;
+  }
+
+  // Get official user by ID (for app accounts)
   Future<OfficialUser?> getOfficialUserById(int id) async {
     final results = await query(
       'official_users',
@@ -303,17 +364,85 @@ class OfficialRepository extends BaseRepository {
     return await insert('official_users', officialUser.toMap());
   }
 
+  // Get available lists count
+  Future<int> getAvailableListsCount(int userId) async {
+    final result = await rawQuery('''
+      SELECT COUNT(DISTINCT name) as count
+      FROM official_lists
+      WHERE user_id = ? AND sport = 'Football'
+    ''', [userId]);
+
+    return result.isNotEmpty ? (result.first['count'] as int? ?? 0) : 0;
+  }
+
+  // Get baseball lists count
+  Future<int> getBaseballListsCount(int userId) async {
+    final result = await rawQuery('''
+      SELECT COUNT(DISTINCT name) as count
+      FROM official_lists
+      WHERE user_id = ? AND sport = 'Baseball'
+    ''', [userId]);
+
+    return result.isNotEmpty ? (result.first['count'] as int? ?? 0) : 0;
+  }
+
+  // Get officials from list
+  Future<List<Map<String, dynamic>>> getOfficialsFromList(
+      String listName, int userId) async {
+    final results = await rawQuery('''
+      SELECT DISTINCT
+        o.id,
+        o.name,
+        o.email,
+        o.phone,
+        o.city,
+        o.state
+      FROM officials o
+      JOIN official_lists ol ON o.id = ol.official_id
+      WHERE ol.name = ? AND ol.user_id = ?
+      ORDER BY o.name
+    ''', [listName, userId]);
+
+    return results;
+  }
+
+  // Get lists count by sport
+  Future<int> getListsCountBySport(int userId, String sport) async {
+    final result = await rawQuery('''
+      SELECT COUNT(DISTINCT name) as count
+      FROM official_lists
+      WHERE user_id = ? AND sport = ?
+    ''', [userId, sport]);
+
+    return result.isNotEmpty ? (result.first['count'] as int? ?? 0) : 0;
+  }
+
+  // Batch create officials
+  Future<List<int>> batchCreateOfficials(List<Official> officials) async {
+    final data = officials.map((official) => official.toMap()).toList();
+    return await batchInsert('officials', data);
+  }
+
   // Update verification status
   Future<void> updateVerificationStatus(
     int officialUserId, {
     bool? profileVerified,
+    bool? photoVerified,
+    bool? documentVerified,
     bool? emailVerified,
     bool? phoneVerified,
+    String? verificationNotes,
   }) async {
-    Map<String, dynamic> updates = {};
+    final updates = <String, dynamic>{};
 
     if (profileVerified != null) {
       updates['profile_verified'] = profileVerified ? 1 : 0;
+    }
+    if (photoVerified != null) {
+      updates['photo_verified'] = photoVerified ? 1 : 0;
+    }
+    if (documentVerified != null) {
+      updates['document_verified'] = documentVerified ? 1 : 0;
     }
     if (emailVerified != null) {
       updates['email_verified'] = emailVerified ? 1 : 0;
@@ -321,185 +450,12 @@ class OfficialRepository extends BaseRepository {
     if (phoneVerified != null) {
       updates['phone_verified'] = phoneVerified ? 1 : 0;
     }
-
-    if (updates.isNotEmpty) {
-      updates['updated_at'] = DateTime.now().toIso8601String();
-      await update('official_users', updates, 'id = ?', [officialUserId]);
-    }
-  }
-
-  // Get official's availability for a specific date
-  Future<List<OfficialAvailability>> getOfficialAvailability(
-      int officialId, DateTime date) async {
-    final dateString =
-        date.toIso8601String().split('T')[0]; // Get date part only
-
-    final results = await query(
-      'official_availability',
-      where: 'official_id = ? AND date = ?',
-      whereArgs: [officialId, dateString],
-    );
-
-    return results.map((data) => OfficialAvailability.fromMap(data)).toList();
-  }
-
-  // Set official availability
-  Future<int> setOfficialAvailability(OfficialAvailability availability) async {
-    // Check if availability already exists
-    final existing = await query(
-      'official_availability',
-      where: 'official_id = ? AND date = ? AND start_time = ?',
-      whereArgs: [
-        availability.officialId,
-        availability.date,
-        availability.startTime
-      ],
-    );
-
-    if (existing.isNotEmpty) {
-      // Update existing
-      return await update(
-          'official_availability',
-          availability.toMap(),
-          'official_id = ? AND date = ? AND start_time = ?',
-          [availability.officialId, availability.date, availability.startTime]);
-    } else {
-      // Insert new
-      return await insert('official_availability', availability.toMap());
-    }
-  }
-
-  // Get officials with their sports using JOIN query
-  Future<List<Official>> getOfficialsWithSports() async {
-    final results = await rawQuery('''
-      SELECT o.*, 
-             GROUP_CONCAT(s.name) as sport_names,
-             GROUP_CONCAT(os.sport_id) as sport_ids,
-             GROUP_CONCAT(os.certification_level) as certification_levels,
-             GROUP_CONCAT(os.years_experience) as years_experiences,
-             GROUP_CONCAT(os.is_primary) as is_primaries
-      FROM officials o 
-      LEFT JOIN official_sports os ON o.id = os.official_id
-      LEFT JOIN sports s ON os.sport_id = s.id
-      GROUP BY o.id
-    ''');
-
-    List<Official> officials = [];
-    for (final row in results) {
-      // Create basic official from the row data
-      final official = Official.fromMap(row);
-
-      // Parse the concatenated sport data
-      final sportNames = row['sport_names']?.toString().split(',') ?? [];
-      final sportIds = row['sport_ids']
-              ?.toString()
-              .split(',')
-              .map((id) => int.tryParse(id) ?? 0)
-              .toList() ??
-          [];
-      final certLevels =
-          row['certification_levels']?.toString().split(',') ?? [];
-      final yearsExp = row['years_experiences']
-              ?.toString()
-              .split(',')
-              .map((exp) => int.tryParse(exp) ?? 0)
-              .toList() ??
-          [];
-      final isPrimaries = row['is_primaries']
-              ?.toString()
-              .split(',')
-              .map((p) => p == '1')
-              .toList() ??
-          [];
-
-      // Create OfficialSport objects for the sports list
-      List<OfficialSport> sports = [];
-      for (int i = 0; i < sportIds.length && i < sportNames.length; i++) {
-        if (sportIds[i] > 0) {
-          sports.add(OfficialSport(
-            id: null,
-            officialId: official.id ?? 0,
-            sportId: sportIds[i],
-            certificationLevel: i < certLevels.length ? certLevels[i] : null,
-            yearsExperience: i < yearsExp.length ? yearsExp[i] : null,
-            isPrimary: i < isPrimaries.length ? isPrimaries[i] : false,
-            sportName: sportNames[i],
-          ));
-        }
-      }
-
-      officials.add(official);
+    if (verificationNotes != null) {
+      updates['verification_notes'] = verificationNotes;
     }
 
-    return officials;
-  }
+    updates['updated_at'] = DateTime.now().toIso8601String();
 
-  // Get officials by minimum rating
-  Future<List<Official>> getOfficialsByRating(double minRating) async {
-    final results = await query(
-      'officials',
-      where: 'rating >= ?',
-      whereArgs: [minRating.toString()],
-    );
-    return results.map((data) => Official.fromMap(data)).toList();
-  }
-
-  // Batch create officials
-  Future<List<int>> batchCreateOfficials(List<Official> officials) async {
-    final officialMaps = officials.map((official) => official.toMap()).toList();
-    return await batchInsert('officials', officialMaps);
-  }
-
-  // Get count of available official lists for a user
-  Future<int> getAvailableListsCount(int userId) async {
-    final results = await query(
-      'official_lists',
-      columns: ['COUNT(*) as count'],
-      where: 'user_id = ?',
-      whereArgs: [userId],
-    );
-
-    if (results.isEmpty) return 0;
-    return results.first['count'] as int;
-  }
-
-  // Get count of available baseball lists for a user
-  Future<int> getBaseballListsCount(int userId) async {
-    final results = await rawQuery('''
-      SELECT COUNT(*) as count
-      FROM official_lists ol
-      INNER JOIN sports s ON ol.sport_id = s.id
-      WHERE ol.user_id = ? AND s.name = 'Baseball'
-    ''', [userId]);
-
-    if (results.isEmpty) return 0;
-    return results.first['count'] as int;
-  }
-
-  // Get count of lists for a specific sport for a user
-  Future<int> getListsCountBySport(int userId, String sportName) async {
-    final results = await rawQuery('''
-      SELECT COUNT(*) as count
-      FROM official_lists ol
-      INNER JOIN sports s ON ol.sport_id = s.id
-      WHERE ol.user_id = ? AND s.name = ?
-    ''', [userId, sportName]);
-
-    if (results.isEmpty) return 0;
-    return results.first['count'] as int;
-  }
-
-  // Get officials from a specific list by list name
-  Future<List<Map<String, dynamic>>> getOfficialsFromList(
-      String listName, int userId) async {
-    final results = await rawQuery('''
-      SELECT o.*
-      FROM officials o
-      INNER JOIN official_list_members olm ON o.id = olm.official_id
-      INNER JOIN official_lists ol ON olm.list_id = ol.id
-      WHERE ol.name = ? AND ol.user_id = ?
-    ''', [listName, userId]);
-
-    return results;
+    await update('official_users', updates, 'id = ?', [officialUserId]);
   }
 }

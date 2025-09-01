@@ -42,7 +42,7 @@ class _AthleticDirectorSetupScreenState
         
         if (currentUser != null) {
           // Create updated user with school info
-          final updatedUser = User(
+          final updatedUser = AppUser(
             id: currentUser.id,
             schedulerType: currentUser.schedulerType,
             setupCompleted: true,

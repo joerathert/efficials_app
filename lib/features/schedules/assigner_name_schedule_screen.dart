@@ -19,7 +19,7 @@ class _AssignerNameScheduleScreenState extends State<AssignerNameScheduleScreen>
   final ScheduleService _scheduleService = ScheduleService();
   final UserRepository _userRepository = UserRepository();
   
-  User? currentUser;
+  AppUser? currentUser;
   bool isLoading = true;
 
   @override

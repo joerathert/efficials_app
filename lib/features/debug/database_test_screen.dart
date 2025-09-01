@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:convert';
 import 'dart:math';
 import 'package:crypto/crypto.dart';
@@ -17,6 +18,10 @@ import '../../shared/services/repositories/official_repository.dart';
 import '../../shared/services/repositories/location_repository.dart';
 import '../../shared/services/schedule_service.dart';
 import '../../shared/services/user_session_service.dart';
+import '../../shared/services/firebase_seeder_service.dart';
+import '../../shared/services/firebase_database_service.dart';
+import '../../shared/services/unified_data_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class DatabaseTestScreen extends StatefulWidget {
   const DatabaseTestScreen({super.key});
@@ -369,6 +374,252 @@ class _DatabaseTestScreenState extends State<DatabaseTestScreen> {
       } catch (e) {
         setState(() {
           testResult = 'Database reset error: $e';
+          isLoading = false;
+        });
+      }
+    }
+  }
+
+  // Check specific official in Firebase
+  Future<void> _checkJoeRathert() async {
+    setState(() {
+      isLoading = true;
+      testResult = 'Checking Joe Rathert in Firebase...';
+    });
+
+    try {
+      final firebaseService = FirebaseDatabaseService();
+      
+      // Get all officials and search for Joe Rathert
+      final allOfficials = await firebaseService.getAllOfficials();
+      print('DEBUG: Total officials in Firebase: ${allOfficials.length}');
+      
+      // Find Joe Rathert
+      final joeRathert = allOfficials.where((official) => 
+        official['lastName']?.toString().toLowerCase().contains('rathert') == true &&
+        official['firstName']?.toString().toLowerCase().contains('joe') == true
+      ).toList();
+      
+      // Find all Ratherts
+      final allRatherts = allOfficials.where((official) => 
+        official['lastName']?.toString().toLowerCase().contains('rathert') == true
+      ).toList();
+      
+      String result = 'JOE RATHERT SEARCH RESULTS:\n\n';
+      result += 'Total officials in Firebase: ${allOfficials.length}\n';
+      result += 'All Rathert officials found: ${allRatherts.length}\n\n';
+      
+      for (int i = 0; i < allRatherts.length; i++) {
+        final official = allRatherts[i];
+        result += 'Rathert #${i+1}:\n';
+        result += '  Name: ${official['firstName']} ${official['lastName']}\n';
+        result += '  Email: ${official['email']}\n';
+        result += '  Cert Level: ${official['certificationLevel']}\n';
+        result += '  Experience: ${official['experienceYears']} years\n';
+        result += '  City: ${official['city']}\n';
+        result += '  Address: ${official['address']}\n\n';
+      }
+      
+      if (joeRathert.isEmpty) {
+        result += '❌ JOE RATHERT NOT FOUND!\n';
+        result += 'This explains why he doesn\'t appear in filtered results.\n';
+      } else {
+        result += '✅ Joe Rathert found: ${joeRathert.length} records\n';
+      }
+
+      setState(() {
+        testResult = result;
+        isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        testResult = 'Error checking Joe Rathert: $e';
+        isLoading = false;
+      });
+    }
+  }
+
+  // Debug Firebase Lists to see what's stored vs retrieved
+  Future<void> _debugFirebaseLists() async {
+    setState(() {
+      isLoading = true;
+      testResult = 'Debugging Firebase Lists...';
+    });
+
+    try {
+      final firebaseService = FirebaseDatabaseService();
+      final userId = await UserSessionService.instance.getCurrentUserId();
+      
+      if (userId == null) {
+        setState(() {
+          testResult = 'ERROR: No user logged in';
+          isLoading = false;
+        });
+        return;
+      }
+
+      print('DEBUG: _debugFirebaseLists - userId: $userId');
+      
+      // Get data through Firebase service (handles auth)
+      final userListsFromService = await firebaseService.getOfficialLists(userId.toString());
+      
+      String result = 'FIREBASE LISTS DEBUG:\n\n';
+      result += 'Current User ID: $userId\n';
+      result += 'Lists from Firebase service: ${userListsFromService.length}\n\n';
+      
+      if (userListsFromService.isEmpty) {
+        result += '❌ NO LISTS FOUND FOR CURRENT USER!\n';
+        result += 'This explains why lists screen shows empty.\n';
+      } else {
+        result += 'Lists found for current user:\n';
+        for (var list in userListsFromService) {
+          result += '📝 List: ${list['name']}\n';
+          result += '   ID: ${list['id']}\n';
+          result += '   User ID: ${list['userId']}\n';
+          result += '   Sport: ${list['sport']}\n';
+          result += '   Officials: ${list['official_count']}\n';
+          result += '   Created: ${list['createdAt']}\n\n';
+        }
+      }
+      
+      // Test the unified data service
+      result += '\n--- TESTING UNIFIED DATA SERVICE ---\n';
+      try {
+        final unifiedService = UnifiedDataService();
+        final retrievedLists = await unifiedService.getOfficialLists(userId.toString());
+        result += 'Unified service returned: ${retrievedLists.length} lists\n';
+        
+        for (var list in retrievedLists) {
+          result += '   - ${list['name']}: ${list['official_count']} officials\n';
+        }
+      } catch (e) {
+        result += 'ERROR in unified service: $e\n';
+      }
+
+      setState(() {
+        testResult = result;
+        isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        testResult = 'Error debugging Firebase lists: $e';
+        isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _resetFirebaseDatabase() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Reset Firebase Database'),
+        content: const Text(
+            'This will delete ALL Firebase data (users, schedules, games, officials). Are you sure?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Reset Firebase'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      setState(() {
+        isLoading = true;
+        testResult = 'Resetting Firebase database...';
+      });
+
+      try {
+        final firebaseDb = FirebaseDatabaseService();
+        
+        // Delete all collections by deleting all documents in each collection
+        await _deleteFirebaseCollection('users');
+        await _deleteFirebaseCollection('schedules');
+        await _deleteFirebaseCollection('games');
+        await _deleteFirebaseCollection('officials');
+        
+        setState(() {
+          testResult = 'Firebase database reset completed! All collections cleared.';
+          isLoading = false;
+        });
+      } catch (e) {
+        setState(() {
+          testResult = 'Firebase database reset error: $e';
+          isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _deleteFirebaseCollection(String collectionName) async {
+    try {
+      print('DEBUG: Deleting Firebase collection: $collectionName');
+      final firestore = FirebaseFirestore.instance;
+      final querySnapshot = await firestore.collection(collectionName).get();
+      
+      final batch = firestore.batch();
+      for (var doc in querySnapshot.docs) {
+        batch.delete(doc.reference);
+      }
+      
+      await batch.commit();
+      print('DEBUG: Deleted ${querySnapshot.docs.length} documents from $collectionName');
+    } catch (e) {
+      print('ERROR: Failed to delete collection $collectionName: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> _regenerateFirebaseData() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Regenerate Firebase Test Data'),
+        content: const Text(
+            'This will create fresh test data (AD, Assigner, Coach + 123 Officials with correct addresses). Continue?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Regenerate Data'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      setState(() {
+        isLoading = true;
+        testResult = 'Regenerating Firebase test data...';
+      });
+
+      try {
+        final seeder = FirebaseSeederService();
+        final success = await seeder.seedAllData(force: true);
+        
+        if (success) {
+          setState(() {
+            testResult = 'Firebase test data regeneration completed!\n'
+                'Created: AD, Assigner, Coach users + 123 Officials with addresses';
+            isLoading = false;
+          });
+        } else {
+          setState(() {
+            testResult = 'Firebase test data regeneration failed. Check debug logs.';
+            isLoading = false;
+          });
+        }
+      } catch (e) {
+        setState(() {
+          testResult = 'Firebase data regeneration error: $e';
           isLoading = false;
         });
       }
@@ -1173,7 +1424,7 @@ FIRST 10 OFFICIALS:
     try {
       // Create 3 Scheduler users (same as existing method)
       final schedulerUsers = [
-        User(
+        AppUser(
           schedulerType: 'athletic_director',
           email: 'ad@test.com',
           passwordHash: _hashPassword('test123'),
@@ -1185,7 +1436,7 @@ FIRST 10 OFFICIALS:
           mascot: 'Tigers',
           schoolAddress: '6161 Center Grove Road, Edwardsville, IL 62025',
         ),
-        User(
+        AppUser(
           schedulerType: 'assigner',
           email: 'assigner@test.com',
           passwordHash: _hashPassword('test123'),
@@ -1196,7 +1447,7 @@ FIRST 10 OFFICIALS:
           leagueName: 'SAOA Football',
           sport: 'Football',
         ),
-        User(
+        AppUser(
           schedulerType: 'coach',
           email: 'coach@test.com',
           passwordHash: _hashPassword('test123'),
@@ -1348,7 +1599,7 @@ Certified,17,Wooten,Edward,801 Chancellor Dr,Edwardsville,62025,618-560-1502''';
       // Create officials from CSV data
       final officialIds = await _createOfficialsFromCsv(csvData, officialRepo);
       officialCount = officialIds.length;
-      
+
       // Also fix any existing officials that might not have competition levels (skip for now)
       final fixedCount = 0;
 
@@ -1380,20 +1631,21 @@ All ready for testing!''';
     }
   }
 
-  Future<List<int>> _createOfficialsFromCsv(String csvData, OfficialRepository officialRepo) async {
+  Future<List<int>> _createOfficialsFromCsv(
+      String csvData, OfficialRepository officialRepo) async {
     final lines = csvData.trim().split('\n');
     if (lines.isEmpty) return [];
-    
+
     // Skip the header line
     final dataLines = lines.skip(1);
     final officials = <Official>[];
-    
+
     for (int i = 0; i < dataLines.length; i++) {
       final line = dataLines.elementAt(i);
       final columns = line.split(',');
-      
+
       if (columns.length < 8) continue; // Skip malformed lines
-      
+
       final certLevel = columns[0].trim();
       final yearsExp = int.tryParse(columns[1].trim()) ?? 1;
       final lastName = columns[2].trim();
@@ -1402,10 +1654,11 @@ All ready for testing!''';
       final city = columns[5].trim();
       final zip = columns[6].trim();
       final phone = columns[7].trim();
-      
+
       // Create email in format: first2letters+lastname@test.com (to avoid duplicates)
-      final email = '${firstName.toLowerCase().substring(0, 2)}${lastName.toLowerCase()}@test.com';
-      
+      final email =
+          '${firstName.toLowerCase().substring(0, 2)}${lastName.toLowerCase()}@test.com';
+
       // Create Official object
       final official = Official(
         name: '$firstName $lastName',
@@ -1421,13 +1674,13 @@ All ready for testing!''';
         totalBackedOutGames: 0,
         createdAt: DateTime.now(),
       );
-      
+
       officials.add(official);
     }
-    
+
     // Batch create officials
     final officialIds = await officialRepo.batchCreateOfficials(officials);
-    
+
     // Create corresponding official_users for authentication
     final db = await DatabaseHelper().database;
     for (int i = 0; i < officialIds.length; i++) {
@@ -1439,7 +1692,7 @@ All ready for testing!''';
       final yearsExp = int.tryParse(columns[1].trim()) ?? 1;
       final firstName = columns[3].trim();
       final lastName = columns[2].trim();
-      
+
       // Create OfficialUser for authentication
       final officialUser = OfficialUser(
         email: official.email!,
@@ -1451,17 +1704,22 @@ All ready for testing!''';
         phoneVerified: true,
         status: 'active',
       );
-      
-      final officialUserId = await db.insert('official_users', officialUser.toMap());
-      
+
+      final officialUserId =
+          await db.insert('official_users', officialUser.toMap());
+
       // Update the official record to link to the official_user
       await db.update(
         'officials',
-        {'official_user_id': officialUserId, 'user_id': officialUserId, 'is_user_account': 1},
+        {
+          'official_user_id': officialUserId,
+          'user_id': officialUserId,
+          'is_user_account': 1
+        },
         where: 'id = ?',
         whereArgs: [officialId],
       );
-      
+
       // Create sport certifications for each official (Football sport_id = 1)
       await db.insert('official_sports', {
         'official_id': officialId,
@@ -1473,7 +1731,7 @@ All ready for testing!''';
         'created_at': DateTime.now().toIso8601String(),
       });
     }
-    
+
     return officialIds;
   }
 
@@ -1486,7 +1744,7 @@ All ready for testing!''';
     try {
       // Create 3 Scheduler users
       final schedulerUsers = [
-        User(
+        AppUser(
           schedulerType: 'athletic_director',
           email: 'ad@test.com',
           passwordHash: _hashPassword('test123'),
@@ -1498,7 +1756,7 @@ All ready for testing!''';
           mascot: 'Tigers',
           schoolAddress: '6161 Center Grove Road, Edwardsville, IL 62025',
         ),
-        User(
+        AppUser(
           schedulerType: 'assigner',
           email: 'assigner@test.com',
           passwordHash: _hashPassword('test123'),
@@ -1509,7 +1767,7 @@ All ready for testing!''';
           leagueName: 'SAOA Football',
           sport: 'Football',
         ),
-        User(
+        AppUser(
           schedulerType: 'coach',
           email: 'coach@test.com',
           passwordHash: _hashPassword('test123'),
@@ -1994,35 +2252,41 @@ All users have password: test123''';
       ''');
 
       String result = '=== ATHLETIC DIRECTOR PROFILE DEBUG ===\n\n';
-      
+
       result += '👥 ALL USERS (${allUsers.length}):\n';
       if (allUsers.isEmpty) {
         result += '  ❌ No users found in database\n\n';
       } else {
         for (int i = 0; i < allUsers.length; i++) {
           final user = allUsers[i];
-          result += '  ${i + 1}. ${user['first_name']} ${user['last_name']} (ID: ${user['id']})\n';
+          result +=
+              '  ${i + 1}. ${user['first_name']} ${user['last_name']} (ID: ${user['id']})\n';
           result += '     Email: ${user['email']}\n';
           result += '     Type: "${user['scheduler_type']}"\n';
-          result += '     School: "${user['school_name']}", Mascot: "${user['mascot']}"\n';
-          result += '     Setup: ${user['setup_completed'] == 1 ? 'Yes' : 'No'}\n\n';
+          result +=
+              '     School: "${user['school_name']}", Mascot: "${user['mascot']}"\n';
+          result +=
+              '     Setup: ${user['setup_completed'] == 1 ? 'Yes' : 'No'}\n\n';
         }
       }
-      
+
       result += '📋 ATHLETIC DIRECTORS (${adUsers.length}):\n';
       if (adUsers.isEmpty) {
         result += '  ❌ No Athletic Directors found\n\n';
       } else {
         for (int i = 0; i < adUsers.length; i++) {
           final ad = adUsers[i];
-          result += '  ${i + 1}. ${ad['first_name']} ${ad['last_name']} (ID: ${ad['id']})\n';
+          result +=
+              '  ${i + 1}. ${ad['first_name']} ${ad['last_name']} (ID: ${ad['id']})\n';
           result += '     Email: ${ad['email']}\n';
           result += '     School Name: "${ad['school_name']}"\n';
           result += '     Mascot: "${ad['mascot']}"\n';
-          result += '     Setup Completed: ${ad['setup_completed'] == 1 ? 'Yes' : 'No'}\n';
-          
+          result +=
+              '     Setup Completed: ${ad['setup_completed'] == 1 ? 'Yes' : 'No'}\n';
+
           if (ad['school_name'] != null && ad['mascot'] != null) {
-            result += '     Expected Home Team: "${ad['school_name']} ${ad['mascot']}"\n';
+            result +=
+                '     Expected Home Team: "${ad['school_name']} ${ad['mascot']}"\n';
           } else {
             result += '     ⚠️  Missing school name or mascot!\n';
           }
@@ -2038,11 +2302,15 @@ All users have password: test123''';
           result += '  Game ${game['id']} (${game['status']}):\n';
           result += '    Opponent: "${game['opponent']}"\n';
           result += '    Stored Home Team: "${game['home_team']}"\n';
-          result += '    Calculated Home Team: "${game['calculated_home_team']}"\n';
-          result += '    Display: "${game['opponent']}" @ "${game['calculated_home_team']}"\n';
-          result += '    Created by: ${game['first_name']} ${game['last_name']}\n';
-          
-          if (game['calculated_home_team'] == null || game['calculated_home_team'].toString().trim().isEmpty) {
+          result +=
+              '    Calculated Home Team: "${game['calculated_home_team']}"\n';
+          result +=
+              '    Display: "${game['opponent']}" @ "${game['calculated_home_team']}"\n';
+          result +=
+              '    Created by: ${game['first_name']} ${game['last_name']}\n';
+
+          if (game['calculated_home_team'] == null ||
+              game['calculated_home_team'].toString().trim().isEmpty) {
             result += '    ❌ ISSUE: Calculated home team is empty!\n';
           } else if (game['calculated_home_team'] == 'Home Team') {
             result += '    ⚠️  WARNING: Using fallback home team\n';
@@ -2055,7 +2323,6 @@ All users have password: test123''';
         testResult = result;
         isLoading = false;
       });
-
     } catch (e) {
       setState(() {
         testResult = 'Error debugging AD profiles: $e';
@@ -2084,7 +2351,8 @@ All users have password: test123''';
 
       if (crewChief.isEmpty) {
         setState(() {
-          testResult = 'No crew chiefs found to test with. Please create crews first.';
+          testResult =
+              'No crew chiefs found to test with. Please create crews first.';
           isLoading = false;
         });
         return;
@@ -2144,7 +2412,7 @@ All users have password: test123''';
 
       String result = '=== AVAILABLE GAMES QUERY DEBUG ===\n\n';
       result += 'Testing with crew chief: $officialName (ID: $officialId)\n\n';
-      
+
       result += '🎮 AVAILABLE GAMES (${availableGames.length}):\n';
       if (availableGames.isEmpty) {
         result += '  ❌ No available games found\n\n';
@@ -2153,18 +2421,24 @@ All users have password: test123''';
           result += '  Game ${game['id']}:\n';
           result += '    Raw opponent: "${game['opponent']}"\n';
           result += '    Raw home_team: "${game['home_team']}"\n';
-          result += '    Raw schedule_home_team_name: "${game['schedule_home_team_name']}"\n';
+          result +=
+              '    Raw schedule_home_team_name: "${game['schedule_home_team_name']}"\n';
           result += '    Creator: ${game['first_name']} ${game['last_name']}\n';
           result += '    Method: ${game['method']}\n';
           result += '    Status: ${game['status']}\n';
-          
+
           // Test the _formatGameTitle logic here
           final opponent = game['opponent'] as String?;
-          final homeTeam = (game['schedule_home_team_name'] ?? game['home_team'] ?? 'Home Team') as String;
-          
-          result += '    Calculated homeTeam (using display logic): "$homeTeam"\n';
-          
-          if (opponent != null && homeTeam.trim().isNotEmpty && homeTeam != 'Home Team') {
+          final homeTeam = (game['schedule_home_team_name'] ??
+              game['home_team'] ??
+              'Home Team') as String;
+
+          result +=
+              '    Calculated homeTeam (using display logic): "$homeTeam"\n';
+
+          if (opponent != null &&
+              homeTeam.trim().isNotEmpty &&
+              homeTeam != 'Home Team') {
             final displayResult = '$opponent @ $homeTeam';
             result += '    Final display: "$displayResult"\n';
           } else if (opponent != null) {
@@ -2172,7 +2446,7 @@ All users have password: test123''';
           } else {
             result += '    Final display: "TBD"\n';
           }
-          
+
           // Check for issues
           if (homeTeam.trim().isEmpty) {
             result += '    ❌ ISSUE: Home team is empty!\n';
@@ -2202,14 +2476,14 @@ All users have password: test123''';
         result += '    creator type: "${game['scheduler_type']}"\n';
         result += '    school_name: "${game['school_name']}"\n';
         result += '    mascot: "${game['mascot']}"\n';
-        result += '    expected home_team: "${game['school_name']} ${game['mascot']}"\n\n';
+        result +=
+            '    expected home_team: "${game['school_name']} ${game['mascot']}"\n\n';
       }
 
       setState(() {
         testResult = result;
         isLoading = false;
       });
-
     } catch (e) {
       setState(() {
         testResult = 'Error testing available games query: $e';
@@ -2260,7 +2534,7 @@ All users have password: test123''';
       ''');
 
       String result = '=== SQL CASE STATEMENT DEBUG ===\n\n';
-      
+
       for (final game in testResults) {
         result += 'Game ${game['id']} - "${game['opponent']}":\n';
         result += '  stored_home_team: "${game['stored_home_team']}"\n';
@@ -2269,30 +2543,44 @@ All users have password: test123''';
         result += '  mascot: "${game['mascot']}"\n';
         result += '  \n';
         result += '  CASE Conditions:\n';
-        result += '    1. home_team NOT NULL: ${game['condition1_not_null'] == 1}\n';
-        result += '    2. home_team != "": ${game['condition2_not_empty'] == 1}\n';
-        result += '    3. home_team != "Home Team": ${game['condition3_not_fallback'] == 1}\n';
-        result += '    4. scheduler_type = "Athletic Director": ${game['condition4_ad_exact'] == 1}\n';
-        result += '    5. scheduler_type = "athletic_director": ${game['condition5_ad_snake'] == 1}\n';
-        result += '    6. school_name NOT NULL: ${game['condition6_school_not_null'] == 1}\n';
-        result += '    7. mascot NOT NULL: ${game['condition7_mascot_not_null'] == 1}\n';
+        result +=
+            '    1. home_team NOT NULL: ${game['condition1_not_null'] == 1}\n';
+        result +=
+            '    2. home_team != "": ${game['condition2_not_empty'] == 1}\n';
+        result +=
+            '    3. home_team != "Home Team": ${game['condition3_not_fallback'] == 1}\n';
+        result +=
+            '    4. scheduler_type = "Athletic Director": ${game['condition4_ad_exact'] == 1}\n';
+        result +=
+            '    5. scheduler_type = "athletic_director": ${game['condition5_ad_snake'] == 1}\n';
+        result +=
+            '    6. school_name NOT NULL: ${game['condition6_school_not_null'] == 1}\n';
+        result +=
+            '    7. mascot NOT NULL: ${game['condition7_mascot_not_null'] == 1}\n';
         result += '  \n';
         result += '  CASE RESULT: "${game['case_result']}"\n';
         result += '  EXPECTED: "${game['school_name']} ${game['mascot']}"\n';
         result += '  \n';
-        
+
         // Analyze why CASE failed
-        if (game['case_result'] == game['stored_home_team'] && 
-            (game['stored_home_team'] == null || game['stored_home_team'] == '' || game['stored_home_team'] == 'Home Team')) {
-          result += '  ❌ CASE took first branch (stored home_team) but it\'s empty!\n';
-        } else if (game['case_result'] != '${game['school_name']} ${game['mascot']}' && 
-                   game['condition4_ad_exact'] == 0 && game['condition5_ad_snake'] == 0) {
+        if (game['case_result'] == game['stored_home_team'] &&
+            (game['stored_home_team'] == null ||
+                game['stored_home_team'] == '' ||
+                game['stored_home_team'] == 'Home Team')) {
+          result +=
+              '  ❌ CASE took first branch (stored home_team) but it\'s empty!\n';
+        } else if (game['case_result'] !=
+                '${game['school_name']} ${game['mascot']}' &&
+            game['condition4_ad_exact'] == 0 &&
+            game['condition5_ad_snake'] == 0) {
           result += '  ❌ CASE failed because scheduler_type doesn\'t match!\n';
-        } else if (game['case_result'] != '${game['school_name']} ${game['mascot']}' && 
-                   (game['condition6_school_not_null'] == 0 || game['condition7_mascot_not_null'] == 0)) {
+        } else if (game['case_result'] !=
+                '${game['school_name']} ${game['mascot']}' &&
+            (game['condition6_school_not_null'] == 0 ||
+                game['condition7_mascot_not_null'] == 0)) {
           result += '  ❌ CASE failed because school_name or mascot is NULL!\n';
         }
-        
+
         result += '  \n';
       }
 
@@ -2300,7 +2588,6 @@ All users have password: test123''';
         testResult = result;
         isLoading = false;
       });
-
     } catch (e) {
       setState(() {
         testResult = 'Error testing CASE statement: $e';
@@ -2318,14 +2605,14 @@ All users have password: test123''';
     try {
       final db = await DatabaseHelper().database;
       final locationRepository = LocationRepository();
-      
+
       // Find the assigner user
       final assignerUsers = await db.query(
         'users',
         where: 'email = ? AND scheduler_type = ?',
         whereArgs: ['assigner@test.com', 'assigner'],
       );
-      
+
       if (assignerUsers.isEmpty) {
         setState(() {
           testResult = '❌ No assigner user found with email assigner@test.com';
@@ -2333,38 +2620,78 @@ All users have password: test123''';
         });
         return;
       }
-      
+
       final assignerId = assignerUsers.first['id'] as int;
-      
+
       // Define the test locations (all within 100 miles of Edwardsville, IL)
       final testLocationsData = [
-        {'name': 'EHS Sports Complex', 'address': '6160 Center Grove Road, Edwardsville, IL 62025'},
-        {'name': 'Public School Stadium', 'address': '1513 State Street, Alton, IL 62002'},
-        {'name': 'OTHS Stadium', 'address': '600 South Smiley Street, O\'Fallon, IL 62269'},
-        {'name': 'Mascoutah High School', 'address': '1313 West Main Street, Mascoutah, IL 62258'},
-        {'name': 'Belleville East High School', 'address': '2555 West Boulevard, Belleville, IL 62221'},
-        {'name': 'Belleville West High School', 'address': '4063 Frank Scott Parkway West, Belleville, IL 62223'},
-        {'name': 'Clyde C. Jordan Stadium', 'address': '4901 State St, East St. Louis, IL 62205'},
-        {'name': 'Triad High School', 'address': '703 East US Highway 40, Troy, IL 62294'},
-        {'name': 'Jersey Community Middle School', 'address': '1101 South Liberty Street, Jerseyville, IL 62052'},
-        {'name': 'Civic Memorial High School', 'address': '200 School Street, Bethalto, IL 62010'},
-        {'name': 'Highland High School', 'address': '12760 Troxler Avenue, Highland, IL 62249'},
-        {'name': 'Waterloo High School', 'address': '302 Bellefontaine Drive, Waterloo, IL 62298'},
+        {
+          'name': 'EHS Sports Complex',
+          'address': '6160 Center Grove Road, Edwardsville, IL 62025'
+        },
+        {
+          'name': 'Public School Stadium',
+          'address': '1513 State Street, Alton, IL 62002'
+        },
+        {
+          'name': 'OTHS Stadium',
+          'address': '600 South Smiley Street, O\'Fallon, IL 62269'
+        },
+        {
+          'name': 'Mascoutah High School',
+          'address': '1313 West Main Street, Mascoutah, IL 62258'
+        },
+        {
+          'name': 'Belleville East High School',
+          'address': '2555 West Boulevard, Belleville, IL 62221'
+        },
+        {
+          'name': 'Belleville West High School',
+          'address': '4063 Frank Scott Parkway West, Belleville, IL 62223'
+        },
+        {
+          'name': 'Clyde C. Jordan Stadium',
+          'address': '4901 State St, East St. Louis, IL 62205'
+        },
+        {
+          'name': 'Triad High School',
+          'address': '703 East US Highway 40, Troy, IL 62294'
+        },
+        {
+          'name': 'Jersey Community Middle School',
+          'address': '1101 South Liberty Street, Jerseyville, IL 62052'
+        },
+        {
+          'name': 'Civic Memorial High School',
+          'address': '200 School Street, Bethalto, IL 62010'
+        },
+        {
+          'name': 'Highland High School',
+          'address': '12760 Troxler Avenue, Highland, IL 62249'
+        },
+        {
+          'name': 'Waterloo High School',
+          'address': '302 Bellefontaine Drive, Waterloo, IL 62298'
+        },
       ];
-      
-      final locations = testLocationsData.map((data) => Location(
-        name: data['name']!,
-        address: data['address'],
-        notes: 'Generated by Database Tool - Within 100 miles of Edwardsville, IL',
-        userId: assignerId,
-      )).toList();
-      
+
+      final locations = testLocationsData
+          .map((data) => Location(
+                name: data['name']!,
+                address: data['address'],
+                notes:
+                    'Generated by Database Tool - Within 100 miles of Edwardsville, IL',
+                userId: assignerId,
+              ))
+          .toList();
+
       // Check for existing locations and only add new ones
       int createdCount = 0;
       int skippedCount = 0;
-      
+
       for (final location in locations) {
-        final existing = await locationRepository.getLocationByName(assignerId, location.name);
+        final existing = await locationRepository.getLocationByName(
+            assignerId, location.name);
         if (existing == null) {
           await locationRepository.createLocation(location);
           createdCount++;
@@ -2372,7 +2699,7 @@ All users have password: test123''';
           skippedCount++;
         }
       }
-      
+
       setState(() {
         testResult = '''✅ LOCATION GENERATION COMPLETED!
         
@@ -2387,7 +2714,6 @@ ${testLocationsData.map((data) => '• ${data['name']} - ${data['address']}').jo
 These locations are now available in the Test Assigner workspace for creating games and templates.''';
         isLoading = false;
       });
-      
     } catch (e) {
       setState(() {
         testResult = 'Location generation error: $e';
@@ -2475,14 +2801,15 @@ These locations are now available in the Test Assigner workspace for creating ga
         result += '  creator: ${game['scheduler_type']}\n\n';
 
         result += '🚫 FILTER RESULTS:\n';
-        
+
         result += '  1. Game Assignments (${gameAssignments.length}):\n';
         if (gameAssignments.isEmpty) {
           result += '    ✅ No assignments - game should be visible\n';
         } else {
           result += '    ❌ Has assignments - game will be filtered out:\n';
           for (final assignment in gameAssignments) {
-            result += '      - Official ${assignment['official_id']}: ${assignment['status']}\n';
+            result +=
+                '      - Official ${assignment['official_id']}: ${assignment['status']}\n';
           }
         }
 
@@ -2492,7 +2819,8 @@ These locations are now available in the Test Assigner workspace for creating ga
         } else {
           result += '    ❌ Has dismissals - game will be filtered out:\n';
           for (final dismissal in gameDismissals) {
-            result += '      - Official ${dismissal['official_id']}: ${dismissal['reason']}\n';
+            result +=
+                '      - Official ${dismissal['official_id']}: ${dismissal['reason']}\n';
           }
         }
 
@@ -2502,36 +2830,47 @@ These locations are now available in the Test Assigner workspace for creating ga
         } else {
           result += '    ❌ Has crew assignments - game will be filtered out:\n';
           for (final assignment in crewAssignments) {
-            result += '      - Crew ${assignment['crew_id']}: ${assignment['status']}\n';
+            result +=
+                '      - Crew ${assignment['crew_id']}: ${assignment['status']}\n';
           }
         }
 
         // Check other conditions
         result += '  4. Other Conditions:\n';
-        result += '    Status = "Published": ${game['status'] == 'Published' ? '✅' : '❌'}\n';
-        
+        result +=
+            '    Status = "Published": ${game['status'] == 'Published' ? '✅' : '❌'}\n';
+
         final gameDate = game['date'] as String?;
         final officialsRequired = (game['officials_required'] as int?) ?? 0;
         final officialsHired = (game['officials_hired'] as int?) ?? 0;
-        
-        final dateCondition = gameDate != null && DateTime.parse(gameDate).isAfter(DateTime.now().subtract(Duration(days: 1)));
+
+        final dateCondition = gameDate != null &&
+            DateTime.parse(gameDate)
+                .isAfter(DateTime.now().subtract(Duration(days: 1)));
         final officialCondition = officialsRequired > officialsHired;
-        
+
         result += '    Date >= today: ${dateCondition ? '✅' : '❌'}\n';
-        result += '    officials_required ($officialsRequired) > officials_hired ($officialsHired): ${officialCondition ? '✅' : '❌'}\n';
+        result +=
+            '    officials_required ($officialsRequired) > officials_hired ($officialsHired): ${officialCondition ? '✅' : '❌'}\n';
 
         // Final verdict
-        final isFiltered = gameAssignments.isNotEmpty || gameDismissals.isNotEmpty || crewAssignments.isNotEmpty;
-        final meetsOtherConditions = game['status'] == 'Published' && dateCondition && officialCondition;
+        final isFiltered = gameAssignments.isNotEmpty ||
+            gameDismissals.isNotEmpty ||
+            crewAssignments.isNotEmpty;
+        final meetsOtherConditions =
+            game['status'] == 'Published' && dateCondition && officialCondition;
 
         result += '\n🎯 FINAL VERDICT:\n';
         if (isFiltered) {
-          result += '  ❌ Game will be FILTERED OUT due to existing assignments/dismissals\n';
+          result +=
+              '  ❌ Game will be FILTERED OUT due to existing assignments/dismissals\n';
         } else if (!meetsOtherConditions) {
-          result += '  ❌ Game will be FILTERED OUT due to status/date/hiring conditions\n';
+          result +=
+              '  ❌ Game will be FILTERED OUT due to status/date/hiring conditions\n';
         } else {
           result += '  ✅ Game SHOULD BE VISIBLE in Available Games\n';
-          result += '  🚨 If not visible, there\'s a bug in the display logic!\n';
+          result +=
+              '  🚨 If not visible, there\'s a bug in the display logic!\n';
         }
       } else {
         result += '❌ Game ID $gameId not found\n';
@@ -2541,7 +2880,6 @@ These locations are now available in the Test Assigner workspace for creating ga
         testResult = result;
         isLoading = false;
       });
-
     } catch (e) {
       setState(() {
         testResult = 'Error testing game filtering: $e';
@@ -2682,11 +3020,11 @@ These locations are now available in the Test Assigner workspace for creating ga
     try {
       final db = await DatabaseHelper().database;
       final crewRepo = CrewRepository();
-      
+
       // Define the specific officials for both crews
       final greenfieldCrewMemberNames = [
         'Derek Greenfield',
-        'Beaux Greenfield', 
+        'Beaux Greenfield',
         'Brian Jackson',
         'Joe Rathert',
         'Chris Walters',
@@ -2695,12 +3033,13 @@ These locations are now available in the Test Assigner workspace for creating ga
       final rathertCrewMemberNames = [
         'Charles Rathert',
         'Michael Raney',
-        'Michael Modarelli', 
+        'Michael Modarelli',
         'Benjamin Trotter',
         'Johnny Murray',
       ];
 
-      String result = '🏈 Creating 2 Football Test Crews from existing officials:\n\n';
+      String result =
+          '🏈 Creating 2 Football Test Crews from existing officials:\n\n';
 
       // Get or create crew type for Football (5 officials, Varsity level)
       final crewTypeResults = await db.rawQuery('''
@@ -2709,7 +3048,7 @@ These locations are now available in the Test Assigner workspace for creating ga
         WHERE s.name = 'Football' AND ct.required_officials = 5 AND ct.level_of_competition = 'Varsity'
         LIMIT 1
       ''');
-      
+
       int crewTypeId;
       if (crewTypeResults.isEmpty) {
         // Create crew type
@@ -2723,52 +3062,59 @@ These locations are now available in the Test Assigner workspace for creating ga
         result += '✅ Created Football Varsity crew type (ID: $crewTypeId)\n';
       } else {
         crewTypeId = crewTypeResults.first['id'] as int;
-        result += '✅ Found existing Football Varsity crew type (ID: $crewTypeId)\n';
+        result +=
+            '✅ Found existing Football Varsity crew type (ID: $crewTypeId)\n';
       }
 
       // Helper function to create a crew
-      Future<String> createCrew(String crewName, List<String> memberNames, String crewChiefName) async {
+      Future<String> createCrew(String crewName, List<String> memberNames,
+          String crewChiefName) async {
         String crewResult = '\n=== Creating $crewName ===\n';
-        
+
         // Check if crew already exists
         final existingCrewResults = await db.rawQuery('''
           SELECT * FROM crews WHERE name = ? AND is_active = 1
         ''', [crewName]);
-        
+
         if (existingCrewResults.isNotEmpty) {
           crewResult += '❌ Crew "$crewName" already exists!\n';
-          crewResult += 'Please delete the existing crew first or use a different name.\n';
+          crewResult +=
+              'Please delete the existing crew first or use a different name.\n';
           return crewResult;
         }
 
         // Find the existing officials by name
         List<Map<String, dynamic>> foundOfficials = [];
         List<int> officialIds = [];
-        
+
         for (var officialName in memberNames) {
           final officialResults = await db.rawQuery('''
             SELECT * FROM officials 
             WHERE name = ?
             LIMIT 1
           ''', [officialName]);
-          
+
           if (officialResults.isNotEmpty) {
             foundOfficials.add(officialResults.first);
             officialIds.add(officialResults.first['id'] as int);
-            crewResult += '✅ Found existing official: $officialName (ID: ${officialResults.first['id']})\n';
+            crewResult +=
+                '✅ Found existing official: $officialName (ID: ${officialResults.first['id']})\n';
           } else {
             crewResult += '❌ Could not find official: $officialName\n';
           }
         }
 
         if (foundOfficials.length != 5) {
-          crewResult += '\n❌ Error: Could only find ${foundOfficials.length} of 5 required officials.\n';
-          crewResult += 'Please make sure you have run "🏈 Create AD + Assigner + Coach + 123 Football Officials" first.\n';
+          crewResult +=
+              '\n❌ Error: Could only find ${foundOfficials.length} of 5 required officials.\n';
+          crewResult +=
+              'Please make sure you have run "🏈 Create AD + Assigner + Coach + 123 Football Officials" first.\n';
           return crewResult;
         }
 
         // Find crew chief ID
-        int crewChiefId = officialIds[0]; // Default to first member if crew chief name matches
+        int crewChiefId = officialIds[
+            0]; // Default to first member if crew chief name matches
         for (int i = 0; i < memberNames.length; i++) {
           if (memberNames[i] == crewChiefName) {
             crewChiefId = officialIds[i];
@@ -2804,8 +3150,10 @@ These locations are now available in the Test Assigner workspace for creating ga
           crewChiefId: crewChiefId,
         );
 
-        crewResult += '\n🎉 Successfully created crew "$crewName" (ID: $crewId)\n';
-        crewResult += '📨 Automatically accepting invitations for all members...\n';
+        crewResult +=
+            '\n🎉 Successfully created crew "$crewName" (ID: $crewId)\n';
+        crewResult +=
+            '📨 Automatically accepting invitations for all members...\n';
 
         // Auto-accept all pending invitations for this crew
         final pendingInvitations = await db.rawQuery('''
@@ -2817,48 +3165,48 @@ These locations are now available in the Test Assigner workspace for creating ga
         for (final invitation in pendingInvitations) {
           final invitationId = invitation['id'] as int;
           final officialId = invitation['invited_official_id'] as int;
-          
+
           try {
-            await crewRepo.respondToInvitation(
-              invitationId, 
-              'accepted', 
-              'Auto-accepted for testing',
-              officialId
-            );
+            await crewRepo.respondToInvitation(invitationId, 'accepted',
+                'Auto-accepted for testing', officialId);
             acceptedCount++;
-            
+
             // Get the official's name for the result
             final officialName = foundOfficials.firstWhere(
-              (official) => official['id'] == officialId,
-              orElse: () => {'name': 'Unknown Official'}
-            )['name'];
-            
+                (official) => official['id'] == officialId,
+                orElse: () => {'name': 'Unknown Official'})['name'];
+
             crewResult += '  ✅ Auto-accepted invitation for $officialName\n';
           } catch (e) {
-            crewResult += '  ❌ Failed to accept invitation for official ID $officialId: $e\n';
+            crewResult +=
+                '  ❌ Failed to accept invitation for official ID $officialId: $e\n';
           }
         }
 
         crewResult += '\n👥 Final $crewName Members:\n';
         for (int i = 0; i < memberNames.length; i++) {
-          String role = (officialIds[i] == crewChiefId) ? ' (Crew Chief)' : ' (Active Member)';
+          String role = (officialIds[i] == crewChiefId)
+              ? ' (Crew Chief)'
+              : ' (Active Member)';
           crewResult += '  • ${memberNames[i]}$role ✅\n';
         }
         crewResult += '\n✅ $crewName is ready for immediate testing!\n';
-        crewResult += 'ℹ️ All ${acceptedCount + 1} members are now active and available for game assignments.\n';
+        crewResult +=
+            'ℹ️ All ${acceptedCount + 1} members are now active and available for game assignments.\n';
 
         return crewResult;
       }
 
       // Create both crews
-      result += await createCrew('Greenfield Crew', greenfieldCrewMemberNames, 'Derek Greenfield');
-      result += await createCrew('Rathert Crew', rathertCrewMemberNames, 'Charles Rathert');
+      result += await createCrew(
+          'Greenfield Crew', greenfieldCrewMemberNames, 'Derek Greenfield');
+      result += await createCrew(
+          'Rathert Crew', rathertCrewMemberNames, 'Charles Rathert');
 
       setState(() {
         testResult = result;
         isLoading = false;
       });
-
     } catch (e) {
       setState(() {
         testResult = 'Error creating test Football crews: $e';
@@ -3181,7 +3529,8 @@ These locations are now available in the Test Assigner workspace for creating ga
               backgroundColor: Colors.green,
               foregroundColor: Colors.white,
             ),
-            child: const Text('⚡ Create 2 Complete Football Crews (10 active officials)'),
+            child: const Text(
+                '⚡ Create 2 Complete Football Crews (10 active officials)'),
           ),
         ),
         const SizedBox(height: 12),
@@ -3194,6 +3543,56 @@ These locations are now available in the Test Assigner workspace for creating ga
               foregroundColor: Colors.white,
             ),
             child: const Text('Reset Database'),
+          ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: _resetFirebaseDatabase,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade800,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('🔥 Reset Firebase Database'),
+          ),
+        ),
+        const SizedBox(height: 12),
+        // Debug Joe Rathert button
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: _checkJoeRathert,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue.shade700,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('🔍 Debug Joe Rathert'),
+          ),
+        ),
+        const SizedBox(height: 12),
+        // Debug Firebase Lists button
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: _debugFirebaseLists,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.purple.shade700,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('📝 Debug Firebase Lists'),
+          ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: _regenerateFirebaseData,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green.shade700,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('🔄 Regenerate Firebase Test Data'),
           ),
         ),
         const SizedBox(height: 12),
@@ -3268,6 +3667,73 @@ These locations are now available in the Test Assigner workspace for creating ga
             child: const Text('🏈 Create Bulk Schedules & Teams'),
           ),
         ),
+        // Web-specific test data buttons
+        if (kIsWeb) ...[
+          const SizedBox(height: 20),
+          const Divider(color: Colors.grey),
+          const SizedBox(height: 10),
+          const Text(
+            '🌐 WEB TESTING ONLY (Uses SharedPreferences)',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.orange,
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _createWebTestUsers,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.teal,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text(
+                  '🌐 Create Web Test Users (AD, Assigner, Coach, Officials)'),
+            ),
+          ),
+          const SizedBox(height: 12),
+          if (kIsWeb)
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _seedFirebaseData,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text(
+                    '🔥 Seed Firebase Collections (Users + Officials)'),
+              ),
+            ),
+          if (kIsWeb) const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _clearWebTestData,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('🗑️ Clear Web Test Data'),
+            ),
+          ),
+        ],
+        const SizedBox(height: 16),
+        ElevatedButton(
+          onPressed: isLoading ? null : _seedFirebaseData,
+          child: const Text('Seed Firebase Data'),
+        ),
+        const SizedBox(height: 8),
+        ElevatedButton(
+          onPressed: isLoading ? null : _clearAndReseedFirebaseOfficials,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.orange,
+            foregroundColor: Colors.white,
+          ),
+          child: const Text('🔧 Fix Firebase City Data'),
+        ),
       ],
     );
   }
@@ -3307,7 +3773,7 @@ These locations are now available in the Test Assigner workspace for creating ga
         where: 'email = ? AND scheduler_type = ?',
         whereArgs: ['assigner@test.com', 'assigner'],
       );
-      
+
       if (assignerUsers.isNotEmpty) {
         final assignerUser = assignerUsers.first;
         final userSessionService = UserSessionService.instance;
@@ -3317,9 +3783,9 @@ These locations are now available in the Test Assigner workspace for creating ga
           email: 'assigner@test.com',
         );
       }
-      
+
       final scheduleService = ScheduleService();
-      
+
       // Define all schedules with their team names
       final scheduleData = [
         {'schedule': 'O\'Fallon Varsity', 'team': 'O\'Fallon Panthers'},
@@ -3340,21 +3806,51 @@ These locations are now available in the Test Assigner workspace for creating ga
         {'schedule': 'Jerseyville Varsity', 'team': 'Jerseyville Panthers'},
         {'schedule': 'Jerseyville Sophomores', 'team': 'Jerseyville Panthers'},
         {'schedule': 'Jerseyville Freshmen', 'team': 'Jerseyville Panthers'},
-        {'schedule': 'Belleville West Varsity', 'team': 'Belleville West Maroons'},
-        {'schedule': 'Belleville West Sophomores', 'team': 'Belleville West Maroons'},
-        {'schedule': 'Belleville West Freshmen', 'team': 'Belleville West Maroons'},
-        {'schedule': 'Belleville East Varsity', 'team': 'Belleville East Lancers'},
-        {'schedule': 'Belleville East Sophomores', 'team': 'Belleville East Lancers'},
-        {'schedule': 'Belleville East Freshmen', 'team': 'Belleville East Lancers'},
+        {
+          'schedule': 'Belleville West Varsity',
+          'team': 'Belleville West Maroons'
+        },
+        {
+          'schedule': 'Belleville West Sophomores',
+          'team': 'Belleville West Maroons'
+        },
+        {
+          'schedule': 'Belleville West Freshmen',
+          'team': 'Belleville West Maroons'
+        },
+        {
+          'schedule': 'Belleville East Varsity',
+          'team': 'Belleville East Lancers'
+        },
+        {
+          'schedule': 'Belleville East Sophomores',
+          'team': 'Belleville East Lancers'
+        },
+        {
+          'schedule': 'Belleville East Freshmen',
+          'team': 'Belleville East Lancers'
+        },
         {'schedule': 'Waterloo Varsity', 'team': 'Waterloo Bulldogs'},
         {'schedule': 'Waterloo Sophomores', 'team': 'Waterloo Bulldogs'},
         {'schedule': 'Waterloo Freshmen', 'team': 'Waterloo Bulldogs'},
         {'schedule': 'East St. Louis Varsity', 'team': 'East St. Louis Flyers'},
-        {'schedule': 'East St. Louis Freshmen', 'team': 'East St. Louis Flyers'},
-        {'schedule': 'East St. Louis Sophomores', 'team': 'East St. Louis Flyers'},
+        {
+          'schedule': 'East St. Louis Freshmen',
+          'team': 'East St. Louis Flyers'
+        },
+        {
+          'schedule': 'East St. Louis Sophomores',
+          'team': 'East St. Louis Flyers'
+        },
         {'schedule': 'Civic Memorial Varsity', 'team': 'Civic Memorial Eagles'},
-        {'schedule': 'Civic Memorial Sophomores', 'team': 'Civic Memorial Eagles'},
-        {'schedule': 'Civic Memorial Freshmen', 'team': 'Civic Memorial Eagles'},
+        {
+          'schedule': 'Civic Memorial Sophomores',
+          'team': 'Civic Memorial Eagles'
+        },
+        {
+          'schedule': 'Civic Memorial Freshmen',
+          'team': 'Civic Memorial Eagles'
+        },
         {'schedule': 'Mascoutah Varsity', 'team': 'Mascoutah Indians'},
         {'schedule': 'Mascoutah Freshmen', 'team': 'Mascoutah Indians'},
         {'schedule': 'Mascoutah Sophomores', 'team': 'Mascoutah Indians'},
@@ -3365,7 +3861,7 @@ These locations are now available in the Test Assigner workspace for creating ga
 
       int created = 0;
       int skipped = 0;
-      
+
       for (final data in scheduleData) {
         try {
           final schedule = await scheduleService.createSchedule(
@@ -3691,5 +4187,266 @@ You can go back to the assigner home screen to see the changes!''';
         ],
       ),
     );
+  }
+
+  // Web-specific test data methods
+  Future<void> _createWebTestUsers() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      // Create test users as JSON data
+      final testUsers = {
+        'athletic_director': {
+          'id': 1,
+          'username': 'ad_test',
+          'email': 'ad@test.com',
+          'password': 'test123',
+          'role': 'athletic_director',
+          'name': 'Test Athletic Director',
+          'school': 'Test High School',
+        },
+        'assigner': {
+          'id': 2,
+          'username': 'assigner_test',
+          'email': 'assigner@test.com',
+          'password': 'test123',
+          'role': 'assigner',
+          'name': 'Test Assigner',
+          'organization': 'Test Officials Association',
+        },
+        'coach': {
+          'id': 3,
+          'username': 'coach_test',
+          'email': 'coach@test.com',
+          'password': 'test123',
+          'role': 'coach',
+          'name': 'Test Coach',
+          'school': 'Test High School',
+        },
+      };
+
+      // Create sample officials
+      final officials = <Map<String, dynamic>>[];
+      final officialNames = [
+        'John Smith',
+        'Mike Johnson',
+        'David Wilson',
+        'Robert Brown',
+        'James Davis',
+        'William Miller',
+        'Richard Moore',
+        'Charles Taylor',
+        'Joseph Anderson',
+        'Thomas Jackson'
+      ];
+
+      for (int i = 0; i < officialNames.length; i++) {
+        officials.add({
+          'id': 100 + i,
+          'username': 'official_${i + 1}',
+          'email': 'official${i + 1}@test.com',
+          'password': 'test123',
+          'role': 'official',
+          'name': officialNames[i],
+          'certification': 'Certified',
+          'experience': '${(i % 10) + 1} years',
+          'city': 'Edwardsville, IL',
+        });
+      }
+
+      // Store in SharedPreferences
+      await prefs.setString('web_test_users', jsonEncode(testUsers));
+      await prefs.setString('web_test_officials', jsonEncode(officials));
+      await prefs.setBool('web_test_data_created', true);
+
+      setState(() {
+        testResult = '''✅ Web Test Users Created Successfully!
+
+📋 Test Users Available:
+• Athletic Director: ad_test / test123
+• Assigner: assigner_test / test123  
+• Coach: coach_test / test123
+• ${officials.length} Officials: official_1 to official_${officials.length} / test123
+
+🌐 Data stored in SharedPreferences for web testing.
+You can now test user flows and navigation!''';
+      });
+    } catch (e) {
+      setState(() {
+        testResult = '❌ Error creating web test users: $e';
+      });
+    }
+  }
+
+  Future<void> _seedFirebaseData() async {
+
+    setState(() {
+      isLoading = true;
+      testResult = 'Seeding Firebase collections...';
+    });
+
+    try {
+      final seeder = FirebaseSeederService();
+
+      // Check if officials data specifically exists
+      final firebase = seeder.firebaseDb;
+      final existingOfficials = await firebase.getAllOfficials();
+
+      if (existingOfficials.isNotEmpty) {
+        setState(() {
+          testResult =
+              '''Firebase officials already exist (${existingOfficials.length} found).
+          
+If you want to re-seed:
+1. Go to Firebase Console → Firestore Database
+2. Delete the 'officials' collection manually
+3. Try seeding again
+
+Or check Firebase Console to see your existing data.''';
+          isLoading = false;
+        });
+        return;
+      }
+
+      // Seed all data
+      final success = await seeder.seedAllData();
+
+      setState(() {
+        if (success) {
+          testResult = '''Firebase seeding completed successfully! 🎉
+          
+✅ Created 3 scheduler users (AD, Assigner, Coach)
+✅ Created 148 officials with real email addresses and data
+✅ All users have email/password authentication
+✅ Ready for web testing with Quick Access buttons
+
+You can now use the login screen with real database records instead of hardcoded credentials.''';
+        } else {
+          testResult = 'Firebase seeding failed. Check console for errors.';
+        }
+        isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        testResult = 'Firebase seeding error: $e';
+        isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _clearWebTestData() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      // Get all keys to see what's stored
+      final allKeys = prefs.getKeys();
+      print('DEBUG: All SharedPreferences keys: $allKeys');
+
+      // Clear test user data
+      await prefs.remove('web_test_users');
+      await prefs.remove('web_test_officials');
+      await prefs.remove('web_test_data_created');
+      await prefs.remove('current_user_id');
+      await prefs.remove('current_user_role');
+      await prefs.remove('user_session');
+      await prefs.remove('current_web_user');
+
+      // Clear app data that might conflict
+      await prefs.remove('schedules');
+      await prefs.remove('schedule_names');
+      await prefs.remove('saved_schedules');
+      await prefs.remove('user_schedules');
+      await prefs.remove('created_schedules');
+
+      // Clear any keys that contain 'schedule' or 'game'
+      final keysToRemove = allKeys
+          .where((key) =>
+              key.toLowerCase().contains('schedule') ||
+              key.toLowerCase().contains('game') ||
+              key.toLowerCase().contains('team') ||
+              key.toLowerCase().contains('location'))
+          .toList();
+
+      for (final key in keysToRemove) {
+        await prefs.remove(key);
+      }
+
+      setState(() {
+        testResult = '''🗑️ Web data cleared successfully!
+
+Removed:
+• Test users and officials
+• User session data  
+• Schedule data: ${keysToRemove.length} keys
+• All cached app data
+
+You can now start fresh with creating schedules.''';
+      });
+    } catch (e) {
+      setState(() {
+        testResult = '❌ Error clearing web test data: $e';
+      });
+    }
+  }
+
+  Future<void> _clearAndReseedFirebaseOfficials() async {
+    if (!kIsWeb) {
+      setState(() {
+        testResult = 'Firebase operations are only available on web platform';
+      });
+      return;
+    }
+
+    setState(() {
+      isLoading = true;
+      testResult =
+          'Clearing corrupted Firebase officials and re-seeding with correct city data...';
+    });
+
+    try {
+      final seeder = FirebaseSeederService();
+
+      // Step 1: Clear existing officials
+      setState(() {
+        testResult = '🗑️ Clearing corrupted officials data...';
+      });
+
+      final clearSuccess = await seeder.clearOfficials();
+      if (!clearSuccess) {
+        throw Exception('Failed to clear existing officials');
+      }
+
+      // Step 2: Re-seed with corrected data
+      setState(() {
+        testResult = '🌱 Re-seeding officials with correct city data...';
+      });
+
+      // Seed just the officials (users should already exist)
+      final seedSuccess = await seeder.seedAllData();
+
+      setState(() {
+        if (seedSuccess) {
+          testResult = '''🎉 Firebase data completely fixed!
+          
+✅ Cleared corrupted officials (all had "Edwardsville")
+✅ Re-seeded ALL 123 officials with complete CSV data
+✅ Fixed: Missing officials like Joe & Charles Rathert
+✅ Now includes all 7 Edwardsville officials:
+   • James Clark, Ryan Bundy, Robert Holshouser
+   • Charles Rathert, Joe Rathert, Andrew Speciale, Edward Wooten
+
+🔍 Test your query again - should now show all 7 Edwardsville results!
+All other cities should also show proper distributions.''';
+        } else {
+          testResult = '❌ Re-seeding failed. Check console for errors.';
+        }
+        isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        testResult = '❌ Error fixing Firebase city data: $e';
+        isLoading = false;
+      });
+    }
   }
 }

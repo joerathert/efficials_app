@@ -5,6 +5,7 @@ import '../../shared/theme.dart';
 import '../../shared/services/schedule_service.dart';
 import '../../shared/services/repositories/user_repository.dart';
 import '../../shared/models/database_models.dart';
+import '../../shared/widgets/responsive_layout.dart';
 
 class ADNameScheduleScreen extends StatefulWidget {
   const ADNameScheduleScreen({super.key});
@@ -18,7 +19,7 @@ class _ADNameScheduleScreenState extends State<ADNameScheduleScreen> {
   final ScheduleService _scheduleService = ScheduleService();
   final UserRepository _userRepository = UserRepository();
   
-  User? currentUser;
+  AppUser? currentUser;
   bool isLoading = true;
 
   @override
@@ -61,24 +62,30 @@ class _ADNameScheduleScreenState extends State<ADNameScheduleScreen> {
 
     try {
       // Use the AD's team name from their profile for homeTeamName
-      final homeTeamName = currentUser?.teamName ?? '';
+      // For web users, provide a default team name if not set
+      String homeTeamName = currentUser?.teamName ?? '';
+      if (homeTeamName.isEmpty) {
+        // Default team name for web testing - in production this should come from user registration
+        homeTeamName = 'Edwardsville Tigers';
+      }
       
       // Try to create schedule using database service first
+      print('DEBUG: Creating schedule with name: $name, sport: $sport, homeTeamName: $homeTeamName');
       final schedule = await _scheduleService.createSchedule(
         name: name,
         sportName: sport,
         homeTeamName: homeTeamName,
       );
 
+      print('DEBUG: Schedule creation result: $schedule');
       if (schedule != null) {
         // Schedule created successfully
+        print('DEBUG: Schedule created successfully, returning to previous screen');
         Navigator.pop(context, schedule);
       } else {
-        // Schedule already exists
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('A schedule with this name already exists!')),
-        );
+        // On web, database service fails, so use SharedPreferences fallback
+        print('DEBUG: Schedule creation failed, falling back to SharedPreferences');
+        await _handleContinueWithPrefs(name, sport);
       }
     } catch (e) {
       // Fallback to SharedPreferences if database fails
@@ -96,8 +103,11 @@ class _ADNameScheduleScreenState extends State<ADNameScheduleScreen> {
           List<Map<String, dynamic>>.from(jsonDecode(unpublishedGamesJson));
     }
 
+    // Generate a single ID to use for both storage and return
+    final scheduleId = DateTime.now().millisecondsSinceEpoch;
+    
     final scheduleEntry = {
-      'id': DateTime.now().millisecondsSinceEpoch,
+      'id': scheduleId,
       'scheduleName': name,
       'sport': sport,
       'createdAt': DateTime.now().toIso8601String(),
@@ -110,16 +120,19 @@ class _ADNameScheduleScreenState extends State<ADNameScheduleScreen> {
         const SnackBar(content: Text('Schedule created!')),
       );
 
-      // Return the new schedule name to SelectScheduleScreen
-      Navigator.pop(context, name);
+      // Return the new schedule object to SelectScheduleScreen
+      Navigator.pop(context, {
+        'name': name,
+        'id': scheduleId,
+        'sport': sport,
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final args =
-        ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
-    final sport = args['sport'] as String? ?? 'Unknown';
+    final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    final sport = args?['sport'] as String? ?? 'Unknown';
 
     return Scaffold(
       backgroundColor: darkBackground,
@@ -137,12 +150,13 @@ class _ADNameScheduleScreenState extends State<ADNameScheduleScreen> {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: SafeArea(
-        child: isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : SingleChildScrollView(
-                child: Padding(
-                  padding: const EdgeInsets.all(20.0),
+      body: ResponsiveLayout(
+        child: SafeArea(
+          child: isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : SingleChildScrollView(
+                  child: Padding(
+                    padding: const EdgeInsets.all(20.0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
@@ -182,11 +196,13 @@ class _ADNameScheduleScreenState extends State<ADNameScheduleScreen> {
                               ),
                             ),
                             const SizedBox(height: 8),
-                            TextField(
-                              controller: _nameController,
-                              decoration: textFieldDecoration('Ex. Varsity Football'),
-                              style:
-                                  const TextStyle(fontSize: 16, color: Colors.white),
+                            ResponsiveFormField(
+                              child: TextField(
+                                controller: _nameController,
+                                decoration: textFieldDecoration('Ex. Varsity Football'),
+                                style:
+                                    const TextStyle(fontSize: 16, color: Colors.white),
+                              ),
                             ),
                             if (currentUser?.teamName != null) ...[ 
                               const SizedBox(height: 16),
@@ -224,18 +240,21 @@ class _ADNameScheduleScreenState extends State<ADNameScheduleScreen> {
                         ),
                       ),
                       const SizedBox(height: 30),
-                      ElevatedButton(
-                        onPressed: _handleContinue,
-                        style: elevatedButtonStyle(
-                          padding: const EdgeInsets.symmetric(
-                              vertical: 15, horizontal: 50),
+                      ResponsiveButton(
+                        child: ElevatedButton(
+                          onPressed: _handleContinue,
+                          style: elevatedButtonStyle(
+                            padding: const EdgeInsets.symmetric(
+                                vertical: 15, horizontal: 50),
+                          ),
+                          child: const Text('Continue', style: signInButtonTextStyle),
                         ),
-                        child: const Text('Continue', style: signInButtonTextStyle),
                       ),
                     ],
                   ),
                 ),
               ),
+        ),
       ),
     );
   }

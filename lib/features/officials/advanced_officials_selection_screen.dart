@@ -70,8 +70,7 @@ class _AdvancedOfficialsSelectionScreenState
           '🔄 ADVANCED: fromTemplateCreation = ${_originalRouteArgs?['fromTemplateCreation']}');
     } else {
       // Screen is becoming active again - refresh lists
-      debugPrint(
-          '🔄 ADVANCED: Screen becoming active again - refreshing lists');
+      debugPrint('🔄 ADVANCED: Screen becoming active again - refreshing lists');
       _fetchLists();
     }
   }
@@ -126,8 +125,7 @@ class _AdvancedOfficialsSelectionScreenState
       }
 
       // Filter lists by current sport
-      final currentSport =
-          _originalRouteArgs?['sport'] as String? ?? 'Baseball';
+      final currentSport = _originalRouteArgs?['sport'] as String? ?? 'Baseball';
       final filteredLists = userLists
           .where((list) => list['sport_name'] == currentSport)
           .toList();
@@ -147,8 +145,7 @@ class _AdvancedOfficialsSelectionScreenState
       if (_originalRouteArgs != null) {
         final isEdit = _originalRouteArgs!['isEdit'] as bool? ?? false;
         if (isEdit && _originalRouteArgs!['selectedLists'] != null) {
-          final existingLists =
-              _originalRouteArgs!['selectedLists'] as List<dynamic>;
+          final existingLists = _originalRouteArgs!['selectedLists'] as List<dynamic>;
           if (existingLists.isNotEmpty) {
             _restoreSelectedLists(existingLists);
           }
@@ -300,8 +297,7 @@ class _AdvancedOfficialsSelectionScreenState
             TextButton(
               onPressed: () async {
                 // Check if we're in edit mode for a game
-                final isEditMode =
-                    _originalRouteArgs?['isEdit'] as bool? ?? false;
+                final isEditMode = _originalRouteArgs?['isEdit'] as bool? ?? false;
 
                 if (isEditMode) {
                   // In edit mode, DON'T save changes to the original saved lists
@@ -468,8 +464,7 @@ class _AdvancedOfficialsSelectionScreenState
         args['fromTemplateCreation'] as bool? ?? false;
 
     debugPrint('=== DEBUG NAVIGATION START ===');
-    debugPrint(
-        'DEBUG NAVIGATION: isEditMode=$isEditMode, isFromTemplateCreation=$isFromTemplateCreation');
+    debugPrint('DEBUG NAVIGATION: isEditMode=$isEditMode, isFromTemplateCreation=$isFromTemplateCreation');
     debugPrint('DEBUG NAVIGATION: args keys=${args.keys.toList()}');
     debugPrint('DEBUG NAVIGATION: All args values:');
     args.forEach((key, value) {
@@ -497,13 +492,10 @@ class _AdvancedOfficialsSelectionScreenState
           'DEBUG NAVIGATION: Returning to template creation with ${configuredLists.length} lists');
       debugPrint('DEBUG NAVIGATION: Using normal template path');
       // For template creation, only return the list configuration, NOT the selected officials
-      debugPrint(
-          '🎯 ADVANCED: About to call Navigator.pop() to return to template creation');
-      debugPrint(
-          '🎯 ADVANCED: Current route stack depth: ${Navigator.of(context).canPop()}');
-      debugPrint(
-          '🎯 ADVANCED: Returning data: selectedLists=${configuredLists.length} lists, method=advanced');
-
+      debugPrint('🎯 ADVANCED: About to call Navigator.pop() to return to template creation');
+      debugPrint('🎯 ADVANCED: Current route stack depth: ${Navigator.of(context).canPop()}');
+      debugPrint('🎯 ADVANCED: Returning data: selectedLists=${configuredLists.length} lists, method=advanced');
+      
       Navigator.pop(context, {
         'selectedLists': configuredLists
             .map((list) => {
@@ -516,7 +508,7 @@ class _AdvancedOfficialsSelectionScreenState
             .toList(),
         'method': 'advanced',
       });
-
+      
       debugPrint('🎯 ADVANCED: Navigator.pop() completed');
     } else {
       // Continue to review screen for new game creation

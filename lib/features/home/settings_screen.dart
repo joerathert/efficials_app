@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../shared/theme.dart';
 import '../../shared/services/repositories/user_repository.dart';
 import '../../shared/services/user_session_service.dart';
+import '../../shared/services/logging_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -43,6 +45,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String timeFormat = '12';
   bool autoRefresh = true;
   int refreshInterval = 30;
+  
+  // Debug Settings
+  bool debugLoggingEnabled = kDebugMode;
+  String debugLogLevel = 'debug';
 
   @override
   void initState() {
@@ -85,6 +91,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       timeFormat = prefs.getString('timeFormat') ?? '12';
       autoRefresh = prefs.getBool('autoRefresh') ?? true;
       refreshInterval = prefs.getInt('refreshInterval') ?? 30;
+      
+      // Load debug settings
+      debugLoggingEnabled = prefs.getBool('debug_logging_enabled') ?? kDebugMode;
+      debugLogLevel = prefs.getString('debug_log_level') ?? 'debug';
       
       // Load user profile data from database
       final userId = await sessionService.getCurrentUserId();
@@ -137,6 +147,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
       await prefs.setString('timeFormat', timeFormat);
       await prefs.setBool('autoRefresh', autoRefresh);
       await prefs.setInt('refreshInterval', refreshInterval);
+      
+      // Save debug settings
+      await prefs.setBool('debug_logging_enabled', debugLoggingEnabled);
+      await prefs.setString('debug_log_level', debugLogLevel);
+      
+      // Update logging service
+      final loggingService = LoggingService();
+      await loggingService.setEnabled(debugLoggingEnabled);
+      await loggingService.setMinLevel(LogLevel.values.firstWhere((e) => e.name == debugLogLevel));
       
       if (defaultChoice && defaultMethod != null && defaultMethod!.isNotEmpty) {
         await prefs.setString('defaultMethod', defaultMethod!);
@@ -359,31 +378,108 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
 
             // Developer Settings
-            _buildSettingSection(
-              'Developer',
-              [
-                ListTile(
-                  leading: const Icon(Icons.bug_report),
-                  title: const Text(
-                    'Database Test',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                    ),
+            if (kDebugMode)
+              _buildSettingSection(
+                'Developer',
+                [
+                  _buildSwitchTile(
+                    'Debug Logging',
+                    'Enable detailed logging for debugging',
+                    debugLoggingEnabled,
+                    (value) => debugLoggingEnabled = value,
                   ),
-                  subtitle: const Text(
-                    'Test database migration and functionality',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: secondaryTextColor,
+                  if (debugLoggingEnabled) ...[
+                    const Divider(height: 1),
+                    ListTile(
+                      title: const Text(
+                        'Log Level',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      subtitle: const Text(
+                        'Minimum level of logs to capture',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: secondaryTextColor,
+                        ),
+                      ),
+                      trailing: DropdownButton<String>(
+                        value: debugLogLevel,
+                        items: const [
+                          DropdownMenuItem(
+                            value: 'debug',
+                            child: Text('Debug'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'info',
+                            child: Text('Info'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'warning',
+                            child: Text('Warning'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'error',
+                            child: Text('Error'),
+                          ),
+                        ],
+                        onChanged: (value) {
+                          setState(() {
+                            debugLogLevel = value!;
+                          });
+                          _saveSettings();
+                        },
+                      ),
                     ),
+                    const Divider(height: 1),
+                    ListTile(
+                      leading: const Icon(Icons.view_list),
+                      title: const Text(
+                        'Debug Console',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      subtitle: const Text(
+                        'View app logs and debug information',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: secondaryTextColor,
+                        ),
+                      ),
+                      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                      onTap: () {
+                        Navigator.pushNamed(context, '/debug_console');
+                      },
+                    ),
+                  ],
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: const Icon(Icons.bug_report),
+                    title: const Text(
+                      'Database Test',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    subtitle: const Text(
+                      'Test database migration and functionality',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: secondaryTextColor,
+                      ),
+                    ),
+                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                    onTap: () {
+                      Navigator.pushNamed(context, '/database_test');
+                    },
                   ),
-                  onTap: () {
-                    Navigator.pushNamed(context, '/database_test');
-                  },
-                ),
-              ],
-            ),
+                ],
+              ),
 
             // Privacy Settings (Officials only)
             if (schedulerType?.toLowerCase() == 'official')

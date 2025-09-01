@@ -766,10 +766,11 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen>
             ),
           ),
           const SizedBox(height: 8),
-          if (template.method == 'use_list' &&
-              template.officialsListName?.isNotEmpty == true)
+          if (template.method == 'use_list')
             _buildDetailRow(
-                'Method', 'Use Saved List: ${template.officialsListName}')
+                'Method', template.officialsListName?.isNotEmpty == true 
+                    ? 'Single List: ${template.officialsListName}'
+                    : 'Single List (No list selected)')
           else if (template.method == 'hire_crew' &&
               template.selectedCrewListName?.isNotEmpty == true)
             _buildDetailRow(
@@ -850,11 +851,11 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen>
   String _getMethodDisplayName(String? method) {
     switch (method) {
       case 'use_list':
-        return 'Use Saved List';
+        return 'Single List';
       case 'standard':
         return 'Standard Selection';
       case 'advanced':
-        return 'Advanced Selection';
+        return 'Multiple Lists';
       case 'hire_crew':
         return 'Hire a Crew';
       default:

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../shared/theme.dart';
+import '../../shared/widgets/responsive_layout.dart';
 
 class SelectSportScreen extends StatefulWidget {
   const SelectSportScreen({super.key});
@@ -89,9 +90,10 @@ class _SelectSportScreenState extends State<SelectSportScreen> {
       ),
       body: isLoading
           ? const Center(child: CircularProgressIndicator(color: efficialsBlue))
-          : SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(20.0),
+          : ResponsiveLayout(
+              child: SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.all(20.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
@@ -130,7 +132,8 @@ class _SelectSportScreenState extends State<SelectSportScreen> {
                       ),
                       child: Column(
                         children: [
-                          DropdownButtonFormField<String>(
+                          ResponsiveFormField(
+                            child: DropdownButtonFormField<String>(
                             decoration: textFieldDecoration('Select a sport'),
                             value: selectedSport,
                             dropdownColor: darkSurface,
@@ -146,6 +149,7 @@ class _SelectSportScreenState extends State<SelectSportScreen> {
                                     child: Text(value,
                                         style: const TextStyle(color: Colors.white))))
                                 .toList(),
+                            ),
                           ),
                           if (sports.length == 1 && selectedSport != null) ...[
                             const SizedBox(height: 16),
@@ -180,7 +184,8 @@ class _SelectSportScreenState extends State<SelectSportScreen> {
                       ),
                     ),
                     const SizedBox(height: 40),
-                    ElevatedButton(
+                    ResponsiveButton(
+                      child: ElevatedButton(
                       onPressed: () {
                         if (selectedSport != null) {
                           Navigator.pushNamed(
@@ -204,8 +209,10 @@ class _SelectSportScreenState extends State<SelectSportScreen> {
                       ),
                       child:
                           const Text('Continue', style: signInButtonTextStyle),
+                      ),
                     ),
                   ],
+                ),
                 ),
               ),
             ),

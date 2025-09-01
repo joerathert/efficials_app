@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'config/firebase_config.dart';
 
 // Database and services
-import 'dart:io';
+import 'dart:io' show Platform;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'shared/services/migration_service.dart';
+import 'shared/services/repositories/official_repository.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 // Auth screens
 import 'features/auth/welcome_screen.dart';
@@ -106,20 +112,94 @@ import 'features/settings/notification_settings_screen.dart';
 import 'shared/theme.dart';
 import 'shared/models/database_models.dart';
 
+// Debug console
+import 'features/debug/debug_console_screen.dart';
+
+// Services
+import 'shared/services/logging_service.dart';
+import 'shared/services/user_flow_tracking_service.dart';
+
+/// Detects if the app is running against Firebase Emulator Suite
+bool _isRunningOnEmulator() {
+  if (!kIsWeb) return false; // Only check for web version
+  
+  final host = Uri.base.host;
+  return host.contains('localhost') || 
+         host.contains('127.0.0.1') ||
+         host == 'localhost' ||
+         host == '127.0.0.1';
+}
+
+/// Connects to Firebase Emulator Suite for Authentication and Firestore
+Future<void> _connectToFirebaseEmulators() async {
+  try {
+    // Connect to Firebase Auth Emulator
+    await FirebaseAuth.instance.useAuthEmulator('localhost', 9099);
+    print('DEBUG: Connected to Firebase Auth Emulator on localhost:9099');
+    
+    // Connect to Firestore Emulator
+    FirebaseFirestore.instance.useFirestoreEmulator('localhost', 8080);
+    print('DEBUG: Connected to Firestore Emulator on localhost:8080');
+  } catch (e) {
+    print('ERROR: Failed to connect to Firebase Emulators: $e');
+  }
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize sqflite for desktop platforms
-  if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
-    sqfliteFfiInit();
-    databaseFactory = databaseFactoryFfi;
+  // Initialize Firebase
+  await Firebase.initializeApp(
+    options: FirebaseConfig.currentPlatform,
+  );
+
+  // Configure Firebase Emulator Suite if running locally
+  if (_isRunningOnEmulator()) {
+    print('DEBUG: Connecting to Firebase Emulator Suite');
+    await _connectToFirebaseEmulators();
+  }
+  
+  // Initialize unified data service and repositories
+  print('DEBUG: Initializing unified data service...');
+  final officialRepository = OfficialRepository();
+  await officialRepository.initialize();
+  print('DEBUG: Unified data service initialized successfully');
+
+  // Initialize sqflite for desktop platforms (skip on web)
+  if (!kIsWeb) {
+    try {
+      if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
+        print('DEBUG: Initializing sqflite for desktop platform...');
+        sqfliteFfiInit();
+        databaseFactory = databaseFactoryFfi;
+        print('DEBUG: Database factory set successfully');
+      }
+    } catch (e) {
+      print('Platform check failed: $e');
+    }
   }
 
-  // Initialize database and run migration
+  // Initialize database and run migration (skip on web)
+  if (!kIsWeb) {
+    try {
+      print('DEBUG: Starting database initialization...');
+      await MigrationService().initializeDatabase();
+      print('DEBUG: Database initialization completed successfully');
+    } catch (e) {
+      print('Database initialization failed: $e');
+      // Continue without database - app should still work with SharedPreferences
+    }
+  }
+
+  // Initialize debugging services
   try {
-    await MigrationService().initializeDatabase();
+    final loggingService = LoggingService();
+    await loggingService.initialize();
+    
+    final flowTracking = UserFlowTrackingService();
+    await flowTracking.initialize();
   } catch (e) {
-    // Continue without database - app should still work with SharedPreferences
+    print('Failed to initialize debugging services: $e');
   }
 
   runApp(const EfficialsApp());
@@ -175,7 +255,7 @@ class EfficialsApp extends StatelessWidget {
           ),
         ),
       ),
-      initialRoute: '/welcome',
+      home: const AuthWrapper(),
       routes: {
         '/welcome': (context) => const WelcomeScreen(),
         '/role_selection': (context) => const RoleSelectionScreen(),
@@ -287,7 +367,266 @@ class EfficialsApp extends StatelessWidget {
             const BackoutNotificationsScreen(),
         '/notification_settings': (context) =>
             const NotificationSettingsScreen(),
+        '/debug_console': (context) => const DebugConsoleScreen(),
+        '/login': (context) => const LoginScreen(),
+        '/home': (context) => const HomeScreen(),
       },
+    );
+  }
+}
+
+class AuthWrapper extends StatelessWidget {
+  const AuthWrapper({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(
+              child: CircularProgressIndicator(),
+            ),
+          );
+        }
+        
+        if (snapshot.hasData) {
+          return const HomeScreen();
+        } else {
+          return const WelcomeScreen();
+        }
+      },
+    );
+  }
+}
+
+class LoginScreen extends StatefulWidget {
+  const LoginScreen({super.key});
+
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
+  bool _isLoading = false;
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _signIn() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      );
+    } on FirebaseAuthException catch (e) {
+      print('Sign in error: ${e.code} - ${e.message}');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Sign in failed: ${e.message}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      print('Unexpected error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('An unexpected error occurred'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Center(
+            child: SingleChildScrollView(
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Text(
+                      'Efficials',
+                      style: TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                        color: efficialsBlue,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Sign in to continue',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.grey,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 48),
+                    TextFormField(
+                      controller: _emailController,
+                      keyboardType: TextInputType.emailAddress,
+                      decoration: const InputDecoration(
+                        labelText: 'Email',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.email),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter your email';
+                        }
+                        if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+                          return 'Please enter a valid email';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _passwordController,
+                      obscureText: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Password',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.lock),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter your password';
+                        }
+                        if (value.length < 6) {
+                          return 'Password must be at least 6 characters';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 24),
+                    ElevatedButton(
+                      onPressed: _isLoading ? null : _signIn,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: efficialsBlue,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: _isLoading
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Text(
+                              'Sign In',
+                              style: TextStyle(fontSize: 16),
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class HomeScreen extends StatelessWidget {
+  const HomeScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+    
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Efficials'),
+        backgroundColor: efficialsBlue,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () async {
+              await FirebaseAuth.instance.signOut();
+            },
+          ),
+        ],
+      ),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Text(
+              'Welcome to Efficials!',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: efficialsBlue,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Signed in as: ${user?.email ?? 'Unknown'}',
+              style: const TextStyle(fontSize: 16),
+            ),
+            const SizedBox(height: 32),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pushNamed(context, '/welcome');
+              },
+              child: const Text('Continue to App'),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () async {
+                await FirebaseAuth.instance.signOut();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Sign Out & Return to Login'),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }// Test line-ending fix

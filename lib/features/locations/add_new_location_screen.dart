@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../shared/theme.dart';
 import '../../shared/services/location_service.dart';
+import '../../shared/widgets/responsive_layout.dart';
 //test AGAIN
 const List<String> usStates = [
   'AL',
@@ -115,6 +116,7 @@ class _AddNewLocationScreenState extends State<AddNewLocationScreen> {
     }
 
     try {
+      print('DEBUG: Attempting to create location: $name, $address, $city, $state, $zip');
       // Use LocationService exclusively now that database is stable
       final newLocation = await _locationService.createLocation(
         name: name,
@@ -124,21 +126,25 @@ class _AddNewLocationScreenState extends State<AddNewLocationScreen> {
         zip: zip,
       );
 
+      print('DEBUG: Location creation result: $newLocation');
       if (newLocation != null) {
+        print('DEBUG: Location created successfully, returning to previous screen');
         if (mounted) {
           Navigator.pop(context, newLocation);
         }
       } else {
+        print('DEBUG: Location creation returned null - location already exists');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('A location with this name already exists')),
+            SnackBar(content: Text('A location with the name "$name" already exists. Please choose a different name or check if it\'s already in the list.')),
           );
         }
       }
     } catch (e) {
+      print('DEBUG: Exception during location creation: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Error creating location')),
+          SnackBar(content: Text('Error creating location: ${e.toString()}')),
         );
       }
     }
@@ -162,10 +168,11 @@ class _AddNewLocationScreenState extends State<AddNewLocationScreen> {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: SingleChildScrollView(
+      body: ResponsiveLayout(
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
@@ -196,30 +203,37 @@ class _AddNewLocationScreenState extends State<AddNewLocationScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      TextField(
-                        controller: _nameController,
-                        decoration: textFieldDecoration('Location Name'),
-                        style:
-                            const TextStyle(fontSize: 16, color: Colors.white),
+                      ResponsiveFormField(
+                        child: TextField(
+                          controller: _nameController,
+                          decoration: textFieldDecoration('Location Name'),
+                          style:
+                              const TextStyle(fontSize: 16, color: Colors.white),
+                        ),
                       ),
                       const SizedBox(height: 20),
-                      TextField(
-                        controller: _addressController,
-                        decoration: textFieldDecoration('Address'),
-                        style:
-                            const TextStyle(fontSize: 16, color: Colors.white),
+                      ResponsiveFormField(
+                        child: TextField(
+                          controller: _addressController,
+                          decoration: textFieldDecoration('Address'),
+                          style:
+                              const TextStyle(fontSize: 16, color: Colors.white),
+                        ),
                       ),
                       const SizedBox(height: 20),
-                      TextField(
-                        controller: _cityController,
-                        decoration: textFieldDecoration('City'),
-                        style:
-                            const TextStyle(fontSize: 16, color: Colors.white),
+                      ResponsiveFormField(
+                        child: TextField(
+                          controller: _cityController,
+                          decoration: textFieldDecoration('City'),
+                          style:
+                              const TextStyle(fontSize: 16, color: Colors.white),
+                        ),
                       ),
                       const SizedBox(height: 20),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
+                      ResponsiveFormField(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
                           SizedBox(
                             width: 100,
                             child: TextField(
@@ -265,21 +279,25 @@ class _AddNewLocationScreenState extends State<AddNewLocationScreen> {
                             ),
                           ),
                         ],
+                        ),
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 30),
-                ElevatedButton(
-                  onPressed: _handleContinue,
-                  style: elevatedButtonStyle(
-                    padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 50),
+                ResponsiveButton(
+                  child: ElevatedButton(
+                    onPressed: _handleContinue,
+                    style: elevatedButtonStyle(
+                      padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 50),
+                    ),
+                    child: const Text('Continue', style: signInButtonTextStyle),
                   ),
-                  child: const Text('Continue', style: signInButtonTextStyle),
                 ),
               ],
             ),
           ),
+        ),
         ),
       ),
     );

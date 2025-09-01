@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "907190154709",
+    "project_id": "efficials-app",
+    "storage_bucket": "efficials-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:907190154709:android:d06353dd57ea575ff7f95c",
+        "android_client_info": {
+          "package_name": "com.example.efficials_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "YOUR_NEW_ANDROID_API_KEY_HERE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

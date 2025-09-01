@@ -49,12 +49,6 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
       final newArgs =
           ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
       
-      // Debug: Print all args to see what's being passed
-      debugPrint('🔍 ReviewGameInfo - All args received:');
-      newArgs.forEach((key, value) {
-        debugPrint('  $key: $value');
-      });
-      debugPrint('🔍 ReviewGameInfo - Location specifically: ${newArgs['location']}');
       
       setState(() {
         args = Map<String, dynamic>.from(newArgs);
@@ -169,11 +163,9 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
     final prefs = await SharedPreferences.getInstance();
     final schedulerType = prefs.getString('schedulerType');
     final savedTeamName = prefs.getString('team_name');
-    debugPrint('🔍 _loadSchedulerType: schedulerType = "$schedulerType", savedTeamName = "$savedTeamName"');
     setState(() {
       isCoachScheduler = schedulerType?.toLowerCase() == 'coach';
       teamName = savedTeamName;
-      debugPrint('🔍 _loadSchedulerType: isCoachScheduler = $isCoachScheduler, teamName = "$teamName"');
 
       // If this is a Coach user and no schedule name is set yet, set it to team name
       if (isCoachScheduler == true &&
@@ -277,40 +269,29 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
             };
             await prefs.setString(
                 'recent_advanced_selection_$gameId', jsonEncode(advancedData));
-            debugPrint('Saved advanced selection data for game $gameId');
 
             // CREATE ACTUAL QUOTA RECORDS IN DATABASE WITH ENHANCED VALIDATION
             try {
               final selectedLists = gameData['selectedLists'] as List<dynamic>;
-              debugPrint(
-                  '🔍 Creating quotas for game $gameId with ${selectedLists.length} lists');
 
               // RESOLVE LIST IDS TO ACTUAL DATABASE IDS
               final resolvedLists = await _resolveListIds(selectedLists);
-              debugPrint(
-                  '✅ Resolved ${resolvedLists.length} list IDs to database IDs');
-
+  
               // Validate each list has required fields
               final quotas = <Map<String, dynamic>>[];
               for (int i = 0; i < resolvedLists.length; i++) {
                 final list = resolvedLists[i] as Map<String, dynamic>;
-                debugPrint('  📋 Processing list $i: ${list.toString()}');
-
+  
                 // Validate required fields
                 if (!list.containsKey('id') || list['id'] == null) {
-                  debugPrint('  ❌ List $i missing required "id" field');
                   continue;
                 }
                 if (!list.containsKey('minOfficials') ||
                     list['minOfficials'] == null) {
-                  debugPrint(
-                      '  ❌ List $i missing required "minOfficials" field');
                   continue;
                 }
                 if (!list.containsKey('maxOfficials') ||
                     list['maxOfficials'] == null) {
-                  debugPrint(
-                      '  ❌ List $i missing required "maxOfficials" field');
                   continue;
                 }
 
@@ -320,33 +301,21 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
                   'maxOfficials': list['maxOfficials'] as int,
                 };
                 quotas.add(quota);
-                debugPrint(
-                    '  ✅ Valid quota: List ${quota['listId']} - ${quota['minOfficials']}/${quota['maxOfficials']}');
-              }
+                }
 
               if (quotas.isEmpty) {
                 throw Exception('No valid quotas found in selectedLists data');
               }
 
               // Create quota records in database
-              debugPrint(
-                  '📝 Creating ${quotas.length} quota records for game $gameId');
               final advancedRepo = AdvancedMethodRepository();
               await advancedRepo.setGameListQuotas(gameId, quotas);
-              debugPrint(
-                  '✅ Successfully created ${quotas.length} quota records for game $gameId');
 
               // Verify quota creation by reading back
               final createdQuotas =
                   await advancedRepo.getGameListQuotas(gameId);
-              debugPrint(
-                  '🔍 Verification: Found ${createdQuotas.length} quota records in database for game $gameId');
             } catch (e, stackTrace) {
-              debugPrint(
-                  '❌ CRITICAL ERROR creating quota records for game $gameId: $e');
               debugPrint('📚 Stack trace: $stackTrace');
-              debugPrint(
-                  '📋 Selected lists data: ${gameData['selectedLists']}');
 
               // Show user-visible error for quota creation failure
               if (mounted) {
@@ -369,8 +338,6 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
             };
             await prefs.setString(
                 'recent_use_list_selection_$gameId', jsonEncode(useListData));
-            debugPrint(
-                'Saved use_list selection data for game $gameId: ${gameData['selectedListName']}');
           } else if (gameData['method'] == 'hire_crew' &&
               (gameData['selectedCrews'] != null || gameData['selectedCrewListName'] != null)) {
             final prefs = await SharedPreferences.getInstance();
@@ -380,8 +347,6 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
             };
             await prefs.setString(
                 'recent_hire_crew_selection_$gameId', jsonEncode(hireCrewData));
-            debugPrint(
-                'Saved hire_crew selection data for game $gameId: ${gameData['selectedCrewListName']}');
           }
         } else {
           debugPrint('Failed to save game to database - result was null');
@@ -520,11 +485,7 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
       try {
         final dbResult = await _gameService.createGame(gameData);
         if (dbResult != null) {
-          debugPrint(
-              'Unpublished game saved to database successfully with ID: ${dbResult['id']}');
         } else {
-          debugPrint(
-              'Failed to save unpublished game to database - result was null');
         }
       } catch (e) {
         debugPrint('Error saving unpublished game to database: $e');
@@ -740,8 +701,6 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
           }
 
           if (shouldUpdateAssignments) {
-            debugPrint(
-                'Updating assignments for game $gameId due to list changes');
             await _gameService.updateAssignmentsForListChange(
                 gameId, oldMethod, originalGameData, newMethod, gameData);
           }
@@ -762,33 +721,25 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
           // UPDATE QUOTA RECORDS IN DATABASE WITH ENHANCED VALIDATION
           try {
             final selectedLists = gameData['selectedLists'] as List<dynamic>;
-            debugPrint(
-                '🔍 Updating quotas for game $gameId with ${selectedLists.length} lists');
 
             // RESOLVE LIST IDS TO ACTUAL DATABASE IDS
             final resolvedLists = await _resolveListIds(selectedLists);
-            debugPrint(
-                '✅ Resolved ${resolvedLists.length} list IDs to database IDs');
 
             // Validate each list has required fields
             final quotas = <Map<String, dynamic>>[];
             for (int i = 0; i < resolvedLists.length; i++) {
               final list = resolvedLists[i] as Map<String, dynamic>;
-              debugPrint('  📋 Processing list $i: ${list.toString()}');
 
               // Validate required fields
               if (!list.containsKey('id') || list['id'] == null) {
-                debugPrint('  ❌ List $i missing required "id" field');
                 continue;
               }
               if (!list.containsKey('minOfficials') ||
                   list['minOfficials'] == null) {
-                debugPrint('  ❌ List $i missing required "minOfficials" field');
                 continue;
               }
               if (!list.containsKey('maxOfficials') ||
                   list['maxOfficials'] == null) {
-                debugPrint('  ❌ List $i missing required "maxOfficials" field');
                 continue;
               }
 
@@ -798,8 +749,6 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
                 'maxOfficials': list['maxOfficials'] as int,
               };
               quotas.add(quota);
-              debugPrint(
-                  '  ✅ Valid quota: List ${quota['listId']} - ${quota['minOfficials']}/${quota['maxOfficials']}');
             }
 
             if (quotas.isEmpty) {
@@ -807,22 +756,13 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
             }
 
             // Update quota records in database
-            debugPrint(
-                '📝 Updating ${quotas.length} quota records for game $gameId');
             final advancedRepo = AdvancedMethodRepository();
             await advancedRepo.setGameListQuotas(gameId, quotas);
-            debugPrint(
-                '✅ Successfully updated ${quotas.length} quota records for game $gameId');
 
             // Verify quota update by reading back
             final updatedQuotas = await advancedRepo.getGameListQuotas(gameId);
-            debugPrint(
-                '🔍 Verification: Found ${updatedQuotas.length} quota records in database for game $gameId');
           } catch (e, stackTrace) {
-            debugPrint(
-                '❌ CRITICAL ERROR updating quota records for game $gameId: $e');
             debugPrint('📚 Stack trace: $stackTrace');
-            debugPrint('📋 Selected lists data: ${gameData['selectedLists']}');
 
             // Show user-visible error for quota update failure
             if (mounted) {
@@ -844,8 +784,6 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
           };
           await prefs.setString(
               'recent_use_list_selection_$gameId', jsonEncode(useListData));
-          debugPrint(
-              'Updated use_list selection data for game $gameId: ${gameData['selectedListName']}');
         } else if (gameData['method'] == 'hire_crew' &&
             (gameData['selectedCrews'] != null || gameData['selectedCrewListName'] != null)) {
           final hireCrewData = {
@@ -854,8 +792,6 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
           };
           await prefs.setString(
               'recent_hire_crew_selection_$gameId', jsonEncode(hireCrewData));
-          debugPrint(
-              'Updated hire_crew selection data for game $gameId: ${gameData['selectedCrewListName']}');
         }
       }
     } catch (e) {
@@ -982,8 +918,6 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
         if (dbResults.isNotEmpty) {
           final actualId = dbResults.first['id'] as int;
           resolvedLists.add({...list, 'id': actualId});
-          debugPrint(
-              '  🔄 Resolved "$listName" from SharedPrefs ID $sharedPrefsId to database ID $actualId');
         } else {
           // If not found by name, check if the SharedPrefs ID is already a valid database ID
           final idCheckResults = await listRepository.rawQuery(
@@ -992,11 +926,7 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
           if (idCheckResults.isNotEmpty) {
             // The SharedPrefs ID is actually a valid database ID
             resolvedLists.add(list); // Use as-is
-            debugPrint(
-                '  ✅ List "$listName" found with existing database ID $sharedPrefsId');
           } else {
-            debugPrint(
-                '  ❌ List "$listName" not found in database by name or ID. Skipping quota for this list.');
           }
         }
       }
@@ -1013,12 +943,9 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
 
   Future<void> _createCrewChiefAssignments(int gameId, Map<String, dynamic> gameData) async {
     try {
-      print('🚢 _createCrewChiefAssignments: Starting for game $gameId');
       final selectedCrews = gameData['selectedCrews'] as List<dynamic>?;
       final selectedCrew = gameData['selectedCrew'];
       
-      print('🚢 selectedCrews: $selectedCrews');
-      print('🚢 selectedCrew: $selectedCrew');
       
       List<dynamic> crewsToProcess = [];
       if (selectedCrews != null) {
@@ -1027,10 +954,8 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
         crewsToProcess = [selectedCrew];
       }
       
-      print('🚢 crewsToProcess: $crewsToProcess (length: ${crewsToProcess.length})');
       
       if (crewsToProcess.isEmpty) {
-        print('🚢 ERROR: No crews selected for game $gameId');
         return;
       }
       
@@ -1041,7 +966,6 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
             ? crewData['id'] as int?
             : (crewData as dynamic).id as int?;
             
-        print('🚢 Processing crew: ID=$crewId');
         
         // Look up the actual crew_chief_id from the database
         int? crewChiefId;
@@ -1051,10 +975,8 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
             [crewId]
           );
           crewChiefId = crewQuery.isNotEmpty ? crewQuery.first['crew_chief_id'] as int? : null;
-          print('🚢 Looked up ChiefID=$crewChiefId from database for crew $crewId');
         }
             
-        print('🚢 Final crew data: ID=$crewId, ChiefID=$crewChiefId');
         
         if (crewId != null && crewChiefId != null) {
           // Create crew assignment instead of individual game assignment
@@ -1068,7 +990,6 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
             'response_notes': 'Crew hiring - notification sent to crew chief',
           };
           
-          print('🚢 Inserting crew assignment: $crewAssignment');
           
           await _gameAssignmentRepository.rawQuery(
             'INSERT INTO crew_assignments (game_id, crew_id, crew_chief_id, status, assigned_by, assigned_at, total_fee_amount, response_notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
@@ -1084,7 +1005,6 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
             ]
           );
           
-          print('🚢 Successfully created crew assignment for crew $crewId on game $gameId');
           
           // Small delay to ensure database transaction is committed
           await Future.delayed(const Duration(milliseconds: 100));
@@ -1093,8 +1013,6 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
         }
       }
     } catch (e) {
-      print('🚢 ERROR creating crew chief assignments: $e');
-      print('🚢 Stack trace: ${StackTrace.current}');
     }
   }
   
@@ -1181,7 +1099,6 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
 
   @override
   Widget build(BuildContext context) {
-    debugPrint('🔍 build: isCoachScheduler = $isCoachScheduler');
     
     // Create gameDetails map without Schedule Name initially
     final gameDetails = <String, String>{

@@ -1,0 +1,18 @@
+{
+  "name": "email-updater",
+  "version": "1.0.0",
+  "description": "Script to update official emails in Firestore",
+  "main": "update_emails.js",
+  "scripts": {
+    "update-emails": "node update_emails.js",
+    "update-auth-emails": "node update_auth_emails.js",
+    "fix-auth-emails": "node fix_auth_emails.js",
+    "reset-auth-firestore": "node reset_auth_firestore.js",
+    "enhanced-reset": "node enhanced_reset_script.js"
+  },
+  "dependencies": {
+    "csv-parse": "^5.6.0",
+    "firebase": "^10.0.0",
+    "firebase-admin": "^12.7.0"
+  }
+}

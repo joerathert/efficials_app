@@ -20,6 +20,13 @@ The app supports Android, iOS, web, Linux, macOS, and Windows, using a feature-b
 - **Code Style**: Follow `flutter_lints` and `analysis_options.yaml`. Run `dart format .` before commits.
 - **SuperClaude**: Use evidence-based suggestions (`--evidence`) and minimal explanations (`--uc` for UltraCompressed mode).
 
+## Development Environment
+
+**IMPORTANT**: User primarily works in Windows Terminal (PowerShell/CMD), not WSL. When providing commands:
+- Use Windows paths and Flutter commands (e.g., `flutter run` not `/home/efficials/bin/flutter run`)
+- Only use WSL paths when absolutely necessary for file operations
+- Remember user accesses Claude Code from Windows Terminal environment
+
 ## Development Commands
 
 ### Flutter Basics
@@ -119,3 +126,16 @@ The app supports Android, iOS, web, Linux, macOS, and Windows, using a feature-b
   - Performance: Batched operations (`--batch`).
   - Evidence: Use `--evidence` for suggestions.
 - **MCP Flags**: Use `--c7` (Context7 for docs), `--seq` (sequential reasoning), `--uc` (compressed output).
+
+  # EFFICIALS APP MIGRATION STATUS
+  CRITICAL: The Efficials app is currently migrating from SQLite to Firebase.
+  - Prioritize Firebase implementations over SQLite
+  - When you see SQLite code, proactively suggest Firebase alternatives
+  - Always consider Firebase patterns when making changes
+  - Look for opportunities to advance the migration effort
+
+  ## Project-Specific Business Rules
+  See `/mnt/c/Users/Efficials/efficials_app/RULES.md` for critical business logic and
+  workflow understanding.
+
+  

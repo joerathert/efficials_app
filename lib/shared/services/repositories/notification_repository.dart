@@ -1,5 +1,7 @@
 import 'dart:convert';
-import 'package:firebase_messaging/firebase_messaging.dart';
+// Temporarily commented out for web testing
+// import 'notification_repository_web_stub.dart'
+//     if (dart.library.io) 'package:firebase_messaging/firebase_messaging.dart';
 import '../database_helper.dart';
 import '../../models/database_models.dart' as models;
 
@@ -249,6 +251,27 @@ class NotificationRepository {
     );
   }
 
+  /// Create backout excuse notification for the official
+  Future<int> createBackoutExcuseNotification({
+    required int officialId,
+    required String schedulerName,
+    required String gameSport,
+    required String gameOpponent,
+    required DateTime gameDate,
+    required String gameTime,
+    required String excuseReason,
+    Map<String, dynamic>? additionalData,
+  }) async {
+    // Use the official_notifications table instead of the general notifications table
+    return await createOfficialNotification(
+      officialId: officialId,
+      type: 'backout_excuse',
+      title: 'Backout Excused - Follow-Through Rate Restored',
+      message: 'Your backout for the $gameSport game ($gameOpponent) on ${gameDate.toString().split(' ')[0]} at $gameTime has been excused by $schedulerName. Your follow-through rate has been restored. Reason: $excuseReason',
+      relatedGameId: additionalData?['game_id'],
+    );
+  }
+
   // Official Notification Methods (using official_notifications table)
 
   /// Get all notifications for a specific official
@@ -345,24 +368,25 @@ class NotificationRepository {
     );
   }
 
-  // Push Notification Methods
+  // Push Notification Methods (Web-compatible stubs)
 
   /// Request push notification permission
   Future<bool> requestPushPermission() async {
     try {
-      final messaging = FirebaseMessaging.instance;
-      final settings = await messaging.requestPermission(
-        alert: true,
-        announcement: false,
-        badge: true,
-        carPlay: false,
-        criticalAlert: false,
-        provisional: false,
-        sound: true,
-      );
+      // Temporarily disabled for web testing
+      // final messaging = FirebaseMessaging.instance;
+      // final settings = await messaging.requestPermission(
+      //   alert: true,
+      //   announcement: false,
+      //   badge: true,
+      //   carPlay: false,
+      //   criticalAlert: false,
+      //   provisional: false,
+      //   sound: true,
+      // );
       
-      return settings.authorizationStatus == AuthorizationStatus.authorized ||
-             settings.authorizationStatus == AuthorizationStatus.provisional;
+      // On web, always return false for now since Firebase messaging has issues
+      return false;
     } catch (e) {
       print('Error requesting push notification permission: $e');
       return false;
@@ -372,19 +396,20 @@ class NotificationRepository {
   /// Subscribe to push notifications for a user
   Future<bool> subscribeToPush(int userId) async {
     try {
-      final messaging = FirebaseMessaging.instance;
-      
-      // Subscribe to user-specific topics
-      await messaging.subscribeToTopic('user_${userId}_notifications');
-      await messaging.subscribeToTopic('user_${userId}_backouts');
-      await messaging.subscribeToTopic('user_${userId}_game_filling');
-      
-      // Get and store FCM token for direct messaging if needed
-      final token = await messaging.getToken();
-      if (token != null) {
-        // Store token in database or send to server
-        print('FCM Token: $token');
-      }
+      // Temporarily disabled for web testing
+      // final messaging = FirebaseMessaging.instance;
+      // 
+      // // Subscribe to user-specific topics
+      // await messaging.subscribeToTopic('user_${userId}_notifications');
+      // await messaging.subscribeToTopic('user_${userId}_backouts');
+      // await messaging.subscribeToTopic('user_${userId}_game_filling');
+      // 
+      // // Get and store FCM token for direct messaging if needed
+      // final token = await messaging.getToken();
+      // if (token != null) {
+      //   // Store token in database or send to server
+      //   print('FCM Token: $token');
+      // }
       
       return true;
     } catch (e) {
@@ -396,12 +421,13 @@ class NotificationRepository {
   /// Unsubscribe from push notifications for a user
   Future<bool> unsubscribeFromPush(int userId) async {
     try {
-      final messaging = FirebaseMessaging.instance;
-      
-      // Unsubscribe from user-specific topics
-      await messaging.unsubscribeFromTopic('user_${userId}_notifications');
-      await messaging.unsubscribeFromTopic('user_${userId}_backouts');
-      await messaging.unsubscribeFromTopic('user_${userId}_game_filling');
+      // Temporarily disabled for web testing
+      // final messaging = FirebaseMessaging.instance;
+      // 
+      // // Unsubscribe from user-specific topics
+      // await messaging.unsubscribeFromTopic('user_${userId}_notifications');
+      // await messaging.unsubscribeFromTopic('user_${userId}_backouts');
+      // await messaging.unsubscribeFromTopic('user_${userId}_game_filling');
       
       return true;
     } catch (e) {
@@ -413,22 +439,23 @@ class NotificationRepository {
   /// Initialize push notification handlers
   Future<void> initializePushNotifications(int userId) async {
     try {
-      final messaging = FirebaseMessaging.instance;
-      
-      // Handle foreground messages
-      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-        print('Received foreground message: ${message.notification?.title}');
-        // Handle the message and potentially create local notification
-      });
-      
-      // Handle when app is opened from notification
-      FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-        print('App opened from notification: ${message.notification?.title}');
-        // Navigate to appropriate screen based on message data
-      });
-      
-      // Handle background messages
-      FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+      // Temporarily disabled for web testing
+      // final messaging = FirebaseMessaging.instance;
+      // 
+      // // Handle foreground messages
+      // messaging.onMessage.listen((RemoteMessage message) {
+      //   print('Received foreground message: ${message.notification?.title}');
+      //   // Handle the message and potentially create local notification
+      // });
+      // 
+      // // Handle when app is opened from notification
+      // messaging.onMessageOpenedApp.listen((RemoteMessage message) {
+      //   print('App opened from notification: ${message.notification?.title}');
+      //   // Navigate to appropriate screen based on message data
+      // });
+      // 
+      // // Handle background messages
+      // FirebaseMessaging.onBackgroundMessage = _firebaseMessagingBackgroundHandler;
       
     } catch (e) {
       print('Error initializing push notifications: $e');
@@ -708,8 +735,9 @@ class NotificationRepository {
 }
 
 /// Top-level function to handle background messages
-@pragma('vm:entry-point')
-Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  print('Handling background message: ${message.notification?.title}');
-  // Handle background notification logic here
-}
+// Temporarily disabled for web testing
+// @pragma('vm:entry-point')
+// Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+//   print('Handling background message: ${message.notification?.title}');
+//   // Handle background notification logic here
+// }

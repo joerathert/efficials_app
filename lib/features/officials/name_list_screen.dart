@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../shared/theme.dart';
+import '../../shared/widgets/responsive_layout.dart';
 
 class NameListScreen extends StatefulWidget {
   const NameListScreen({super.key});
@@ -15,9 +16,10 @@ class _NameListScreenState extends State<NameListScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+      final args =
+          ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
       final creatingSecondList = args?['creatingSecondList'] as bool? ?? false;
-      
+
       if (creatingSecondList) {
         _showSecondListExplanationDialog();
       }
@@ -56,7 +58,8 @@ class _NameListScreenState extends State<NameListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+    final args =
+        ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
     final sport = args['sport'] as String? ?? 'Football';
     final existingLists = args['existingLists'] as List<String>? ?? [];
 
@@ -76,110 +79,132 @@ class _NameListScreenState extends State<NameListScreen> {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              const SizedBox(height: 40),
-              const Text(
-                'Name List',
-                style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                  color: efficialsYellow,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 40),
-              Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: darkSurface,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.3),
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
+      body: ResponsiveLayout(
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20.0),
+            child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight: MediaQuery.of(context).size.height -
+                  MediaQuery.of(context).padding.top -
+                  MediaQuery.of(context).padding.bottom -
+                  kToolbarHeight -
+                  40, // Account for AppBar and padding
+            ),
+            child: IntrinsicHeight(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Name List',
+                    style: TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                      color: efficialsYellow,
                     ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Text(
-                      'Name your list of $sport officials',
-                      style: const TextStyle(
-                        fontSize: 18,
-                        color: Colors.white,
-                      ),
-                      textAlign: TextAlign.center,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 30),
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: darkSurface,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.3),
+                          blurRadius: 10,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 24),
-                    TextField(
-                      controller: _nameController,
-                      decoration: textFieldDecoration('Ex. Varsity $sport Officials'),
-                      textAlign: TextAlign.left,
-                      style: const TextStyle(fontSize: 18, color: Colors.white),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Text(
+                          'Name your list of $sport officials',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            color: Colors.white,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 24),
+                        ResponsiveFormField(
+                          child: TextField(
+                            controller: _nameController,
+                            decoration: textFieldDecoration(
+                                'Ex. Varsity $sport Officials'),
+                            textAlign: TextAlign.left,
+                            style: const TextStyle(
+                                fontSize: 18, color: Colors.white),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 40),
-              ElevatedButton(
-                onPressed: () {
-                  final name = _nameController.text.trim();
-                  if (name.isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: const Text('Please enter a list name!'),
-                        backgroundColor: darkSurface,
-                      ),
-                    );
-                  } else if (existingLists.contains(name)) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: const Text('List name must be unique!'),
-                        backgroundColor: darkSurface,
-                      ),
-                    );
-                  } else if (RegExp(r'^\s+$').hasMatch(name)) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: const Text('List name cannot be just spaces!'),
-                        backgroundColor: darkSurface,
-                      ),
-                    );
-                  } else {
-                    Navigator.pushNamed(
-                      context,
-                      '/populate_roster',
-                      arguments: {
-                        'sport': sport, 
-                        'listName': name,
-                        'fromGameCreation': true, // Ensure this flag is set
-                        // Pass through ALL game creation context
-                        ...args,
-                        // Override specific values
-                        'sport': sport,
-                        'listName': name,
-                        // Explicitly exclude selectedOfficials to start with clean slate
-                        'selectedOfficials': null,
-                      },
-                    ).then((result) {
-                      if (result != null && mounted) {
-                        // Pass the result back to the lists screen
-                        Navigator.pop(context, result);
+                  ),
+                  const Spacer(),
+                  const SizedBox(height: 20),
+                  ResponsiveButton(
+                    child: ElevatedButton(
+                    onPressed: () {
+                      final name = _nameController.text.trim();
+                      if (name.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: const Text('Please enter a list name!'),
+                            backgroundColor: darkSurface,
+                          ),
+                        );
+                      } else if (existingLists.contains(name)) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: const Text('List name must be unique!'),
+                            backgroundColor: darkSurface,
+                          ),
+                        );
+                      } else if (RegExp(r'^\s+$').hasMatch(name)) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content:
+                                const Text('List name cannot be just spaces!'),
+                            backgroundColor: darkSurface,
+                          ),
+                        );
+                      } else {
+                        Navigator.pushNamed(
+                          context,
+                          '/populate_roster',
+                          arguments: {
+                            'sport': sport,
+                            'listName': name,
+                            'fromGameCreation': true, // Ensure this flag is set
+                            // Pass through ALL game creation context
+                            ...args,
+                            // Override specific values
+                            'sport': sport,
+                            'listName': name,
+                            // Explicitly exclude selectedOfficials to start with clean slate
+                            'selectedOfficials': null,
+                          },
+                        ).then((result) {
+                          if (result != null && mounted) {
+                            // Pass the result back to the lists screen
+                            Navigator.pop(context, result);
+                          }
+                        });
                       }
-                    });
-                  }
-                },
-                style: elevatedButtonStyle(),
-                child: const Text('Continue', style: signInButtonTextStyle),
+                    },
+                    style: elevatedButtonStyle(),
+                    child: const Text('Continue', style: signInButtonTextStyle),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                ],
               ),
-            ],
+            ),
+            ),
           ),
         ),
       ),

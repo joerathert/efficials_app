@@ -43,3 +43,25 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Security - API keys and secrets
+firebase_options.dart
+lib/config/firebase_config.dart
+android/app/google-services.json
+update_emails.js
+lib/scripts/update_emails.dart
+.env
+*.env
+service-account.json
+service-account-old.json
+*.json
+
+# Development/test scripts with hardcoded credentials
+emulator_reset.js
+reset_auth_firestore.js
+enhanced_reset_script.js
+fix_auth_emails.js
+update_auth_emails.js
+
+# Node modules
+node_modules/

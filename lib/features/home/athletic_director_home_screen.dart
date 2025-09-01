@@ -12,6 +12,7 @@ import '../../shared/services/repositories/notification_repository.dart';
 import '../../shared/services/repositories/user_repository.dart';
 import '../../shared/widgets/scheduler_bottom_navigation.dart';
 import '../../shared/models/database_models.dart';
+import '../../shared/widgets/responsive_layout.dart';
 
 class AthleticDirectorHomeScreen extends StatefulWidget {
   const AthleticDirectorHomeScreen({super.key});
@@ -482,26 +483,28 @@ class _AthleticDirectorHomeScreenState
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 32),
-                      ElevatedButton.icon(
-                        onPressed: () {
-                          setState(() {
-                            isFabExpanded = true;
-                          });
-                        },
-                        icon: const Icon(Icons.add_circle_outline, size: 24),
-                        label: const Text(
-                          'Add Your First Game',
-                          style: TextStyle(fontSize: 18),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: efficialsYellow,
-                          foregroundColor: efficialsBlack,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 24,
-                            vertical: 16,
+                      ResponsiveButton(
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            setState(() {
+                              isFabExpanded = true;
+                            });
+                          },
+                          icon: const Icon(Icons.add_circle_outline, size: 24),
+                          label: const Text(
+                            'Add Your First Game',
+                            style: TextStyle(fontSize: 18),
                           ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: efficialsYellow,
+                            foregroundColor: efficialsBlack,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 24,
+                              vertical: 16,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                           ),
                         ),
                       ),
@@ -543,41 +546,43 @@ class _AthleticDirectorHomeScreenState
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 32),
-                      ElevatedButton.icon(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => ScheduleFilterScreen(
-                                scheduleFilters: scheduleFilters,
-                                showAwayGames: showAwayGames,
-                                showFullyCoveredGames: showFullyCoveredGames,
-                                onFiltersChanged: (updatedFilters, away, fullyCovered) {
-                                  setState(() {
-                                    scheduleFilters = updatedFilters;
-                                    showAwayGames = away;
-                                    showFullyCoveredGames = fullyCovered;
-                                  });
-                                  _saveFilters();
-                                },
+                      ResponsiveButton(
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => ScheduleFilterScreen(
+                                  scheduleFilters: scheduleFilters,
+                                  showAwayGames: showAwayGames,
+                                  showFullyCoveredGames: showFullyCoveredGames,
+                                  onFiltersChanged: (updatedFilters, away, fullyCovered) {
+                                    setState(() {
+                                      scheduleFilters = updatedFilters;
+                                      showAwayGames = away;
+                                      showFullyCoveredGames = fullyCovered;
+                                    });
+                                    _saveFilters();
+                                  },
+                                ),
                               ),
-                            ),
-                          );
-                        },
-                        icon: const Icon(Icons.filter_list, size: 24),
-                        label: const Text(
-                          'Adjust Filters',
-                          style: TextStyle(fontSize: 18),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: efficialsBlue,
-                          foregroundColor: Colors.black,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 24,
-                            vertical: 16,
+                            );
+                          },
+                          icon: const Icon(Icons.filter_list, size: 24),
+                          label: const Text(
+                            'Adjust Filters',
+                            style: TextStyle(fontSize: 18),
                           ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: efficialsBlue,
+                            foregroundColor: Colors.black,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 24,
+                              vertical: 16,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                           ),
                         ),
                       ),
@@ -652,41 +657,43 @@ class _AthleticDirectorHomeScreenState
                           textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 32),
-                        ElevatedButton.icon(
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => ScheduleFilterScreen(
-                                  scheduleFilters: scheduleFilters,
-                                  showAwayGames: showAwayGames,
-                                  showFullyCoveredGames: showFullyCoveredGames,
-                                  onFiltersChanged: (updatedFilters, away, fullyCovered) {
-                                    setState(() {
-                                      scheduleFilters = updatedFilters;
-                                      showAwayGames = away;
-                                      showFullyCoveredGames = fullyCovered;
-                                    });
-                                    _saveFilters();
-                                  },
+                        ResponsiveButton(
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => ScheduleFilterScreen(
+                                    scheduleFilters: scheduleFilters,
+                                    showAwayGames: showAwayGames,
+                                    showFullyCoveredGames: showFullyCoveredGames,
+                                    onFiltersChanged: (updatedFilters, away, fullyCovered) {
+                                      setState(() {
+                                        scheduleFilters = updatedFilters;
+                                        showAwayGames = away;
+                                        showFullyCoveredGames = fullyCovered;
+                                      });
+                                      _saveFilters();
+                                    },
+                                  ),
                                 ),
-                              ),
-                            );
-                          },
-                          icon: const Icon(Icons.filter_list, size: 24),
-                          label: const Text(
-                            'Adjust Filters',
-                            style: TextStyle(fontSize: 18),
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: efficialsBlue,
-                            foregroundColor: Colors.black,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 24,
-                              vertical: 16,
+                              );
+                            },
+                            icon: const Icon(Icons.filter_list, size: 24),
+                            label: const Text(
+                              'Adjust Filters',
+                              style: TextStyle(fontSize: 18),
                             ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: efficialsBlue,
+                              foregroundColor: Colors.black,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 24,
+                                vertical: 16,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
                             ),
                           ),
                         ),
@@ -758,26 +765,28 @@ class _AthleticDirectorHomeScreenState
                           textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 32),
-                        ElevatedButton.icon(
-                          onPressed: () {
-                            setState(() {
-                              isFabExpanded = true;
-                            });
-                          },
-                          icon: const Icon(Icons.add_circle_outline, size: 24),
-                          label: const Text(
-                            'Add New Game',
-                            style: TextStyle(fontSize: 18),
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: efficialsYellow,
-                            foregroundColor: efficialsBlack,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 24,
-                              vertical: 16,
+                        ResponsiveButton(
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              setState(() {
+                                isFabExpanded = true;
+                              });
+                            },
+                            icon: const Icon(Icons.add_circle_outline, size: 24),
+                            label: const Text(
+                              'Add New Game',
+                              style: TextStyle(fontSize: 18),
                             ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: efficialsYellow,
+                              foregroundColor: efficialsBlack,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 24,
+                                vertical: 16,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
                             ),
                           ),
                         ),
@@ -1036,10 +1045,11 @@ class _AthleticDirectorHomeScreenState
           ],
         ),
       ),
-      body: Stack(
-        children: [
-          SafeArea(
-            child: GestureDetector(
+      body: ResponsiveLayout(
+        child: Stack(
+          children: [
+            SafeArea(
+              child: GestureDetector(
               onPanUpdate: (details) {
                 if (details.delta.dy > 0) {
                   setState(() {
@@ -1207,6 +1217,7 @@ class _AthleticDirectorHomeScreenState
             ),
           ),
         ],
+      ),
       ),
       bottomNavigationBar: SchedulerBottomNavigation(
         currentIndex: _currentIndex,

@@ -197,7 +197,7 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
         await listRepository.updateListName(listId!, listName!);
 
         // Update officials in list
-        await listRepository.updateList(listName!, selectedOfficialsData);
+        await listRepository.updateListById(listId!, selectedOfficialsData);
 
         if (mounted) {
           // Navigate back to the lists screen after updating
@@ -223,11 +223,6 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
         debugPrint('DEBUG: List name exists check result: $nameExists');
 
         if (nameExists) {
-          // Debug: Let's see what lists actually exist
-          final existingLists = await listRepository.getUserLists(userId);
-          debugPrint(
-              'DEBUG: Existing lists in database: ${existingLists.map((l) => '${l['name']} (id: ${l['id']})')}');
-
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(

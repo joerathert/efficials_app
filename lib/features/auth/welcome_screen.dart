@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../shared/theme.dart';
 import '../../shared/services/auth_service.dart';
 import '../../utils/officials_data.dart';
+import '../../shared/widgets/responsive_layout.dart';
 
 class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({super.key});
@@ -17,11 +18,23 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   final TextEditingController _passwordController = TextEditingController();
   bool _showPassword = false;
 
+  /// Detects if running against Firebase Emulator Suite
+  /// Returns true when accessing via localhost or 127.0.0.1
+  bool _isFirebaseEmulator() {
+    final host = Uri.base.host;
+    return host.contains('localhost') || 
+           host.contains('127.0.0.1') ||
+           host == 'localhost' ||
+           host == '127.0.0.1';
+  }
+
   void _handleSignIn() async {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
 
+    print('DEBUG: Welcome screen - Starting login with email: $email');
     final result = await AuthService.login(email, password);
+    print('DEBUG: Welcome screen - Login result: success=${result.success}, userType=${result.userType}');
 
     if (!mounted) return;
 
@@ -95,9 +108,9 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
         elevation: 0,
         centerTitle: true,
       ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
+      body: ResponsiveLayout(
+        maxWidth: 600,
+        child: SafeArea(
           child: SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
@@ -147,12 +160,14 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      TextField(
-                        controller: _emailController,
-                        decoration: textFieldDecoration('Enter your email'),
-                        keyboardType: TextInputType.emailAddress,
-                        textCapitalization: TextCapitalization.none,
-                        style: const TextStyle(color: primaryTextColor),
+                      ResponsiveFormField(
+                        child: TextField(
+                          controller: _emailController,
+                          decoration: textFieldDecoration('Enter your email'),
+                          keyboardType: TextInputType.emailAddress,
+                          textCapitalization: TextCapitalization.none,
+                          style: const TextStyle(color: primaryTextColor),
+                        ),
                       ),
                       const SizedBox(height: 24),
                       const Text(
@@ -164,38 +179,42 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      TextField(
-                        controller: _passwordController,
-                        decoration: textFieldDecoration(
-                          'Enter your password',
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                              _showPassword
-                                  ? Icons.visibility_off
-                                  : Icons.visibility,
-                              color: secondaryTextColor,
+                      ResponsiveFormField(
+                        child: TextField(
+                          controller: _passwordController,
+                          decoration: textFieldDecoration(
+                            'Enter your password',
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                _showPassword
+                                    ? Icons.visibility_off
+                                    : Icons.visibility,
+                                color: secondaryTextColor,
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  _showPassword = !_showPassword;
+                                });
+                              },
                             ),
-                            onPressed: () {
-                              setState(() {
-                                _showPassword = !_showPassword;
-                              });
-                            },
                           ),
+                          obscureText: !_showPassword,
+                          style: const TextStyle(color: primaryTextColor),
                         ),
-                        obscureText: !_showPassword,
-                        style: const TextStyle(color: primaryTextColor),
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 30),
-                ElevatedButton(
-                  onPressed: _handleSignIn,
-                  style: elevatedButtonStyle(
-                    padding: const EdgeInsets.symmetric(
-                        vertical: 15, horizontal: 50),
+                ResponsiveButton(
+                  child: ElevatedButton(
+                    onPressed: _handleSignIn,
+                    style: elevatedButtonStyle(
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 15, horizontal: 50),
+                    ),
+                    child: const Text('Sign In', style: signInButtonTextStyle),
                   ),
-                  child: const Text('Sign In', style: signInButtonTextStyle),
                 ),
                 const SizedBox(height: 30),
                 Row(
@@ -217,7 +236,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                 const SizedBox(height: 30),
 
                 // Quick Access for Testing
-                if (kDebugMode)
+                if (kDebugMode || _isFirebaseEmulator())
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
@@ -304,7 +323,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                         ..._buildOfficialButtons(),
                         const SizedBox(height: 8),
                         Text(
-                          'Tap ⚙️ to create all 123 real football officials first',
+                          'Tap ⚙️ to create all 148 real football officials first',
                           style: TextStyle(
                             fontSize: 11,
                             color: Colors.grey[500],
@@ -329,7 +348,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     final officials = OfficialsDataProvider.getAllOfficials();
     List<Widget> widgets = [];
     
-    // Display ALL 123 officials (41 rows of 3 buttons each)
+    // Display ALL 148 officials (49+ rows of 3 buttons each)
     final displayOfficials = officials;
     
     for (int i = 0; i < displayOfficials.length; i += 3) {

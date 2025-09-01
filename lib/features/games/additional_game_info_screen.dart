@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../shared/theme.dart';
 import '../../shared/models/database_models.dart' as db;
 import '../../shared/services/user_session_service.dart';
+import '../../shared/widgets/responsive_layout.dart';
 import 'game_template.dart' as ui;
 
 class AdditionalGameInfoScreen extends StatefulWidget {
@@ -147,8 +148,6 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
         final dbTemplate = args['template'] as db.GameTemplate;
         
         // Debug database template crew data
-        print('🚢 DB TEMPLATE DEBUG: selectedCrews from database: ${dbTemplate.selectedCrews}');
-        print('🚢 DB TEMPLATE DEBUG: selectedCrewListName from database: ${dbTemplate.selectedCrewListName}');
 
         // Get selectedLists data from SharedPreferences if method is advanced
         List<Map<String, dynamic>>? selectedLists;
@@ -419,7 +418,6 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
     final args =
         ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
 
-    debugPrint('Template in args: ${args['template']}');
 
     // Load officials from template if needed
     List<Map<String, dynamic>> templateOfficials = [];
@@ -464,14 +462,8 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
       'scheduleName': args['scheduleName'],
     };
 
-    debugPrint('Updated args method: ${updatedArgs['method']}');
-    debugPrint('Updated args selectedLists: ${updatedArgs['selectedLists']}');
     
     // Debug location handling
-    debugPrint('🔍 AdditionalGameInfo - Location debugging:');
-    debugPrint('  template?.includeLocation: ${template?.includeLocation}');
-    debugPrint('  template?.location: ${template?.location}');
-    debugPrint('  args[location]: ${args['location']}');
     debugPrint('  updatedArgs[location]: ${updatedArgs['location']}');
 
     if (_isFromEdit) {
@@ -589,10 +581,11 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: SingleChildScrollView(
+      body: ResponsiveLayout(
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
@@ -624,7 +617,8 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       if (!_isAwayGame) ...[
-                        DropdownButtonFormField<String>(
+                        ResponsiveFormField(
+                          child: DropdownButtonFormField<String>(
                           decoration:
                               textFieldDecoration('Level of competition'),
                           value: _levelOfCompetition,
@@ -650,9 +644,11 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
                                       style: const TextStyle(
                                           color: Colors.white))))
                               .toList(),
+                          ),
                         ),
                         const SizedBox(height: 20),
-                        DropdownButtonFormField<String>(
+                        ResponsiveFormField(
+                          child: DropdownButtonFormField<String>(
                           decoration: textFieldDecoration('Gender'),
                           value: _gender,
                           hint: const Text('Select gender',
@@ -668,9 +664,11 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
                                       style: const TextStyle(
                                           color: Colors.white))))
                               .toList(),
+                          ),
                         ),
                         const SizedBox(height: 20),
-                        DropdownButtonFormField<int>(
+                        ResponsiveFormField(
+                          child: DropdownButtonFormField<int>(
                           decoration: textFieldDecoration(
                               'Required number of officials'),
                           value: _officialsRequired,
@@ -688,9 +686,11 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
                                       style: const TextStyle(
                                           color: Colors.white))))
                               .toList(),
+                          ),
                         ),
                         const SizedBox(height: 20),
-                        TextField(
+                        ResponsiveFormField(
+                          child: TextField(
                           controller: _gameFeeController,
                           enabled: true,
                           autofocus: false,
@@ -712,23 +712,26 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
                             LengthLimitingTextInputFormatter(
                                 7), // Allow for "99999.99"
                           ],
+                          ),
                         ),
                         const SizedBox(height: 20),
                       ],
-                      TextField(
+                      ResponsiveFormField(
+                        child: TextField(
                         controller: _opponentController,
                         enabled: !_isAwayGame,  // Disable for away games
                         autofocus: false,
                         decoration: textFieldDecoration(_isAwayGame ? 'Opponent (Auto-filled)' : 'Opponent').copyWith(
                           hintText: _isAwayGame 
                               ? 'Will be auto-filled with your school name'
-                              : 'Enter the visiting team name (e.g., "Collinsville Kahoks")',
+                              : 'Enter the visiting team name',
                           hintStyle: const TextStyle(color: efficialsGray),
                         ),
                         style: TextStyle(
                             color: _isAwayGame ? Colors.grey : Colors.white, 
                             fontSize: 16),
                         keyboardType: TextInputType.text,
+                        ),
                       ),
                       const SizedBox(height: 8),
                       Text(
@@ -766,15 +769,18 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
                   ),
                 ),
                 const SizedBox(height: 30),
-                ElevatedButton(
+                ResponsiveButton(
+                  child: ElevatedButton(
                   onPressed: _handleContinue,
                   style: elevatedButtonStyle(
                     padding: const EdgeInsets.symmetric(
                         vertical: 15, horizontal: 50),
                   ),
                   child: const Text('Continue', style: signInButtonTextStyle),
+                  ),
                 ),
               ],
+            ),
             ),
           ),
         ),

@@ -1,72 +1,87 @@
 import 'base_repository.dart';
 import '../../models/database_models.dart';
 import '../user_session_service.dart';
+import '../unified_data_service.dart';
 
 class ListRepository extends BaseRepository {
-  // Create a new official list with officials
+  final UnifiedDataService _dataService = UnifiedDataService();
+  // Create a new official list with officials (Firebase-first version)
   Future<int> createList(
       String name, String sport, List<Official> officials) async {
-    final db = await database;
-
-    return await db.transaction((txn) async {
-      // Get sport_id
-      final sportResult =
-          await txn.query('sports', where: 'name = ?', whereArgs: [sport]);
-      if (sportResult.isEmpty) {
-        throw Exception('Sport not found: $sport');
-      }
-      final sportId = sportResult.first['id'] as int;
-
-      // Get current user ID from session
-      final userId = await _getCurrentUserId();
-
-      // Create the list
-      final listId = await txn.insert('official_lists', {
-        'name': name,
-        'sport_id': sportId,
-        'user_id': userId,
-        'created_at': DateTime.now().toIso8601String(),
-      });
-
-      // Add officials to the list
-      for (final official in officials) {
-        await txn.insert('official_list_members', {
-          'list_id': listId,
-          'official_id': official.id,
-        });
+    // Convert Official objects to Map format for unified data service
+    // IMPORTANT: Use the actual Firebase document IDs (emails) for consistency
+    final officialsMap = officials.map((official) {
+      // Use the actual email address from the official data (no generation needed)
+      final actualEmail = official.email;
+      if (actualEmail == null || actualEmail.isEmpty) {
+        throw Exception('Official ${official.name} has no email address');
       }
 
-      return listId;
-    });
+      return {
+        'id': official.id,
+        'email': actualEmail,
+        'name': official.name,
+        'phone': official.phone,
+        'city': official.city,
+        'state': official.state,
+        // Add other fields that might be needed
+        'userId': official.userId,
+        'sportId': official.sportId,
+        'rating': official.rating,
+        'experienceYears': official.experienceYears,
+        'certificationLevel': official.certificationLevel,
+      };
+    }).toList();
+
+    final userId = await _getCurrentUserId();
+    final userIdString = userId.toString();
+
+    // Use unified data service for Firebase-first architecture
+    final listId = await _dataService.createOfficialList(
+      name: name,
+      sport: sport,
+      userId: userIdString,
+      officials: officialsMap,
+    );
+
+    if (listId != null) {
+      // Return a hash of the string ID as integer for backward compatibility
+      return listId.hashCode.abs();
+    } else {
+      print('ERROR: Failed to create list');
+      throw Exception('Failed to create list: $name');
+    }
   }
 
-  // Get all lists for a user
+  // Get all lists for a user (now uses unified data service)
   Future<List<Map<String, dynamic>>> getUserLists(int userId) async {
-    final results = await rawQuery('''
-      SELECT ol.*, s.name as sport_name,
-             COUNT(olm.official_id) as official_count
-      FROM official_lists ol
-      LEFT JOIN sports s ON ol.sport_id = s.id
-      LEFT JOIN official_list_members olm ON ol.id = olm.list_id
-      WHERE ol.user_id = ?
-      GROUP BY ol.id
-      ORDER BY ol.created_at DESC
-    ''', [userId]);
+    print('DEBUG: ListRepository.getUserLists for userId: $userId');
 
-    return results;
+    // Use unified data service for Firebase-first architecture
+    final lists = await _dataService.getOfficialLists(userId.toString());
+
+    // Transform to match expected format (add sport_name field)
+    final transformedLists = lists.map((list) {
+      final transformed = Map<String, dynamic>.from(list);
+      transformed['sport_name'] =
+          list['sport']; // Firebase stores sport as string, not separate table
+      return transformed;
+    }).toList();
+
+    print('DEBUG: Returning ${transformedLists.length} lists with sport names');
+    return transformedLists;
   }
 
-  // Get officials from a specific list
-  Future<List<Map<String, dynamic>>> getListOfficials(int listId) async {
-    final results = await rawQuery('''
-      SELECT o.*, os.certification_level, os.years_experience, os.competition_levels
-      FROM officials o
-      INNER JOIN official_list_members olm ON o.id = olm.official_id
-      LEFT JOIN official_sports os ON o.id = os.official_id
-      WHERE olm.list_id = ?
-    ''', [listId]);
-
-    return results;
+  // Get officials from a specific list (Firebase-first version)
+  Future<List<Map<String, dynamic>>> getListOfficials(String listId) async {
+    try {
+      // Use unified data service to get officials for this list
+      final officials = await _dataService.getListOfficials(listId);
+      return officials;
+    } catch (e) {
+      print('Error getting list officials: $e');
+      return [];
+    }
   }
 
   // Delete a list and its members
@@ -86,44 +101,77 @@ class ListRepository extends BaseRepository {
   // Update list name
   Future<int> updateListName(int listId, String newName) async {
     return await update(
-        'official_lists',
-        {'name': newName, 'updated_at': DateTime.now().toIso8601String()},
-        'id = ?',
-        [listId]);
+        'official_lists', {'name': newName}, 'id = ?', [listId]);
   }
 
-  // Check if list name exists for a user
+  // Check if list name exists for a user (Firebase-first version)
   Future<bool> listNameExists(String name, int userId,
       {int? excludeListId}) async {
-    String whereClause = 'name = ? AND user_id = ?';
-    List<dynamic> whereArgs = [name, userId];
+    print(
+        'DEBUG: ListRepository.listNameExists - name: $name, userId: $userId, excludeListId: $excludeListId');
 
-    if (excludeListId != null) {
-      whereClause += ' AND id != ?';
-      whereArgs.add(excludeListId);
+    try {
+      // Use unified data service to get all lists for the user
+      final lists = await _dataService.getOfficialLists(userId.toString());
+      print(
+          'DEBUG: Retrieved ${lists.length} lists from Firebase for duplicate check');
+
+      // Check if any list has the same name, excluding the specified list if provided
+      for (var list in lists) {
+        final listName = list['name'] as String;
+        final listId = list['id'] as String;
+
+        // If this is the list we're excluding, skip it
+        if (excludeListId != null && listId.hashCode.abs() == excludeListId) {
+          print('DEBUG: Skipping excluded list: $listName (ID: $listId)');
+          continue;
+        }
+
+        // Check for name match (case-insensitive)
+        if (listName.toLowerCase() == name.toLowerCase()) {
+          print('DEBUG: Found duplicate list name: $listName');
+          return true;
+        }
+      }
+
+      print('DEBUG: No duplicate list name found');
+      return false;
+    } catch (e) {
+      print('ERROR: Exception in listNameExists: $e');
+      // In case of error, assume name doesn't exist to allow creation
+      return false;
     }
-
-    final results =
-        await query('official_lists', where: whereClause, whereArgs: whereArgs);
-    return results.isNotEmpty;
   }
 
   // Get all lists with their officials for a user (for advanced officials selection)
   Future<List<Map<String, dynamic>>> getLists([int? userId]) async {
     // If no userId provided, get current user
     final userIdToUse = userId ?? await _getCurrentUserId();
+    final userIdString = userIdToUse.toString();
 
-    final lists = await getUserLists(userIdToUse);
+    // Use unified data service for Firebase-first architecture
+    final lists = await _dataService.getOfficialLists(userIdString);
 
-    // Create mutable copies and get officials for each list
+    // Transform lists to match expected format WITHOUT loading officials yet (lazy loading)
     final mutableLists = <Map<String, dynamic>>[];
     for (var list in lists) {
-      final listId = list['id'] as int;
-      final officials = await getListOfficials(listId);
-      
-      // Create a new mutable map instead of modifying the read-only query result
+      final listId = list['id'] as String;
+
+      // Create mutable copy with expected format
       final mutableList = Map<String, dynamic>.from(list);
-      mutableList['officials'] = officials;
+
+      // Set empty officials list for now - will be loaded when needed
+      mutableList['officials'] = [];
+
+      // Add official count from Firebase data if available
+      final officialIds = list['officialIds'] as List<dynamic>? ?? [];
+      mutableList['official_count'] = officialIds.length;
+
+      // Add integer ID for backward compatibility
+      mutableList['id'] = listId.hashCode.abs();
+      mutableList['original_id'] =
+          listId; // Keep original string ID for Firebase operations
+
       mutableLists.add(mutableList);
     }
 
@@ -162,30 +210,17 @@ class ListRepository extends BaseRepository {
     });
   }
 
-  // Create list from UI screens (saves list with officials from screens)
-  Future<int> saveListFromUI(
-      String listName, String sport, List<Map<String, dynamic>> officials) async {
+  // Update list with new officials by list ID (replaces existing officials)
+  Future<void> updateListById(
+      int listId, List<Map<String, dynamic>> officials) async {
     final db = await database;
-    final userId = await _getCurrentUserId();
 
-    return await db.transaction((txn) async {
-      // Get sport_id
-      final sportResult =
-          await txn.query('sports', where: 'name = ?', whereArgs: [sport]);
-      if (sportResult.isEmpty) {
-        throw Exception('Sport not found: $sport');
-      }
-      final sportId = sportResult.first['id'] as int;
+    await db.transaction((txn) async {
+      // Remove existing officials from the list
+      await txn.delete('official_list_members',
+          where: 'list_id = ?', whereArgs: [listId]);
 
-      // Create the list
-      final listId = await txn.insert('official_lists', {
-        'name': listName,
-        'sport_id': sportId,
-        'user_id': userId,
-        'created_at': DateTime.now().toIso8601String(),
-      });
-
-      // Add officials to the list
+      // Add new officials to the list
       for (final official in officials) {
         final officialId = official['id'];
         if (officialId != null) {
@@ -195,9 +230,30 @@ class ListRepository extends BaseRepository {
           });
         }
       }
-
-      return listId;
     });
+  }
+
+  // Create list from UI screens (saves list with officials from screens)
+  Future<int> saveListFromUI(String listName, String sport,
+      List<Map<String, dynamic>> officials) async {
+    final userId = await _getCurrentUserId();
+    final userIdString = userId.toString();
+
+    // Use unified data service for Firebase-first architecture
+    final listId = await _dataService.createOfficialList(
+      name: listName,
+      sport: sport,
+      userId: userIdString,
+      officials: officials,
+    );
+
+    if (listId != null) {
+      // Return a hash of the string ID as integer for backward compatibility
+      return listId.hashCode.abs();
+    } else {
+      print('ERROR: Failed to create list');
+      throw Exception('Failed to create list: $listName');
+    }
   }
 
   // Helper method to get current user ID
