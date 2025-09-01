@@ -76,9 +76,10 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
                   return Map<String, dynamic>.from(item as Map);
                 }).toList() ??
                 [];
-        isFromGameCreation = args['method'] == 'standard' || args['fromGameCreation'] == true;
+        isFromGameCreation =
+            args['method'] == 'standard' || args['fromGameCreation'] == true;
         isEdit = args['isEdit'] == true;
-        
+
         // Hide Save List button when creating a new list during game creation
         // (coming from Use List -> Create New List flow where list name is already provided)
         if (args['fromGameCreation'] == true && args['listName'] != null) {
@@ -112,20 +113,25 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
 
   Future<void> _loadOfficials() async {
     setState(() => isLoading = true);
-    
+
     try {
       final officialRepository = OfficialRepository();
-      final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>? ?? {'sport': 'Football'};
+      final args =
+          ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>? ??
+              {'sport': 'Football'};
       final sport = args['sport'] as String? ?? 'Football';
-      
+
       // Get sport_id for the requested sport
       print('🏈 SPORT DEBUG: Looking for sport: $sport');
-      final sportResult = await officialRepository.rawQuery('SELECT id FROM sports WHERE name = ?', [sport]);
-      print('🏈 SPORT DEBUG: Found ${sportResult.length} sports matching "$sport"');
+      final sportResult = await officialRepository
+          .rawQuery('SELECT id FROM sports WHERE name = ?', [sport]);
+      print(
+          '🏈 SPORT DEBUG: Found ${sportResult.length} sports matching "$sport"');
       if (sportResult.isEmpty) {
         print('❌ SPORT DEBUG: No sport found with name "$sport"');
         // Let's see what sports exist
-        final allSports = await officialRepository.rawQuery('SELECT id, name FROM sports ORDER BY name');
+        final allSports = await officialRepository
+            .rawQuery('SELECT id, name FROM sports ORDER BY name');
         print('📊 All available sports:');
         for (final s in allSports) {
           print('  - ${s['id']}: ${s['name']}');
@@ -140,34 +146,42 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
       }
       final sportId = sportResult.first['id'] as int;
       print('🏈 SPORT DEBUG: Using sport_id: $sportId for sport: $sport');
-      
+
       // Use the repository method with filters
-      List<Map<String, dynamic>> newOfficials = await officialRepository.getOfficialsBySport(sportId, filters: filterSettings);
-      
+      List<Map<String, dynamic>> newOfficials = await officialRepository
+          .getOfficialsBySport(sportId, filters: filterSettings);
+
       // Apply additional distance filtering for away games if needed
       if (filterSettings != null) {
         final isAwayGame = args['isAwayGame'] as bool? ?? false;
-        
+
         if (!isAwayGame && filterSettings!['radius'] != null) {
           newOfficials = newOfficials.where((official) {
-            return filterSettings!['radius'] >= (official['distance'] ?? double.infinity);
+            return filterSettings!['radius'] >=
+                (official['distance'] ?? double.infinity);
           }).toList();
         }
       }
-      
+
       setState(() {
         officials = List.from(newOfficials);
         filteredOfficials = List.from(newOfficials);
         filteredOfficialsWithoutSearch = List.from(newOfficials);
-        
+
         // Sort all lists alphabetically by last name
-        officials.sort((a, b) => _getLastName(a['name'].toString()).toLowerCase().compareTo(_getLastName(b['name'].toString()).toLowerCase()));
-        filteredOfficials.sort((a, b) => _getLastName(a['name'].toString()).toLowerCase().compareTo(_getLastName(b['name'].toString()).toLowerCase()));
-        filteredOfficialsWithoutSearch.sort((a, b) => _getLastName(a['name'].toString()).toLowerCase().compareTo(_getLastName(b['name'].toString()).toLowerCase()));
-        
+        officials.sort((a, b) => _getLastName(a['name'].toString())
+            .toLowerCase()
+            .compareTo(_getLastName(b['name'].toString()).toLowerCase()));
+        filteredOfficials.sort((a, b) => _getLastName(a['name'].toString())
+            .toLowerCase()
+            .compareTo(_getLastName(b['name'].toString()).toLowerCase()));
+        filteredOfficialsWithoutSearch.sort((a, b) =>
+            _getLastName(a['name'].toString())
+                .toLowerCase()
+                .compareTo(_getLastName(b['name'].toString()).toLowerCase()));
+
         isLoading = false;
       });
-      
     } catch (e) {
       print('Error loading officials: $e');
       setState(() {
@@ -201,7 +215,9 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
               .toList();
         }
         // Sort alphabetically by last name
-        filteredOfficials.sort((a, b) => _getLastName(a['name'].toString()).toLowerCase().compareTo(_getLastName(b['name'].toString()).toLowerCase()));
+        filteredOfficials.sort((a, b) => _getLastName(a['name'].toString())
+            .toLowerCase()
+            .compareTo(_getLastName(b['name'].toString()).toLowerCase()));
       }
     });
   }
@@ -211,8 +227,11 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: darkSurface,
-        title: const Text('Name Your List', 
-            style: TextStyle(color: efficialsYellow, fontSize: 20, fontWeight: FontWeight.bold)),
+        title: const Text('Name Your List',
+            style: TextStyle(
+                color: efficialsYellow,
+                fontSize: 20,
+                fontWeight: FontWeight.bold)),
         content: TextField(
           controller: _listNameController,
           decoration: textFieldDecoration('List Name'),
@@ -221,7 +240,8 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel', style: TextStyle(color: efficialsYellow)),
+            child:
+                const Text('Cancel', style: TextStyle(color: efficialsYellow)),
           ),
           TextButton(
             onPressed: () {
@@ -240,51 +260,54 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
 
   void _saveList(String name) async {
     try {
-      final selected = officials.where((o) => selectedOfficials[o['id']] ?? false).toList();
-      final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+      final selected =
+          officials.where((o) => selectedOfficials[o['id']] ?? false).toList();
+      final args =
+          ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
       final sport = args['sport'] as String? ?? 'Football';
-      
+
       final listRepository = ListRepository();
-      
+
       // Check if list name already exists
-      final userResult = await listRepository.rawQuery('SELECT id FROM users WHERE scheduler_type IS NOT NULL LIMIT 1');
+      final userResult = await listRepository.rawQuery(
+          'SELECT id FROM users WHERE scheduler_type IS NOT NULL LIMIT 1');
       if (userResult.isEmpty) {
         throw Exception('No user found');
       }
       final userId = userResult.first['id'] as int;
-      
+
       final nameExists = await listRepository.listNameExists(name, userId);
       if (nameExists) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('A list with this name already exists!')),
+            const SnackBar(
+                content: Text('A list with this name already exists!')),
           );
         }
         return;
       }
-      
+
       // Convert selected officials to Official objects
-      final selectedOfficialsObjects = selected.map((officialData) => Official(
-        id: officialData['id'],
-        name: officialData['name'],
-        email: officialData['email'],
-        phone: officialData['phone'],
-        userId: userId, // Required field
-      )).toList();
-      
+      final selectedOfficialsObjects = selected
+          .map((officialData) => Official(
+                id: officialData['id'],
+                name: officialData['name'],
+                email: officialData['email'],
+                phone: officialData['phone'],
+                userId: userId, // Required field
+              ))
+          .toList();
+
       // Create the list
       await listRepository.createList(name, sport, selectedOfficialsObjects);
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('List created!'), 
-            duration: Duration(seconds: 2)
-          ),
+              content: Text('List created!'), duration: Duration(seconds: 2)),
         );
       }
       setState(() => showSaveListButton = false);
-      
     } catch (e) {
       print('Error saving list: $e');
       if (mounted) {
@@ -409,13 +432,18 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
                                     return OfficialListItem(
                                       key: ValueKey(officialId),
                                       official: official,
-                                      isSelected: selectedOfficials[officialId] ?? false,
+                                      isSelected:
+                                          selectedOfficials[officialId] ??
+                                              false,
                                       onToggleSelection: () {
                                         setState(() {
                                           selectedOfficials[officialId] =
-                                              !(selectedOfficials[officialId] ?? false);
-                                          if (selectedOfficials[officialId] == false) {
-                                            selectedOfficials.remove(officialId);
+                                              !(selectedOfficials[officialId] ??
+                                                  false);
+                                          if (selectedOfficials[officialId] ==
+                                              false) {
+                                            selectedOfficials
+                                                .remove(officialId);
                                           }
                                         });
                                       },
@@ -448,7 +476,8 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
           backgroundColor: Colors.grey[600],
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          child: const Icon(Icons.filter_list, size: 30, color: efficialsYellow),
+          child:
+              const Icon(Icons.filter_list, size: 30, color: efficialsYellow),
         ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
@@ -474,11 +503,11 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
                       onPressed: selectedCount > 0 && !isNavigating
                           ? () async {
                               if (isNavigating) return;
-                              
+
                               setState(() {
                                 isNavigating = true;
                               });
-                              
+
                               final selected = officials.where((o) {
                                 final officialId = o['id'];
                                 return officialId is int &&
@@ -494,14 +523,15 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
                                 'listName':
                                     args['listName'], // Preserve the listName
                               };
-                              
+
                               try {
                                 // Determine the correct route based on the flow:
                                 // - If creating a new list during game creation (fromGameCreation=true + listName provided) -> review_list
                                 // - If using standard method from game creation (method=standard) -> review_game_info
                                 // - Otherwise -> review_list
                                 String targetRoute;
-                                if (args['fromGameCreation'] == true && args['listName'] != null) {
+                                if (args['fromGameCreation'] == true &&
+                                    args['listName'] != null) {
                                   // Creating a new list during game creation flow
                                   targetRoute = '/review_list';
                                 } else if (args['method'] == 'standard') {
@@ -511,13 +541,13 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
                                   // Default to review list
                                   targetRoute = '/review_list';
                                 }
-                                
+
                                 final result = await Navigator.pushNamed(
                                   context,
                                   targetRoute,
                                   arguments: updatedArgs,
                                 );
-                                
+
                                 // If we got a result, pop back with it
                                 if (result != null && mounted) {
                                   // ignore: use_build_context_synchronously
@@ -533,16 +563,18 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
                             }
                           : null,
                       style: elevatedButtonStyle(),
-                      child: isNavigating 
+                      child: isNavigating
                           ? const SizedBox(
                               width: 20,
                               height: 20,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                valueColor:
+                                    AlwaysStoppedAnimation<Color>(Colors.white),
                               ),
                             )
-                          : const Text('Continue', style: signInButtonTextStyle),
+                          : const Text('Continue',
+                              style: signInButtonTextStyle),
                     ),
                   ),
                   if (isFromGameCreation && showSaveListButton) ...[
@@ -552,8 +584,8 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
                       child: ElevatedButton(
                         onPressed: selectedCount > 0 ? _promptSaveList : null,
                         style: elevatedButtonStyle(),
-                        child:
-                            const Text('Save List', style: signInButtonTextStyle),
+                        child: const Text('Save List',
+                            style: signInButtonTextStyle),
                       ),
                     ),
                   ],

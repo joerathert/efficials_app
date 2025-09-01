@@ -26,7 +26,8 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
   int? officialsRequired;
   bool hireAutomatically = false;
   String? selectedListName;
-  String? method; // Method for officials selection: 'use_list', 'advanced', 'hire_crew'
+  String?
+      method; // Method for officials selection: 'use_list', 'advanced', 'hire_crew'
   List<Map<String, dynamic>> selectedLists = []; // For advanced method
   List<Map<String, dynamic>> selectedCrews = []; // For crew selection
   String? selectedCrewListName; // For crew list name
@@ -99,14 +100,14 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
       _fetchSports(), // Fetch sports at initialization
       _fetchCurrentUser(), // Fetch current user information
     ]);
-    
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final args =
           ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>?;
-      
+
       // Determine if we're creating from scratch (no arguments)
       isCreatingFromScratch = (args == null);
-      
+
       // Re-apply Assigner sport pre-population if needed
       if (isAssigner && currentUserSport != null && sport == null) {
         debugPrint('RE-APPLYING ASSIGNER SPORT: $currentUserSport');
@@ -115,19 +116,19 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
           includeSport = true;
         });
       } else {
-        debugPrint('NOT RE-APPLYING - isAssigner: $isAssigner, currentUserSport: $currentUserSport, sport: $sport');
+        debugPrint(
+            'NOT RE-APPLYING - isAssigner: $isAssigner, currentUserSport: $currentUserSport, sport: $sport');
       }
-      
+
       if (args != null) {
         // Check if this is an Away Game - Away Games can't be used for templates
         final isAwayGame = args['isAway'] as bool? ?? false;
         final locationArg = args['location'] as String?;
         final opponent = args['opponent'] as String?;
-        
+
         // Detect Away Game by checking for Away Game indicators
-        if (isAwayGame || 
+        if (isAwayGame ||
             (locationArg != null && locationArg.toLowerCase() == 'away game')) {
-          
           // Show dialog and return to previous screen
           WidgetsBinding.instance.addPostFrameCallback((_) {
             showDialog(
@@ -135,7 +136,10 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
               builder: (context) => AlertDialog(
                 backgroundColor: darkSurface,
                 title: const Text('Away Game Template Not Supported',
-                    style: TextStyle(color: efficialsYellow, fontSize: 18, fontWeight: FontWeight.bold)),
+                    style: TextStyle(
+                        color: efficialsYellow,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold)),
                 content: const Text(
                   'Game templates can only be created from Home Games. Away Games have different data requirements and cannot be used as template bases.\n\nTo create a template, please use a Home Game instead.',
                   style: TextStyle(color: Colors.white),
@@ -146,7 +150,8 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                       Navigator.of(context).pop(); // Close dialog
                       Navigator.of(context).pop(); // Return to previous screen
                     },
-                    child: const Text('OK', style: TextStyle(color: efficialsYellow)),
+                    child: const Text('OK',
+                        style: TextStyle(color: efficialsYellow)),
                   ),
                 ],
               ),
@@ -154,7 +159,7 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
           });
           return;
         }
-        
+
         setState(() {
           scheduleName = args['scheduleName'] as String?;
           sport = args['sport'] as String?;
@@ -170,7 +175,7 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
 
           if (existingTemplate != null) {
             isEditing = true;
-            _nameController.text = existingTemplate!.name ?? '';
+            _nameController.text = existingTemplate!.name;
             sport = existingTemplate!.sport ?? sport;
             selectedTime = existingTemplate!.time;
             levelOfCompetition = existingTemplate!.levelOfCompetition;
@@ -205,15 +210,16 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
             hireAutomatically = args['hireAutomatically'] as bool? ?? false;
             selectedListName = args['selectedListName'] as String?;
             method = args['method'] as String?;
-            selectedLists = args['selectedLists'] != null 
+            selectedLists = args['selectedLists'] != null
                 ? List<Map<String, dynamic>>.from(args['selectedLists'] as List)
                 : [];
-            selectedCrews = args['selectedCrews'] != null 
+            selectedCrews = args['selectedCrews'] != null
                 ? List<Map<String, dynamic>>.from(args['selectedCrews'] as List)
                 : [];
             selectedCrewListName = args['selectedCrewListName'] as String?;
             // Check if the game has a selected list name (indicates 'use_list' method was used)
-            includeOfficialsList = selectedListName != null && selectedListName!.isNotEmpty;
+            includeOfficialsList =
+                selectedListName != null && selectedListName!.isNotEmpty;
             if (args['time'] != null) {
               if (args['time'] is TimeOfDay) {
                 selectedTime = args['time'] as TimeOfDay;
@@ -233,19 +239,21 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
           if (sport == null) {
             sport = null; // Keep it null if not provided
           }
-          
+
           _updateCurrentGenders();
-          
+
           // Final validation to ensure all dropdown values are safe
-          if (levelOfCompetition != null && !competitionLevels.contains(levelOfCompetition)) {
+          if (levelOfCompetition != null &&
+              !competitionLevels.contains(levelOfCompetition)) {
             levelOfCompetition = null;
           }
-          
+
           if (gender != null && !currentGenders.contains(gender)) {
             gender = null;
           }
-          
-          if (officialsRequired != null && !officialsOptions.contains(officialsRequired)) {
+
+          if (officialsRequired != null &&
+              !officialsOptions.contains(officialsRequired)) {
             officialsRequired = null;
           }
         });
@@ -266,26 +274,30 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
       if (mounted) {
         setState(() {
           locations = List<Map<String, dynamic>>.from(fetchedLocations);
-          
+
           // Remove any existing "Create new location" entries to prevent duplicates
-          locations.removeWhere((loc) => loc['name'] == '+ Create new location');
-          
+          locations
+              .removeWhere((loc) => loc['name'] == '+ Create new location');
+
           // Add the create option only once
           locations.add({'name': '+ Create new location', 'id': 0});
-          
+
           // Validate current location selection
-          if (location != null && 
-              !locations.any((loc) => loc['name'] == location && loc['id'] != 0)) {
+          if (location != null &&
+              !locations
+                  .any((loc) => loc['name'] == location && loc['id'] != 0)) {
             location = null; // Clear invalid location
           }
-          
+
           isLoadingLocations = false;
         });
       }
     } catch (e) {
       if (mounted) {
         setState(() {
-          locations = [{'name': '+ Create new location', 'id': 0}];
+          locations = [
+            {'name': '+ Create new location', 'id': 0}
+          ];
           isLoadingLocations = false;
         });
       }
@@ -324,19 +336,23 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
         setState(() {
           currentUserSchedulerType = currentUser.schedulerType;
           currentUserSport = currentUser.sport;
-          debugPrint('USER DATA: schedulerType="${currentUser.schedulerType}", sport="${currentUser.sport}"');
+          debugPrint(
+              'USER DATA: schedulerType="${currentUser.schedulerType}", sport="${currentUser.sport}"');
           isAssigner = currentUserSchedulerType == 'assigner';
-          debugPrint('COMPARISON: "$currentUserSchedulerType" == "assigner" = $isAssigner');
-          
+          debugPrint(
+              'COMPARISON: "$currentUserSchedulerType" == "assigner" = $isAssigner');
+
           // Pre-populate sport for Assigners
           if (isAssigner && currentUserSport != null && sport == null) {
             sport = currentUserSport;
             includeSport = true; // Always include sport for Assigners
-            debugPrint('ASSIGNER SPORT SET: $sport (from currentUserSport: $currentUserSport)');
+            debugPrint(
+                'ASSIGNER SPORT SET: $sport (from currentUserSport: $currentUserSport)');
           } else {
-            debugPrint('SPORT NOT SET - isAssigner: $isAssigner, currentUserSport: $currentUserSport, sport: $sport');
+            debugPrint(
+                'SPORT NOT SET - isAssigner: $isAssigner, currentUserSport: $currentUserSport, sport: $sport');
           }
-          
+
           isLoadingUser = false; // Mark user loading as complete
         });
       }
@@ -349,7 +365,6 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
       }
     }
   }
-
 
   Future<void> _selectTime(BuildContext context) async {
     final TimeOfDay? picked = await showTimePicker(
@@ -422,13 +437,42 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
   }
 
   Future<void> _selectOfficialsList() async {
+    // Check if sport is selected first
+    if (sport == null) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          backgroundColor: darkSurface,
+          title: const Text(
+            'Sport Required',
+            style: TextStyle(
+                color: efficialsYellow,
+                fontSize: 18,
+                fontWeight: FontWeight.bold),
+          ),
+          content: const Text(
+            'Please select a sport first before configuring the officials list. The available lists depend on the sport you choose.',
+            style: TextStyle(color: Colors.white),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK', style: TextStyle(color: efficialsYellow)),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
     final result = await Navigator.pushNamed(
       context,
       '/lists_of_officials',
       arguments: {
         'sport': sport,
         'fromGameCreation': true,
-        'fromTemplateCreation': true, // Add flag to indicate this is from template creation
+        'fromTemplateCreation':
+            true, // Add flag to indicate this is from template creation
       },
     );
     if (result != null && result is Map<String, dynamic>) {
@@ -440,35 +484,106 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
   }
 
   Future<void> _selectAdvancedLists() async {
+    // Check if sport is selected first
+    if (sport == null) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          backgroundColor: darkSurface,
+          title: const Text(
+            'Sport Required',
+            style: TextStyle(
+                color: efficialsYellow,
+                fontSize: 18,
+                fontWeight: FontWeight.bold),
+          ),
+          content: const Text(
+            'Please select a sport first before configuring multiple lists. The available lists depend on the sport you choose.',
+            style: TextStyle(color: Colors.white),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK', style: TextStyle(color: efficialsYellow)),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
     final result = await Navigator.pushNamed(
       context,
       '/advanced_officials_selection',
       arguments: {
         'sport': sport,
         'fromGameCreation': true,
-        'fromTemplateCreation': true, // Flag to indicate we're coming from template creation
-        'method': 'advanced', // Include the method so downstream screens know this is Multiple Lists
+        'fromTemplateCreation':
+            true, // Flag to indicate we're coming from template creation
+        'method':
+            'advanced', // Include the method so downstream screens know this is Multiple Lists
         'selectedLists': selectedLists,
-        'officialsRequired': officialsRequired ?? 0, // Pass the officials required value
+        'officialsRequired':
+            officialsRequired ?? 0, // Pass the officials required value
       },
     );
+    debugPrint(
+        '🏗️ CREATE GAME TEMPLATE: Received result from Advanced Officials Selection');
+    debugPrint('🏗️ Result type: ${result.runtimeType}');
+    debugPrint('🏗️ Result data: $result');
+
     if (result != null && result is Map<String, dynamic>) {
+      debugPrint('🏗️ CREATE GAME TEMPLATE: Processing valid result');
       setState(() {
-        selectedLists = result['selectedLists'] != null 
+        selectedLists = result['selectedLists'] != null
             ? List<Map<String, dynamic>>.from(result['selectedLists'] as List)
             : [];
         method = 'advanced';
+        debugPrint(
+            '🏗️ CREATE GAME TEMPLATE: Set selectedLists to ${selectedLists.length} lists');
+        debugPrint('🏗️ CREATE GAME TEMPLATE: Set method to $method');
       });
+    } else {
+      debugPrint('🏗️ CREATE GAME TEMPLATE: Result was null or invalid type');
     }
   }
 
   Future<void> _selectCrews() async {
+    // Check if sport is selected first
+    if (sport == null) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          backgroundColor: darkSurface,
+          title: const Text(
+            'Sport Required',
+            style: TextStyle(
+                color: efficialsYellow,
+                fontSize: 18,
+                fontWeight: FontWeight.bold),
+          ),
+          content: const Text(
+            'Please select a sport first before selecting crews. The available crews depend on the sport you choose.',
+            style: TextStyle(color: Colors.white),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK', style: TextStyle(color: efficialsYellow)),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
     final result = await Navigator.pushNamed(
       context,
       '/lists_of_crews',
       arguments: {
         'sport': sport,
-        'fromTemplateCreation': true, // Flag to indicate we're coming from template creation
+        'fromTemplateCreation':
+            true, // Flag to indicate we're coming from template creation
         'method': 'hire_crew',
       },
     );
@@ -477,12 +592,14 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
       setState(() {
         // Handle crew list selection from lists screen
         if (result['selectedCrews'] != null) {
-          selectedCrews = List<Map<String, dynamic>>.from(result['selectedCrews'] as List);
+          selectedCrews =
+              List<Map<String, dynamic>>.from(result['selectedCrews'] as List);
           print('🚢 SAVED selectedCrews: $selectedCrews'); // Debug
         }
         if (result['selectedCrewListName'] != null) {
           selectedCrewListName = result['selectedCrewListName'] as String;
-          print('🚢 SAVED selectedCrewListName: $selectedCrewListName'); // Debug
+          print(
+              '🚢 SAVED selectedCrewListName: $selectedCrewListName'); // Debug
         }
         method = 'hire_crew';
       });
@@ -602,21 +719,24 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
         }
       } else {
         // Create new template
-        print('🚢 TEMPLATE SAVE DEBUG: selectedCrews being saved: ${templateData['selectedCrews']}');
-        print('🚢 TEMPLATE SAVE DEBUG: selectedCrewListName being saved: ${templateData['selectedCrewListName']}');
+        print(
+            '🚢 TEMPLATE SAVE DEBUG: selectedCrews being saved: ${templateData['selectedCrews']}');
+        print(
+            '🚢 TEMPLATE SAVE DEBUG: selectedCrewListName being saved: ${templateData['selectedCrewListName']}');
         final result = await _gameService.createTemplate(templateData);
         if (result == null) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('Failed to create template. Template name may already exist.'),
+                content: Text(
+                    'Failed to create template. Template name may already exist.'),
                 backgroundColor: Colors.red,
               ),
             );
           }
           return;
         }
-        
+
         // Create a new template object with the database ID
         final savedTemplate = GameTemplate(
           id: result['id'].toString(),
@@ -654,7 +774,7 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
           includeSelectedOfficials: newTemplate.includeSelectedOfficials,
           includeOfficialsList: newTemplate.includeOfficialsList,
         );
-        
+
         if (mounted) {
           Navigator.pop(context, savedTemplate);
         }
@@ -761,7 +881,8 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
           left: 16.0,
           right: 16.0,
           top: 16.0,
-          bottom: MediaQuery.of(context).padding.bottom + 90, // Add bottom padding for system nav bar + button bar
+          bottom: MediaQuery.of(context).padding.bottom +
+              90, // Add bottom padding for system nav bar + button bar
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -824,7 +945,8 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                                           ? sport
                                           : null,
                                       hint: const Text('Select Sport',
-                                          style: TextStyle(color: efficialsGray)),
+                                          style:
+                                              TextStyle(color: efficialsGray)),
                                       style: const TextStyle(
                                           color: Colors.white, fontSize: 16),
                                       dropdownColor: darkSurface,
@@ -852,21 +974,27 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                               onChanged: null, // Disabled for Assigners
                               activeColor: Colors.grey,
                               checkColor: Colors.white,
-                              fillColor: WidgetStateProperty.resolveWith<Color?>((states) {
+                              fillColor:
+                                  WidgetStateProperty.resolveWith<Color?>(
+                                      (states) {
                                 return Colors.grey;
                               }),
                             ),
                             Expanded(
                               child: isLoadingUser
                                   ? Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 12, vertical: 16),
                                       decoration: BoxDecoration(
                                         color: Colors.grey[800],
                                         borderRadius: BorderRadius.circular(8),
-                                        border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                                        border: Border.all(
+                                            color:
+                                                Colors.grey.withOpacity(0.3)),
                                       ),
                                       child: const Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
                                         children: [
                                           Text(
                                             'Loading sport...',
@@ -880,21 +1008,27 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                                             height: 16,
                                             child: CircularProgressIndicator(
                                               strokeWidth: 2,
-                                              valueColor: AlwaysStoppedAnimation<Color>(Colors.grey),
+                                              valueColor:
+                                                  AlwaysStoppedAnimation<Color>(
+                                                      Colors.grey),
                                             ),
                                           ),
                                         ],
                                       ),
                                     )
                                   : Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 12, vertical: 16),
                                       decoration: BoxDecoration(
                                         color: Colors.grey[800],
                                         borderRadius: BorderRadius.circular(8),
-                                        border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                                        border: Border.all(
+                                            color:
+                                                Colors.grey.withOpacity(0.3)),
                                       ),
                                       child: Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
                                         children: [
                                           Text(
                                             sport ?? 'Sport not found',
@@ -969,9 +1103,10 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                                   decoration: textFieldDecoration('Location'),
                                   value: location != null &&
                                           locations.isNotEmpty &&
-                                          locations.any(
-                                              (loc) => loc['name'] == location &&
-                                                      loc['id'] != 0) // Exclude the "create new" option
+                                          locations.any((loc) =>
+                                              loc['name'] == location &&
+                                              loc['id'] !=
+                                                  0) // Exclude the "create new" option
                                       ? location
                                       : null,
                                   hint: locations.isEmpty ||
@@ -980,50 +1115,52 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                                       ? const Text('No locations available',
                                           style: TextStyle(color: Colors.grey))
                                       : const Text('Select location',
-                                          style: TextStyle(color: efficialsGray)),
+                                          style:
+                                              TextStyle(color: efficialsGray)),
                                   style: const TextStyle(
                                       color: Colors.white, fontSize: 16),
                                   dropdownColor: darkSurface,
                                   isExpanded: true,
-                                onChanged: (newValue) {
-                                  if (newValue == null) return;
-                                  setState(() {
-                                    if (newValue == '+ Create new location') {
-                                      Navigator.pushNamed(
-                                              context, '/add_new_location')
-                                          .then((result) async {
-                                        if (result != null) {
-                                          final newLoc =
-                                              result as Map<String, dynamic>;
-                                          // Refresh locations from database
-                                          await _fetchLocations();
-                                          setState(() {
-                                            location = newLoc['name'];
-                                          });
-                                        }
-                                      });
-                                    } else {
-                                      location = newValue;
-                                    }
-                                  });
-                                },
-                                items: locations
-                                    .fold<List<Map<String, dynamic>>>([], (uniqueList, loc) {
-                                      // Only add if name doesn't already exist in uniqueList
-                                      if (!uniqueList.any((item) => item['name'] == loc['name'])) {
-                                        uniqueList.add(loc);
+                                  onChanged: (newValue) {
+                                    if (newValue == null) return;
+                                    setState(() {
+                                      if (newValue == '+ Create new location') {
+                                        Navigator.pushNamed(
+                                                context, '/add_new_location')
+                                            .then((result) async {
+                                          if (result != null) {
+                                            final newLoc =
+                                                result as Map<String, dynamic>;
+                                            // Refresh locations from database
+                                            await _fetchLocations();
+                                            setState(() {
+                                              location = newLoc['name'];
+                                            });
+                                          }
+                                        });
+                                      } else {
+                                        location = newValue;
                                       }
-                                      return uniqueList;
-                                    })
-                                    .map((loc) {
-                                      return DropdownMenuItem(
-                                        value: loc['name'] as String,
-                                        child: Text(loc['name'] as String,
-                                            style: const TextStyle(
-                                                color: Colors.white),
-                                            overflow: TextOverflow.ellipsis),
-                                      );
-                                    }).toList(),
+                                    });
+                                  },
+                                  items: locations
+                                      .fold<List<Map<String, dynamic>>>([],
+                                          (uniqueList, loc) {
+                                    // Only add if name doesn't already exist in uniqueList
+                                    if (!uniqueList.any((item) =>
+                                        item['name'] == loc['name'])) {
+                                      uniqueList.add(loc);
+                                    }
+                                    return uniqueList;
+                                  }).map((loc) {
+                                    return DropdownMenuItem(
+                                      value: loc['name'] as String,
+                                      child: Text(loc['name'] as String,
+                                          style: const TextStyle(
+                                              color: Colors.white),
+                                          overflow: TextOverflow.ellipsis),
+                                    );
+                                  }).toList(),
                                 ),
                               ),
                       ),
@@ -1063,9 +1200,9 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                         child: DropdownButtonFormField<String>(
                           decoration:
                               textFieldDecoration('Level of Competition'),
-                          value: levelOfCompetition != null && 
-                                  competitionLevels.contains(levelOfCompetition) 
-                              ? levelOfCompetition 
+                          value: levelOfCompetition != null &&
+                                  competitionLevels.contains(levelOfCompetition)
+                              ? levelOfCompetition
                               : null,
                           hint: const Text('Level of Competition',
                               style: TextStyle(
@@ -1104,10 +1241,10 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                       Expanded(
                         child: DropdownButtonFormField<String>(
                           decoration: textFieldDecoration('Gender'),
-                          value: gender != null && 
-                                  currentGenders.contains(gender) 
-                              ? gender 
-                              : null,
+                          value:
+                              gender != null && currentGenders.contains(gender)
+                                  ? gender
+                                  : null,
                           hint: const Text('Gender',
                               style: TextStyle(
                                   fontSize: 16, color: efficialsGray)),
@@ -1141,9 +1278,9 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                         child: DropdownButtonFormField<int>(
                           decoration:
                               textFieldDecoration('# of Officials Required'),
-                          value: officialsRequired != null && 
-                                  officialsOptions.contains(officialsRequired) 
-                              ? officialsRequired 
+                          value: officialsRequired != null &&
+                                  officialsOptions.contains(officialsRequired)
+                              ? officialsRequired
                               : null,
                           hint: const Text('# of Officials Required',
                               style: TextStyle(
@@ -1284,15 +1421,18 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                           children: [
                             const Text(
                               'Method:',
-                              style: TextStyle(fontSize: 16, color: Colors.white),
+                              style:
+                                  TextStyle(fontSize: 16, color: Colors.white),
                             ),
                             const SizedBox(height: 8),
                             DropdownButtonFormField<String>(
-                              decoration: textFieldDecoration('Selection Method'),
+                              decoration:
+                                  textFieldDecoration('Selection Method'),
                               value: method,
                               hint: const Text('Select officials method',
                                   style: TextStyle(color: efficialsGray)),
-                              style: const TextStyle(color: Colors.white, fontSize: 16),
+                              style: const TextStyle(
+                                  color: Colors.white, fontSize: 16),
                               dropdownColor: darkSurface,
                               onChanged: (value) {
                                 setState(() {
@@ -1335,11 +1475,13 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                                 child: Container(
                                   padding: const EdgeInsets.all(12),
                                   decoration: BoxDecoration(
-                                    border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                                    border: Border.all(
+                                        color: Colors.grey.withOpacity(0.3)),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
                                     children: [
                                       Expanded(
                                         child: Text(
@@ -1347,10 +1489,12 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                                               ? 'Tap to select a saved list'
                                               : 'List: $selectedListName',
                                           style: const TextStyle(
-                                              fontSize: 14, color: Colors.white),
+                                              fontSize: 14,
+                                              color: Colors.white),
                                         ),
                                       ),
-                                      const Icon(Icons.list, color: efficialsYellow),
+                                      const Icon(Icons.list,
+                                          color: efficialsYellow),
                                     ],
                                   ),
                                 ),
@@ -1361,11 +1505,13 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                                 child: Container(
                                   padding: const EdgeInsets.all(12),
                                   decoration: BoxDecoration(
-                                    border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                                    border: Border.all(
+                                        color: Colors.grey.withOpacity(0.3)),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
                                     children: [
                                       Expanded(
                                         child: Text(
@@ -1373,10 +1519,12 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                                               ? 'Tap to configure advanced lists'
                                               : 'Lists configured: ${selectedLists.length}',
                                           style: const TextStyle(
-                                              fontSize: 14, color: Colors.white),
+                                              fontSize: 14,
+                                              color: Colors.white),
                                         ),
                                       ),
-                                      const Icon(Icons.settings, color: efficialsYellow),
+                                      const Icon(Icons.settings,
+                                          color: efficialsYellow),
                                     ],
                                   ),
                                 ),
@@ -1384,15 +1532,16 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                               if (selectedLists.isNotEmpty) ...[
                                 const SizedBox(height: 8),
                                 ...selectedLists.map((list) => Padding(
-                                  padding: const EdgeInsets.only(left: 16, bottom: 4),
-                                  child: Text(
-                                    '• ${list['name']}: ${list['minOfficials']}-${list['maxOfficials']} officials',
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey,
-                                    ),
-                                  ),
-                                )),
+                                      padding: const EdgeInsets.only(
+                                          left: 16, bottom: 4),
+                                      child: Text(
+                                        '• ${list['name']}: ${list['minOfficials']}-${list['maxOfficials']} officials',
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey,
+                                        ),
+                                      ),
+                                    )),
                               ],
                             ] else if (method == 'hire_crew') ...[
                               GestureDetector(
@@ -1400,11 +1549,13 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                                 child: Container(
                                   padding: const EdgeInsets.all(12),
                                   decoration: BoxDecoration(
-                                    border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                                    border: Border.all(
+                                        color: Colors.grey.withOpacity(0.3)),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
                                     children: [
                                       Expanded(
                                         child: Text(
@@ -1412,10 +1563,12 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                                               ? 'Tap to select crew lists'
                                               : 'Crew lists selected: ${selectedCrews.length}',
                                           style: const TextStyle(
-                                              fontSize: 14, color: Colors.white),
+                                              fontSize: 14,
+                                              color: Colors.white),
                                         ),
                                       ),
-                                      const Icon(Icons.group, color: efficialsYellow),
+                                      const Icon(Icons.group,
+                                          color: efficialsYellow),
                                     ],
                                   ),
                                 ),
@@ -1423,15 +1576,16 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                               if (selectedCrews.isNotEmpty) ...[
                                 const SizedBox(height: 8),
                                 ...selectedCrews.map((crew) => Padding(
-                                  padding: const EdgeInsets.only(left: 16, bottom: 4),
-                                  child: Text(
-                                    '• ${crew['name']}: ${crew['sportName']} (${crew['memberCount'] ?? 0} officials)',
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey,
-                                    ),
-                                  ),
-                                )),
+                                      padding: const EdgeInsets.only(
+                                          left: 16, bottom: 4),
+                                      child: Text(
+                                        '• ${crew['name']}: ${crew['sportName']} (${crew['memberCount'] ?? 0} officials)',
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey,
+                                        ),
+                                      ),
+                                    )),
                               ],
                             ],
                           ],

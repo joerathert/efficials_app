@@ -1,6 +1,4 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../shared/theme.dart';
 import '../../shared/services/game_service.dart';
 import '../../shared/services/repositories/list_repository.dart';
@@ -11,15 +9,17 @@ class AdvancedOfficialsSelectionScreen extends StatefulWidget {
   const AdvancedOfficialsSelectionScreen({super.key});
 
   @override
-  State<AdvancedOfficialsSelectionScreen> createState() => _AdvancedOfficialsSelectionScreenState();
+  State<AdvancedOfficialsSelectionScreen> createState() =>
+      _AdvancedOfficialsSelectionScreenState();
 }
 
-class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSelectionScreen> {
+class _AdvancedOfficialsSelectionScreenState
+    extends State<AdvancedOfficialsSelectionScreen> {
   List<Map<String, dynamic>> lists = [];
   List<Map<String, dynamic>> selectedLists = [];
   bool isLoading = true;
   int totalRequiredOfficials = 0;
-  
+
   late final ListRepository listRepo;
   late final OfficialRepository officialRepo;
   late final GameService gameService;
@@ -35,27 +35,50 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
     ];
     // Initialize with 2 empty list slots
     selectedLists = [
-      {'name': null, 'id': null, 'officials': [], 'minOfficials': null, 'maxOfficials': null},
-      {'name': null, 'id': null, 'officials': [], 'minOfficials': null, 'maxOfficials': null},
+      {
+        'name': null,
+        'id': null,
+        'officials': [],
+        'minOfficials': null,
+        'maxOfficials': null
+      },
+      {
+        'name': null,
+        'id': null,
+        'officials': [],
+        'minOfficials': null,
+        'maxOfficials': null
+      },
     ];
     _fetchLists();
   }
 
-  // Store args for use after lists are loaded
-  Map<String, dynamic>? _routeArgs;
+  // Store original args for use after lists are loaded - preserve throughout widget lifecycle
+  Map<String, dynamic>? _originalRouteArgs;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Capture route arguments
-    if (_routeArgs == null) {
-      _routeArgs = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    // Capture route arguments ONCE and preserve them throughout the screen lifecycle
+    if (_originalRouteArgs == null) {
+      _originalRouteArgs = Map<String, dynamic>.from(
+          ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>? ??
+              {});
+      debugPrint(
+          '🔄 ADVANCED: Captured original route args: ${_originalRouteArgs?.keys.toList()}');
+      debugPrint(
+          '🔄 ADVANCED: fromTemplateCreation = ${_originalRouteArgs?['fromTemplateCreation']}');
+    } else {
+      // Screen is becoming active again - refresh lists
+      debugPrint(
+          '🔄 ADVANCED: Screen becoming active again - refreshing lists');
+      _fetchLists();
     }
   }
 
   void _restoreSelectedLists(List<dynamic> existingLists) {
-    final isEditMode = _routeArgs?['isEdit'] as bool? ?? false;
-    
+    final isEditMode = _originalRouteArgs?['isEdit'] as bool? ?? false;
+
     setState(() {
       selectedLists.clear();
       for (var listData in existingLists) {
@@ -65,12 +88,12 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
             (l) => l['name'] == listData['name'],
             orElse: () => {'name': 'Unknown List', 'id': -1, 'officials': []},
           );
-          
+
           selectedLists.add({
             'name': listData['name'],
             'id': fullList['id'],
             // In edit mode, use the game-specific officials from listData, not the full list
-            'officials': isEditMode 
+            'officials': isEditMode
                 ? (listData['officials'] ?? fullList['officials'] ?? [])
                 : (fullList['officials'] ?? []),
             'minOfficials': listData['minOfficials'] ?? 0,
@@ -86,33 +109,46 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
       final userId = await UserSessionService.instance.getCurrentUserId();
       if (userId == null) {
         setState(() {
-          lists = [{'name': 'No saved lists', 'id': -1}];
+          lists = [
+            {'name': 'No saved lists', 'id': -1}
+          ];
           isLoading = false;
         });
         return;
       }
 
       final userLists = await listRepo.getLists(userId);
-      debugPrint('DEBUG ADVANCED: Found ${userLists.length} lists from database');
+      debugPrint(
+          'DEBUG ADVANCED: Found ${userLists.length} lists from database');
       for (var list in userLists) {
-        debugPrint('DEBUG ADVANCED: List - Name: ${list['name']}, Sport: ${list['sport_name']}, ID: ${list['id']}');
+        debugPrint(
+            'DEBUG ADVANCED: List - Name: ${list['name']}, Sport: ${list['sport_name']}, ID: ${list['id']}');
       }
-      
+
       // Filter lists by current sport
-      final currentSport = _routeArgs?['sport'] as String? ?? 'Baseball';
-      final filteredLists = userLists.where((list) => list['sport_name'] == currentSport).toList();
-      debugPrint('DEBUG ADVANCED: After sport filtering ($currentSport): ${filteredLists.length} lists');
-      
+      final currentSport =
+          _originalRouteArgs?['sport'] as String? ?? 'Baseball';
+      final filteredLists = userLists
+          .where((list) => list['sport_name'] == currentSport)
+          .toList();
+      debugPrint(
+          'DEBUG ADVANCED: After sport filtering ($currentSport): ${filteredLists.length} lists');
+
       setState(() {
-        lists = filteredLists.isNotEmpty ? filteredLists : [{'name': 'No saved lists', 'id': -1}];
+        lists = filteredLists.isNotEmpty
+            ? filteredLists
+            : [
+                {'name': 'No saved lists', 'id': -1}
+              ];
         isLoading = false;
       });
-      
+
       // After lists are loaded, check if we need to restore selected lists
-      if (_routeArgs != null) {
-        final isEdit = _routeArgs!['isEdit'] as bool? ?? false;
-        if (isEdit && _routeArgs!['selectedLists'] != null) {
-          final existingLists = _routeArgs!['selectedLists'] as List<dynamic>;
+      if (_originalRouteArgs != null) {
+        final isEdit = _originalRouteArgs!['isEdit'] as bool? ?? false;
+        if (isEdit && _originalRouteArgs!['selectedLists'] != null) {
+          final existingLists =
+              _originalRouteArgs!['selectedLists'] as List<dynamic>;
           if (existingLists.isNotEmpty) {
             _restoreSelectedLists(existingLists);
           }
@@ -120,7 +156,9 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
       }
     } catch (e) {
       setState(() {
-        lists = [{'name': 'No saved lists', 'id': -1}];
+        lists = [
+          {'name': 'No saved lists', 'id': -1}
+        ];
         isLoading = false;
       });
       debugPrint('Error fetching lists: $e');
@@ -158,11 +196,12 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
     });
   }
 
-  Future<void> _saveUpdatedListToDatabase(String listName, List<Map<String, dynamic>> updatedOfficials) async {
+  Future<void> _saveUpdatedListToDatabase(
+      String listName, List<Map<String, dynamic>> updatedOfficials) async {
     try {
       // Update list in database using the ListRepository
       await listRepo.updateList(listName, updatedOfficials);
-      
+
       // Update the local lists data
       setState(() {
         for (int i = 0; i < lists.length; i++) {
@@ -172,8 +211,9 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
           }
         }
       });
-      
-      debugPrint('Updated list "$listName" with ${updatedOfficials.length} officials');
+
+      debugPrint(
+          'Updated list "$listName" with ${updatedOfficials.length} officials');
     } catch (e) {
       debugPrint('Error saving updated list: $e');
     }
@@ -181,8 +221,10 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
 
   void _showListOfficials(int listIndex) {
     final list = selectedLists[listIndex];
-    final officials = (list['officials'] as List<dynamic>?)?.cast<Map<String, dynamic>>() ?? [];
-    
+    final officials =
+        (list['officials'] as List<dynamic>?)?.cast<Map<String, dynamic>>() ??
+            [];
+
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
@@ -190,34 +232,42 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
           backgroundColor: darkSurface,
           title: Text(
             'Officials in "${list['name']}"',
-            style: const TextStyle(color: efficialsYellow, fontSize: 18, fontWeight: FontWeight.bold),
+            style: const TextStyle(
+                color: efficialsYellow,
+                fontSize: 18,
+                fontWeight: FontWeight.bold),
           ),
           content: SizedBox(
             width: double.maxFinite,
             height: 400,
             child: officials.isEmpty
-                ? const Text('No officials in this list.', style: TextStyle(color: Colors.white))
+                ? const Text('No officials in this list.',
+                    style: TextStyle(color: Colors.white))
                 : ListView.builder(
                     itemCount: officials.length,
                     itemBuilder: (context, index) {
                       final official = officials[index];
-                      final officialName = official['name'] ?? 'Unknown Official';
-                      
+                      final officialName =
+                          official['name'] ?? 'Unknown Official';
+
                       // Track which officials are checked/unchecked
                       final isChecked = official['_isSelected'] ?? true;
-                      
+
                       return CheckboxListTile(
                         title: Text(
                           officialName,
                           style: TextStyle(
                             color: isChecked ? Colors.white : Colors.grey,
-                            decoration: isChecked ? TextDecoration.none : TextDecoration.lineThrough,
+                            decoration: isChecked
+                                ? TextDecoration.none
+                                : TextDecoration.lineThrough,
                           ),
                         ),
                         subtitle: Text(
                           'Distance: ${(official['distance'] as num?)?.toStringAsFixed(1) ?? '0.0'} mi',
                           style: TextStyle(
-                            color: isChecked ? Colors.grey : Colors.grey.shade600,
+                            color:
+                                isChecked ? Colors.grey : Colors.grey.shade600,
                           ),
                         ),
                         value: isChecked,
@@ -228,15 +278,18 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
                             // Toggle the selection state but keep the official in the list
                             officials[index]['_isSelected'] = value ?? false;
                           });
-                          
+
                           // Update the main state with only the checked officials
                           setState(() {
-                            final checkedOfficials = officials.where((off) => off['_isSelected'] != false).toList();
+                            final checkedOfficials = officials
+                                .where((off) => off['_isSelected'] != false)
+                                .toList();
                             // Remove the temporary _isSelected field from checked officials
                             for (var off in checkedOfficials) {
                               off.remove('_isSelected');
                             }
-                            selectedLists[listIndex]['officials'] = checkedOfficials;
+                            selectedLists[listIndex]['officials'] =
+                                checkedOfficials;
                           });
                         },
                       );
@@ -247,17 +300,19 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
             TextButton(
               onPressed: () async {
                 // Check if we're in edit mode for a game
-                final isEditMode = _routeArgs?['isEdit'] as bool? ?? false;
-                
+                final isEditMode =
+                    _originalRouteArgs?['isEdit'] as bool? ?? false;
+
                 if (isEditMode) {
                   // In edit mode, DON'T save changes to the original saved lists
                   // Only update the game-specific selection
                   Navigator.pop(context);
-                  
+
                   // Show confirmation that changes are for this game only
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('Success! Removed officials will no longer have access to this game.'),
+                      content: Text(
+                          'Success! Removed officials will no longer have access to this game.'),
                       backgroundColor: Colors.blue,
                       duration: const Duration(seconds: 3),
                     ),
@@ -266,18 +321,21 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
                   // In new game creation mode, save changes to the original lists
                   await _saveUpdatedListToDatabase(list['name'], officials);
                   Navigator.pop(context);
-                  
+
                   // Show confirmation
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('Changes to "${list['name']}" saved permanently'),
+                      content: Text(
+                          'Changes to "${list['name']}" saved permanently'),
                       backgroundColor: Colors.green,
                     ),
                   );
                 }
               },
               child: Text(
-                (_routeArgs?['isEdit'] as bool? ?? false) ? 'Remove' : 'Save Changes',
+                (_originalRouteArgs?['isEdit'] as bool? ?? false)
+                    ? 'Remove'
+                    : 'Save Changes',
                 style: const TextStyle(color: efficialsYellow),
               ),
             ),
@@ -299,42 +357,57 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
 
   void _updateMaxOfficials(int index, String value) {
     setState(() {
-      selectedLists[index]['maxOfficials'] = int.tryParse(value) ?? 0; // Default to 0 if invalid, but hint will show initially
+      selectedLists[index]['maxOfficials'] = int.tryParse(value) ??
+          0; // Default to 0 if invalid, but hint will show initially
     });
   }
 
   Future<void> _navigateToCreateNewList() async {
-    final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+    // Use the originally captured route arguments to ensure we have the correct flags
+    final args = _originalRouteArgs ??
+        ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
     final sport = args['sport'] as String? ?? 'Baseball';
-    
+
     final result = await Navigator.pushNamed(
       context,
       '/create_new_list',
       arguments: {
+        ...args, // Pass through all game creation context first
         'sport': sport,
         'fromGameCreation': args['fromGameCreation'] ?? false,
-        'fromTemplateCreation': true, // Flag to indicate we're coming from template creation
-        ...args, // Pass through all game creation context
+        'fromTemplateCreation':
+            true, // Override to ensure this flag is always true - we're coming from template creation
       },
     );
-    
+
+    debugPrint('🔄 ADVANCED: Received result from list creation: $result');
     if (result != null) {
+      debugPrint('🔄 ADVANCED: Refreshing lists after creating a new one');
       // Refresh the lists after creating a new one
       await _fetchLists();
       setState(() {});
+    } else {
+      debugPrint('🔄 ADVANCED: No result received from list creation');
     }
   }
 
   Future<void> _handleContinue() async {
-    final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
-    final requiredOfficials = int.tryParse(args['officialsRequired'].toString()) ?? 0;
+    // Use the originally captured route arguments to ensure we have the correct flags
+    final args = _originalRouteArgs ??
+        ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+    final requiredOfficials =
+        int.tryParse(args['officialsRequired'].toString()) ?? 0;
 
     // Filter out only the configured lists (those with names selected)
-    final configuredLists = selectedLists.where((list) => list['name'] != null && list['name'] != '').toList();
+    final configuredLists = selectedLists
+        .where((list) => list['name'] != null && list['name'] != '')
+        .toList();
 
     if (configuredLists.length < 2) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select at least two lists for the advanced method')),
+        const SnackBar(
+            content: Text(
+                'Please select at least two lists for the advanced method')),
       );
       return;
     }
@@ -343,25 +416,33 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
     for (var list in configuredLists) {
       if (list['minOfficials'] == null || list['maxOfficials'] == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please set minimum and maximum officials for all selected lists')),
+          const SnackBar(
+              content: Text(
+                  'Please set minimum and maximum officials for all selected lists')),
         );
         return;
       }
     }
 
-    int totalMin = configuredLists.fold(0, (sum, list) => sum + (list['minOfficials'] as int));
-    int totalMax = configuredLists.fold(0, (sum, list) => sum + (list['maxOfficials'] as int));
+    int totalMin = configuredLists.fold(
+        0, (sum, list) => sum + (list['minOfficials'] as int));
+    int totalMax = configuredLists.fold(
+        0, (sum, list) => sum + (list['maxOfficials'] as int));
 
     if (totalMin > requiredOfficials || totalMax < requiredOfficials) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Total min must be ≤ required officials, and total max must be ≥ required officials')),
+        const SnackBar(
+            content: Text(
+                'Total min must be ≤ required officials, and total max must be ≥ required officials')),
       );
       return;
     }
 
     List<Map<String, dynamic>> selectedOfficials = [];
     for (var list in configuredLists) {
-      final officials = (list['officials'] as List<dynamic>?)?.cast<Map<String, dynamic>>() ?? [];
+      final officials =
+          (list['officials'] as List<dynamic>?)?.cast<Map<String, dynamic>>() ??
+              [];
       selectedOfficials.addAll(officials);
     }
 
@@ -369,46 +450,77 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
       ...args,
       'selectedOfficials': selectedOfficials,
       'method': 'advanced',
-      'selectedLists': configuredLists.map((list) => {
-        'name': list['name'],
-        'id': list['id'],
-        'minOfficials': list['minOfficials'],
-        'maxOfficials': list['maxOfficials'],
-        'officials': list['officials'], // Include the game-specific officials for each list
-      }).toList(),
+      'selectedLists': configuredLists
+          .map((list) => {
+                'name': list['name'],
+                'id': list['id'],
+                'minOfficials': list['minOfficials'],
+                'maxOfficials': list['maxOfficials'],
+                'officials': list[
+                    'officials'], // Include the game-specific officials for each list
+              })
+          .toList(),
     };
 
     // Check if we're in edit mode or template creation mode
     final isEditMode = args['isEdit'] as bool? ?? false;
-    final isFromTemplateCreation = args['fromTemplateCreation'] as bool? ?? false;
-    
+    final isFromTemplateCreation =
+        args['fromTemplateCreation'] as bool? ?? false;
+
+    debugPrint('=== DEBUG NAVIGATION START ===');
+    debugPrint(
+        'DEBUG NAVIGATION: isEditMode=$isEditMode, isFromTemplateCreation=$isFromTemplateCreation');
+    debugPrint('DEBUG NAVIGATION: args keys=${args.keys.toList()}');
+    debugPrint('DEBUG NAVIGATION: All args values:');
+    args.forEach((key, value) {
+      debugPrint('  $key: $value (${value.runtimeType})');
+    });
+    debugPrint('=== DEBUG NAVIGATION END ===');
+
     if (isEditMode) {
       // In edit mode, update the game in the database and return to game info screen
       await _updateGameInDatabase(updatedArgs);
-      
+
       // Navigate back to game information screen
       Navigator.pushNamedAndRemoveUntil(
         context,
         '/game_information',
-        (route) => route.settings.name == '/athletic_director_home' ||
-                   route.settings.name == '/coach_home' ||
-                   route.settings.name == '/assigner_home',
+        (route) =>
+            route.settings.name == '/athletic_director_home' ||
+            route.settings.name == '/coach_home' ||
+            route.settings.name == '/assigner_home',
         arguments: updatedArgs,
       );
     } else if (isFromTemplateCreation) {
       // Return to template creation screen with the advanced configuration data
+      debugPrint(
+          'DEBUG NAVIGATION: Returning to template creation with ${configuredLists.length} lists');
+      debugPrint('DEBUG NAVIGATION: Using normal template path');
+      // For template creation, only return the list configuration, NOT the selected officials
+      debugPrint(
+          '🎯 ADVANCED: About to call Navigator.pop() to return to template creation');
+      debugPrint(
+          '🎯 ADVANCED: Current route stack depth: ${Navigator.of(context).canPop()}');
+      debugPrint(
+          '🎯 ADVANCED: Returning data: selectedLists=${configuredLists.length} lists, method=advanced');
+
       Navigator.pop(context, {
-        'selectedLists': configuredLists.map((list) => {
-          'name': list['name'],
-          'id': list['id'],
-          'minOfficials': list['minOfficials'],
-          'maxOfficials': list['maxOfficials'],
-          'officials': list['officials'],
-        }).toList(),
+        'selectedLists': configuredLists
+            .map((list) => {
+                  'name': list['name'],
+                  'id': list['id'],
+                  'minOfficials': list['minOfficials'],
+                  'maxOfficials': list['maxOfficials'],
+                  // Don't include 'officials' for template creation - just the configuration
+                })
+            .toList(),
         'method': 'advanced',
       });
+
+      debugPrint('🎯 ADVANCED: Navigator.pop() completed');
     } else {
       // Continue to review screen for new game creation
+      debugPrint('DEBUG NAVIGATION: Going to review_game_info');
       Navigator.pushNamed(
         context,
         '/review_game_info',
@@ -423,22 +535,27 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
       if (gameId != null) {
         // Convert data for database storage
         final updateData = Map<String, dynamic>.from(gameData);
-        
+
         // Convert DateTime objects to strings if needed
         if (updateData['date'] != null && updateData['date'] is DateTime) {
-          updateData['date'] = (updateData['date'] as DateTime).toIso8601String();
+          updateData['date'] =
+              (updateData['date'] as DateTime).toIso8601String();
         }
         if (updateData['time'] != null && updateData['time'] is TimeOfDay) {
           final time = updateData['time'] as TimeOfDay;
           updateData['time'] = '${time.hour}:${time.minute}';
         }
-        if (updateData['createdAt'] != null && updateData['createdAt'] is DateTime) {
-          updateData['createdAt'] = (updateData['createdAt'] as DateTime).toIso8601String();
+        if (updateData['createdAt'] != null &&
+            updateData['createdAt'] is DateTime) {
+          updateData['createdAt'] =
+              (updateData['createdAt'] as DateTime).toIso8601String();
         }
-        if (updateData['updatedAt'] != null && updateData['updatedAt'] is DateTime) {
-          updateData['updatedAt'] = (updateData['updatedAt'] as DateTime).toIso8601String();
+        if (updateData['updatedAt'] != null &&
+            updateData['updatedAt'] is DateTime) {
+          updateData['updatedAt'] =
+              (updateData['updatedAt'] as DateTime).toIso8601String();
         }
-        
+
         // Update the game in the database
         int? databaseGameId;
         if (gameId is int) {
@@ -446,11 +563,12 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
         } else if (gameId is String) {
           databaseGameId = int.tryParse(gameId);
         }
-        
+
         if (databaseGameId != null) {
           await gameService.updateGame(databaseGameId, updateData);
-          debugPrint('Game updated in database successfully with ID: $databaseGameId');
-          
+          debugPrint(
+              'Game updated in database successfully with ID: $databaseGameId');
+
           // Show success message
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -479,12 +597,15 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
 
   @override
   Widget build(BuildContext context) {
-    final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
-    _routeArgs = args; // Store args for later use
-    totalRequiredOfficials = int.tryParse(args['officialsRequired'].toString()) ?? 0;
+    final args =
+        ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+    // Use original preserved args for critical flags, but current args for display values
+    final argsForDisplay = _originalRouteArgs ?? args;
+    totalRequiredOfficials =
+        int.tryParse(argsForDisplay['officialsRequired'].toString()) ?? 0;
 
     final dropdownItems = <DropdownMenuItem<String>>[];
-    
+
     // Add existing lists
     if (lists.isNotEmpty && lists.first['name'] != 'No saved lists') {
       for (final list in lists) {
@@ -499,7 +620,7 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
         );
       }
     }
-    
+
     // Always add the "Create new list" option
     dropdownItems.add(
       const DropdownMenuItem(
@@ -510,10 +631,12 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
         ),
       ),
     );
-    
+
     // Add "No saved lists" message if no real lists exist
-    if (lists.isEmpty || (lists.length == 1 && lists.first['name'] == 'No saved lists')) {
-      dropdownItems.insert(0, 
+    if (lists.isEmpty ||
+        (lists.length == 1 && lists.first['name'] == 'No saved lists')) {
+      dropdownItems.insert(
+        0,
         const DropdownMenuItem(
           value: 'No saved lists',
           child: Text('No saved lists', style: TextStyle(color: Colors.red)),
@@ -573,119 +696,139 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
                         const Center(child: CircularProgressIndicator())
                       else
                         ...selectedLists.asMap().entries.map((entry) {
-                        final index = entry.key;
-                        final list = entry.value;
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 12.0),
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: darkSurface,
-                              borderRadius: BorderRadius.circular(12),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.3),
-                                  spreadRadius: 1,
-                                  blurRadius: 3,
-                                  offset: const Offset(0, 1),
-                                ),
-                              ],
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Column(
-                                children: [
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        'List ${index + 1}',
-                                        style: const TextStyle(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.bold,
-                                          color: efficialsYellow,
-                                        ),
-                                      ),
-                                      if (selectedLists.length > 2)
-                                        IconButton(
-                                          icon: Icon(
-                                            Icons.delete_outline,
-                                            color: Colors.red.shade600,
-                                          ),
-                                          onPressed: () => _removeList(index),
-                                        ),
-                                    ],
+                          final index = entry.key;
+                          final list = entry.value;
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 12.0),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: darkSurface,
+                                borderRadius: BorderRadius.circular(12),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.3),
+                                    spreadRadius: 1,
+                                    blurRadius: 3,
+                                    offset: const Offset(0, 1),
                                   ),
-                                  const SizedBox(height: 10),
-                                  DropdownButtonFormField<String>(
-                                    decoration: textFieldDecoration('Select Officials List'),
-                                    dropdownColor: darkSurface,
-                                    style: const TextStyle(color: primaryTextColor),
-                                    value: list['name'],
-                                    onChanged: (newValue) {
-                                      if (newValue != null) {
-                                        if (newValue == '+ Create new list') {
-                                          _navigateToCreateNewList();
-                                        } else if (newValue != 'No saved lists') {
-                                          _setListForSlot(index, newValue);
-                                        }
-                                      }
-                                    },
-                                    items: dropdownItems,
-                                  ),
-                                  const SizedBox(height: 10),
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: TextField(
-                                          decoration: textFieldDecoration('Min. Officials'),
-                                          keyboardType: TextInputType.number,
-                                          style: const TextStyle(color: primaryTextColor),
-                                          controller: TextEditingController(
-                                            text: list['minOfficials']?.toString() ?? '',
-                                          ),
-                                          onChanged: (value) => _updateMinOfficials(index, value),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        child: TextField(
-                                          decoration: textFieldDecoration('Max. Officials'),
-                                          keyboardType: TextInputType.number,
-                                          style: const TextStyle(color: primaryTextColor),
-                                          controller: TextEditingController(
-                                            text: list['maxOfficials']?.toString() ?? '',
-                                          ),
-                                          onChanged: (value) => _updateMaxOfficials(index, value),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 10),
-                                  if (list['name'] != null && list['name'] != '')
-                                    ElevatedButton.icon(
-                                      onPressed: () => _showListOfficials(index),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: efficialsYellow,
-                                        foregroundColor: efficialsBlack,
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(8),
-                                        ),
-                                      ),
-                                      icon: const Icon(Icons.people, color: efficialsBlack),
-                                      label: Text(
-                                        'View Officials (${(list['officials'] as List?)?.length ?? 0})',
-                                        style: const TextStyle(
-                                          color: efficialsBlack,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ),
                                 ],
                               ),
+                              child: Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Column(
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          'List ${index + 1}',
+                                          style: const TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold,
+                                            color: efficialsYellow,
+                                          ),
+                                        ),
+                                        if (selectedLists.length > 2)
+                                          IconButton(
+                                            icon: Icon(
+                                              Icons.delete_outline,
+                                              color: Colors.red.shade600,
+                                            ),
+                                            onPressed: () => _removeList(index),
+                                          ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 10),
+                                    DropdownButtonFormField<String>(
+                                      decoration: textFieldDecoration(
+                                          'Select Officials List'),
+                                      dropdownColor: darkSurface,
+                                      style: const TextStyle(
+                                          color: primaryTextColor),
+                                      value: list['name'],
+                                      onChanged: (newValue) {
+                                        if (newValue != null) {
+                                          if (newValue == '+ Create new list') {
+                                            _navigateToCreateNewList();
+                                          } else if (newValue !=
+                                              'No saved lists') {
+                                            _setListForSlot(index, newValue);
+                                          }
+                                        }
+                                      },
+                                      items: dropdownItems,
+                                    ),
+                                    const SizedBox(height: 10),
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: TextField(
+                                            decoration: textFieldDecoration(
+                                                'Min. Officials'),
+                                            keyboardType: TextInputType.number,
+                                            style: const TextStyle(
+                                                color: primaryTextColor),
+                                            controller: TextEditingController(
+                                              text: list['minOfficials']
+                                                      ?.toString() ??
+                                                  '',
+                                            ),
+                                            onChanged: (value) =>
+                                                _updateMinOfficials(
+                                                    index, value),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          child: TextField(
+                                            decoration: textFieldDecoration(
+                                                'Max. Officials'),
+                                            keyboardType: TextInputType.number,
+                                            style: const TextStyle(
+                                                color: primaryTextColor),
+                                            controller: TextEditingController(
+                                              text: list['maxOfficials']
+                                                      ?.toString() ??
+                                                  '',
+                                            ),
+                                            onChanged: (value) =>
+                                                _updateMaxOfficials(
+                                                    index, value),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 10),
+                                    if (list['name'] != null &&
+                                        list['name'] != '')
+                                      ElevatedButton.icon(
+                                        onPressed: () =>
+                                            _showListOfficials(index),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: efficialsYellow,
+                                          foregroundColor: efficialsBlack,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(8),
+                                          ),
+                                        ),
+                                        icon: const Icon(Icons.people,
+                                            color: efficialsBlack),
+                                        label: Text(
+                                          'View Officials (${(list['officials'] as List?)?.length ?? 0})',
+                                          style: const TextStyle(
+                                            color: efficialsBlack,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
                             ),
-                          ),
-                        );
-                      }),
+                          );
+                        }),
                       if (selectedLists.length < 3) ...[
                         const SizedBox(height: 20),
                         Center(
@@ -702,7 +845,8 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                               ),
-                              icon: const Icon(Icons.add, color: efficialsBlack),
+                              icon:
+                                  const Icon(Icons.add, color: efficialsBlack),
                               label: const Text(
                                 'Add Another List',
                                 style: TextStyle(
@@ -720,15 +864,25 @@ class _AdvancedOfficialsSelectionScreenState extends State<AdvancedOfficialsSele
                           width: 250,
                           child: ElevatedButton(
                             onPressed: () {
-                              final configuredCount = selectedLists.where((list) => list['name'] != null && list['name'] != '').length;
+                              final configuredCount = selectedLists
+                                  .where((list) =>
+                                      list['name'] != null &&
+                                      list['name'] != '')
+                                  .length;
                               if (configuredCount >= 2) {
                                 _handleContinue();
                               }
                             },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: () {
-                                final configuredCount = selectedLists.where((list) => list['name'] != null && list['name'] != '').length;
-                                return configuredCount >= 2 ? efficialsYellow : efficialsGray;
+                                final configuredCount = selectedLists
+                                    .where((list) =>
+                                        list['name'] != null &&
+                                        list['name'] != '')
+                                    .length;
+                                return configuredCount >= 2
+                                    ? efficialsYellow
+                                    : efficialsGray;
                               }(),
                               foregroundColor: efficialsBlack,
                               padding: const EdgeInsets.symmetric(

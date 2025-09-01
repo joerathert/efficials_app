@@ -40,14 +40,23 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
 
   Future<int> _getListsCountBySport(String sport) async {
     try {
-      if (_currentUserId == null) return 0;
-      
+      if (_currentUserId == null) {
+        debugPrint(
+            '🔄 REVIEW LIST: _getListsCountBySport($sport) - no current user ID');
+        return 0;
+      }
+
       final listRepository = ListRepository();
       final userLists = await listRepository.getUserLists(_currentUserId!);
-      
+
       // Count lists for the specific sport
-      return userLists.where((list) => list['sport_name'] == sport).length;
+      final count =
+          userLists.where((list) => list['sport_name'] == sport).length;
+      debugPrint(
+          '🔄 REVIEW LIST: _getListsCountBySport($sport) = $count lists found');
+      return count;
     } catch (e) {
+      debugPrint('🔄 REVIEW LIST: _getListsCountBySport($sport) error: $e');
       return 0;
     }
   }
@@ -72,7 +81,8 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
           TextButton(
             onPressed: () {
               Navigator.pop(context); // Close dialog
-              Navigator.pushReplacementNamed(
+              // Use pushNamed instead of pushReplacementNamed to preserve navigation stack
+              Navigator.pushNamed(
                 context,
                 '/name_list',
                 arguments: {
@@ -169,8 +179,8 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
 
       if (isEdit && listId != null) {
         // Update existing list - check for duplicate names first
-        final nameExists = await listRepository.listNameExists(
-            listName!, userId, excludeListId: listId);
+        final nameExists = await listRepository
+            .listNameExists(listName!, userId, excludeListId: listId);
         if (nameExists) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -185,7 +195,7 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
 
         // Update list name if changed
         await listRepository.updateListName(listId!, listName!);
-        
+
         // Update officials in list
         await listRepository.updateList(listName!, selectedOfficialsData);
 
@@ -206,15 +216,18 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
         }
       } else {
         // Create new list - check for duplicate names first
-        debugPrint('DEBUG: Checking if list name "$listName" exists for user $userId');
-        final nameExists = await listRepository.listNameExists(listName!, userId);
+        debugPrint(
+            'DEBUG: Checking if list name "$listName" exists for user $userId');
+        final nameExists =
+            await listRepository.listNameExists(listName!, userId);
         debugPrint('DEBUG: List name exists check result: $nameExists');
-        
+
         if (nameExists) {
           // Debug: Let's see what lists actually exist
           final existingLists = await listRepository.getUserLists(userId);
-          debugPrint('DEBUG: Existing lists in database: ${existingLists.map((l) => '${l['name']} (id: ${l['id']})')}');
-          
+          debugPrint(
+              'DEBUG: Existing lists in database: ${existingLists.map((l) => '${l['name']} (id: ${l['id']})')}');
+
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -227,10 +240,12 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
         }
 
         // Save to database using the new saveListFromUI method
-        debugPrint('DEBUG: Attempting to save list "$listName" with sport "$sport" and ${selectedOfficialsData.length} officials');
+        debugPrint(
+            'DEBUG: Attempting to save list "$listName" with sport "$sport" and ${selectedOfficialsData.length} officials');
         final actualDatabaseId = await listRepository.saveListFromUI(
             listName!, sport!, selectedOfficialsData);
-        debugPrint('DEBUG: List saved successfully with database ID: $actualDatabaseId');
+        debugPrint(
+            'DEBUG: List saved successfully with database ID: $actualDatabaseId');
 
         if (mounted) {
           // Get the arguments to check if we're coming from game creation
@@ -238,36 +253,67 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
               as Map<String, dynamic>;
           final fromGameCreation = arguments['fromGameCreation'] == true;
 
+          debugPrint(
+              '🔄 REVIEW LIST: Save List clicked - arguments: ${arguments.keys.toList()}');
+          debugPrint('🔄 REVIEW LIST: fromGameCreation=$fromGameCreation');
+          debugPrint('🔄 REVIEW LIST: All arguments:');
+          arguments.forEach((key, value) {
+            debugPrint('  $key: $value');
+          });
+
           // Check for special navigation logic for sports lists from game creation
           if (fromGameCreation && sport != null) {
             final currentSportListsCount = await _getListsCountBySport(sport!);
             final method = arguments['method'] as String?;
 
+            debugPrint(
+                '🔄 REVIEW LIST: fromGameCreation=$fromGameCreation, sport=$sport, method=$method');
+            debugPrint(
+                '🔄 REVIEW LIST: currentSportListsCount=$currentSportListsCount');
+
             // Only show second list dialog for 'advanced' (Multiple Lists) method
             if (method == 'advanced' && currentSportListsCount == 1) {
               // First list of this sport created for Multiple Lists method - navigate to name_list_screen for second list
+              debugPrint(
+                  '🔄 REVIEW LIST: Taking FIRST LIST path - showing second list dialog');
               if (mounted) {
                 _showSecondListCreationDialog(arguments);
               }
               return;
             } else if (method == 'advanced' && currentSportListsCount >= 2) {
-              // Second+ list of this sport created for Multiple Lists method - navigate to advanced_officials_selection
+              // Second+ list of this sport created for Multiple Lists method - return to advanced_officials_selection
+              debugPrint(
+                  '🔄 REVIEW LIST: Taking SECOND+ LIST path - returning to Advanced Officials Selection');
               if (mounted) {
-                Navigator.pushReplacementNamed(
-                  context,
-                  '/advanced_officials_selection',
-                  arguments: arguments,
-                );
+                // Use popUntil to go directly back to Advanced Officials Selection screen
+                // This bypasses any intermediate screens that might be in the stack
+                debugPrint(
+                    '🔄 REVIEW LIST: Using popUntil to reach Advanced Officials Selection');
+                Navigator.popUntil(context, (route) {
+                  debugPrint(
+                      '🔄 REVIEW LIST: Checking route: ${route.settings.name}');
+                  return route.settings.name == '/advanced_officials_selection';
+                });
+
+                // Since we can't pass data with popUntil, the Advanced Officials Selection
+                // screen will refresh its lists when it becomes active again
               }
               return;
             }
           }
 
+          debugPrint(
+              '🔄 REVIEW LIST: Continuing to regular fromGameCreation logic');
+
           if (fromGameCreation) {
             final method = arguments['method'] as String?;
+            debugPrint(
+                '🔄 REVIEW LIST: In regular fromGameCreation logic - method=$method');
 
             // For Single List method, navigate to lists_of_officials so user can select with green arrow
             if (method == 'use_list') {
+              debugPrint(
+                  '🔄 REVIEW LIST: Taking use_list path - navigating to lists_of_officials');
               Navigator.pushReplacementNamed(
                 context,
                 '/lists_of_officials',
@@ -287,6 +333,8 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
             }
 
             // For other methods, return the list data with actual database ID
+            debugPrint(
+                '🔄 REVIEW LIST: Taking regular fromGameCreation pop path - popping with list data');
             Navigator.pop(context, {
               'listName': listName,
               'sport': sport,
@@ -295,6 +343,7 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
             });
           } else {
             // Regular pop for non-game creation flows
+            debugPrint('🔄 REVIEW LIST: Taking non-game creation pop path');
             Navigator.pop(context, {
               'listName': listName,
               'sport': sport,
